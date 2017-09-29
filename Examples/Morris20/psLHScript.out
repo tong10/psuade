@@ -1,8 +1,8 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.5)
+*      Welcome to PSUADE (version 1.7.6)
 **********************************************************************
 PSUADE - A Problem Solving environment for 
-         Uncertainty Analysis and Design Exploration (1.7.5)
+         Uncertainty Analysis and Design Exploration (1.7.6)
 (for help, enter <help>)
 ======================================================================
 psuade> load complete : nSamples = 1000

@@ -20,7 +20,7 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Functions for the beta distribution
+// Functions for the gamma distribution
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
@@ -64,7 +64,7 @@ int PDFGamma::getPDF(int length, double *inData, double *outData)
    for (ii = 0; ii < length; ii++)
    {
       xdata = inData[ii];
-      if (xdata < 0.0)
+      if (xdata <= 0.0)
       {
          printf("PDFGamma getPDF ERROR - data needs to be in [0,infty).\n");
          exit(1);
@@ -158,12 +158,19 @@ int PDFGamma::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFGamma::genSample(int length, double *outData, double lower,
-                        double upper)
+int PDFGamma::genSample(int length, double *outData, double *lowers,
+                        double *uppers)
 {
    int    ii;
-   double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult;
+   double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, lower, upper;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFGamma genSample ERROR - lower/upper bound unavailable.\n"); 
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    if (upper <= lower)
    {
       printf("PDFGamma genSample ERROR - lower bound >= upper bound.\n");
@@ -175,7 +182,7 @@ int PDFGamma::genSample(int length, double *outData, double lower,
       exit(1);
    }
 
-   printf("PDFGamma: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFGamma: genSample begins (Take too long? Check ranges)\n");
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -208,7 +215,7 @@ int PDFGamma::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
-   printf("PDFGamma: genSample ends.\n");
+   //printf("PDFGamma: genSample ends.\n");
    return 0;
 }
 

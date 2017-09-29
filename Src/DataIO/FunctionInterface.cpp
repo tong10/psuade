@@ -306,14 +306,15 @@ int FunctionInterface::loadFunctionData(int length, char **names)
                      {
                         rsIndices_ = new int[rsModelnInps];
                         rsValues_ = new double[rsModelnInps];
-                        for (ii = 0; ii < rsModelnInps; ii++) rsIndices_[ii] = ii;
+                        for (ii = 0; ii < rsModelnInps; ii++) 
+                           rsIndices_[ii] = ii;
                         for (ii = 0; ii < nInps; ii++)
                         {
                            sprintf(pString,"fixed-%d", ii+1);
                            cString = psConfig_->getParameter(pString);
                            if (cString != NULL)
                            {
-                              sscanf(cString,"%s %s %s %d",winput1,winput2,
+                              sscanf(cString,"%s %s %s %lg",winput1,winput2,
                                      winput3, &ddata);
                               for (kk = 0; kk < rsModelnInps; kk++)
                               {
@@ -439,7 +440,8 @@ int FunctionInterface::loadFunctionData(int length, char **names)
                      cString = psConfig_->getParameter(pString);
                      if (cString != NULL)
                      {
-                        sscanf(cString,"%s %s %s %lg",winput1,winput2,winput3, &ddata);
+                        sscanf(cString,"%s %s %s %lg",winput1,winput2,
+                               winput3, &ddata);
                         for (kk = 0; kk < rsModelnInps; kk++)
                         {
                            if (!strcmp(winput2,pPtr.strArray_[kk]))
@@ -454,7 +456,7 @@ int FunctionInterface::loadFunctionData(int length, char **names)
                   }
                   if (ii != nInps)
                   {
-                     printf("WARNING: config info on fixed variables not used.\n");
+                     printf("WARNING: Config info on fixed variables not used.\n");
                      delete [] rsIndices_;
                      delete [] rsValues_;
                      rsIndices_ = NULL;
@@ -718,7 +720,8 @@ int FunctionInterface::setDriver(int which)
                      cString = psConfig_->getParameter(pString);
                      if (cString != NULL)
                      {
-                        sscanf(cString,"%s %s %s %lg",winput1,winput2,winput3, &ddata);
+                        sscanf(cString,"%s %s %s %lg",winput1,winput2,
+                               winput3, &ddata);
                         for (kk = 0; kk < rsModelnInps; kk++)
                         {
                            if (!strcmp(winput2,pPtr.strArray_[kk]))
@@ -733,7 +736,7 @@ int FunctionInterface::setDriver(int which)
                   }
                   if (ii != nInps)
                   {
-                     printf("WARNING: config info on fixed variables not used.\n");
+                     printf("WARNING: Config info on fixed variables not used.\n");
                      delete [] rsIndices_;
                      delete [] rsValues_;
                      rsIndices_ = NULL;
@@ -1136,7 +1139,7 @@ int FunctionInterface::ensembleEvaluate(int nSamp,int nInputs,double *inputs,
          printf("FunctionInterface ERROR: cannot open %s file\n",infile);
          exit(1);
       }
-      fprintf(fOut, "%d\n", nSamp);
+      fprintf(fOut, "%d %d\n", nSamp, nInputs);
       for (ss = 0; ss < nSamp; ss++)
       {
          for (ii = 0; ii < nInputs; ii++)
@@ -1384,10 +1387,10 @@ int FunctionInterface::psLocalFunction(int nInputs, double *inputs,
       X1 = - W1;
       gamma3 = 1 + W3 * W3;
       gamma4 = 1 + W4 * W4;
-      X2 = - (delta + beta * D2 * gamma4 + beta * gamma4 * W2) / (beta * gamma4);
+      X2 = - (delta + beta * D2 * gamma4 + beta * gamma4 * W2) / (beta*gamma4);
       X3 = - (delta * W3 + D3 * gamma3 * gamma4 + gamma3 * gamma4 * W3) / 
               (gamma3 * gamma4);
-      T1 = delta * gamma3 + beta * delta * W3 * W3 + beta * gamma3 * gamma4 * W2;
+      T1 = delta * gamma3 + beta * delta *W3*W3 + beta * gamma3 * gamma4 * W2;
       T2 = beta * gamma3 * gamma4 * W3 * W3 + beta * D2 * gamma3 * gamma4;
       T1 = T1 + T2;
       T2 = beta * D4 * gamma3 * gamma4;
@@ -1625,15 +1628,15 @@ int FunctionInterface::psEnsembleLocalFunction(int nSamples, int nInputs,
          X1 = - W1;
          gamma3 = 1 + W3 * W3;
          gamma4 = 1 + W4 * W4;
-         X2 = - (delta + beta * D2 * gamma4 + beta * gamma4 * W2) / (beta * gamma4);
+         X2 = - (delta + beta * D2 * gamma4 + beta * gamma4 * W2)/(beta*gamma4);
          X3 = - (delta * W3 + D3 * gamma3 * gamma4 + gamma3 * gamma4 * W3) / 
               (gamma3 * gamma4);
-         T1 = delta * gamma3 + beta * delta * W3 * W3 + beta * gamma3 * gamma4 * W2;
+         T1 = delta * gamma3 + beta*delta*W3*W3 + beta * gamma3 * gamma4 * W2;
          T2 = beta * gamma3 * gamma4 * W3 * W3 + beta * D2 * gamma3 * gamma4;
          T1 = T1 + T2;
          T2 = beta * D4 * gamma3 * gamma4;
          T1 = T1 - T2;
-         T2 = beta * delta * gamma3 * gamma4 + beta * D3 * gamma3 * gamma4 * W3;
+         T2 = beta * delta * gamma3 * gamma4 + beta*D3 * gamma3 * gamma4 * W3;
          X4 = (T1 + T2) / (beta * gamma3 * gamma4 * gamma4);
 
          Y = (X1 + W1) * (X1 + W1);

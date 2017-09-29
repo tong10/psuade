@@ -540,7 +540,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
    int    N, M, mm, nn, wlen, info, NRevised;
    double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bvar;
    double esum, ymax, *WW, *SS, *AA, *UU, *VV;
-   char   jobu  = 'A', jobvt = 'A';
+   char   jobu  = 'S', jobvt = 'S';
    char   pString[100];
    FILE   *fp;
 
@@ -563,7 +563,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
 
    wlen = 5 * M;
    AA = new double[M*N];
-   UU = new double[M*M];
+   UU = new double[M*N];
    SS = new double[N];
    VV = new double[M*N];
    WW = new double[wlen];
@@ -745,7 +745,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
       }
    }
    pdfman->initialize(numTerms_,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
-   Vector vLower, vUpper, vOut;
+   psVector vLower, vUpper, vOut;
    vLower.load(numTerms_, inLowers);
    vUpper.load(numTerms_, inUppers);
    vOut.setLength(numTerms_*nTimes);

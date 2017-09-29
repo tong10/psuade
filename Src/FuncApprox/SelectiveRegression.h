@@ -41,7 +41,7 @@ class SelectiveRegression : public FuncApprox
    double *regStdevs_;
    int    **coefTerms_;
    double **fuzzyC_;
-   Matrix covMatrix_;
+   psMatrix covMatrix_;
  
 public:
    SelectiveRegression(int, int);

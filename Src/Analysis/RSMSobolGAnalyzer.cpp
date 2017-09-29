@@ -64,7 +64,7 @@ RSMSobolGAnalyzer::~RSMSobolGAnalyzer()
 // ------------------------------------------------------------------------
 double RSMSobolGAnalyzer::analyze(aData &adata)
 {
-   int        nInputs, nOutputs, nSamples, *S, ii, ii2, jj, kk;
+   int        nInputs, nOutputs, nSamples, ii, ii2, jj, kk;
    int        nGroups, groupID, **groupMembers, length, status, sCnt;
    int        ir, index, currNSamples, nSubSamplesG, nInputsG, nInputsN;
    int        nSubSamplesN, nSamp, *pdfFlags, outputID, noPDF=1, *SS;
@@ -80,9 +80,9 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    char       winput2[1001], lineIn[1001];
    RSConstraints *constrPtr;
    FuncApprox    *faPtr;
-   Vector        vecIn, vecOut, vecUB, vecLB;
+   psVector      vecIn, vecOut, vecUB, vecLB;
    pData         pCorMat;
-   Matrix        *corMatp, corMat;
+   psMatrix      *corMatp, corMat;
    PDFManager    *pdfman, *pdfmanN, *pdfmanG;
    Sampling      *sampler;
 
@@ -105,7 +105,6 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    xUpper   = adata.iUpperB_;
    X        = adata.sampleInputs_;
    Y2       = adata.sampleOutputs_;
-   S        = adata.sampleStates_;
    outputID = adata.outputID_;
    ioPtr    = adata.ioPtr_;
    pdfFlags    = adata.inputPDFs_;
@@ -117,7 +116,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
          if (pdfFlags[ii] != 0) noPDF = 0;
       for (ii = 0; ii < nInputs; ii++)
       {
-         if (pdfFlags[ii] == PSUADE_PDF_USER)
+         if (pdfFlags[ii] == PSUADE_PDF_SAMPLE)
          {
             printOutTS(PL_ERROR,
                  "* RSMSobolG ERROR: S PDF type currently not supported.\n");
@@ -250,7 +249,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    }
 
    ioPtr->getParameter("input_cor_matrix", pCorMat);
-   corMatp = (Matrix *) pCorMat.psObject_;
+   corMatp = (psMatrix *) pCorMat.psObject_;
    for (ii = 0; ii < nGroups; ii++)
    {
       for (ii2 = 0; ii2 < nInputs; ii2++)

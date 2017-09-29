@@ -9,7 +9,7 @@ set (PROJECT_NAME psuade)
 # The version number.
 set (psuade_VERSION_MAJOR 1)
 set (psuade_VERSION_MINOR 7)
-set (psuade_VERSION_PATCH 5)
+set (psuade_VERSION_PATCH 6)
 
 set (PROJECT_INCLUDE_DIR "${PROJECT_BINARY_DIR}/include")
 set (PROJECT_BIN_DIR "${PROJECT_BINARY_DIR}/bin}")
@@ -149,11 +149,15 @@ set( PDF_SRC
   "Src/PDFLib/PDFMVNormal.cpp"
   "Src/PDFLib/PDFMVLogNormal.cpp"
   "Src/PDFLib/PDFGamma.cpp"
-  "Src/PDFLib/PDFSpecial.cpp"
-  "Src/PDFLib/PDFSpecial2.cpp"
+  "Src/PDFLib/PDFInvGamma.cpp"
+  "Src/PDFLib/PDFCauchy.cpp"
+  "Src/PDFLib/PDFSample.cpp"
+  "Src/PDFLib/PDFSampleHist.cpp"
+  "Src/PDFLib/PDFUser.cpp"
   "Src/PDFLib/PDFHistogram.cpp"
   "Src/PDFLib/PDFExponential.cpp"
   "Src/PDFLib/PDFF.cpp"
+  "Src/PDFLib/PDFUser.cpp"
   "Src/PDFLib/PDFManager.cpp"
   "Src/PDFLib/pdfData.cpp"
 )
@@ -273,17 +277,16 @@ if (USE_BOBYQA)
 endif (USE_BOBYQA)
 
 #COBYLA
-#if(EXISTS "${PROJECT_SOURCE_DIR}/External/COBYLA")
-#  option (USE_COBYLA
-#        "Build and use the COBYLA library." OFF)
-#endif() 
-#if (USE_COBYLA)
-#  include_directories ("${PROJECT_SOURCE_DIR}/External/COBYLA")
-#  add_subdirectory (External/COBYLA) 
-#  set (EXTRA_LIBS ${EXTRA_LIBS} cobyla2c)
-#  add_definitions(-DHAVE_COBYLA)
-#endif (USE_COBYLA)
-
+if(EXISTS "${PROJECT_SOURCE_DIR}/External/COBYLA")
+  option (USE_COBYLA
+        "Build and use the COBYLA library." ON)
+endif() 
+if (USE_COBYLA)
+  include_directories ("${PROJECT_SOURCE_DIR}/External/COBYLA")
+  add_subdirectory (External/COBYLA) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} cobyla2c)
+  add_definitions(-DHAVE_COBYLA)
+endif (USE_COBYLA)
 
 #EARTH
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/EARTH")
@@ -321,6 +324,31 @@ if (USE_LINCOA)
   set (EXTRA_LIBS ${EXTRA_LIBS} lincoa)
   add_definitions(-DHAVE_LINCOA)
 endif (USE_LINCOA)
+
+#NEWUOA
+if(EXISTS "${PROJECT_SOURCE_DIR}/External/NEWUOA")
+  option (USE_NEWUOA
+        "Build and use the NEWUOA library." ON)
+endif() 
+if (USE_NEWUOA)
+  enable_language(Fortran)
+  include_directories ("${PROJECT_SOURCE_DIR}/External/NEWUOA")
+  add_subdirectory (External/NEWUOA) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} newuoa)
+  add_definitions(-DHAVE_NEWUOA)
+endif (USE_NEWUOA)
+
+#LBFGS
+if(EXISTS "${PROJECT_SOURCE_DIR}/External/L-BFGS-B-C")
+  option (USE_LBFGS
+        "Build and use the LBFGS library." ON)
+endif() 
+if (USE_LBFGS)
+  include_directories ("${PROJECT_SOURCE_DIR}/External/L-BFGS-B-C")
+  add_subdirectory (External/L-BFGS-B-C) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} lbfgs)
+  add_definitions(-DHAVE_LBFGS)
+endif (USE_LBFGS)
 
 #optional libraries, see if dir exists, then see if user wants it.  If both yes, build it.
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/MARS")

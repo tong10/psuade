@@ -135,6 +135,7 @@ int     gettimeofday(struct timeval *,struct timezone *);
    void   printAsterisks(int, int);
    void   printDashes(int, int);
    void   printEquals(int, int);
+   void   checkAllocate(void *, const char *);
 
    void   Plotbegin(double,double,double,double);
    void   PlotSamples2D(long,double*,double*,long*);

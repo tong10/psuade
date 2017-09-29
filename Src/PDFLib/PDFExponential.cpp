@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2012
 // ************************************************************************
-
 #include <stdio.h>
 #include <math.h>
 #include "PsuadeUtil.h"
@@ -162,13 +161,20 @@ int PDFExponential::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFExponential::genSample(int length, double *outData, double lower,
-                              double upper)
+int PDFExponential::genSample(int length, double *outData, double *lowers,
+                              double *uppers)
 {
    int    ii;
-   double UU, xlo, xhi, xmi, ylo, yhi, ymi;
+   double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
 
-   printf("PDFExp: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFExp: genSample begins (Take too long? Check ranges)\n");
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFExp genSample ERROR - lower/upper bound not available.\n"); 
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -200,7 +206,7 @@ int PDFExponential::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
-   printf("PDFExponential: genSample ends.\n");
+   //printf("PDFExponential: genSample ends.\n");
    return 0;
 }
 

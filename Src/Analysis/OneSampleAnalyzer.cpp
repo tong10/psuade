@@ -423,8 +423,8 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
    char   pString[500], lineIn[500];
    FILE   *fp=NULL;
    PDFManager *pdfman;
-   Matrix     corMat;
-   Vector     vecOut, vecUpper, vecLower;
+   psMatrix   corMat;
+   psVector   vecOut, vecUpper, vecLower;
    TwoSampleAnalyzer *tsPtr;
 
    computeMeanVariance(length, Y, &mean, &var);

@@ -47,7 +47,6 @@
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "PsuadeConfig.h"
-#include "Matrix.h"
 #include "Vector.h"
 #include "MainEffectAnalyzer.h"
 #include "TwoParamAnalyzer.h"
@@ -59,7 +58,6 @@
 #include "pData.h"
 #include "PDFManager.h"
 #include "PDFNormal.h"
-#include "Vector.h"
 
 // ------------------------------------------------------------------------
 // local defines 
@@ -221,10 +219,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("is performed using a user-specified sample in PSUADE data\n");
          printf("format (created by running psuade on an input file). If you\n");
          printf("select a stochastic response surface type (Kriging, MARSB,\n");
-         printf("or polynomial regression, the effect of response surface\n");
-         printf("uncertainty will be shown on the PDF and CDF plots.)\n");
+         printf("or polynomial regression), the effect of response surface\n");
+         printf("uncertainty will be shown on the PDF and CDF plots.\n");
          printf("NOTE: This analysis is intended to replace 'rs_ua'.\n");
-         printf("      Turn on master mode to select average case analysis.\n");
+         printf("      Turn on master mode to select between average case\n");
+         printf("      and worst case analysis.\n");
          return 0;
       }
       if (psuadeIO == NULL || sampleOutputs == NULL)
@@ -242,10 +241,10 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       printf("* Response surface-based Uncertainty Analysis\n");
       printDashes(PL_INFO, 0);
       printf("* To include response surface uncertainties, use stochastic\n");
-      printf("* response surface such as polynomial regression, MARSB, Kriging,\n");
-      printf("* ... (specified in your loaded data file).\n");
-      printf("* This command computes worst case response surface uncertainties.\n");
-      printf("* Turn on master mode to select average case RS uncertainties.\n");
+      printf("* response surface such as polynomial regression, MARSB,\n");
+      printf("* Kriging, ... (specified in your loaded data file).\n");
+      printf("* This command computes worst case RS uncertainties. Turn\n");
+      printf("* on master mode to select average case RS uncertainties.\n");
       printAsterisks(PL_INFO, 0);
       sscanf(lineIn,"%s %s", command, winput);
       outputID = 0;
@@ -298,6 +297,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          discIO = NULL;
       }
 
+      printf("A sample is needed from you to propagte through the RS\n");
       printf("Enter UA sample file name (in PSUADE data format): ");
       scanf("%s", uaFileName);
       fgets(lineIn2, 500, stdin);
@@ -351,7 +351,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("    based on its uncertainty returned from the response\n"); 
          printf("    surface; and afterward, create output probability\n");
          printf("    distribution based on this enlarged sample.\n");
-         printf("However, you can also perform an worst case analysis (2): \n");
+         printf("However, you can also perform a worst case analysis (2): \n");
          printf("  - that is, for each sample point, take the max and min\n");
          printf("    as its upper and lower bounds; and compute statistics\n");
          printf("    using all upper bounds and lower bounds, respectively.\n");
@@ -466,6 +466,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
 
          double *samOutTime = new double[ntimes*nInputs];
          double *samOutSave = new double[userNSams*ntimes];
+         double d1, d2;
          for (ss = 0; ss < userNSams; ss++)
          {
             if (userSamStds[ss] == 0)
@@ -473,11 +474,13 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
             else
             {
                rsPDF = new PDFNormal(userSamOuts[ss],userSamStds[ss]);
-               rsPDF->genSample(ntimes,samOutTime,userSamOuts[ss]-3*userSamStds[ss],
-                                userSamOuts[ss]+3*userSamStds[ss]);
+               d1 = userSamOuts[ss] - 3 * userSamStds[ss];
+               d2 = userSamOuts[ss] + 3 * userSamStds[ss];
+               rsPDF->genSample(ntimes,samOutTime,&d1,&d2);
                delete rsPDF;
             }
-            for (ii = 0; ii < ntimes; ii++) samOutSave[ss*ntimes+ii] = samOutTime[ii];
+            for (ii = 0; ii < ntimes; ii++) 
+               samOutSave[ss*ntimes+ii] = samOutTime[ii];
 
             ddata = userSamOuts[ss] - Fmin;
             if (Fmax > Fmin) ddata = ddata / ((Fmax - Fmin) / nbins);
@@ -1590,10 +1593,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       {
          printf("rssobol1b: RS-based Sobol' sensitivity analysis\n");
          printf("syntax: rssobol1b (no argument needed)\n");
-         printf("Note: This command differs from rssobol1 and 'me'\n");
-         printf("      in that it uses bootstrapped samples multiple\n");
-         printf("      times to get the errors in Sobol' indices due\n");
-         printf("      to response surface errors.\n");
+         printf("Note: This command computes the first order Sobol'\n");
+         printf("      sensitivity indices using response surface\n");
+         printf("      constructed from the loaded sampling. It also\n");
+         printf("      uses bootstrapping to estimate response surface\n");
+         printf("      errors.\n");
          return 0;
       }
       if (psuadeIO == NULL || sampleOutputs == NULL)
@@ -1856,6 +1860,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       {
          printf("rssobol2b: RS-based 2-input Sobol' method with bootstrapping\n");
          printf("syntax: rssobol2b (no argument needed)\n");
+         printf("Note: This command computes the second order Sobol'\n");
+         printf("      sensitivity indices using response surface\n");
+         printf("      constructed from the loaded sampling. It also\n");
+         printf("      uses bootstrapping to estimate response surface\n");
+         printf("      errors.\n");
          return 0;
       }
       if (nInputs <= 0 || psuadeIO == NULL)
@@ -2236,10 +2245,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       {
          printf("rssoboltsib: RS-based Sobol' total sensitivity analysis\n");
          printf("syntax: rssoboltsib (no argument needed)\n");
-         printf("Note: This command differs from rssoboltsi 'tsi'\n");
-         printf("      in that it uses bootstrapped samples multiple\n");
-         printf("      times to get the errors in Sobol' indices due\n");
-         printf("      response surface errors.\n");
+         printf("Note: This command computes the total order Sobol'\n");
+         printf("      sensitivity indices using response surface\n");
+         printf("      constructed from the loaded sampling. It also\n");
+         printf("      uses bootstrapping to estimate response surface\n");
+         printf("      errors.\n");
          return 0;
       }
       if (nInputs <= 0 || psuadeIO == NULL)
@@ -2517,24 +2527,23 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       psuadeIO->updateAnalysisSection(-1,-1,-1,saveDiag,-1,-1);
    }
 
-   // +++ rs_ua 
-   else if (!strcmp(command, "rs_ua"))
+   // +++ rsua2
+   else if (!strcmp(command, "rsua2"))
    {
       sscanf(lineIn,"%s %s",command,winput);
       if (!strcmp(winput, "-h"))
       {
-         printf("rs_ua: uncertainty analysis on response surface\n");
-         printf("syntax: rs_ua (no argument needed)\n");
+         printf("rsua2: uncertainty analysis on response surface\n");
+         printf("syntax: rsua2 (no argument needed)\n");
          printf("This command perform uncertainty analysis on the response\n");
          printf("surface built from the loaded sample. If you select a\n");
          printf("stochastic response surface type (Kriging, MARSB, or\n");
          printf("polynomial regression, the effect of response surface\n");
          printf("uncertainty (in the average sense) will be shown on the \n");
          printf("PDF and CDF plots.\n");
-         printf("NOTE: This analysis supports other than uniform distributions\n");
-         printf("      for the inputs. Simply prescribe the distributions in\n");
-         printf("      the data file and turn on use_input_pdfs in ANALYSIS.\n");
-         printf("NOTE: This analysis will be replaced by rsua in the future.\n");
+         printf("NOTE: This analysis supports non-uniform distributions for\n");
+         printf("      the inputs. Simply prescribe PDF in the data file\n");
+         printf("      and turn on use_input_pdfs in ANALYSIS.\n");
          return 0;
       }
       if (psuadeIO == NULL || sampleOutputs == NULL)
@@ -2546,14 +2555,15 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       Sampling   *samPtr;
       FuncApprox *faPtr;
       PDFManager *pdfman;
-      Vector     vecOut, vecLower, vecUpper;
+      psVector   vecOut, vecLower, vecUpper;
       psuadeIO->getParameter("ana_rstype", pPtr);
       faType = pPtr.intData_;
       outputID = 0;
       sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
       outputID = getInt(1, nOutputs, pString);
       outputID--;
-      sprintf(pString,"Sample size for generating distribution? (10000 - 100000) ");
+      sprintf(pString,
+          "Sample size for generating distribution? (10000 - 100000) ");
       int nSamp = getInt(10000, 100000, pString);
       flag = 0;
       printf("Save the generated sample in a file? (y or n) ");
@@ -2630,7 +2640,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       faPtr = NULL;
       if (flag == 1)
       {
-         fp = fopen("rsua_sample","w");
+         fp = fopen("rsua2_sample","w");
          fprintf(fp, "%% inputs, output, output-3 sigma, output+3sigma\n");
          fprintf(fp, "%d %d 3\n", nSamp, nInputs);
          for (ss = 0; ss < nSamp; ss++)
@@ -2642,7 +2652,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
             fprintf(fp, "%e\n", samOutputs[ss]+3*samStds[ss]);
          }
          fclose(fp);
-         printf("A MC sample has been written to the file 'rsua_sample'.\n");
+         printf("A MC sample has been written to the file 'rsua2_sample'.\n");
       }
 
       int    nbins = 100, ntimes=20;
@@ -2674,7 +2684,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          for (kk = 0; kk < nbins; kk++) Fcounts[ii][kk] = 0;
       }
 
-      double mean=0, stdev=0, mean2=0, stdev2=0;
+      double mean=0, stdev=0, mean2=0, stdev2=0, d1, d2;
       double *samFuzzy = new double[ntimes*nInputs];
       double *samOutSave = new double[nSamp*ntimes];
       for (ss = 0; ss < nSamp; ss++) mean += samOutputs[ss];
@@ -2683,8 +2693,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          stdev += pow(samOutputs[ss]-mean, 2.0);
       stdev = sqrt(stdev/(double) nSamp);
       printAsterisks(PL_INFO, 0);
-      printf("Sample mean    = %e (RS uncertainties not included)\n", mean);
-      printf("Sample std dev = %e (RS uncertainties not included)\n", stdev);
+      printf("Sample mean    = %e (RS uncertainties not included)\n",mean);
+      printf("Sample std dev = %e (RS uncertainties not included)\n",stdev);
       printEquals(PL_INFO, 0);
       
       for (ss = 0; ss < nSamp; ss++)
@@ -2694,8 +2704,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          else
          {
             rsPDF = new PDFNormal(samOutputs[ss],samStds[ss]);
-            rsPDF->genSample(ntimes,samFuzzy,samOutputs[ss]-3*samStds[ss],
-                             samOutputs[ss]+3*samStds[ss]);
+            d1 = samOutputs[ss] - 3 * samStds[ss];
+            d2 = samOutputs[ss] + 3 * samStds[ss];
+            rsPDF->genSample(ntimes,samFuzzy,&d1,&d2);
             delete rsPDF;
          }
          for (ii = 0; ii < ntimes; ii++) samOutSave[ss*ntimes+ii] = samFuzzy[ii];
@@ -2744,10 +2755,10 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
 
       if (psPlotTool_ == 1)
       {
-         fp = fopen("scilabrsua.sci", "w");
+         fp = fopen("scilabrsua2.sci", "w");
          if (fp == NULL)
          {
-            printf("rs_ua ERROR: cannot open scilab file.\n");
+            printf("rsua2 ERROR: cannot open scilab file.\n");
             for (ii = 0; ii <= ntimes; ii++) delete [] Fcounts[ii];
             delete [] Fcounts;
             return -1;
@@ -2755,10 +2766,10 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       }
       else
       {
-         fp = fopen("matlabrsua.m", "w");
+         fp = fopen("matlabrsua2.m", "w");
          if (fp == NULL)
          {
-            printf("rs_ua ERROR: cannot open matlab file.\n");
+            printf("rsua2 ERROR: cannot open matlab file.\n");
             for (ii = 0; ii <= ntimes; ii++) delete [] Fcounts[ii];
             delete [] Fcounts;
             return -1;
@@ -2796,8 +2807,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       fwritePlotYLabel(fp, "Probabilities)");
       if (psPlotTool_ == 0)
       {
-         fprintf(fp, "text(0.05,0.9,'Mean = %12.4e','sc','FontSize',11)\n",mean);
-         fprintf(fp, "text(0.05,0.85,'Std  = %12.4e','sc','FontSize',11)\n",stdev);
+         fprintf(fp,"text(0.05,0.9,'Mean = %12.4e','sc','FontSize',11)\n",mean);
+         fprintf(fp,"text(0.05,0.85,'Std  = %12.4e','sc','FontSize',11)\n",
+                 stdev);
       }
       if (faType == PSUADE_RS_MARS)
       {
@@ -2814,8 +2826,10 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          fwritePlotYLabel(fp, "Probabilities)");
          if (psPlotTool_ == 0)
          {
-            fprintf(fp,"text(0.05,0.9,'Mean = %12.4e','sc','FontSize',11)\n",mean2);
-            fprintf(fp,"text(0.05,0.85,'Std  = %12.4e','sc','FontSize',11)\n",stdev2);
+            fprintf(fp,"text(0.05,0.9,'Mean = %12.4e','sc','FontSize',11)\n",
+                    mean2);
+            fprintf(fp,"text(0.05,0.85,'Std  = %12.4e','sc','FontSize',11)\n",
+                    stdev2);
          }
       }
       for (ii = 0; ii <= ntimes; ii++)
@@ -2870,9 +2884,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("select a stochastic response surface type (Kriging, MARSB,\n");
          printf("or polynomial regression, the effect of response surface\n");
          printf("uncertainty will be shown on the PDF and CDF plots.)\n");
-         printf("NOTE: This analysis is intended to replace 'rs_ua<x>'. This\n");
-         printf("      command is more general by allowing users to provide\n");
-         printf("      the UA sample instead of generating it internally.\n");
+         printf("NOTE: This command is more general by allowing users to\n");
+         printf("      provide the UA sample instead of generating it \n");
+         printf("      internally.\n");
          printf("NOTE: This analysis will be replaced by rsua + rsuab.\n");
          return 0;
       }
@@ -3333,7 +3347,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          }
 
          double *samOutTime = new double[ntimes*nInputs];
-         double *samOutSave = new double[userNSams*ntimes];
+         double *samOutSave = new double[userNSams*ntimes], d1, d2;
          for (ss = 0; ss < userNSams; ss++)
          {
             if (userSamStds[ss] == 0)
@@ -3341,11 +3355,13 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
             else
             {
                rsPDF = new PDFNormal(userSamOuts[ss],userSamStds[ss]);
-               rsPDF->genSample(ntimes,samOutTime,userSamOuts[ss]-3*userSamStds[ss],
-                                userSamOuts[ss]+3*userSamStds[ss]);
+               d1 = userSamOuts[ss] - 3.0 * userSamStds[ss];
+               d2 = userSamOuts[ss] + 3.0 * userSamStds[ss];
+               rsPDF->genSample(ntimes,samOutTime,&d1,&d2);
                delete rsPDF;
             }
-            for (ii = 0; ii < ntimes; ii++) samOutSave[ss*ntimes+ii] = samOutTime[ii];
+            for (ii = 0; ii < ntimes; ii++) 
+               samOutSave[ss*ntimes+ii] = samOutTime[ii];
 
             ddata = userSamOuts[ss] - Fmin;
             if (Fmax > Fmin) ddata = ddata / ((Fmax - Fmin) / nbins);
@@ -3673,14 +3689,15 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       Sampling   *samPtr;
       FuncApprox *faPtr;
       PDFManager *pdfman;
-      Vector     vecOut, vecLower, vecUpper;
+      psVector   vecOut, vecLower, vecUpper;
       psuadeIO->getParameter("ana_rstype", pPtr);
       faType = pPtr.intData_;
       outputID = 0;
       sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
       outputID = getInt(1, nOutputs, pString);
       outputID--;
-      sprintf(pString,"Sample size for generating distribution? (10000 - 100000) ");
+      sprintf(pString,
+             "Sample size for generating distribution? (10000 - 100000) ");
       int nSamp = getInt(10000, 100000, pString);
       flag = 0;
       printf("Save the generated sample in a file? (y or n) ");
@@ -3928,7 +3945,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       }
       else
       {
-         int    discFile=1, nInps, nOuts, dnSamp, it, ind, nSamples2, *tempI, nbs;
+         int    discFile=1,nInps,nOuts,dnSamp,it,ind,nSamples2,*tempI, nbs;
          double mean=0.0, stdev=0.0, dtemp;
          double *outVals, *tempX, *tempY, *tempV, *tempW, *inputVals=NULL;
          PsuadeData *localIO = NULL;
@@ -3974,7 +3991,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
             }
             else
             {
-               printf("ERROR: in reading the discrepancy model file %s.\n",winput);
+               printf("ERROR: in reading the discrepancy model file %s.\n",
+                      winput);
                discFile = 0;
                delete [] faPtrsRsEval;
                faPtrsRsEval = NULL;
@@ -4102,9 +4120,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
             {
                if (dnSamp > 50000)
                {
-                  printf("INFO: sample size %d too large (>50000) for matlab plot.\n",
+                  printf("INFO: sample size %d too large (>50000) for matlab\n",
                          dnSamp);
-                  printf("      CDF plots not to be generated.\n");
+                  printf("      plot. CDF plots not to be generated.\n");
                }
                else
                {
@@ -4213,7 +4231,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                if (fp != NULL && flag == 1)
                {
                   fprintf(fp, "Y = [\n");
-                  for (jj = 0; jj < dnSamp; jj++) fprintf(fp,"%e\n",outVals[jj]);
+                  for (jj = 0; jj < dnSamp; jj++) 
+                     fprintf(fp,"%e\n",outVals[jj]);
                   fprintf(fp, "];\n");
                   fprintf(fp, "Y%d = sort(Y);\n",it+1);
                   fprintf(fp, "X%d = (1 : %d)';\n", it+1, dnSamp);
@@ -4353,7 +4372,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
             }
             else
             {
-               printf("ERROR: in reading the discrepancy model file %s.\n",winput);
+               printf("ERROR: in reading the discrepancy model file %s.\n",
+                      winput);
                discFile = 0;
                delete localIO;
                delete faPtrsRsEval[0];
@@ -4602,7 +4622,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       int saveMethod = pPtr.intData_;
 
       Sampling *sampPtr;
-      Vector vecUpper, vecLower, vecIn, vecOut;
+      psVector vecUpper, vecLower, vecIn, vecOut;
       int    usePDFs, ind;
       int    count2 = 100000;
       int    nReps  = 200;
@@ -7676,7 +7696,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       int analysisMethod = PSUADE_ANA_MOMENT;
       AnalysisManager *anaManager = new AnalysisManager();
       anaManager->setup(analysisMethod, 0);
-      Vector vecUpper, vecLower, vecIn, vecOut;
+      psVector vecUpper, vecLower, vecIn, vecOut;
       vecUpper.load(nInputs, iUpperB);
       vecLower.load(nInputs, iLowerB);
       vecIn.load(count*nInputs, tempX);
@@ -7724,6 +7744,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("NOTE: This analysis supports other than uniform distributions\n");
          printf("      for the inputs. Simply prescribe the distributions in\n");
          printf("      the data file and turn on use_input_pdfs in ANALYSIS.\n");
+         printf("NOTE: This analysis is equivalent to rssobol1 but using\n");
+         printf("      a different algorithm.\n");
          return 0;
       }
       if (psuadeIO == NULL || sampleOutputs == NULL)
@@ -7738,7 +7760,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       outputID--;
       if (psRSExpertMode_ == 1)
       {
-         sprintf(pString,"Sample size for generating distribution? (10000 - 500000) ");
+         sprintf(pString,
+           "Sample size for generating distribution? (10000 - 500000) ");
          nLHS = getInt(10000, 500000, pString);
       }
       sprintf(pString, "How many bootstrapped samples to use (10 - 300) : ");
@@ -7764,7 +7787,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       delete [] LHSStates;
 
       PDFManager *pdfman;
-      Vector     vecIn, vecOut, vecLower, vecUpper;
+      psVector   vecIn, vecOut, vecLower, vecUpper;
       psuadeIO->getParameter("ana_use_input_pdfs", pPtr);
       int usePDFs = pPtr.intData_;
       if (usePDFs == 1)
@@ -8057,7 +8080,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       delete [] OAStates;
 
       PDFManager *pdfman;
-      Vector     vecIn, vecOut, vecLower, vecUpper;
+      psVector   vecIn, vecOut, vecLower, vecUpper;
       psuadeIO->getParameter("ana_use_input_pdfs", pPtr);
       int usePDFs = pPtr.intData_;
       if (usePDFs == 1)

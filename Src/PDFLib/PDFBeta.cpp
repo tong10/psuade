@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
-
 #include <stdio.h>
 #include <math.h>
 #include "PsuadeUtil.h"
@@ -167,11 +166,19 @@ int PDFBeta::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFBeta::genSample(int length,double *outData,double lower,double upper)
+int PDFBeta::genSample(int length,double *outData,double *lowers,
+                       double *uppers)
 {
    int    ii;
-   double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult;
+   double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, lower, upper;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFBeta genSample ERROR - lower/upper bound not available.\n");
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    if (upper <= lower)
    {
       printf("PDFBeta genSample ERROR - lower bound >= upper bound.\n");
@@ -191,7 +198,7 @@ int PDFBeta::genSample(int length,double *outData,double lower,double upper)
    }
 
    mult = 1.0 / Beta_Function(alpha_,beta_);
-   printf("PDFBeta: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFBeta: genSample begins (Take too long? Check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -223,7 +230,7 @@ int PDFBeta::genSample(int length,double *outData,double lower,double upper)
          else                             outData[ii] = xhi;
       }
    }
-   printf("PDFBeta: genSample ends.\n");
+   //printf("PDFBeta: genSample ends.\n");
    return 0;
 }
 

@@ -79,7 +79,7 @@ MOATAnalyzer::~MOATAnalyzer()
 // ------------------------------------------------------------------------
 double MOATAnalyzer::analyze(aData &adata)
 {
-   int    *S, ii, jj, diffIndex;
+   int    ii, jj, diffIndex;
    int    iD, *indexTrack, index, n1, n2, flag, actualPaths, sigFlag;
    int    diffCnt, *counts, itemp, iaCnt, iD2, nPaths, ip, printLevel;
    double *X, *Y, *YY, *YG, *XG, *Xbase, xtemp1, xtemp2;
@@ -135,7 +135,6 @@ double MOATAnalyzer::analyze(aData &adata)
    xUpper     = adata.iUpperB_;
    X          = adata.sampleInputs_;
    Y          = adata.sampleOutputs_;
-   S          = adata.sampleStates_;
    outputID_  = adata.outputID_;
    ioPtr      = adata.ioPtr_;
    if (adata.inputPDFs_ != NULL)
@@ -168,7 +167,7 @@ double MOATAnalyzer::analyze(aData &adata)
    } 
    n1 = 0;
    for (iD = 0; iD < nSamples_; iD++)
-      if (S[iD] != 1 || Y[iD*nOutputs_+outputID_] == PSUADE_UNDEFINED) n1++; 
+      if (Y[iD*nOutputs_+outputID_] == PSUADE_UNDEFINED) n1++; 
    if (n1 > 0)
    {
       printOutTS(PL_INFO,"MOATAnalysis INFO: %d invalid data points.\n",n1);
@@ -199,8 +198,12 @@ double MOATAnalyzer::analyze(aData &adata)
    }
    delete [] XSort;
 
-   constrPtr = new MOATConstraints();
-   if(ioPtr != NULL) constrPtr->initialize(ioPtr);
+   constrPtr = NULL;
+   if (ioPtr != NULL)
+   {
+      constrPtr = new MOATConstraints();
+      constrPtr->initialize(ioPtr);
+   }
 
    YY = new double[nSamples_];
    YG = new double[nSamples_];
@@ -235,8 +238,7 @@ double MOATAnalyzer::analyze(aData &adata)
          xtemp1 = X[(iD-1)*nInputs_+ii]; 
          xtemp2 = X[iD*nInputs_+ii]; 
          if (xtemp1 != xtemp2 && ytemp1 !=  PSUADE_UNDEFINED &&
-             ytemp2 != PSUADE_UNDEFINED && S[iD-1] != 0 &&
-             S[iD] != 0)
+             ytemp2 != PSUADE_UNDEFINED)
          {
             diffCnt++;
             diffIndex = ii;
@@ -247,7 +249,9 @@ double MOATAnalyzer::analyze(aData &adata)
          indexTrack[iD] = diffIndex;
          xtemp1 = X[(iD-1)*nInputs_+diffIndex]; 
          xtemp2 = X[iD*nInputs_+diffIndex]; 
-         scale = constrPtr->getScale(&X[iD*nInputs_],diffIndex,flag);
+         flag = 1;
+         if (constrPtr != NULL)
+            scale = constrPtr->getScale(&X[iD*nInputs_],diffIndex,flag);
          if (flag == 1) scale = xUpper[diffIndex] - xLower[diffIndex];
          else if (printLevel > 3)
          {
@@ -339,7 +343,7 @@ double MOATAnalyzer::analyze(aData &adata)
    if (n1 <= 0)
    {
       delete [] counts;
-      delete constrPtr;
+      if (constrPtr != NULL) delete constrPtr;
       delete [] YY;
       delete [] YG;
       delete [] XG;
@@ -362,11 +366,15 @@ double MOATAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs_; ii++)
       printOutTS(PL_INFO, "Input %3d (mod. mean & std) = %12.4e %12.4e \n",
              ii+1, modifiedMeans_[ii], stds_[ii]);
-   pData *pPtr = ioPtr->getAuxData();
-   pPtr->nDbles_ = nInputs_;
-   pPtr->dbleArray_ = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++)
-      pPtr->dbleArray_[ii] = modifiedMeans_[ii];
+   pData *pPtr = NULL;
+   if (ioPtr != NULL)
+   {
+      pPtr = ioPtr->getAuxData();
+      pPtr->nDbles_ = nInputs_;
+      pPtr->dbleArray_ = new double[nInputs_];
+      for (ii = 0; ii < nInputs_; ii++)
+         pPtr->dbleArray_[ii] = modifiedMeans_[ii];
+   }
    printAsterisks(PL_INFO, 0);
 
    // ---------------------------------------------------------------
@@ -488,7 +496,7 @@ double MOATAnalyzer::analyze(aData &adata)
          printOutTS(PL_INFO, "\n");
          printDashes(PL_INFO, 0);
          printOutTS(PL_INFO, 
-              "** No data for an input means there will be no interaction info.\n");
+          "** No data for an input means there will be no interaction info.\n");
          printOutTS(PL_INFO, 
               "** Small stdev means (crudely) there is little interaction.\n");
          nPaths = nSamples_ / (nInputs_ + 1);
@@ -661,7 +669,7 @@ double MOATAnalyzer::analyze(aData &adata)
    printAsterisks(PL_INFO,0);
 
    delete [] counts;
-   delete constrPtr;
+   if (constrPtr != NULL) delete constrPtr;
    delete [] YY;
    delete [] YG;
    delete [] XG;
@@ -1703,8 +1711,6 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
       }
    }
 
-   sprintf(pString,"This file contains modified means of gradients");
-   fwriteComment(fp, pString);
    sprintf(pString,"This file contains modified means of gradients");
    fwriteComment(fp, pString);
    sprintf(pString,"and also their spreads based on bootstraping.");

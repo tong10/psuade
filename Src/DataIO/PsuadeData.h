@@ -58,7 +58,7 @@ public:
    double **inputSettings_;
    int    *inputNumSettings_;
    double *sampleInputs_;
-   Matrix corMatrix_;
+   psMatrix corMatrix_;
    int    useInputPDFs_;
    int    *inputSIndices_;
    char   **sampleFileNames_;
@@ -241,7 +241,7 @@ public:
    void updateInputSection(int nSamples, int nInputs, int *nSymbols,
                            double *lowerB, double *upperB,
                            double *sampleInputs, char **names,
-                           int *, double *, double *, Matrix *);
+                           int *, double *, double *, psMatrix *);
 
    // Basic creation of the output section (no samples)
    // param nOutputs - number of output variables (for checking only)
@@ -334,7 +334,7 @@ public:
    //   double* getInput_inputSettings();  //Use getParameter("input_settings""
    //int*    getInput_inputNumSettings();  //to get settings and numsettings
    double* getInput_sampleInputs();
-   Matrix  getInput_corMatrix();
+   psMatrix  getInput_corMatrix();
    int     getInput_useInputPDFs();
 
    //Output getters

@@ -199,7 +199,7 @@ double MCMCAnalyzer::analyze(aData &adata)
       {
          for (ii = 0; ii < nInputs; ii++) 
          {
-            if (pdfFlags[ii] == PSUADE_PDF_USER)
+            if (pdfFlags[ii] == PSUADE_PDF_SAMPLE)
             {
                printOutTS(PL_INFO,
                  "MCMC INFO: user distribution detected.\n");
@@ -827,7 +827,7 @@ double MCMCAnalyzer::analyze(aData &adata)
             printOutTS(PL_INFO,
                  "Parameter %3d has uniform prior distribution.\n",ii+1);
       }
-      else if (pdfFlags != NULL && pdfFlags[ii] == PSUADE_PDF_USER)
+      else if (pdfFlags != NULL && pdfFlags[ii] == PSUADE_PDF_SAMPLE)
       {
          inputPDFs[ii] = NULL;
          printOutTS(PL_INFO,
@@ -3278,7 +3278,7 @@ double MCMCAnalyzer::analyze_bf(aData &adata)
    int      methodSave, *SSS;
    double   *XXX, *YYY;
    Sampling *sampler;
-   Vector   vecLB, vecUB, vecOut; 
+   psVector vecLB, vecUB, vecOut; 
    if (noPDF == 1)
    {
       printf("MCMC_BF INFO: no PDF, use uniform random sampling.\n");

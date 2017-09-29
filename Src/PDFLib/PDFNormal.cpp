@@ -139,13 +139,20 @@ int PDFNormal::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFNormal::genSample(int length, double *outData, double lower,
-                         double upper)
+int PDFNormal::genSample(int length, double *outData, double *lowers,
+                         double *uppers)
 {
    int    ii, count, total;
    double U1, U2, R, theta, Z1, Z2, pi=3.14159, range, low, iroot2;
-   double lower2, upper2;
+   double lower, upper, lower2, upper2;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFNormal genSample ERROR - lower/upper bound unavailable.\n"); 
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    if (length <= 0)
    {
       printf("PDFNormal genSample ERROR - length <= 0.\n");
@@ -172,7 +179,7 @@ int PDFNormal::genSample(int length, double *outData, double lower,
    low   = 0.5 * (1.0 + erf((lower2-mean_)*iroot2));
    range = 0.5 * (1.0 + erf((upper2-mean_)*iroot2)) - low;
    count = total = 0;
-   printf("PDFNormal: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFExp: genSample begins (Take too long? Check ranges)\n");
    while (count < length)
    {
       U1 = PSUADE_drand() * range + low;
@@ -199,7 +206,7 @@ int PDFNormal::genSample(int length, double *outData, double lower,
          exit(1);
       }
    }
-   printf("PDFNormal: genSample ends.\n");
+   //printf("PDFNormal: genSample ends.\n");
    return 0;
 }
 

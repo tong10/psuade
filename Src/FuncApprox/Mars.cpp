@@ -65,6 +65,7 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    else              maxVarPerBasis_ = nInputs;
 
    varFlags_ = new int[nInputs];
+   checkAllocate(varFlags_, "varFlags in Mars");
    for (ii = 0; ii < nInputs; ii++) varFlags_[ii] = 1;
    for (ii = 0; ii < nSamples_; ii++) weights_[ii] = 1000.0;
    chooseWght_ = 0;
@@ -134,6 +135,7 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    }
 
    wgts_ = new float[nSamples];
+   checkAllocate(wgts_, "wgts in Mars");
    for (ss = 0; ss < nSamples; ss++) wgts_[ss] = 1.0;
    fm_ = NULL;
    im_ = NULL;
@@ -184,8 +186,10 @@ int Mars::initialize(double *XIn, double *YIn)
    }
 
    XX = new double[nSamples_*nInputs_];
+   checkAllocate(XX, "XX in Mars::initialize");
    initInputScaling(XIn, XX, 1);
    Y = new double[nSamples_];
+   checkAllocate(Y, "Y in Mars::initialize");
    if (response[0] == 'y')
    {
       initOutputScaling(YIn, Y);
@@ -202,9 +206,11 @@ int Mars::initialize(double *XIn, double *YIn)
    length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_+6) +
             2 * nInputs_ + nSamples_;
    fm_    = new float[length];
+   checkAllocate(fm_, "fm in Mars::initialize");
    for (ii = 0; ii < length; ii++) fm_[ii] = PSUADE_UNDEFINED;
    length = 21 + nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
    im_    = new int[length];
+   checkAllocate(im_, "im in Mars::initialize");
    for (ii = 0; ii < length; ii++) im_[ii] = -9999;
    if (chooseWght_ == 1)
    {
@@ -221,6 +227,7 @@ int Mars::initialize(double *XIn, double *YIn)
 
    X = new double*[nSamples_];
    for (ss = 0; ss < nSamples_; ss++) X[ss] = new double[nInputs_];
+   checkAllocate(X[nSamples_-1], "X in Mars::initialize");
    for (ss = 0; ss < nSamples_; ss++) 
       for (ii = 0; ii < nInputs_; ii++) X[ss][ii] = XX[ss*nInputs_+ii];
    delete [] XX;
@@ -624,6 +631,7 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *NN, double **XX,
    (*YY) = new double[totPts];
    (*NN) = totPts;
    X2 = new double*[totPts];
+   checkAllocate(X2, "X2 in Mars::genNDGrid");
    for (ss = 0; ss < totPts; ss++) X2[ss] = new double[nInputs_];
    Xloc  = new double[nInputs_];
  
@@ -688,6 +696,7 @@ int Mars::gen1DGridData(double *XIn, double *YIn, int ind1,
    for (ss = 0; ss < totPts; ss++) 
    {
       X2[ss] = new double[nInputs_];
+      checkAllocate(X2[ss], "X2 in Mars::gen1DGrid");
       for (ii = 0; ii < nInputs_; ii++)
       {
          X2[ss][ii] = settings[ii]; 
@@ -696,6 +705,7 @@ int Mars::gen1DGridData(double *XIn, double *YIn, int ind1,
    }
    (*XX) = new double[totPts];
    (*YY) = new double[totPts];
+   checkAllocate(*YY, "YY in Mars::gen1DGrid");
    (*NN) = totPts;
 
    for (ss = 0; ss < totPts; ss++) 
@@ -749,6 +759,7 @@ int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
    for (ss = 0; ss < totPts; ss++) 
    {
       X2[ss] = new double[nInputs_];
+      checkAllocate(X2[ss], "X2 in Mars::gen2DGrid");
       for (ii = 0; ii < nInputs_; ii++)
       {
          X2[ss][ii] = settings[ii]; 
@@ -757,6 +768,7 @@ int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
    }
    (*XX) = new double[2*totPts];
    (*YY) = new double[totPts];
+   checkAllocate(*YY, "YY in Mars::gen2DGrid");
    (*NN) = totPts;
 
    for (ii = 0; ii < nPtsPerDim_; ii++) 
@@ -818,10 +830,12 @@ int Mars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
    for (ss = 0; ss < totPts; ss++) 
    {
       X2[ss] = new double[nInputs_];
+      checkAllocate(X2[ss], "X2 in Mars::gen3DGrid");
       for (ii = 0; ii < nInputs_; ii++) X2[ss][ii] = settings[ii]; 
    }
    (*XX) = new double[3*totPts];
    (*YY) = new double[totPts];
+   checkAllocate(*YY, "YY in Mars::gen3DGrid");
    (*NN) = totPts;
 
    for (ii = 0; ii < nPtsPerDim_; ii++) 
@@ -896,10 +910,12 @@ int Mars::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
    for (ss = 0; ss < totPts; ss++) 
    {
       X2[ss] = new double[nInputs_];
+      checkAllocate(X2[ss], "X2 in Mars::gen4DGrid");
       for (ii = 0; ii < nInputs_; ii++) X2[ss][ii] = settings[ii]; 
    }
    (*XX) = new double[4*totPts];
    (*YY) = new double[totPts];
+   checkAllocate(*YY, "YY in Mars::gen4DGrid");
    (*NN) = totPts;
 
    for (ii = 0; ii < nPtsPerDim_; ii++) 
@@ -963,6 +979,7 @@ int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
 
    X = new double*[nSamples_];
    for (ss = 0; ss < nSamples_; ss++) X[ss] = new double[nInputs_];
+   checkAllocate(X[nSamples_-1], "X in Mars::writeToFile");
    for (ss = 0; ss < nSamples_; ss++) 
       for (ii = 0; ii < nInputs_; ii++) X[ss][ii] = XX[nInputs_*ss+ii];
 
@@ -1106,6 +1123,7 @@ double Mars::evaluatePoint(int npts, double *X, double *Y)
       exit(1);
    }
    X2 = new double*[npts];
+   checkAllocate(X2, "X2 in Mars::evaluatePoint");
    for (kk = 0; kk < npts; kk++)
    {
       X2[kk] = new double[nInputs_];
@@ -1168,6 +1186,7 @@ double Mars::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystd)
       exit(1);
    }
    X2 = new double*[npts];
+   checkAllocate(X2, "X2 in Mars::evaluatePointFuzzy");
    for (kk = 0; kk < npts; kk++)
    {
       X2[kk] = new double[nInputs_];

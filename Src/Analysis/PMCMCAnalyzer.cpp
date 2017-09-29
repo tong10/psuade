@@ -846,7 +846,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
             printOutTS(PL_INFO,
                  "Parameter %3d has uniform prior distribution.\n",ii+1);
       }
-      else if (pdfFlags != NULL && pdfFlags[ii] == PSUADE_PDF_USER)
+      else if (pdfFlags != NULL && pdfFlags[ii] == PSUADE_PDF_SAMPLE)
       {
          inputPDFs[ii] = NULL;
          if (mypid_ == 0) 

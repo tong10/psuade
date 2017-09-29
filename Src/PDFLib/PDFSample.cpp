@@ -28,14 +28,14 @@
 #include <math.h>
 #include "sysdef.h"
 #include "PsuadeUtil.h"
-#include "PDFSpecial.h"
+#include "PDFSample.h"
 #include "PrintingTS.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
 
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------
-PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
+PDFSample::PDFSample(int scount, char *fname, int *indices)
 {
    int    ii, jj, nn, nInps;
    double *oneSample, ddata, dmin, dmax;
@@ -195,7 +195,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
 // ************************************************************************
 // destructor 
 // ------------------------------------------------------------------------
-PDFSpecial::~PDFSpecial()
+PDFSample::~PDFSample()
 {
    if (samples_ != NULL) delete [] samples_;
    if (ranges_  != NULL) delete [] ranges_;
@@ -204,7 +204,7 @@ PDFSpecial::~PDFSpecial()
 // ************************************************************************
 // forward transformation to range
 // ------------------------------------------------------------------------
-int PDFSpecial::getPDF(int length, double *inData, double *outData)
+int PDFSample::getPDF(int length, double *inData, double *outData)
 {
    printf("PDFSample::getPDF not available.\n");
    for (int ii = 0; ii < length; ii++) outData[ii] = 0;
@@ -214,7 +214,7 @@ int PDFSpecial::getPDF(int length, double *inData, double *outData)
 // ************************************************************************
 // look up cumulative density
 // ------------------------------------------------------------------------
-int PDFSpecial::getCDF(int length, double *inData, double *outData)
+int PDFSample::getCDF(int length, double *inData, double *outData)
 {
    printf("PDFSample::getCDF not available.\n");
    for (int ii = 0; ii < length; ii++) outData[ii] = 0;
@@ -224,7 +224,7 @@ int PDFSpecial::getCDF(int length, double *inData, double *outData)
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFSpecial::invCDF(int length, double *inData, double *outData,
+int PDFSample::invCDF(int length, double *inData, double *outData,
                        double lower, double upper)
 {
    printf("PDFSample WARNING::invCDF not available - no change.\n");
@@ -235,7 +235,7 @@ int PDFSpecial::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFSpecial::genSample(int length,double *outData,double, double)
+int PDFSample::genSample(int length,double *outData,double *, double *)
 {
    int    ii, jj, ind;
 
@@ -264,7 +264,7 @@ int PDFSpecial::genSample(int length,double *outData,double, double)
 // ************************************************************************
 // get mean
 // ------------------------------------------------------------------------
-double PDFSpecial::getMean()
+double PDFSample::getMean()
 {
    printf("PDFSample::getMean not available for this distribution.\n");
    return 0.0;
@@ -273,7 +273,7 @@ double PDFSpecial::getMean()
 // ************************************************************************
 // get mean
 // ------------------------------------------------------------------------
-int PDFSpecial::setParam(char *sparam)
+int PDFSample::setParam(char *sparam)
 {
    char winput[1001];
    sscanf(sparam, "%s", winput);

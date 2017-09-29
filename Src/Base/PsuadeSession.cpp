@@ -116,7 +116,7 @@ PsuadeSession::PsuadeSession(const PsuadeSession &ps)
          for (ii = 0; ii < nInputs_; ii++)
             inputStdevs_[ii] = ps.inputStdevs_[ii];
       }
-      corMatrix_.load((Matrix &) ps.corMatrix_); 
+      corMatrix_.load((psMatrix &) ps.corMatrix_); 
    }
    if (nSamples_ > 0 && nOutputs_ > 0 & ps.sampleOutputs_ != NULL)
    {

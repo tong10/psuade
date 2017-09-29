@@ -200,7 +200,7 @@ PDFHistogram::PDFHistogram(char *fname, int nInps, int *indices, int *incrs)
    incrs_ = new int[nInps];
    for (ii = 0; ii < nInputs_; ii++)
    {
-       if (incrs[ii] <= 1)
+       if (incrs[ii] <= 0)
        {
           printf("PDFHistogram ERROR: invalid partition.\n");
           exit(1);
@@ -289,7 +289,7 @@ PDFHistogram::PDFHistogram(int nSamp,int nInps,double *samInputs,
    incrs_ = new int[nInps];
    for (ii = 0; ii < nInputs_; ii++)
    {
-       if (incrs[ii] <= 1)
+       if (incrs[ii] <= 0)
        {
           printf("PDFHistogram ERROR: invalid partition.\n");
           exit(1);
@@ -346,7 +346,8 @@ PDFHistogram::PDFHistogram(int nSamp,int nInps,double *samInputs,
          fprintf(fp, "%16.8e\n", 1.0*histCnts_[ii]/nSamples_);
       }      
       fclose(fp);
-      printf("PDFHistogram: a sample has been created in psuade_pdfhist_sample.\n");
+      printf("PDFHistogram: a compressed sample is now ready in\n");
+      printf(" psuade_pdfhist_sample.\n");
       maxCnt = histCnts_[0];
       maxInd = 0;
       for (ss = 1; ss < nHist_; ss++) 
@@ -357,7 +358,7 @@ PDFHistogram::PDFHistogram(int nSamp,int nInps,double *samInputs,
             maxInd = ss;
          }
       }
-      printf("PDFHistogram: the mode is at sample number %d\n", maxInd+1);
+      printf("PDFHistogram: the mode is at sample number %d\n",maxInd+1);
    }
 }
 
@@ -429,21 +430,37 @@ int PDFHistogram::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFHistogram::genSample(int length,double *outData,double, double)
+int PDFHistogram::genSample(int length,double *outData, double *lowers, 
+                            double *uppers)
 {
-   int    ii, jj, kk, ind, count;
-   double ddata;
+   int    ii, kk, ind, count;
+   double ddata, dtemp;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFHist genSample ERROR - lower/upper bound unavailable.\n"); 
+      exit(1);
+   }
    count = 0;
    while (count < length)
    {
       ddata = PSUADE_drand();
       ind = searchHistogram(ddata);
-      for (ii = 0; ii < histCnts_[ind]; ii++)
-         kk = PSUADE_rand() % histCnts_[ind];
-      jj = histMap_[ind][kk];
       for (ii = 0; ii < nInputs_; ii++)
-         outData[count*nInputs_+ii] = samples_[jj*nInputs_+ii];
+      {
+         kk = histCells_[ind*nInputs_+ii];
+         ddata = (PSUADE_drand() + kk) / incrs_[ii];
+         if (lowers != NULL && uppers != NULL)
+         {
+            dtemp = uppers[ii] - lowers[ii];
+            outData[count*nInputs_+ii] = ddata * dtemp + lowers[ii];
+         }
+         else
+         {
+            dtemp = upperBs_[ii] - lowerBs_[ii];
+            outData[count*nInputs_+ii] = ddata * dtemp + lowerBs_[ii];
+         }
+      }
       count++;
    }
    return 0;

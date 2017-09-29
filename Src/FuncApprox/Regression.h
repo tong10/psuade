@@ -40,7 +40,7 @@ class Regression : public FuncApprox
    double *regCoeffs_;
    double *regStdevs_;
    double **fuzzyC_;
-   Matrix covMatrix_;
+   psMatrix covMatrix_;
  
 public:
    Regression(int, int);

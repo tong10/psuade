@@ -1,5 +1,5 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.5)
+*      Welcome to PSUADE (version 1.7.6)
 **********************************************************************
 INFO: Creating a sample assuming all uncertain parameters
       are uniformly distributed.
@@ -39,11 +39,11 @@ PSUADE : Search for local minima in sample space.
 				 Y =   4.00000000e+00
 **********************************************************************
 **********************************************************************
-*    BOBYQA Optimizer Usage Information
+*   BOBYQA Optimizer Usage Information
 ======================================================================
-* - To run this optimizer, first make sure opt_driver has been
-*   initialized to point to your optimization objective function
-*   evalutor
+* - To run this optimizer, first make sure opt_driver has
+*   been initialized to point to your optimization objective
+*   function evaluator
 * - Set optimization tolerance in PSUADE file
 * - Set maximum number of iterations in PSUADE file
 * - Set num_local_minima to perform multistart optimization
@@ -51,13 +51,13 @@ PSUADE : Search for local minima in sample space.
 * - In Opt EXPERT mode, the optimization history log will be
 *   turned on automatically. Previous psuade_bobyqa_history
 *   file will also be reused.
-* - If your opt_driver is a response surface which has more inputs
-*   than the number of optimization inputs, you can fix some driver
-*   inputs by creating a (analyzer) rs_index_file.
-* - In Opt EXPERT mode, you can specialize the objective function
-*   creating a file called psuade_bobyqa_special in your current
-*   directory. This will allow you to create your own objective
-*   function is in the following form: 
+* - If your opt_driver is a response surface which has more
+*   inputs than the number of optimization inputs, you can fix
+*   some driver inputs by creating a (analyzer) rs_index_file.
+* - In Opt EXPERT mode, you can specialize the objective 
+*   function by creating a file called psuade_bobyqa_special
+*   in your work directory. This will allow you to create
+*   your own objective function is in the following form: 
 
 *        sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2
 *
@@ -79,10 +79,10 @@ PSUADE : Search for local minima in sample space.
 	...
 	PSUADE_END
 ======================================================================
-To reuse the simulations (e.g. restart due to abrupt termination),
-turn on save_history and use_history optimization options in the
-ANALYSIS section (e.g. optimization save_history). You will see
-a file created called 'psuade_bobyqa_history' afterward.
+To reuse the simulation results (e.g. restart due to abrupt
+termination), turn on save_history and use_history optimization
+options in the ANALYSIS section. You will see a file created
+called 'psuade_bobyqa_history' afterward.
 **********************************************************************
 **********************************************************************
 PSUADE OPTIMIZATION 1 (1) : 

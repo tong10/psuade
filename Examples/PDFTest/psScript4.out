@@ -1,11 +1,9 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.5)
+*      Welcome to PSUADE (version 1.7.6)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
 PDFManager INFO: some distributions are not UNIFORM.
-PDFBeta: genSample begins (Take too long? Check ranges)
-PDFBeta: genSample ends.
 PSUADE run: creating interface to user driver.
 PSUADE run: output level = 2
 PSUADE run: max parallel jobs = 1

@@ -679,6 +679,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          count = nSubSamples;
          if ((ss + nSubSamples) > nSamples) count = nSamples - ss;
          faPtr->evaluatePointFuzzy(count, &(XX[ss*nInputs]), YT, S2);
+         //faPtr->evaluatePoint(count, &(XX[ss*nInputs]), YT);
 
          cvErr1 = cvErr2 = cvErr1s = cvErr2s = cvMax = cvMaxs = 0.0;
          for (ss2 = 0; ss2 < count; ss2++)

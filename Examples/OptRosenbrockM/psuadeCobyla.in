@@ -13,7 +13,7 @@ OUTPUT
 END
 METHOD
    sampling = LPTAU
-   num_samples = 10
+   num_samples = 3
 #  randomize
 END
 APPLICATION
@@ -22,7 +22,7 @@ APPLICATION
 END
 ANALYSIS
    optimization method = cobyla
-   optimization num_local_minima = 10
+   optimization num_local_minima = 3
    optimization max_feval = 10000
    optimization fmin = 0.0
    optimization tolerance = 1.000000e-3

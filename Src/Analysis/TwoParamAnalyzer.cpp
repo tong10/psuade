@@ -79,7 +79,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    PsuadeData    *ioPtr=NULL;
    RSConstraints *constrPtr=NULL;
    pData         pCorMat, pdata;
-   Matrix        *corMatp, corMat;
+   psMatrix      *corMatp, corMat;
 
    nInputs  = adata.nInputs_;
    nInputs_ = nInputs;
@@ -131,7 +131,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
       return PSUADE_UNDEFINED;
    }
    ioPtr->getParameter("input_cor_matrix", pCorMat);
-   corMatp = (Matrix *) pCorMat.psObject_;
+   corMatp = (psMatrix *) pCorMat.psObject_;
    for (ii = 0; ii < nInputs; ii++)
    {
       for (jj = 0; jj < ii; jj++)

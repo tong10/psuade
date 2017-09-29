@@ -51,8 +51,6 @@
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "PsuadeConfig.h"
-#include "Matrix.h"
-#include "Vector.h"
 
 // ------------------------------------------------------------------------
 // local includes : function approximator and others
@@ -61,8 +59,6 @@
 #include "PRSFuncApproxAnalyzer.h"
 #include "FuncApprox.h"
 #include "AnalysisManager.h"
-#include "Matrix.h"
-#include "Vector.h"
 #include "Sampling.h"
 #include "FunctionInterface.h"
 #include "PsuadeData.h"

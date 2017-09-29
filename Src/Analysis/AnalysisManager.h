@@ -118,9 +118,9 @@ public:
     *                   on a single output, so length must = nSamples
     * @param outputLevel: The printLevel
     */
-   int analyze(int anaMethod, int nSamples, Vector &vLower, 
-               Vector &vUpper, Vector &vInputs, 
-               Vector &vOutputs, int outputLevel);
+   int analyze(int anaMethod, int nSamples, psVector &vLower, 
+               psVector &vUpper, psVector &vInputs, 
+               psVector &vOutputs, int outputLevel);
 
 
    /**

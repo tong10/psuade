@@ -42,7 +42,7 @@ class LegendreRegression : public FuncApprox
    double *regStdevs_;
    int    normalizeFlag_;
    double **fuzzyC_;
-   Matrix covMatrix_;
+   psMatrix covMatrix_;
  
 public:
    LegendreRegression(int, int);

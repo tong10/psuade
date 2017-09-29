@@ -48,6 +48,20 @@ extern "C" {
 PCAnalyzer::PCAnalyzer() : Analyzer()
 {
    setName("PCA");
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO,"Principal component analysis (PCA) \n");
+   printOutTS(PL_INFO,
+        "This function performs a PCA of all sample outputs\n"); 
+   printOutTS(PL_INFO,"such that YY = U * S * V\n\n");
+   printOutTS(PL_INFO,"where YY is the normalized sample outputs,\n");
+   printOutTS(PL_INFO,"      U are the left singular vectors,\n");
+   printOutTS(PL_INFO,"      S are the singular values, and\n");
+   printOutTS(PL_INFO,"      V are the right singular vectors.\n");
+   printOutTS(PL_INFO,"At the end, the sample outputs will be replaced\n");
+   printOutTS(PL_INFO,"by Y = Y * V^t \n");
+   printOutTS(PL_INFO,"If the analysis expert mode is on, you have the\n");
+   printOutTS(PL_INFO,"option to store these matrices into matlab file.\n");
+   printAsterisks(PL_INFO, 0);
 }
 
 // ************************************************************************
@@ -64,7 +78,7 @@ double PCAnalyzer::analyze(aData &adata)
 {
    int    nInputs, nOutputs, nSamples, jj, ss, ii, M, N, info;
    int    wlen, pcCnt, pcaFlag=0, count;
-   double *Y, *YY, mean, stdev, *WW, *SS, *VV, *UU, dtemp;
+   double *Y, *YY, *means, *stdevs, *WW, *SS, *VV, *UU, dtemp;
    char   jobu, jobvt, winput1[500], winput2[500], pcaFile[500], *cString;
    char   pString[500];
    FILE   *fp = NULL;
@@ -79,8 +93,10 @@ double PCAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printOutTS(PL_INFO, "PCA INFO: some inputs have non-uniform PDFs, but\n");
-         printOutTS(PL_INFO, "          they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO,
+              "PCA INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO,
+              "          they are not relevant in this analysis.\n");
       }
    }
 
@@ -94,15 +110,14 @@ double PCAnalyzer::analyze(aData &adata)
    } 
    if (nOutputs == 1)
    {
-      printOutTS(PL_ERROR, "PCA ERROR: analysis not done since nOutputs=1.\n");
+      printOutTS(PL_ERROR, 
+           "PCA ERROR: analysis not done since nOutputs=1.\n");
       return PSUADE_UNDEFINED;
    }
    
    if (psAnaExpertMode_ == 1 && psPlotTool_ == 0)
    {
-      printOutTS(PL_INFO, "Compute contribution of principal ");
-      printOutTS(PL_INFO, "components to each output vector (y or n) ");
-      sprintf(pString, "? ");
+      sprintf(pString,"Write PCA information to a file? (y or n) ");
       getString(pString, winput1);
       if (winput1[0] == 'y')
       {
@@ -115,7 +130,8 @@ double PCAnalyzer::analyze(aData &adata)
             fclose(fp);
             pcaFlag = 1;
          }
-         else printOutTS(PL_INFO, "PCA: cannot open matlab file %s\n", pcaFile);
+         else printOutTS(PL_INFO,"PCA: cannot open matlab file %s\n", 
+                   pcaFile);
       }
    }
    else
@@ -132,8 +148,9 @@ double PCAnalyzer::analyze(aData &adata)
                fclose(fp);
                pcaFlag = 1;
             }
-            else printOutTS(PL_INFO, "PCA ERROR: cannot open matlab file %s\n",
-                        pcaFile);
+            else 
+               printOutTS(PL_INFO,
+                    "PCA ERROR: cannot open matlab file %s\n",pcaFile);
          }
       }
    }
@@ -143,21 +160,23 @@ double PCAnalyzer::analyze(aData &adata)
       for (ss = 0; ss < nSamples; ss++)
          YY[nSamples*jj+ss] = Y[ss*nOutputs+jj];
 
+   means  = new double[nOutputs];
+   stdevs = new double[nOutputs];
    for (jj = 0; jj < nOutputs; jj++)
    {
-      mean = 0.0;
-      for (ss = 0; ss < nSamples; ss++) mean += YY[nSamples*jj+ss];
-      mean /= (double) nSamples;
-      for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] -= mean;
-      stdev = 0.0;
+      means[jj] = 0.0;
+      for (ss = 0; ss < nSamples; ss++) means[jj] += YY[nSamples*jj+ss];
+      means[jj] /= (double) nSamples;
+      for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] -= means[jj];
+      stdevs[jj] = 0.0;
       for (ss = 0; ss < nSamples; ss++)
-         stdev += YY[nSamples*jj+ss] * YY[nSamples*jj+ss];
-      stdev /= (double) (nSamples - 1);
-      stdev = sqrt(stdev);
-      if (PABS(stdev) > 1.0e-14)
-         for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] /= stdev;
-      printOutTS(PL_INFO, "PCA: output %5d has mean = %e, std. dev = %e\n", jj+1,
-             mean, stdev);
+         stdevs[jj] += YY[nSamples*jj+ss] * YY[nSamples*jj+ss];
+      stdevs[jj] /= (double) (nSamples - 1);
+      stdevs[jj] = sqrt(stdevs[jj]);
+      if (PABS(stdevs[jj]) > 1.0e-14)
+         for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] /= stdevs[jj];
+      printOutTS(PL_INFO,"PCA: output %5d has mean = %e, std. dev = %e\n", 
+                 jj+1, means[jj], stdevs[jj]);
    }
 
    M = nSamples;
@@ -172,11 +191,12 @@ double PCAnalyzer::analyze(aData &adata)
    dgesvd_(&jobu, &jobvt, &M, &N, YY, &M, SS, UU, &M, VV, &N, WW,
            &wlen, &info);
    if (info != 0)
-      printOutTS(PL_INFO, "* PCA INFO: dgesvd returns a nonzero (%d).\n",info);
+      printOutTS(PL_INFO, 
+           "* PCA INFO: dgesvd returns a nonzero (%d).\n",info);
    for (ii = 0; ii < N; ii++) SS[ii] = SS[ii] * SS[ii];
    for (ii = 0; ii < N; ii++)
-      printOutTS(PL_INFO, "principal component %3d has variance = %16.8e\n",ii+1,
-             SS[ii]);
+      printOutTS(PL_INFO, 
+         "principal component %3d has variance = %16.8e\n",ii+1,SS[ii]);
    sprintf(pString,"Enter how many principal components to keep : ");
    pcCnt = getInt(1, N, pString);
 
@@ -185,17 +205,17 @@ double PCAnalyzer::analyze(aData &adata)
          YY[nSamples*jj+ss] = Y[ss*nOutputs+jj];
    for (jj = 0; jj < nOutputs; jj++)
    {
-      mean = 0.0;
-      for (ss = 0; ss < nSamples; ss++) mean += YY[nSamples*jj+ss];
-      mean /= (double) nSamples;
-      for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] -= mean;
-      stdev = 0.0;
+      means[jj] = 0.0;
+      for (ss = 0; ss < nSamples; ss++) means[jj] += YY[nSamples*jj+ss];
+      means[jj] /= (double) nSamples;
+      for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] -= means[jj];
+      stdevs[jj] = 0.0;
       for (ss = 0; ss < nSamples; ss++)
-         stdev += YY[nSamples*jj+ss] * YY[nSamples*jj+ss];
-      stdev /= (double) (nSamples - 1);
-      stdev = sqrt(stdev);
-      if (PABS(stdev) > 1.0e-14)
-         for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] /= stdev;
+         stdevs[jj] += YY[nSamples*jj+ss] * YY[nSamples*jj+ss];
+      stdevs[jj] /= (double) (nSamples - 1);
+      stdevs[jj] = sqrt(stdevs[jj]);
+      if (PABS(stdevs[jj]) > 1.0e-14)
+         for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] /= stdevs[jj];
    }
 
 
@@ -204,82 +224,71 @@ double PCAnalyzer::analyze(aData &adata)
       fp = fopen(pcaFile, "w");
       if (fp != NULL)
       {
-         fprintf(fp, "%% Contribution of principal component to each output\n");
-         fprintf(fp, "%% First display the Scree diagram\n");
-         fprintf(fp, "%% A - original sample outputs (normalized)\n");
-         fprintf(fp, "%% V - eigenvector matrix\n");
-         fprintf(fp, "%% U - left singular vector matrix\n");
-         fprintf(fp, "%% S - singular values (column vector)\n");
+         fprintf(fp,"%% Principal component analysis results\n");
+         fprintf(fp,"%% First display the Scree diagram\n");
+         fprintf(fp,"%% A  - original sample outputs (normalized)\n");
+         fprintf(fp,"%% Am - mean of each column of A\n");
+         fprintf(fp,"%% As - std dev of each column of A\n");
+         fprintf(fp,"%% V  - eigenvector matrix\n");
+         fprintf(fp,"%% U  - left singular vector matrix\n");
+         fprintf(fp,"%% S  - singular values (column vector)\n");
 
-         fprintf(fp, "A = [\n");
+         fprintf(fp,"A = [\n");
          for (ss = 0; ss < M; ss++) 
          {
-            for (jj = 0; jj < N; jj++)
-               fprintf(fp, "%e ", YY[M*jj+ss]);
+            for (jj = 0; jj < N; jj++) fprintf(fp,"%e ", YY[M*jj+ss]);
             fprintf(fp, "\n");
          }
-         fprintf(fp, "];\n");
+         fprintf(fp,"];\n");
+         fprintf(fp,"Am = [\n");
+         for (ii = 0; ii < N; ii++) fprintf(fp," %e\n", means[ii]);
+         fprintf(fp,"];\n");
+         fprintf(fp,"As = [\n");
+         for (ii = 0; ii < N; ii++) fprintf(fp," %e\n", stdevs[ii]);
+         fprintf(fp,"];\n");
          fprintf(fp, "S = [\n");
-         for (ii = 0; ii < N; ii++) fprintf(fp, " %e\n", SS[ii]);
-         fprintf(fp, "];\n");
-         fprintf(fp, "hold off\n");
-         fprintf(fp, "plot(S)\n");
-         fprintf(fp, "grid\n");
-         fprintf(fp, "xlabel('Principal component number')\n");
-         fprintf(fp, "ylabel('Variances')\n");
-         fprintf(fp, "title('Scree Diagram')\n");
-         fprintf(fp, "disp('Press enter to continue')\n");
-         fprintf(fp, "pause\n");
+         for (ii = 0; ii < pcCnt; ii++) fprintf(fp," %e\n", SS[ii]);
+         fprintf(fp,"];\n");
+         fprintf(fp,"hold off\n");
+         fprintf(fp,"plot(S)\n");
+         fprintf(fp,"grid\n");
+         fprintf(fp,"xlabel('Principal component number')\n");
+         fprintf(fp,"ylabel('Variances')\n");
+         fprintf(fp,"title('Scree Diagram')\n");
+         fprintf(fp,"disp('Press enter to continue')\n");
+         fprintf(fp,"pause\n");
 
-         fprintf(fp, "V = [\n");
+         fprintf(fp,"V = [\n");
          for (ii = 0; ii < N; ii++)
          {
-            for (jj = 0; jj < N; jj++)
-               fprintf(fp, " %e", VV[jj*N+ii]);
+            for (jj = 0; jj < pcCnt; jj++) fprintf(fp," %e", VV[jj*N+ii]);
             fprintf(fp, "\n");
          }
-         fprintf(fp, "];\n");
-         fprintf(fp, "U = [\n");
+         fprintf(fp,"];\n");
+         fprintf(fp,"U = [\n");
          for (ii = 0; ii < nSamples; ii++)
          {
             for (jj = 0; jj < pcCnt; jj++)
-               fprintf(fp, " %e", UU[jj*M+ii]);
-            fprintf(fp, "\n");
+               fprintf(fp," %e", UU[jj*M+ii]);
+            fprintf(fp,"\n");
          }
-         fprintf(fp, "];\n");
-         fprintf(fp, "YA = diag(S(1:%d)) * U';\n",pcCnt);
-         fprintf(fp, "XA = 1:%d;\n",pcCnt);
-         fprintf(fp, "hold off\n");
-         fprintf(fp, "disp('Each output projected on the PC space')\n");
-         fprintf(fp, "for ii = 1 : %d\n", N);
-         fprintf(fp, "   plot(XA,YA(:,ii),XA,YA(:,ii),'x')\n");
-         fprintf(fp, "   disp(['output = ' int2str(ii) ' projected on PCs'])\n");
-         fprintf(fp, "   disp('Press enter to continue')\n");
-         fprintf(fp, "   pause\n");
-         fprintf(fp, "   if ii == 1\n");
-         fprintf(fp, "      hold on\n");
-         fprintf(fp, "   end;\n");
-         fprintf(fp, "end;\n");
-         fprintf(fp, "hold off\n");
-         fprintf(fp, "disp('Next display each principal component')\n");
-         fprintf(fp, "disp('Press enter to continue')\n");
-         fprintf(fp, "pause\n");
-         fprintf(fp, "XV = 1:%d;\n",N);
-         fprintf(fp, "for ii = 1 : %d\n", pcCnt);
-         fprintf(fp, "   plot(XV,V(:,ii),XV,V(:,ii),'x')\n");
-         fprintf(fp, "   disp(['principal component = ' int2str(ii)])\n");
-         fprintf(fp, "   disp('Press enter to continue')\n");
-         fprintf(fp, "   pause\n");
-         fprintf(fp, "end;\n");
-         fprintf(fp, "hold off\n");
-         fprintf(fp, "disp('Now all principal components')\n");
-         fprintf(fp, "plot(XV,V,XV,V,'x')\n");
-         fprintf(fp, "%%barh(abs(A)','stacked')\n");
-         fprintf(fp, "%%area(XA,abs(A))\n");
-         fprintf(fp, "hold off\n");
+         fprintf(fp,"];\n");
+         fprintf(fp,"disp('Display each principal component')\n");
+         fprintf(fp,"US = U * diag(S);\n");
+         fprintf(fp,"XU = 1:%d;\n",M);
+         fprintf(fp,"for ii = 1 : %d\n", pcCnt);
+         fprintf(fp,"   plot(XU,US(:,ii),XU,US(:,ii),'x')\n");
+         fprintf(fp,"   disp(['principal component = ' int2str(ii)])\n");
+         fprintf(fp,"   disp('Press enter to continue')\n");
+         fprintf(fp,"   pause\n");
+         fprintf(fp,"end;\n");
+         fprintf(fp,"hold off\n");
+         fprintf(fp,"%%barh(abs(A)','stacked')\n");
+         fprintf(fp,"%%area(XA,abs(A))\n");
+         fprintf(fp,"hold off\n");
          fclose(fp);
       }
-      else printOutTS(PL_WARN, "WARNING: cannot open file for plotting.\n");
+      else printOutTS(PL_WARN,"WARNING: cannot open file for plotting.\n");
    }
 
    for (ss = 0; ss < nSamples; ss++)
@@ -292,16 +301,19 @@ double PCAnalyzer::analyze(aData &adata)
          Y[pcCnt*ss+jj] = dtemp;
       }
    }
-   if(fp != NULL) fclose(fp);
 
    fp = fopen("psPCA.out", "w");
    if (fp == NULL)
    {
-      printOutTS(PL_ERROR, "PCA ERROR: failed to store principal component.\n");
+      printOutTS(PL_ERROR, 
+           "PCA ERROR: failed to store principal components.\n");
    }
    else
    {
-      fprintf(fp, "%d %d\n", nSamples, pcCnt);
+      fprintf(fp,"# Let Y = normalized sample outputs\n");
+      fprintf(fp,"# Let Y = U S V^t\n");
+      fprintf(fp,"# This file contains Y * V\n");
+      fprintf(fp,"%d %d\n", nSamples, pcCnt);
       for (ss = 0; ss < nSamples; ss++)
       {
          for (jj = 0; jj < pcCnt; jj++)
@@ -309,7 +321,8 @@ double PCAnalyzer::analyze(aData &adata)
          fprintf(fp, "\n");
       }
       fclose(fp);
-      printOutTS(PL_INFO, "PCA: principal components stored in psPCA.out file.\n");
+      printOutTS(PL_INFO, 
+           "PCA: principal components (Y*V) stored in psPCA.out file.\n");
    }
 
    adata.nOutputs_ = pcCnt;
@@ -318,7 +331,8 @@ double PCAnalyzer::analyze(aData &adata)
    delete [] VV;
    delete [] UU;
    delete [] YY;
-   printOutTS(PL_INFO, "PCA completed: you can use write to update file.\n");
+   delete [] means;
+   delete [] stdevs;
    return 0.0;
 }
 

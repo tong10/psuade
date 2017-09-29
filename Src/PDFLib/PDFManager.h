@@ -59,20 +59,20 @@ class PDFManager
    PDFMVNormal    *PDFMVNormalPtr_;
    PDFMVLogNormal *PDFMVLogNormalPtr_;
    PsuadeData     *PSIOptr_;
-   Vector         means_;
-   Matrix         corMat_;
+   psVector       means_;
+   psMatrix       corMat_;
 
 public:
 
    PDFManager();    
    ~PDFManager();
    int initialize(PsuadeData *);
-   int getPDF(int, Vector &, Vector &, Vector &, Vector &);
-   int genSample(int, Vector &, Vector &, Vector &);
+   int getPDF(int, psVector &, psVector &, psVector &, psVector &);
+   int genSample(int, psVector &, psVector &, psVector &);
    int genSample();
-   int invCDF(int, Vector &, Vector &, Vector &, Vector &);
-   int getCDF(int, Vector &, Vector &, Vector &, Vector &);
-   int initialize(int,int *,double *,double *,Matrix &,char **, int *);
+   int invCDF(int, psVector &, psVector &, psVector &, psVector &);
+   int getCDF(int, psVector &, psVector &, psVector &, psVector &);
+   int initialize(int,int *,double *,double *,psMatrix &,char **, int *);
 };
 
 #endif // __PDFMANAGERH__

@@ -20,7 +20,7 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Vector functions
+// psVector functions
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
@@ -29,7 +29,7 @@
 #define __VECTORH__
 
 /**
- * @name Vector class
+ * @name psVector class
  *
  **/
 /*@{*/
@@ -38,7 +38,7 @@
 // class definition
 // ************************************************************************
 
-class Vector
+class psVector
 {
 
    int    length_;
@@ -46,16 +46,16 @@ class Vector
 
 public:
 
-   Vector();
+   psVector();
    // Copy Constructor by Bill Oliver
-   Vector(const Vector & v);
+   psVector(const psVector & v);
 
    // Overload operator= by Bill Oliver
-   Vector & operator=(const Vector & v);
+   psVector & operator=(const psVector & v);
 
-   ~Vector();
+   ~psVector();
    int     length();
-   int     load(Vector &);
+   int     load(psVector &);
    int     setLength(int);
    int     load(int, double *);
    int     add(int, double *);

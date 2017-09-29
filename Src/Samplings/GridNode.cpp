@@ -27,7 +27,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "Vector.h"
 #include "GridNode.h"
 
 // ************************************************************************
@@ -81,7 +80,7 @@ void GridNode::cleanUp()
 // create tree with numLevels
 // ------------------------------------------------------------------------
 int GridNode::createTree(int nInputs, int *multiIndex, int numLevels, 
-                         double *X, int leftOrRight, Vector &sample)
+                         double *X, int leftOrRight, psVector &sample)
 {
    int    num, ii, jj, numNodes=1, level, left=-1, right=1, found, cnt;
    double gridH;

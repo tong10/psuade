@@ -172,7 +172,7 @@ extern "C"
                for (ii = 0; ii < nOutputs; ii++) 
                   printf("    Y %6d = %16.8e\n", ii+1, localY[ii]);
             }
-            printf("    *** Current optimal Objective function value = %16.8e\n", 
+            printf("  *** Current optimal Objective function value = %16.8e\n", 
                    odata->optimalY_);
          }
       }
@@ -189,11 +189,11 @@ extern "C"
 BobyqaOptimizer::BobyqaOptimizer()
 {
    printAsterisks(PL_INFO, 0);
-   printf("*    BOBYQA Optimizer Usage Information\n");
+   printf("*   BOBYQA Optimizer Usage Information\n");
    printEquals(PL_INFO, 0);
-   printf("* - To run this optimizer, first make sure opt_driver has been\n");
-   printf("*   initialized to point to your optimization objective function\n");
-   printf("*   evalutor\n");
+   printf("* - To run this optimizer, first make sure opt_driver has\n");
+   printf("*   been initialized to point to your optimization objective\n");
+   printf("*   function evaluator\n");
    printf("* - Set optimization tolerance in PSUADE file\n");
    printf("* - Set maximum number of iterations in PSUADE file\n");
    printf("* - Set num_local_minima to perform multistart optimization\n");
@@ -201,13 +201,13 @@ BobyqaOptimizer::BobyqaOptimizer()
    printf("* - In Opt EXPERT mode, the optimization history log will be\n");
    printf("*   turned on automatically. Previous psuade_bobyqa_history\n");
    printf("*   file will also be reused.\n");
-   printf("* - If your opt_driver is a response surface which has more inputs\n");
-   printf("*   than the number of optimization inputs, you can fix some driver\n");
-   printf("*   inputs by creating a (analyzer) rs_index_file.\n");
-   printf("* - In Opt EXPERT mode, you can specialize the objective function\n");
-   printf("*   creating a file called psuade_bobyqa_special in your current\n");
-   printf("*   directory. This will allow you to create your own objective\n");
-   printf("*   function is in the following form: \n");
+   printf("* - If your opt_driver is a response surface which has more\n");
+   printf("*   inputs than the number of optimization inputs, you can fix\n");
+   printf("*   some driver inputs by creating a (analyzer) rs_index_file.\n");
+   printf("* - In Opt EXPERT mode, you can specialize the objective \n");
+   printf("*   function by creating a file called psuade_bobyqa_special\n");
+   printf("*   in your work directory. This will allow you to create\n");
+   printf("*   your own objective function is in the following form: \n");
    printf("\n");
    printf("*        sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2\n");
    printf("*\n");
@@ -228,10 +228,10 @@ BobyqaOptimizer::BobyqaOptimizer()
    printf("\t...\n");
    printf("\tPSUADE_END\n");
    printEquals(PL_INFO, 0);
-   printf("To reuse the simulations (e.g. restart due to abrupt termination),\n");
-   printf("turn on save_history and use_history optimization options in the\n");
-   printf("ANALYSIS section (e.g. optimization save_history). You will see\n");
-   printf("a file created called 'psuade_bobyqa_history' afterward.\n");
+   printf("To reuse the simulation results (e.g. restart due to abrupt\n");
+   printf("termination), turn on save_history and use_history optimization\n");
+   printf("options in the ANALYSIS section. You will see a file created\n");
+   printf("called 'psuade_bobyqa_history' afterward.\n");
    printAsterisks(PL_INFO, 0);
 }
 
@@ -395,9 +395,6 @@ void BobyqaOptimizer::optimize(oData *odata)
       printf("Bobyqa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
    printEquals(PL_INFO, 0);
 
-   nPts = (nInputs + 1) * (nInputs + 2) / 2;
-   workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
-
 #ifdef HAVE_BOBYQA
    if (psConfig_ != NULL)
    {
@@ -421,7 +418,8 @@ void BobyqaOptimizer::optimize(oData *odata)
                else
                {
                   for (ii = 0; ii < nInputs; ii++) 
-                     fscanf(infile, "%lg",&psBobyqaSaveX_[psBobyqaNSaved_*nInputs+ii]);
+                     fscanf(infile, 
+                        "%lg",&psBobyqaSaveX_[psBobyqaNSaved_*nInputs+ii]);
                   fscanf(infile, "%lg",&psBobyqaSaveY_[psBobyqaNSaved_]);
                   psBobyqaNSaved_++;
                }
@@ -432,6 +430,9 @@ void BobyqaOptimizer::optimize(oData *odata)
          }
       }
    }
+
+   nPts = (nInputs + 1) * (nInputs + 2) / 2;
+   workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
    for (ii = 0; ii < nInputs; ii++) 
       printf("Bobyqa initial X %3d = %e\n", ii+1, XValues[ii]);
    bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_,

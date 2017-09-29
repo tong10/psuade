@@ -25,6 +25,9 @@
 // DATE   : 2003
 // ************************************************************************
 #include <math.h>
+#include <stdio.h>
+#include <iostream>
+using namespace std;
 #include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PrintingTS.h"
@@ -777,6 +780,18 @@ void printDashes(int printLevel, int length)
 void printEquals(int printLevel, int length)
 {
    printCharLine(printLevel, length, '=');
+}
+
+// ************************************************************************
+// check null for an allocation
+// ------------------------------------------------------------------------
+void checkAllocate(void *ptr, const char *mssg)
+{
+   if (ptr == NULL)
+   {
+      cerr << "Memory allocation ERROR in: " << mssg << "\n";
+      exit(1);
+   }
 }
 
 // ************************************************************************
@@ -1538,10 +1553,10 @@ int genMatlabPlotFile(int nInps,double *LB,double *UB,int nSamps,
    for (kk = 0; kk < nInps; kk++) fprintf(fp, "1\n");
    fprintf(fp, "];\n");
    fprintf(fp, "L = [\n");
-   for (kk = 0; kk < nInps; kk++) fprintf(fp, "%e ",LB[kk]);
+   for (kk = 0; kk < nInps; kk++) fprintf(fp, "%24.16e ",LB[kk]);
    fprintf(fp, "];\n");
    fprintf(fp, "U = [\n");
-   for (kk = 0; kk < nInps; kk++) fprintf(fp, "%e ",UB[kk]);
+   for (kk = 0; kk < nInps; kk++) fprintf(fp, "%24.16e ",UB[kk]);
    fprintf(fp, "];\n");
    fprintf(fp, "iStr = {\n");
    for (kk = 0; kk < nInps-1; kk++) fprintf(fp, "'%s',", inpNames[kk]);
@@ -1557,14 +1572,14 @@ int genMatlabPlotFile(int nInps,double *LB,double *UB,int nSamps,
          {
             fprintf(fp, "X(%d,:) = [\n", kk+1);
             for (jj = 0; jj < nbins; jj++)
-               fprintf(fp, "%e ", (UB[kk]-LB[kk])/nbins*(jj+0.5)+LB[kk]);
+               fprintf(fp, "%24.16e ",(UB[kk]-LB[kk])/nbins*(jj+0.5)+LB[kk]);
             fprintf(fp, "];\n");
             fprintf(fp, "D(%d,:) = [\n", kk+1);
             sumBins = 0;
             for (jj = 0; jj < nbins; jj++) sumBins += bins[jj][kk];
             if (sumBins == 0) sumBins = 1;
             for (jj = 0; jj < nbins; jj++)
-               fprintf(fp, "%e ", (double) bins[jj][kk]/(double) sumBins);
+               fprintf(fp, "%24.16e ",(double) bins[jj][kk]/(double) sumBins);
             fprintf(fp, "];\n");
          }
          else

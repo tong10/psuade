@@ -1,5 +1,5 @@
 // ************************************************************************
-// Copyright (c) 2007   Lawrence Livermore National Security, LLC. 
+// Copyright (c) 2007   Lawrence Livermore National Security, LLC.
 // Produced at the Lawrence Livermore National Laboratory.
 // Written by the PSUADE team.
 // All rights reserved.
@@ -20,50 +20,37 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Definition for the class PDFSpecial2
+// Definitions for the class LBFGSOptimizer
 // AUTHOR : CHARLES TONG
-// DATE   : 2015
+// DATE   : 2016
 // ************************************************************************
-#ifndef __PDFSPECIAL2H__
-#define __PDFSPECIAL2H__
+#ifndef __LBFGSOPTIMIZER__
+#define __LBFGSOPTIMIZER__
 
-/**
- * @name User-provided distribution 
- *
- **/
+#include "Optimizer.h"
+#include "oData.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-#include "PDFBase.h"
-
-class PDFSpecial2 : public PDFBase
+class LBFGSOptimizer : public Optimizer
 {
-   int    nInputs_;
-   int    nSamples_;
-   double *samples_;
-   int    whichInput_;
-   int    nRegions_;
-   int    *sampleMap_;
-   double *regionProbs_;
-   double *lowerBs_;
-   double *upperBs_;
-   int    n1d_;
-   int    nCells_;
-   int    *cellsOccupied_;
-
 public:
 
-   PDFSpecial2(char *, int, int *);    
-   ~PDFSpecial2();
+   /** constructor */
+   LBFGSOptimizer();
 
-   int getPDF(int, double *, double *);
-   int getCDF(int, double *, double *);
-   int invCDF(int, double *, double *, double, double);
-   int genSample(int, double *, double, double);
-   double getMean();
-   int setParam(char *);
+   /** destructor */
+   ~LBFGSOptimizer();
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   void optimize(oData *odata);
+
+   /** assign operator override */ 
+   LBFGSOptimizer& operator=(const LBFGSOptimizer &);
 };
 
-#endif // __PDFSPECIAL2H__
+#endif // __LBFGSOPTIMIZER__
 

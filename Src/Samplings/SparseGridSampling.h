@@ -28,7 +28,6 @@
 #define __SPARSEGRIDSAMPLINGH__
 
 #include "Sampling.h"
-#include "Vector.h"
 
 /**
  * @name sparse grid samping method

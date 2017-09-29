@@ -36,6 +36,7 @@
 #include "PDFBase.h"
 #include "PDFNormal.h"
 #include "PDFManager.h"
+#include "Vector.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -459,7 +460,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
    int    N, M, ii, mm, nn, wlen, info, NRevised;
    double *B, *XX, SSreg, SStotal, R2, *XTX, var, *Bvar;
    double esum, ymax, *WW, *SS, *AA, *UU, *VV, *YY;
-   char   jobu  = 'A', jobvt = 'A';
+   char   jobu  = 'S', jobvt = 'S';
    char   pString[100];
    FILE   *fp;
 
@@ -491,7 +492,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
    int status = ioPtr->readPsuadeFile(gradFile_);
    if (status != 0)
    {
-      printf("GradLegendreRegression ERROR - problem reading derivative file.\n");
+      printf("GradLegendreReg ERROR: problem reading derivative file.\n");
       exit(1);
    }
    pData pPtr;
@@ -499,21 +500,21 @@ int GradLegendreRegression::analyze(double *X, double *Y)
    int nInps = pPtr.intData_;
    if (nInps != nInputs_)
    {
-      printf("GradLegendreRegression ERROR - nInput mismatch in derivative file.\n");
+      printf("GradLegendreReg ERROR: nInput mismatch in derivative file.\n");
       exit(1);
    }
    ioPtr->getParameter("output_noutputs", pPtr);
    if (pPtr.intData_ != nInputs_)
    {
-      printf("GradLegendreRegression ERROR - invalid nOutputs in derivative file.\n");
-      printf("                               Should be equal to %d\n", nInputs_);
+      printf("GradLegendreReg ERROR: invalid nOutputs in derivative file.\n");
+      printf("                        Should be equal to %d\n", nInputs_);
       exit(1);
    }
    ioPtr->getParameter("method_nsamples", pPtr);
    if (pPtr.intData_ != nSamples_)
    {
-      printf("GradLegendreRegression ERROR - invalid sample size in derivative file.\n");
-      printf("                               Should be equal to %d\n", nSamples_);
+      printf("GradLegendreReg ERROR: invalid sample size in derivative file\n");
+      printf("                        Should be equal to %d\n", nSamples_);
       exit(1);
    }
    YY = new double[M];
@@ -521,7 +522,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
    nn = pPtr.intData_;
    if (nn != nInputs_)
    {
-      printf("GradLegendreRegression ERROR - derivative file should have %d outputs.\n",
+      printf("GradLegendreReg ERROR - derivative file should have %d outputs\n",
              nInputs_);
       printf("                               You only have %d outputs.\n",nn);
       exit(1);
@@ -537,7 +538,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
 
    wlen = 5 * M;
    AA = new double[M*N];
-   UU = new double[M*M];
+   UU = new double[M*N];
    SS = new double[N];
    VV = new double[M*N];
    WW = new double[wlen];
@@ -609,7 +610,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
    }
    if (psRSExpertMode_ == 1)
    {
-      printf("GradLegendreRegression: singular values for the Vandermonde matrix\n");
+      printf("GradLegendreReg: singular values for the Vandermonde matrix\n");
       printf("The VERY small ones may cause poor numerical accuracy,\n");
       printf("but not keeping them may ruin the approximation power.\n");
       printf("So, select them judiciously.\n");
@@ -675,7 +676,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
    if (fp != NULL)
    {
       fclose(fp);
-      printf("FILE grad_legendre_regression_error_file contains data errors.\n");
+      printf("FILE grad_legendre_regression_error_file contains data errors\n");
    }
 
    computeSS(N, XX, YY, B, SSreg, SStotal);
@@ -732,7 +733,7 @@ int GradLegendreRegression::analyze(double *X, double *Y)
       }
    }
    pdfman->initialize(numPerms_,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
-   Vector vLower, vUpper, vOut;
+   psVector vLower, vUpper, vOut;
    vLower.load(numPerms_, inLowers);
    vUpper.load(numPerms_, inUppers);
    vOut.setLength(numPerms_*nTimes);
@@ -790,7 +791,8 @@ int GradLegendreRegression::analyze(double *X, double *Y)
       fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
       fprintf(fp,"    exit(1);\n");
       fprintf(fp,"  }\n");
-      fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+      fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",
+              nInputs_);
       fprintf(fp,"  fclose(fIn);\n");
       fprintf(fp,"  interpolate(iOne, X, &Y, &S);\n");
       fprintf(fp,"  printf(\"Y = %%e\\n\", Y);\n");
@@ -845,7 +847,8 @@ int GradLegendreRegression::analyze(double *X, double *Y)
          if (normalizeFlag_ == 0)
          {
             fprintf(fp,"        normalX = X[%d];\n",ii);
-            fprintf(fp,"        EvalLegendrePolynomials(normalX,LTable[%d]);\n",ii);
+            fprintf(fp,"        EvalLegendrePolynomials(normalX,LTable[%d]);\n",
+                    ii);
          }
          else
          {

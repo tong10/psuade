@@ -571,8 +571,8 @@ double TwoSampleAnalyzer::MWAnalyze(int length1, double *Y1, int length2,
    double *Y, S1, S2, U1, U2, sig12, cval, U, Um, Uh, Z, alpha;
    double *dSortList, mean, std, dOne=1.0, dZero=0.0, *Y1L, *Y2L;
    PDFManager *pdfman;
-   Matrix     corMat;
-   Vector     vecIn, vecOut, vecUpper, vecLower;
+   psMatrix   corMat;
+   psVector   vecIn, vecOut, vecUpper, vecLower;
 
    Y = new double[length1+length2];
    Y1L = new double[length1];

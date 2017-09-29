@@ -75,7 +75,8 @@ int PsuadeBase::runAdaptiveGradBased()
    pData             pInputs, pOutputs, pInputs2, pOutputs2;
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: adaptive sampling based on using\n");
+   printOutTS(PL_INFO, 
+           "PSUADE adaptiveGradBased: adaptive sampling based on using\n");
    printOutTS(PL_INFO, "       gradients to form regions of validity.\n");
    printOutTS(PL_INFO, "       (METIS sampling recommendated)\n");
    printDashes(PL_INFO, 0);
@@ -89,12 +90,14 @@ int PsuadeBase::runAdaptiveGradBased()
    nOutputs  = pPtr.intData_;
    if (nInputs > 12)
    {
-      printOutTS(PL_ERROR, "PSUADE adaptiveGradBased ERROR: nInputs should be <= 12.\n");
+      printOutTS(PL_ERROR, 
+           "PSUADE adaptiveGradBased ERROR: nInputs should be <= 12.\n");
       exit(1);
    }
    if (nOutputs != 1)
    {
-      printOutTS(PL_ERROR, "PSUADE adaptiveGradBased ERROR: nOutputs should be 1.\n");
+      printOutTS(PL_ERROR, 
+           "PSUADE adaptiveGradBased ERROR: nOutputs should be 1.\n");
       exit(1);
    }
 
@@ -105,9 +108,11 @@ int PsuadeBase::runAdaptiveGradBased()
    psuadeIO_->getParameter("method_refine_size", pPtr);
    refineSize = pPtr.intData_;
    nROVMax = nSamples + refineSize * nRefines;
-   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: max no. of sample points = %d\n",
+   printOutTS(PL_INFO, 
+          "PSUADE adaptiveGradBased: max no. of sample points = %d\n",
           nROVMax);
-   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: no. of refinements (set at 4)   = %d\n",
+   printOutTS(PL_INFO, 
+          "PSUADE adaptiveGradBased: no. of refinements (set at 4)   = %d\n",
           nRefines);
 
    psuadeIO_->getParameter("app_maxparalleljobs", pPtr);
@@ -118,8 +123,10 @@ int PsuadeBase::runAdaptiveGradBased()
           anaThreshold);
    if (anaThreshold > 0.5)
    {
-      printOutTS(PL_INFO, "PSUADE adaptiveGradBased INFO: threshold must be <= 0.5.\n");
-      printOutTS(PL_INFO, "                               threshold reset to 0.5.\n");
+      printOutTS(PL_INFO, 
+           "PSUADE adaptiveGradBased INFO: threshold must be <= 0.5.\n");
+      printOutTS(PL_INFO, 
+           "                               threshold reset to 0.5.\n");
       anaThreshold = 0.5;
    }
    psuadeIO_->getParameter("input_lbounds", pLowerB);
@@ -152,15 +159,18 @@ int PsuadeBase::runAdaptiveGradBased()
             scanf("%lg", &threshDec);
          }
       }
-      printOutTS(PL_INFO, "Max eigenvalue of Hessian controls extent of ROV.\n");
-      printOutTS(PL_INFO, "You can set the minimum value to control the extent.\n");
+      printOutTS(PL_INFO, 
+           "Max eigenvalue of Hessian controls extent of ROV.\n");
+      printOutTS(PL_INFO, 
+           "You can set the minimum value to control the extent.\n");
       minEigen = -1;
       while (minEigen < 0.0)
       {
          printf("Enter the minimum eigenvalue (0 if no minimum) : ");
          scanf("%lg", &minEigen);
       }
-      printOutTS(PL_INFO, "Do you have a partial PsuadeGradRSM.rov file? (y or n) ");
+      printOutTS(PL_INFO, 
+           "Do you have a partial PsuadeGradRSM.rov file? (y or n) ");
       scanf("%s", lineIn);
       if (lineIn[0] == 'y')
       {
@@ -178,20 +188,23 @@ int PsuadeBase::runAdaptiveGradBased()
          status = psIO->readPsuadeFile(fileName);
          if (status != 0)
          {
-            printOutTS(PL_ERROR, "ERROR: Problem reading file %s.\n", fileName);
+            printOutTS(PL_ERROR, "ERROR: Problem reading file %s.\n", 
+                       fileName);
             return -1;
          }
          psIO->getParameter("input_ninputs", pPtr);
          if (pPtr.intData_ != nInputs)
          {
-            printOutTS(PL_INFO, "nInputs in file %s does not match with current file.\n",
+            printOutTS(PL_INFO, 
+                "nInputs in file %s does not match with current file.\n",
                    fileName);
             return -1;
          }
          psIO->getParameter("output_noutputs", pPtr);
          if (pPtr.intData_ != Ysize)
          {
-            printOutTS(PL_INFO, "nOutputs in file %s (%d) is not valid (should be %d).\n",
+            printOutTS(PL_INFO, 
+                "nOutputs in file %s (%d) is not valid (should be %d).\n",
                    fileName, pPtr.intData_, Ysize);
             return -1;
          }
@@ -199,7 +212,8 @@ int PsuadeBase::runAdaptiveGradBased()
          iRov = pPtr.intData_;
          if (iRov > nROVMax || iRov <= 0)
          {
-            printOutTS(PL_ERROR, "ERROR: nROVs in file %s too large (should be <= %d)\n",
+            printOutTS(PL_ERROR, 
+                "ERROR: nROVs in file %s too large (should be <= %d)\n",
                    fileName, nROVMax);
             return -1;
          }
@@ -239,20 +253,23 @@ int PsuadeBase::runAdaptiveGradBased()
          status = psIO->readPsuadeFile(fileName);
          if (status != 0)
          {
-            printOutTS(PL_ERROR, "ERROR: Problem reading sample file %s.\n", fileName);
+            printOutTS(PL_ERROR, 
+                "ERROR: Problem reading sample file %s.\n", fileName);
             return -1;
          }
          psIO->getParameter("input_ninputs", pPtr);
          if (pPtr.intData_ != nInputs)
          {
-            printOutTS(PL_INFO, "nInputs in file %s does not match with current file.\n",
+            printOutTS(PL_INFO, 
+                "nInputs in file %s does not match with current file.\n",
                    fileName);
             return -1;
          }
          psIO->getParameter("output_noutputs", pPtr);
          if (pPtr.intData_ != nOutputs)
          {
-            printOutTS(PL_INFO, "nOutputs in file %s does not match with current file.\n",
+            printOutTS(PL_INFO, 
+                "nOutputs in file %s does not match with current file.\n",
                    fileName);
             return -1;
          }
@@ -260,7 +277,8 @@ int PsuadeBase::runAdaptiveGradBased()
          nSamples = pPtr.intData_;
          if (nSamples < iRov)
          {
-            printOutTS(PL_ERROR, "ERROR: sample in file %s too small (should be > %d)\n",
+            printOutTS(PL_ERROR, 
+                "ERROR: sample in file %s too small (should be > %d)\n",
                    fileName, iRov);
             return -1;
          }
@@ -321,7 +339,8 @@ int PsuadeBase::runAdaptiveGradBased()
          if (sampleROVInds[kk] < 0) sampleIndex = kk;
          if (sampleIndex == -1)
          {
-            printOutTS(PL_INFO, "PSUADE adaptiveGradBased: the ROV sample is good to go.\n");
+            printOutTS(PL_INFO, 
+              "PSUADE adaptiveGradBased: the ROV sample is good to go.\n");
             delete [] sampleInputs;
             delete [] sampleROVInds;
             delete [] sampleROVVals;

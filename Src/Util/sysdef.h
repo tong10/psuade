@@ -126,12 +126,13 @@
 #define PSUADE_RS_RBF           21
 #define PSUADE_RS_ACOSSO        22
 #define PSUADE_RS_BSSANOVA      23
-#define PSUADE_RS_LOCAL         24
-#define PSUADE_RS_RBFB          25
-#define PSUADE_RS_NPL           26
-#define PSUADE_RS_MGP1          27
-#define PSUADE_RS_PWL           28
-#define PSUADE_RS_REGRLC        29
+#define PSUADE_RS_RBFB          24
+#define PSUADE_RS_PLS           25
+#define PSUADE_RS_LOCAL         26
+#define PSUADE_RS_NPL           27
+#define PSUADE_RS_MGP1          28
+#define PSUADE_RS_PWL           29
+#define PSUADE_RS_REGRLC        30
 
 #define PSUADE_GRAPHICS         1
 #define PSUADE_SAMPLE_GRAPHICS  2
@@ -144,9 +145,12 @@
 #define PSUADE_PDF_WEIBULL      5
 #define PSUADE_PDF_GAMMA        6
 #define PSUADE_PDF_EXPONENTIAL  7
-#define PSUADE_PDF_USER         8
+#define PSUADE_PDF_SAMPLE       8
 #define PSUADE_PDF_F            9
-#define PSUADE_PDF_USER2       10
+#define PSUADE_PDF_SAMPLEHIST  10
+#define PSUADE_PDF_INVGAMMA    11
+#define PSUADE_PDF_CAUCHY      12
+#define PSUADE_PDF_USER        13
 
 //define parameters associated with printLevel & diagnostics
 //added 4/2/14 - Jim McEnerney

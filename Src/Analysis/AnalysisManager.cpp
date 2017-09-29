@@ -853,9 +853,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
 // ************************************************************************
 // analyze (simple, uniform distribution only)
 // ------------------------------------------------------------------------
-int AnalysisManager::analyze(int anaMethod, int nSamples, Vector &vLower, 
-                             Vector &vUpper, Vector &vInputs, 
-                             Vector &vOutputs, int outputLevel)
+int AnalysisManager::analyze(int anaMethod, int nSamples, psVector &vLower, 
+                             psVector &vUpper, psVector &vInputs, 
+                             psVector &vOutputs, int outputLevel)
 {
    int    nInputs, ii, *states, refineFlag=1;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;

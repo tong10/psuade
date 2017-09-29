@@ -169,13 +169,20 @@ int PDFLogNormal::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFLogNormal::genSample(int length, double *outData, double lower,
-                            double upper)
+int PDFLogNormal::genSample(int length, double *outData, double *lowers,
+                            double *uppers)
 {
    int    ii, count, total;
    double U1, U2, R, theta, Z1, Z2, pi=3.14159, range, low, iroot2;
-   double lower2, upper2;
+   double lower, upper, lower2, upper2;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFLogNormal genSample ERROR - lower/upper bound unavailable.\n");
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    printf("LogNormal genSample : mean, stdev = %e %e\n", mean_, stdev_);
    if (length <= 0)
    {
@@ -210,7 +217,7 @@ int PDFLogNormal::genSample(int length, double *outData, double lower,
    else             low = 0.5 * (1.0 + erf((log(lower2)-mean_)*iroot2));
    range = 0.5 * (1.0 + erf((log(upper2)-mean_)*iroot2)) - low;
    count = total = 0;
-   printf("PDFLognormal: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFLognormal: genSample begins (Take too long? Check ranges)\n");
    while (count < length)
    {
       U1 = PSUADE_drand() * range + low;
@@ -243,7 +250,7 @@ int PDFLogNormal::genSample(int length, double *outData, double lower,
    if (total > length)
       printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
              total,length);
-   printf("PDFLognormal: genSample ends.\n");
+   //printf("PDFLognormal: genSample ends.\n");
    return 0;
 }
 

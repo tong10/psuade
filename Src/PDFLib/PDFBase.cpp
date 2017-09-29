@@ -74,7 +74,7 @@ int PDFBase::invCDF(int, double *, double *, double, double)
 // ************************************************************************
 // generate sample
 // ------------------------------------------------------------------------
-int PDFBase::genSample(int, double *, double, double) 
+int PDFBase::genSample(int, double *, double *, double *) 
 {
    return 0;
 }

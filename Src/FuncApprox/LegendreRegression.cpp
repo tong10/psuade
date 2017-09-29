@@ -508,7 +508,7 @@ int LegendreRegression::analyze(double *X, double *Y)
    int    N, M, ii, mm, nn, wlen, info, NRevised;
    double *B, *XX, SSresid, SStotal, R2, *XTX = NULL, var, *Bvar;
    double esum, ymax, *WW, *SS, *AA, *UU, *VV;
-   char   jobu  = 'A', jobvt = 'A';
+   char   jobu  = 'S', jobvt = 'S';
    char   pString[100];
    FILE   *fp;
 
@@ -525,7 +525,7 @@ int LegendreRegression::analyze(double *X, double *Y)
 
    wlen = 5 * M;
    AA = new double[M*N];
-   UU = new double[M*M];
+   UU = new double[M*N];
    SS = new double[N];
    VV = new double[M*N];
    WW = new double[wlen];
@@ -737,7 +737,7 @@ int LegendreRegression::analyze(double *X, double *Y)
       }
    }
    pdfman->initialize(numPerms_,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
-   Vector vLower, vUpper, vOut;
+   psVector vLower, vUpper, vOut;
    vLower.load(numPerms_, inLowers);
    vUpper.load(numPerms_, inUppers);
    vOut.setLength(numPerms_*nTimes);

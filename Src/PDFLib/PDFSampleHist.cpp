@@ -28,7 +28,7 @@
 #include <math.h>
 #include "sysdef.h"
 #include "PsuadeUtil.h"
-#include "PDFSpecial2.h"
+#include "PDFSampleHist.h"
 #include "PrintingTS.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
 #ifdef HAVE_METIS
@@ -41,7 +41,7 @@ void METIS_PartGraphRecursive(int *, int *, int *, int *, int *,
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------
-PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
+PDFSampleHist::PDFSampleHist(char *fname, int scount, int *indices)
 {
    int    ii, jj, nn, nInps;
    double *oneSample, ddata, dmin, dmax;
@@ -50,7 +50,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
 
    if (fname == NULL || !strcmp(fname, "NONE"))
    {
-      printf("PDFSpecial2 constructor: expecting a sample file.\n");
+      printf("PDFSampleHist constructor: expecting a sample file.\n");
       printf("                         having the following format: \n");
       printf("line 1: (optional) PSUADE_BEGIN\n");
       printf("line 2: <number of sample points> <number of inputs>\n");
@@ -65,7 +65,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
       nn = strlen(filename);
       if (nn > 1000)
       {
-         printf("PDFSpecial2 constructor ERROR: file name too long.\n");
+         printf("PDFSampleHist constructor ERROR: file name too long.\n");
          exit(1);
       }
       filename[nn-1] = '\0';
@@ -78,7 +78,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
    fp = fopen(filename, "r");
    if (fp == NULL)
    {
-      printf("PDFSpecial2 ERROR: cannot open sample file %s.\n",filename);
+      printf("PDFSampleHist ERROR: cannot open sample file %s.\n",filename);
       exit(1);
    }
    fscanf(fp, "%s", pString);
@@ -90,17 +90,17 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
    fscanf(fp, "%d %d", &nSamples_, &nInps);
    if (nSamples_ < 100000)
    {
-      printf("PDFSpecial2 ERROR: sample file has nSamples < 100000.\n");
+      printf("PDFSampleHist ERROR: sample file has nSamples < 100000.\n");
       exit(1);
    }
    if (nInps < 1 || nInps > 10)
    {
-      printf("PDFSpecial2 ERROR: sample file has nInputs <= 0 or > 10.\n");
+      printf("PDFSampleHist ERROR: sample file has nInputs <= 0 or > 10.\n");
       exit(1);
    }
    if (nInputs_ != nInps && indices == NULL)
    {
-      printf("PDFSpecial2 ERROR: nInputs does not match.\n");
+      printf("PDFSampleHist ERROR: nInputs does not match.\n");
       printf("          nInputs in your sample file    = %d\n",nInps);
       printf("          nInputs from psuade input file = %d\n",nInputs_);
       exit(1);
@@ -111,7 +111,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
       {
          if (indices[ii] < 0 || indices[ii] >= nInps)
          {
-            printf("PDFSpecial2 ERROR: sample index > nInputs in sample file.\n");
+            printf("PDFSampleHist ERROR: sample index > nInputs in sample file.\n");
             printf("            sample index requested         = %d\n",
                    indices[ii]+1);
             printf("            nInputs in your sample file    = %d\n",nInps);
@@ -137,7 +137,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
       fscanf(fp, "%d", &nn);
       if (nn != (ii+1))
       {
-         printf("PDFSpecial2 ERROR: invalid sample number.\n");
+         printf("PDFSampleHist ERROR: invalid sample number.\n");
          printf("            Expected: %d\n", ii+1);
          printf("            Read:     %d\n", nn);
          printf("Advice: check your data format and line number %d.\n\n",ii+2);
@@ -165,7 +165,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
    fscanf(fp, "%s", pString);
    fclose(fp);
    delete [] oneSample;
-   printOutTS(PL_INFO,"PDFSpecial2 INFO: sample file '%s' has been read.\n", 
+   printOutTS(PL_INFO,"PDFSampleHist INFO: sample file '%s' has been read.\n", 
               fname);
    printOutTS(PL_INFO,"   Sample size   = %d\n", nSamples_);
    printOutTS(PL_INFO,"   No. of inputs = %d\n", nInputs_);
@@ -190,7 +190,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
       upperBs_[ii] = dmax + 0.01 * (dmax - dmin);
       if (lowerBs_[ii] == upperBs_[ii])
       {
-         printf("PDFSpecial2 ERROR: upper bound=lower bound for input %d.\n",
+         printf("PDFSampleHist ERROR: upper bound=lower bound for input %d.\n",
                 ii+1);
          exit(1);
       }
@@ -239,7 +239,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
    METIS_PartGraphRecursive(&nCells_, graphI, graphJ, NULL, NULL,
          &wgtflag,&numflag,&nRegions_,options,&edgeCut,cellsOccupied_);
 #else
-   printf("PDFSpecial2 ERROR : METIS not installed.\n");
+   printf("PDFSampleHist ERROR : METIS not installed.\n");
    exit(1);
 #endif
    regionProbs_ = new double[nRegions_];
@@ -259,8 +259,8 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
       }
       if (itmp < 0 || itmp >= nCells_)
       {
-         printf("PDFSpecial2::refine INTERNAL ERROR.\n");
-         printf("             Consult PSUADE developer.\n");
+         printf("PDFSampleHist::refine INTERNAL ERROR.\n");
+         printf("               Consult PSUADE developer.\n");
       }
       jj = cellsOccupied_[itmp];
       sampleMap_[ss] = jj;
@@ -277,7 +277,7 @@ PDFSpecial2::PDFSpecial2(char *fname, int scount, int *indices)
 // ************************************************************************
 // destructor 
 // ------------------------------------------------------------------------
-PDFSpecial2::~PDFSpecial2()
+PDFSampleHist::~PDFSampleHist()
 {
    if (samples_ != NULL) delete [] samples_;
    if (lowerBs_ != NULL) delete [] lowerBs_;
@@ -290,7 +290,7 @@ PDFSpecial2::~PDFSpecial2()
 // ************************************************************************
 // forward transformation to range
 // ------------------------------------------------------------------------
-int PDFSpecial2::getPDF(int length, double *inData, double *outData)
+int PDFSampleHist::getPDF(int length, double *inData, double *outData)
 {
    int    ss, ii, jj, itmp;
    double ddata;
@@ -320,9 +320,9 @@ int PDFSpecial2::getPDF(int length, double *inData, double *outData)
 // ************************************************************************
 // look up cumulative density
 // ------------------------------------------------------------------------
-int PDFSpecial2::getCDF(int length, double *inData, double *outData)
+int PDFSampleHist::getCDF(int length, double *inData, double *outData)
 {
-   printf("PDFSpecial2::getCDF not available.\n");
+   printf("PDFSampleHist::getCDF not available.\n");
    for (int ii = 0; ii < length; ii++) outData[ii] = 0;
    return -1;
 }
@@ -330,10 +330,10 @@ int PDFSpecial2::getCDF(int length, double *inData, double *outData)
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFSpecial2::invCDF(int length, double *inData, double *outData,
+int PDFSampleHist::invCDF(int length, double *inData, double *outData,
                        double lower, double upper)
 {
-   printf("PDFSpecial2::invCDF not available.\n");
+   printf("PDFSampleHist::invCDF not available.\n");
    for (int ii = 0; ii < length; ii++) outData[ii] = 0;
    return -1;
 }
@@ -341,7 +341,7 @@ int PDFSpecial2::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFSpecial2::genSample(int length,double *outData,double, double)
+int PDFSampleHist::genSample(int length,double *outData,double *, double *)
 {
    int    ii, jj, ind;
 
@@ -357,16 +357,16 @@ int PDFSpecial2::genSample(int length,double *outData,double, double)
 // ************************************************************************
 // get mean
 // ------------------------------------------------------------------------
-double PDFSpecial2::getMean()
+double PDFSampleHist::getMean()
 {
-   printf("PDFSpecial2::getMean not available for this distribution.\n");
+   printf("PDFSampleHist::getMean not available for this distribution.\n");
    return 0.0;
 }
 
 // ************************************************************************
 // get mean
 // ------------------------------------------------------------------------
-int PDFSpecial2::setParam(char *sparam)
+int PDFSampleHist::setParam(char *sparam)
 {
    char winput[1001];
    sscanf(sparam, "%s", winput);

@@ -106,22 +106,24 @@ double MomentAnalyzer::analyze(aData &adata)
    } 
    if (nSamples <= 1)
    {
-      printOutTS(PL_ERROR, "MomentAnalyzer ERROR: nSamples should be > 1.\n");
-      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR,"MomentAnalyzer ERROR: nSamples should be > 1.\n");
+      printOutTS(PL_ERROR,"    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (nSubSamples <= 0)
    {
-      printOutTS(PL_ERROR, "MomentAnalyzer ERROR: nSubSamples should be > 0.\n");
-      printOutTS(PL_ERROR, "   nSubSamples = %d\n", nSubSamples);
-      return PSUADE_UNDEFINED;
+      printOutTS(PL_INFO,"MomentAnalyzer INFO: nSubSamples = 0.\n");
+      printOutTS(PL_INFO,"    This affects additional group analysis only.\n");
+      printOutTS(PL_INFO,"    Set nSubSamples to nSamples.\n");
+      nSubSamples = nSamples;
    } 
    if (nSamples/nSubSamples*nSubSamples != nSamples)
    {
-      printOutTS(PL_ERROR, "MomentAnalyzer ERROR: nSamples != k*nSubSamples.\n");
-      printOutTS(PL_ERROR, "   nSamples    = %d\n", nSamples);
-      printOutTS(PL_ERROR, "   nSubSamples = %d\n", nSubSamples);
-      return PSUADE_UNDEFINED;
+      printOutTS(PL_INFO,"MomentAnalyzer INFO: nSamples != k*nSubSamples.\n");
+      printOutTS(PL_ERROR,"   nSamples    = %d\n", nSamples);
+      printOutTS(PL_ERROR,"   nSubSamples = %d\n", nSubSamples);
+      printOutTS(PL_INFO,"    Set nSubSamples to nSamples.\n");
+      nSubSamples = nSamples;
    } 
    whichOutput = outputID;
    if (whichOutput < -1 || whichOutput >= nOutputs)

@@ -44,7 +44,7 @@ class GradLegendreRegression: public FuncApprox
    int    normalizeFlag_;
    double **fuzzyC_;
    char   gradFile_[1000];
-   Matrix covMatrix_;
+   psMatrix covMatrix_;
 
 public:
    GradLegendreRegression(int, int);

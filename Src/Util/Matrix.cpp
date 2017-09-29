@@ -20,11 +20,10 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Matrix functions (modified from Pelikan's (University of Cincinati) code
+// psMatrix functions (modified from Pelikan's (University of Cincinati) code
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
-
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -36,10 +35,10 @@
 // ************************************************************************
 // Constructor
 // ------------------------------------------------------------------------
-Matrix::Matrix()
+psMatrix::psMatrix()
 {
 #ifdef PS_DEBUG
-   printf("Matrix constructor\n");
+   printf("psMatrix constructor\n");
 #endif
    nRows_ = 0;
    nCols_ = 0;
@@ -47,24 +46,28 @@ Matrix::Matrix()
    status_ = 0;
    determinant_ = 0.0;
 #ifdef PS_DEBUG
-   printf("Matrix constructor ends\n");
+   printf("psMatrix constructor ends\n");
 #endif
 }
 
 // ************************************************************************
 // Copy Constructor by Bill Oliver
 // ------------------------------------------------------------------------
-Matrix::Matrix(const Matrix & ma)
+psMatrix::psMatrix(const psMatrix & ma)
 {
+   int ii, jj;
    nRows_ = ma.nRows_;
    nCols_ = ma.nCols_;
    status_ = ma.status_;
-   Mat_ = new double*[nRows_];
-   for (int i = 0; i < nRows_; i++)
+   if (nRows_ > 0 && nCols_ > 0)
    {
-      Mat_[i] = new double[nCols_];
-      for(int j = 0; j < nCols_; j++)
-         Mat_[i][j] = ma.Mat_[i][j];
+      Mat_ = new double*[nRows_];
+      for (ii = 0; ii < nRows_; ii++)
+      {
+         Mat_[ii] = new double[nCols_];
+         for(jj = 0; jj < nCols_; jj++)
+            Mat_[ii][jj] = ma.Mat_[ii][jj];
+      }
    }
    determinant_ = ma.determinant_;
 }
@@ -72,22 +75,30 @@ Matrix::Matrix(const Matrix & ma)
 // ************************************************************************
 // operator=  by Bill Oliver
 // ------------------------------------------------------------------------
-Matrix & Matrix::operator=(const Matrix & ma)
+psMatrix & psMatrix::operator=(const psMatrix & ma)
 {
+   int ii, jj;
    if (this == &ma) return *this;
+
+   if (Mat_ != NULL)
+   {
+      for(ii = 0; ii < nRows_; ii++) delete [] Mat_[ii];
+      delete [] Mat_;
+   }
+   Mat_ = NULL;
+
    nRows_ = ma.nRows_;
    nCols_ = ma.nCols_;
    status_ = ma.status_;
    determinant_ = ma.determinant_;
-
-   for(int i = 0; i < nRows_; i++) delete [] Mat_[i];
-   delete [] Mat_;
-
-   Mat_ = new double*[nRows_];
-   for(int i = 0; i < nRows_; i++)
+   if (nRows_ > 0 && nCols_ > 0)
    {
-      Mat_[i] = new double[nCols_];
-      for(int j = 0; j < nCols_; j++) Mat_[i][j] = ma.Mat_[i][j];
+      Mat_ = new double*[nRows_];
+      for(ii = 0; ii < nRows_; ii++)
+      {
+         Mat_[ii] = new double[nCols_];
+         for(jj = 0; jj < nCols_; jj++) Mat_[ii][jj] = ma.Mat_[ii][jj];
+      }
    }
    return *this;
 }
@@ -96,10 +107,10 @@ Matrix & Matrix::operator=(const Matrix & ma)
 // ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
-Matrix::~Matrix()
+psMatrix::~psMatrix()
 {
 #ifdef PS_DEBUG
-   printf("Matrix destructor\n");
+   printf("psMatrix destructor\n");
 #endif
    if (Mat_ != NULL)
    {
@@ -110,14 +121,14 @@ Matrix::~Matrix()
    nRows_ = nCols_ = 0;
    Mat_ = NULL;
 #ifdef PS_DEBUG
-   printf("Matrix destructor ends\n");
+   printf("psMatrix destructor ends\n");
 #endif
 }
 
 // ************************************************************************
 // get number of rows 
 // ------------------------------------------------------------------------
-int Matrix::nrows()
+int psMatrix::nrows()
 {
    return nRows_;
 }
@@ -125,7 +136,7 @@ int Matrix::nrows()
 // ************************************************************************
 // get number of columns 
 // ------------------------------------------------------------------------
-int Matrix::ncols()
+int psMatrix::ncols()
 {
    return nCols_;
 }
@@ -133,12 +144,12 @@ int Matrix::ncols()
 // ************************************************************************
 // load matrix from another matrix
 // ------------------------------------------------------------------------
-int Matrix::load(Matrix &inMat)
+int psMatrix::load(psMatrix &inMat)
 {
    int ii, jj;
 
 #ifdef PS_DEBUG
-   printf("Matrix load\n");
+   printf("psMatrix load\n");
 #endif
    if (Mat_ != NULL)
    {
@@ -151,24 +162,22 @@ int Matrix::load(Matrix &inMat)
    assert(this != &inMat);
    nRows_ = inMat.nrows();
    nCols_ = inMat.ncols();
-   if (nRows_ > 0)
+   if (nRows_ > 0 && nCols_ > 0)
    {
       Mat_ = new double*[nRows_];
       assert(Mat_ != NULL);
       for (ii = 0; ii < nRows_; ii++)
       {
-         if (nCols_ <= 0) Mat_[ii] = NULL;
-         else
-         {
-            Mat_[ii] = new double[nCols_];
-            assert(Mat_[ii] != NULL);
-         }
-         for (jj = 0; jj < nCols_; jj++) Mat_[ii][jj] = inMat.getEntry(ii,jj);
+         Mat_[ii] = new double[nCols_];
+         assert(Mat_[ii] != NULL);
+         for (jj = 0; jj < nCols_; jj++) 
+            Mat_[ii][jj] = inMat.getEntry(ii,jj);
       }
    }
    status_ = 0;
+   determinant_ = inMat.determinant_;
 #ifdef PS_DEBUG
-   printf("Matrix load ends\n");
+   printf("psMatrix load ends\n");
 #endif
    return 0;
 }
@@ -176,7 +185,7 @@ int Matrix::load(Matrix &inMat)
 // ************************************************************************
 // set matrix dimension
 // ------------------------------------------------------------------------
-int Matrix::setDim(int nrows, int ncols)
+int psMatrix::setDim(int nrows, int ncols)
 {
    int ii, jj;
 
@@ -190,17 +199,13 @@ int Matrix::setDim(int nrows, int ncols)
 
    nRows_ = nrows;
    nCols_ = ncols;
-   if (nRows_ <= 0) return -1;
+   if (nRows_ <= 0 || nCols_ <= 0) return -1;
    Mat_ = new double*[nRows_];
    assert(Mat_ != NULL);
    for (ii = 0; ii < nRows_; ii++)
    {
-      if (nCols_ <= 0) Mat_[ii] = NULL;
-      else
-      {
-         Mat_[ii] = new double[nCols_];
-         assert(Mat_[ii] != NULL);
-      }
+      Mat_[ii] = new double[nCols_];
+      assert(Mat_[ii] != NULL);
       for (jj = 0; jj < nCols_; jj++) Mat_[ii][jj] = 0.0;
    }
    status_ = 0;
@@ -210,11 +215,11 @@ int Matrix::setDim(int nrows, int ncols)
 // ************************************************************************
 // set entry
 // ------------------------------------------------------------------------
-void Matrix::setEntry(const int row, const int col, const double ddata)
+void psMatrix::setEntry(const int row, const int col, const double ddata)
 {
    if (row < 0 || row >= nRows_ || col < 0 || col >= nCols_)
    {
-      printf("Matrix setEntry ERROR: index (%d,%d) out of range (%d,%d)\n",
+      printf("psMatrix setEntry ERROR: index (%d,%d) out of range (%d,%d)\n",
              row, col, nRows_, nCols_);
       exit(1);
    }
@@ -225,12 +230,12 @@ void Matrix::setEntry(const int row, const int col, const double ddata)
 // ************************************************************************
 // get entry
 // ------------------------------------------------------------------------
-double Matrix::getEntry(const int row, const int col)
+double psMatrix::getEntry(const int row, const int col)
 {
    assert(row >= 0 && row < nRows_);
    assert(col >= 0 && col < nCols_);
 #ifdef PS_DEBUG
-   printf("Matrix getEntry (%d,%d) : Mat(%d,%d) = %e\n",
+   printf("psMatrix getEntry (%d,%d) : Mat(%d,%d) = %e\n",
           nRow_, nCols_, row, col, Mat_[row][col]);
 #endif
    return Mat_[row][col];
@@ -239,7 +244,7 @@ double Matrix::getEntry(const int row, const int col)
 // ************************************************************************
 // get determinant 
 // ------------------------------------------------------------------------
-double Matrix::getDeterminant()
+double psMatrix::getDeterminant()
 {
    return determinant_;
 }
@@ -247,23 +252,23 @@ double Matrix::getDeterminant()
 // ************************************************************************
 // extract submatrix
 // ------------------------------------------------------------------------
-int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
+int psMatrix::submatrix(psMatrix &inMat, const int num, const int *indices)
 {
    int nrows, ncols, ii, jj, row, col;
 
 #ifdef PS_DEBUG
-   printf("Matrix submatrix\n");
+   printf("psMatrix submatrix\n");
 #endif
    nrows = inMat.nrows();
    ncols = inMat.ncols();
    if (nrows != ncols)
    {
-      printf("Matrix::submatrix ERROR : incoming matrix is rectangular.\n");
+      printf("psMatrix::submatrix ERROR : incoming matrix is rectangular.\n");
       exit(1);
    }
    if (num <= 0 || indices == NULL)
    {
-      printf("Matrix::submatrix ERROR : no incoming indices.\n");
+      printf("psMatrix::submatrix ERROR : no incoming indices.\n");
       exit(1);
    }
    for (ii = 0; ii < num; ii++)
@@ -271,7 +276,7 @@ int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
       row = indices[ii];
       if (row < 0 || row >= nrows)
       {
-         printf("Matrix::submatrix ERROR : index out of bound (%d)\n",row); 
+         printf("psMatrix::submatrix ERROR : index out of bound (%d)\n",row); 
          exit(1);
       }
    }
@@ -286,13 +291,13 @@ int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
       }
    }
 #ifdef PS_DEBUG
-   printf("Matrix::submatrix: incoming matrix\n");
+   printf("psMatrix::submatrix: incoming matrix\n");
    for (ii = 0; ii < nrows; ii++)
    {
       for (jj = 0; jj < nrows; jj++) printf("%e ",inMat.getEntry(ii,jj));;
       printf("\n");
    }
-   printf("Matrix::submatrix: outgoing matrix\n");
+   printf("psMatrix::submatrix: outgoing matrix\n");
    for (ii = 0; ii < num; ii++)
    {
       for (jj = 0; jj < num; jj++) printf("%e ",Mat_[ii][jj]);
@@ -300,7 +305,7 @@ int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
    }
 #endif
 #ifdef PS_DEBUG
-   printf("Matrix submatrix ends\n");
+   printf("psMatrix submatrix ends\n");
 #endif
    return 0;
 }
@@ -308,27 +313,27 @@ int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
 // ************************************************************************
 // Cholesky decomposition (A = L L^T)
 // ------------------------------------------------------------------------
-int Matrix::CholDecompose()
+int psMatrix::CholDecompose()
 {
    int     ii, jj, kk;
    double  ddata;
 
 #ifdef PS_DEBUG
-   printf("Matrix CholDecompose\n");
+   printf("psMatrix CholDecompose\n");
 #endif
    if (status_ != 0) 
    {
-      printf("Matrix ERROR : matrix has been decomposed.\n");
+      printf("psMatrix ERROR : matrix has been decomposed.\n");
       exit(1);
    }
    assert(nRows_ == nCols_);
 
 #ifdef PS_DEBUG
    determinant_ = computeDeterminant(nRows_, Mat_); 
-   printf("Matrix determinant = %e\n",<< determinant_);
+   printf("psMatrix determinant = %e\n",<< determinant_);
    for (ii = 0; ii < nRows_; ii++)
       for (jj = ii; jj < nCols_; jj++)
-         printf("Matrix (%d,%d) = %e\n", ii+1, jj+1, Mat_[ii][jj]);
+         printf("psMatrix (%d,%d) = %e\n", ii+1, jj+1, Mat_[ii][jj]);
 #endif
    for (ii = 0; ii < nRows_; ii++)
    {
@@ -348,7 +353,7 @@ int Matrix::CholDecompose()
          }
          else Mat_[ii][jj] = ddata / Mat_[jj][jj];
 #ifdef PS_DEBUG
-         printf("Matrix Chol (%d,%d) = %e\n", ii+1, jj+1, Mat_[jj][ii]);
+         printf("psMatrix Chol (%d,%d) = %e\n", ii+1, jj+1, Mat_[jj][ii]);
 #endif
       }
    } 
@@ -356,7 +361,7 @@ int Matrix::CholDecompose()
       for (jj = ii+1; jj < nCols_; jj++) Mat_[ii][jj] = Mat_[jj][ii];
    status_ = 1;
 #ifdef PS_DEBUG
-   printf("Matrix CholDecompose ends\n");
+   printf("psMatrix CholDecompose ends\n");
 #endif
    return 0;
 }
@@ -364,13 +369,13 @@ int Matrix::CholDecompose()
 // ************************************************************************
 // matrix vector multiply  
 // ------------------------------------------------------------------------
-void Matrix::CholMatvec(Vector &vec)
+void psMatrix::CholMatvec(psVector &vec)
 {
    int    ii, jj;
    double ddata;
 
 #ifdef PS_DEBUG
-   printf("Matrix CholMatvec\n");
+   printf("psMatrix CholMatvec\n");
 #endif
    assert(vec.length() == nCols_);
    if (status_ == 0) CholDecompose();
@@ -381,20 +386,20 @@ void Matrix::CholMatvec(Vector &vec)
       vec[ii] = ddata;
    }
 #ifdef PS_DEBUG
-   printf("Matrix CholMatvec ends\n");
+   printf("psMatrix CholMatvec ends\n");
 #endif
 }
 
 // ************************************************************************
 // Cholesky L-solve 
 // ------------------------------------------------------------------------
-void Matrix::CholSolve(Vector &vec)
+void psMatrix::CholSolve(psVector &vec)
 {
    int    ii, jj;
    double ddata;
 
 #ifdef PS_DEBUG
-   printf("Matrix CholSolve\n");
+   printf("psMatrix CholSolve\n");
 #endif
    assert(vec.length() == nCols_);
    if (status_ == 0) CholDecompose();
@@ -405,20 +410,20 @@ void Matrix::CholSolve(Vector &vec)
       vec[ii] = ddata / Mat_[ii][ii];
    }
 #ifdef PS_DEBUG
-   printf("Matrix CholSolve ends\n");
+   printf("psMatrix CholSolve ends\n");
 #endif
 }
 
 // ************************************************************************
 // Cholesky LT-solve 
 // ------------------------------------------------------------------------
-void Matrix::CholTSolve(Vector &vec)
+void psMatrix::CholTSolve(psVector &vec)
 {
    int    ii, jj;
    double ddata;
 
 #ifdef PS_DEBUG
-   printf("Matrix CholTSolve (transpose)\n");
+   printf("psMatrix CholTSolve (transpose)\n");
 #endif
    assert(vec.length() == nCols_);
    if (status_ == 0) CholDecompose();
@@ -429,17 +434,17 @@ void Matrix::CholTSolve(Vector &vec)
       vec[ii] = ddata / Mat_[ii][ii];
    }
 #ifdef PS_DEBUG
-   printf("Matrix CholTSolve ends\n");
+   printf("psMatrix CholTSolve ends\n");
 #endif
 }
 
 // ************************************************************************
-// Compute determinant (by Bourke)
+// print matrix
 // ------------------------------------------------------------------------
-void Matrix::print()
+void psMatrix::print()
 {
    int ii, jj;
-   printf("Matrix print: \n");
+   printf("psMatrix print: \n");
    for (ii = 0; ii < nRows_; ii++)
    {
       for (jj = 0; jj < nCols_; jj++) printf("%e ", Mat_[ii][jj]);
@@ -450,7 +455,7 @@ void Matrix::print()
 // ************************************************************************
 // Compute determinant (by Bourke)
 // ------------------------------------------------------------------------
-double Matrix::computeDeterminant(int ndim, double **mat)
+double psMatrix::computeDeterminant(int ndim, double **mat)
 {
    int    ii, jj, kk, ind;
    double result = 0.0;

@@ -20,7 +20,7 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Matrix functions
+// psMatrix functions
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
@@ -29,7 +29,7 @@
 #define __MATRIXH__
 
 /**
- * @name Matrix class
+ * @name psMatrix class
  *
  **/
 /*@{*/
@@ -40,7 +40,7 @@
 // class definition
 // ************************************************************************
 
-class Matrix
+class psMatrix
 {
    int    nRows_, nCols_;
    double **Mat_;
@@ -49,24 +49,24 @@ class Matrix
 
 public:
 
-   Matrix();
+   psMatrix();
    // Copy constructor by Bill Oliver
-   Matrix(const Matrix & ma);
+   psMatrix(const psMatrix & ma);
    // overload = operator
-   Matrix & operator=(const Matrix & ma);
-   ~Matrix();
+   psMatrix & operator=(const psMatrix & ma);
+   ~psMatrix();
    int    nrows();
    int    ncols();
-   int    load(Matrix &);
+   int    load(psMatrix &);
    int    setDim(int, int);
    void   setEntry(const int, const int, const double);
    double getEntry(const int, const int);
    double getDeterminant();
-   int    submatrix(Matrix &, const int, const int *);
+   int    submatrix(psMatrix &, const int, const int *);
    int    CholDecompose();
-   void   CholMatvec(Vector &);
-   void   CholSolve(Vector &);
-   void   CholTSolve(Vector &);
+   void   CholMatvec(psVector &);
+   void   CholSolve(psVector &);
+   void   CholTSolve(psVector &);
    void   print();
 
 private:

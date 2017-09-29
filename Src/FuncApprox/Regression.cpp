@@ -122,6 +122,7 @@ int Regression::genNDGridData(double *X, double *Y, int *NN, double **XX,
    totPts = (*NN);
 
    (*YY) = new double[totPts];
+   checkAllocate(*YY, "YY in Regression::genNDGrid");
    (*NN) = totPts;
    for (mm = 0; mm < totPts; mm++)
       (*YY)[mm] = evaluatePoint(&((*XX)[mm*nInputs_]));
@@ -153,6 +154,7 @@ int Regression::gen1DGridData(double *X, double *Y, int ind1,
    (*XX) = new double[totPts];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in Regression::gen1DGrid");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -192,6 +194,7 @@ int Regression::gen2DGridData(double *X, double *Y, int ind1,
    (*XX) = new double[totPts * 2];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in Regression::gen2DGrid");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -239,6 +242,7 @@ int Regression::gen3DGridData(double *X, double *Y, int ind1,
    (*XX) = new double[totPts * 3];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in Regression::gen3DGrid");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -292,6 +296,7 @@ int Regression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    (*XX) = new double[totPts * 4];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in Regression::gen4DGrid");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -423,6 +428,7 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
    }
  
    Ys = new double[nTimes];
+   checkAllocate(Ys, "Ys in Regression::evaluatePointFuzzy");
 
    mean = 0.0;
    for (cc = 0; cc < nTimes; cc++)
@@ -551,7 +557,7 @@ int Regression::analyze(double *Xin, double *Y)
    int    M, N, ii, mm, nn, nn2, nn3, nn4, info, wlen, ind, last, NRevised;
    double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bstd, *X;
    double esum, ymax, *txArray, *AA, *SS, *UU, *VV, *WW;
-   char   jobu  = 'A', jobvt = 'A';
+   char   jobu  = 'S', jobvt = 'S';
    char   pString[1000], response[1000];
    FILE   *fp;
 
@@ -612,6 +618,7 @@ int Regression::analyze(double *Xin, double *Y)
    }
 
    X = new double[nSamples_*nInputs_];
+   checkAllocate(X, "X in Regression::analyze");
    if (psMasterMode_ == 1) 
    {
       printf("* Regression INFO: scaling turned off.\n");
@@ -643,10 +650,11 @@ int Regression::analyze(double *Xin, double *Y)
 
    wlen = 5 * M;
    AA = new double[M*N];
-   UU = new double[M*M];
+   UU = new double[M*N];
    SS = new double[N];
    VV = new double[M*N];
    WW = new double[wlen];
+   checkAllocate(WW, "WW in Regression::analyze");
    for (mm = 0; mm < M; mm++) 
       for (nn = 0; nn < N; nn++) 
          AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
@@ -684,6 +692,7 @@ int Regression::analyze(double *Xin, double *Y)
    {
       printf("* Regression ERROR: dgesvd returns a nonzero (%d).\n",info);
       printf("* Regression terminates further processing.\n");
+      printf("* To diagnose problem, re-run with rs_expert on.\n");
       delete [] XX;
       delete [] AA;
       delete [] UU;
@@ -710,16 +719,9 @@ int Regression::analyze(double *Xin, double *Y)
    }
    if (NRevised < N)
    {
-      printf("* Regression ERROR: true rank of sample = %d (need %d)\n",
+      printf("* Regression WARNING: true rank of sample = %d (need %d)\n",
              NRevised, N);
       printf("* This can be due to the quality of the sample.\n");
-      delete [] XX;
-      delete [] AA;
-      delete [] UU;
-      delete [] SS;
-      delete [] VV;
-      delete [] WW;
-      return -1;
    }
    if (psMasterMode_ == 1)
    {
@@ -745,6 +747,9 @@ int Regression::analyze(double *Xin, double *Y)
             NRevised--;
          }
       }
+      if (NRevised != N) 
+         printf("Regression INFO: %d singular values have been truncated.\n",
+                N-NRevised);
    }
    for (mm = 0; mm < N; mm++) 
    {
@@ -755,6 +760,7 @@ int Regression::analyze(double *Xin, double *Y)
    for (nn = 0; nn < NRevised; nn++) WW[nn] /= SS[nn];
    for (nn = NRevised; nn < N; nn++) WW[nn] = 0.0;
    B = new double[N];
+   checkAllocate(WW, "B in Regression::analyze");
    for (mm = 0; mm < N; mm++) 
    {
       B[mm] = 0.0;
@@ -826,6 +832,7 @@ int Regression::analyze(double *Xin, double *Y)
    }
 
    Bstd = new double[N];
+   checkAllocate(Bstd, "Bstd in Regression::analyze");
    computeXTX(N, XX, &XTX);
    computeCoeffVariance(N, XTX, var, Bstd);
    regCoeffs_ = B;
@@ -838,6 +845,7 @@ int Regression::analyze(double *Xin, double *Y)
    double *inStds = new double[N];
    double *inUppers = new double[N];
    double *inLowers = new double[N];
+   checkAllocate(inLowers, "inLowers in Regression::analyze");
    for (nn = 0; nn < N; nn++)
    {
       inPDFs[nn] = PSUADE_PDF_NORMAL;
@@ -856,7 +864,7 @@ int Regression::analyze(double *Xin, double *Y)
       }
    }
    pdfman->initialize(N,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
-   Vector vLower, vUpper, vOut;
+   psVector vLower, vUpper, vOut;
    vLower.load(N, inLowers);
    vUpper.load(N, inUppers);
    vOut.setLength(N*nTimes);
@@ -868,6 +876,7 @@ int Regression::analyze(double *Xin, double *Y)
       for (cc = 0; cc < nTimes; cc++)
          fuzzyC_[nn][cc] = vOut[cc*N+nn];
    }
+   checkAllocate(fuzzyC_[N-1], "FuzzyC in Regression::analyze");
    delete pdfman;
    delete [] inPDFs;
    delete [] inStds;
@@ -924,7 +933,8 @@ int Regression::analyze(double *Xin, double *Y)
       fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
       fprintf(fp,"    exit(1);\n");
       fprintf(fp,"  }\n");
-      fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+      fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",
+              nInputs_);
       fprintf(fp,"  fclose(fIn);\n");
       fprintf(fp,"  interpolate(iOne, X, &Y, &S);\n");
       fprintf(fp,"  printf(\"Y = %%e\\n\", Y);\n");
@@ -1206,7 +1216,8 @@ int Regression::analyze(double *Xin, double *Y)
                         fprintf(fp, "      Y = Y + coefs[%d]*(Xt[%d]-%e)/%e * ", 
                                 ind, nn, XMeans_[nn], XStds_[nn]);
                      else
-                        fprintf(fp, "      Y = Y + coefs[%d] * Xt[%d] * ",ind,nn);
+                        fprintf(fp, "      Y = Y + coefs[%d] * Xt[%d] * ",ind,
+                                nn);
                      if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
                         fprintf(fp, "(Xt[%d] - %e) / %e * ", 
                                 nn2, XMeans_[nn2], XStds_[nn2]);
@@ -1326,6 +1337,7 @@ int Regression::loadXMatrix(double *X, double **XXOut)
    }
    if (N > M) return N;
    XX = new double[M*N];
+   checkAllocate(XX, " Regression XX");
    if (order_ >= 0)
    {
       for (mm = 0; mm < M; mm++) XX[mm] = 1.0;
@@ -1400,6 +1412,7 @@ int Regression::computeXTX(int N, double *X, double **XXOut)
    double *XX, coef;
 
    XX = new double[nSamples_*N];
+   checkAllocate(XX, " Regression XX");
    for (nn = 0; nn < N; nn++)
    {
       for (nn2 = 0; nn2 < N; nn2++)
@@ -1468,6 +1481,8 @@ int Regression::computeCoeffVariance(int N,double *XX,double var,double *B)
    XT = new double[N*N];
    lwork = 2 * N * N;
    work  = new double[lwork];
+   checkAllocate(work, " Regression work");
+
    for (nn = 0; nn < N; nn++)
    {
       for (nn2 = 0; nn2 < N*N; nn2++) XT[nn2] = XX[nn2];
@@ -1491,12 +1506,13 @@ int Regression::computeCoeffVariance(int N,double *XX,double var,double *B)
 
    int    *ipiv = new int[N+1];
    double *invA = new double[lwork];
+   checkAllocate(invA, " Regression invA");
    double ddata, ddata2;
    FILE   *fp;
    for (nn = 0; nn < N*N; nn++) invA[nn] = XX[nn];
    dgetrf_(&N, &N, invA, &N, ipiv, &info);
    if (info != 0)
-      printf("LegendreRegression WARNING: dgels returns error %d.\n",info);
+      printf("Regression WARNING: dgels returns error %d.\n",info);
    dgetri_(&N, invA, &N, ipiv, work, &lwork, &info);
    covMatrix_.setDim(N,N);
    for (nn = 0; nn < N; nn++)
@@ -1755,6 +1771,7 @@ int Regression::printSRC(double *X, double *B, double SStotal)
    printf("* based on nSamples = %d\n", nSamples_);
 
    B2 = new double[nSamples_];
+   checkAllocate(B2, " Regression B2");
    if (order_ >= 1)
    {
       denom = sqrt(SStotal / (double) (nSamples_ - 1));

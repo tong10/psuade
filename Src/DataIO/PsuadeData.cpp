@@ -861,7 +861,7 @@ void PsuadeData::createInputSection(int nInputs, int *symTable,
 void PsuadeData::updateInputSection(int nSamples,int nInputs,int *symTable,
                     double *lowerB, double *upperB, double *sampleInputs, 
                     char **names, int *iPDFs, double *iMeans, double *iStds,
-                    Matrix *corMatrix)
+                    psMatrix *corMatrix)
 {
    int ii;
 
@@ -1249,7 +1249,7 @@ double* PsuadeData::getInput_sampleInputs()
 }
 
 // ************************************************************************
-Matrix PsuadeData::getInput_corMatrix() 
+psMatrix PsuadeData::getInput_corMatrix() 
 {
    return pInput_.corMatrix_;
 }
@@ -1767,6 +1767,11 @@ int PsuadeData::readInputSection(FILE *fp)
          sscanf(line,"%s %d %s", winput, &itmp, winput2);
          if ( !strcmp(winput2, "U"))
          {
+            printf("readInput INFO: PDF type U(ser) specified\n");
+            printf("                All inputs must be of this type.\n");
+            pInput_.inputPDFs_[idata] = PSUADE_PDF_USER;
+            pInput_.useInputPDFs_ = 1;
+#if 0
             pInput_.inputPDFs_[idata] = 0;
             sscanf(line,"%s %d %s %lg %lg",winput,&itmp,winput2,
                    &(pInput_.inputMeans_[idata]),
@@ -1799,6 +1804,7 @@ int PsuadeData::readInputSection(FILE *fp)
                printf("      definitions.\n");
                return -1;
             }
+#endif
          }
          else if ( !strcmp(winput2, "N")) 
          {
@@ -1849,6 +1855,22 @@ int PsuadeData::readInputSection(FILE *fp)
                    &(pInput_.inputStdevs_[idata]));
             pInput_.useInputPDFs_ = 1;
          }
+         else if ( !strcmp(winput2, "IG")) 
+         {
+            pInput_.inputPDFs_[idata] = PSUADE_PDF_INVGAMMA;
+            sscanf(line,"%s %d %s %lg %lg",winput,&itmp,winput2,
+                   &(pInput_.inputMeans_[idata]),
+                   &(pInput_.inputStdevs_[idata]));
+            pInput_.useInputPDFs_ = 1;
+         }
+         else if ( !strcmp(winput2, "C")) 
+         {
+            pInput_.inputPDFs_[idata] = PSUADE_PDF_CAUCHY;
+            sscanf(line,"%s %d %s %lg %lg",winput,&itmp,winput2,
+                   &(pInput_.inputMeans_[idata]),
+                   &(pInput_.inputStdevs_[idata]));
+            pInput_.useInputPDFs_ = 1;
+         }
          else if ( !strcmp(winput2, "E")) 
          {
             pInput_.inputPDFs_[idata] = PSUADE_PDF_EXPONENTIAL;
@@ -1859,12 +1881,12 @@ int PsuadeData::readInputSection(FILE *fp)
          }
          else if ( !strcmp(winput2, "S")) 
          {
-            pInput_.inputPDFs_[idata] = PSUADE_PDF_USER;
+            pInput_.inputPDFs_[idata] = PSUADE_PDF_SAMPLE;
             winput3[0] = '\0';
             sscanf(line,"%s %d %s %s %d",winput,&itmp,winput2,winput3,&ind);
             if (pInput_.sampleFileNames_ == NULL)
             {
-               printf("readInput ERROR: numInputs has not been read yet.\n");
+               printf("readInput ERROR: nInputs has not been read yet.\n");
                return -1;
             } 
             if ((fp2=fopen(winput3,"r")) == NULL)
@@ -1881,7 +1903,7 @@ int PsuadeData::readInputSection(FILE *fp)
                sscanf(winput2,"%d %d",&itmp,&ii);
                if (itmp >= 100000 && ii <= 10)
                {
-                  pInput_.inputPDFs_[idata] = PSUADE_PDF_USER2;
+                  pInput_.inputPDFs_[idata] = PSUADE_PDF_SAMPLEHIST;
                   printf("PDF for input %d: switch from S to S2\n",idata+1); 
                }
             }
@@ -1913,12 +1935,12 @@ int PsuadeData::readInputSection(FILE *fp)
          }
          else if ( !strcmp(winput2, "S2")) 
          {
-            pInput_.inputPDFs_[idata] = PSUADE_PDF_USER2;
+            pInput_.inputPDFs_[idata] = PSUADE_PDF_SAMPLEHIST;
             winput3[0] = '\0';
             sscanf(line,"%s %d %s %s %d",winput,&itmp,winput2,winput3,&ind);
             if (pInput_.sampleFileNames_ == NULL)
             {
-               printf("readInput ERROR: numInputs has not been read yet.\n");
+               printf("readInput ERROR: nInputs has not been read yet.\n");
                return -1;
             } 
             if ((fp2=fopen(winput3,"r")) == NULL)
@@ -1935,7 +1957,7 @@ int PsuadeData::readInputSection(FILE *fp)
                sscanf(winput2,"%d %d",&itmp,&ii);
                if (itmp < 100000 || ii > 10)
                {
-                  pInput_.inputPDFs_[idata] = PSUADE_PDF_USER;
+                  pInput_.inputPDFs_[idata] = PSUADE_PDF_SAMPLE;
                   printf("PDF for input %d: switch from S2 to S\n",idata+1); 
                }
             }
@@ -1943,7 +1965,7 @@ int PsuadeData::readInputSection(FILE *fp)
             pInput_.sampleFileNames_[idata][strlen(winput3)] = '\0';
             if (ind < 0 || ind > nInputs)
             {
-               printf("readInput ERROR: invalid PDF type S sample index %d.\n",
+               printf("readInput ERROR: invalid PDF type S2 sample index %d.\n",
                       ind);
                return -1;
             } 
@@ -2107,6 +2129,21 @@ int PsuadeData::readInputSection(FILE *fp)
          pInput_.inputNames_[ii] = new char[100];
          sprintf(pInput_.inputNames_[ii], "X%d", ii+1);
          return -1;
+      }
+   }
+   for (ii = 0; ii < pInput_.nInputs_; ii++)
+   {
+      if (pInput_.inputPDFs_[ii] == PSUADE_PDF_USER)
+      {
+         for (ind = 0; ind < pInput_.nInputs_; ind++)
+         {
+            if (pInput_.inputPDFs_[ind] != PSUADE_PDF_USER)
+            {
+               printf("readInputSection ERROR: PDF type U, if specified,\n");
+               printf("         should be used for all inputs.\n");
+               return -1;
+            }
+         }
       }
    }
    if (feof(fp) != 0)
@@ -2996,7 +3033,7 @@ int PsuadeData::readAnalysisSection(FILE *fp)
               "selective_regression", "GP1", "GP2", "SVM", "PWL", "TGP",
               "MARSBag","EARTH","sum_of_trees","Legendre","user_regression",
               "sparse_grid_regression", "Kriging", "splines", "KNN", "RBF",
-              "Acosso", "Bssanova", "psuade_regression", "RBFBag"};
+              "Acosso", "Bssanova", "psuade_regression", "RBFBag", "PLS"};
    const char *transformTypes[] = {"logx","logy"};
    const char *optimizeOptions[] = {
               "method", "fmin", "num_local_minima", "use_response_surface", 
@@ -3005,7 +3042,9 @@ int PsuadeData::readAnalysisSection(FILE *fp)
               "use_history"};
    const char *optimizeSchemes[] = {
               "crude", "txmath", "appspack", "minpack", "cobyla", "sm", "mm",
-              "mm_adaptive", "bobyqa", "sce", "moo", "ouu", "ouu1", "ouu2"};
+              "mm_adaptive", "bobyqa", "sce", "moo", "ouu", "ouu1", "ouu2",
+              "lincoa", "newuoa", "ouu_unconstr", "ouu_bndconstr",
+              "ouu_ineq_constr", "lbfgs"};
    psuadeFilter **filters;
    FILE   *fconf;
 
@@ -3179,6 +3218,8 @@ int PsuadeData::readAnalysisSection(FILE *fp)
                  rstype = PSUADE_RS_LOCAL;
             else if (!strcmp(winput4,resSurfTypes[25])) 
                  rstype = PSUADE_RS_RBFB;
+            else if (!strcmp(winput4,resSurfTypes[26])) 
+                 rstype = PSUADE_RS_PLS;
             else
             {
                printf("readAnalysis ERROR: invalid RS type %s\n",
@@ -3384,8 +3425,7 @@ int PsuadeData::readAnalysisSection(FILE *fp)
             else if (!strcmp(winput4, optimizeSchemes[4])) /* cobyla */
             {
                pAnalysis_.optimizeIntOptions_[0] = 1;
-               pAnalysis_.optimizeIntOptions_[1] = 8;
-               printf("INFO: cobyla has been replaced by bobyqa.\n");
+               pAnalysis_.optimizeIntOptions_[1] = 4;
             }
             else if (!strcmp(winput4, optimizeSchemes[5])) /* sm */
             {
@@ -3431,6 +3471,36 @@ int PsuadeData::readAnalysisSection(FILE *fp)
             {
                pAnalysis_.optimizeIntOptions_[0] = 1;
                pAnalysis_.optimizeIntOptions_[1] = 13;
+            }
+            else if (!strcmp(winput4, optimizeSchemes[14])) /* Lincoa */
+            {
+               pAnalysis_.optimizeIntOptions_[0] = 1;
+               pAnalysis_.optimizeIntOptions_[1] = 14;
+            }
+            else if (!strcmp(winput4, optimizeSchemes[15])) /* Newuoa */
+            {
+               pAnalysis_.optimizeIntOptions_[0] = 1;
+               pAnalysis_.optimizeIntOptions_[1] = 15;
+            }
+            else if (!strcmp(winput4, optimizeSchemes[16])) /* ouu_newuoa */
+            {
+               pAnalysis_.optimizeIntOptions_[0] = 1;
+               pAnalysis_.optimizeIntOptions_[1] = 16;
+            }
+            else if (!strcmp(winput4, optimizeSchemes[17])) /* ouu_bobyqa */
+            {
+               pAnalysis_.optimizeIntOptions_[0] = 1;
+               pAnalysis_.optimizeIntOptions_[1] = 11;
+            }
+            else if (!strcmp(winput4, optimizeSchemes[18])) /* ouu_cobyla */
+            {
+               pAnalysis_.optimizeIntOptions_[0] = 1;
+               pAnalysis_.optimizeIntOptions_[1] = 18;
+            }
+            else if (!strcmp(winput4, optimizeSchemes[19])) /* lbfgs */
+            {
+               pAnalysis_.optimizeIntOptions_[0] = 1;
+               pAnalysis_.optimizeIntOptions_[1] = 19;
             }
             else
             {
@@ -3779,13 +3849,25 @@ void PsuadeData::writeInputSection(FILE *fOut)
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
       }
       else if (pInput_.inputPDFs_ != NULL &&
+               pInput_.inputPDFs_[ii] == PSUADE_PDF_INVGAMMA)
+      {
+         fprintf(fOut,"   PDF %d IG %12.5e %12.5e\n", ii+1,
+                 pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
+      }
+      else if (pInput_.inputPDFs_ != NULL &&
+               pInput_.inputPDFs_[ii] == PSUADE_PDF_CAUCHY)
+      {
+         fprintf(fOut,"   PDF %d C %12.5e %12.5e\n", ii+1,
+                 pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
+      }
+      else if (pInput_.inputPDFs_ != NULL &&
                pInput_.inputPDFs_[ii] == PSUADE_PDF_EXPONENTIAL)
       {
          fprintf(fOut,"   PDF %d E %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii]);
       }
       else if (pInput_.inputPDFs_ != NULL &&
-               pInput_.inputPDFs_[ii] == PSUADE_PDF_USER)
+               pInput_.inputPDFs_[ii] == PSUADE_PDF_SAMPLE)
       {
          fprintf(fOut,"   PDF %d S %s %d\n", ii+1,
             pInput_.sampleFileNames_[ii], pInput_.inputSIndices_[ii]);
@@ -3797,7 +3879,7 @@ void PsuadeData::writeInputSection(FILE *fOut)
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
       }
       else if (pInput_.inputPDFs_ != NULL &&
-               pInput_.inputPDFs_[ii] == PSUADE_PDF_USER2)
+               pInput_.inputPDFs_[ii] == PSUADE_PDF_SAMPLEHIST)
       {
          fprintf(fOut,"   PDF %d S2 %s %d\n", ii+1,
             pInput_.sampleFileNames_[ii], pInput_.inputSIndices_[ii]);
@@ -3824,6 +3906,20 @@ void PsuadeData::writeInputSection(FILE *fOut)
                  pInput_.fixedNames_[ii],pInput_.fixedValues_[ii]);
       }
    }
+   fprintf(fOut,"#  PDF <inpNum> N  <mean> <std>\n");
+   fprintf(fOut,"#  PDF <inpNum> L  <logmean> <std>\n");
+   fprintf(fOut,"#  PDF <inpNum> T  <center> <halfbasewidth>\n");
+   fprintf(fOut,"#  PDF <inpNum> B  <alpha> <beta>\n");
+   fprintf(fOut,"#  PDF <inpNum> G  <alpha> <beta>\n");
+   fprintf(fOut,"#  PDF <inpNum> W  <lambda> <K>\n");
+   fprintf(fOut,"#  PDF <inpNum> IG <alpha> <beta>\n");
+   fprintf(fOut,"#  PDF <inpNum> C  <X0> <gamma>\n");
+   fprintf(fOut,"#  PDF <inpNum> E  <lambda>\n");
+   fprintf(fOut,"#  PDF <inpNum> F  <D1> <D2>\n");
+   fprintf(fOut,"#  PDF <inpNum> S  <filename> <index>\n");
+   fprintf(fOut,"#  COR <inpNum> <inpNum> <value>\n");
+   fprintf(fOut,"#  num_fixed = <count>\n");
+   fprintf(fOut,"#  fixed <num> = <value>\n");
    fprintf(fOut,"END\n");
 }
 
@@ -4055,172 +4151,268 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    int ii;
 
    fprintf(fOut,"ANALYSIS\n");
+   fprintf(fOut, "##**********************************************\n");
+   fprintf(fOut, "## Moment - basic statistics\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_MOMENT) != 0) 
         fprintf(fOut,"   analyzer method = Moment\n"); 
    else fprintf(fOut,"#  analyzer method = Moment\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## MainEffect - raw data main effect analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ME) != 0) 
         fprintf(fOut,"   analyzer method = MainEffect\n"); 
    else fprintf(fOut,"#  analyzer method = MainEffect\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## TwoParamEffect - raw data pairwise analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_IE) != 0) 
         fprintf(fOut,"   analyzer method = TwoParamEffect\n"); 
    else fprintf(fOut,"#  analyzer method = TwoParamEffect\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## ANOVA - analysis of variance\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ANOVA) != 0) 
         fprintf(fOut,"   analyzer method = ANOVA\n"); 
    else fprintf(fOut,"#  analyzer method = ANOVA\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## GLSA - gradient-based sensitivity analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_GLSA)!= 0) 
         fprintf(fOut,"   analyzer method = GLSA\n");
    else fprintf(fOut,"#  analyzer method = GLSA\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## RSFA - response surface analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_RSFA) != 0)
         fprintf(fOut,"   analyzer method = RSFA\n");
    else fprintf(fOut,"#  analyzer method = RSFA\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## MOAT - Morris screening analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_MOAT) != 0)
         fprintf(fOut,"   analyzer method = MOAT\n");
    else fprintf(fOut,"#  analyzer method = MOAT\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## SOBOL - Sobol' analysis on Sobol' samples\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_SOBOL) != 0)
         fprintf(fOut,"   analyzer method = Sobol\n");
    else fprintf(fOut,"#  analyzer method = Sobol\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## Correlation - classical correlation analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_CORRELATION) != 0)
         fprintf(fOut,"   analyzer method = Correlation\n");
    else fprintf(fOut,"#  analyzer method = Correlation\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## Integration - find area under response surface\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_INTEGRATION) != 0)
         fprintf(fOut,"   analyzer method = Integration\n");
    else fprintf(fOut,"#  analyzer method = Integration\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## FAST - total sensitivity analysis using FAST samples\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_FAST) != 0)
         fprintf(fOut,"   analyzer method = FAST\n");
    else fprintf(fOut,"#  analyzer method = FAST\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## FF - screening using fractional factorial samples\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_FF) != 0)
         fprintf(fOut,"   analyzer method = FF\n");
    else fprintf(fOut,"#  analyzer method = FF\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## PCA - principal component analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_PCA) != 0)
         fprintf(fOut,"   analyzer method = PCA\n");
    else fprintf(fOut,"#  analyzer method = PCA\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ONESIGMA) != 0)
-        fprintf(fOut,"   analyzer method = ARSMGP\n");
-   else fprintf(fOut,"#  analyzer method = ARSMGP\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_FORM) != 0)
-        fprintf(fOut,"   analyzer method = FORM\n");
-   else fprintf(fOut,"#  analyzer method = FORM\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ONESIGMA) != 0)
+   //     fprintf(fOut,"   analyzer method = ARSMGP\n");
+   //else fprintf(fOut,"#  analyzer method = ARSMGP\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_FORM) != 0)
+   //     fprintf(fOut,"   analyzer method = FORM\n");
+   //else fprintf(fOut,"#  analyzer method = FORM\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## RSMSobol1 - response surface based main effect\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_RSSOBOL1) != 0)
         fprintf(fOut,"   analyzer method = RSMSobol1\n");
    else fprintf(fOut,"#  analyzer method = RSMSobol1\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## RSMSobol2 - response surface based pairwise effect\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_RSSOBOL2) != 0)
         fprintf(fOut,"   analyzer method = RSMSobol2\n");
    else fprintf(fOut,"#  analyzer method = RSMSobol2\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## RSMSobolTSI - response surface based total effect\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_RSSOBOLTSI) != 0)
         fprintf(fOut,"   analyzer method = RSMSobolTSI\n");
    else fprintf(fOut,"#  analyzer method = RSMSobolTSI\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_BSTRAP) != 0)
-        fprintf(fOut,"   analyzer method = Bootstrap\n");
-   else fprintf(fOut,"#  analyzer method = Bootstrap\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_BSTRAP) != 0)
+   //     fprintf(fOut,"   analyzer method = Bootstrap\n");
+   //else fprintf(fOut,"#  analyzer method = Bootstrap\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## RSMSobolG - response surface based group effect\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_RSSOBOLG) != 0)
         fprintf(fOut,"   analyzer method = RSMSobolG\n");
    else fprintf(fOut,"#  analyzer method = RSMSobolG\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## ARSM - adaptive NN-based response surface analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ARSM) != 0)
         fprintf(fOut,"   analyzer method = ARSMNN\n");
    else fprintf(fOut,"#  analyzer method = ARSMNN\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## ARSM - adaptive MARS-based response surface analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ARSMMB) != 0)
         fprintf(fOut,"   analyzer method = ARSM\n");
    else fprintf(fOut,"#  analyzer method = ARSM\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## REL - reliability analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_REL) != 0)
         fprintf(fOut,"   analyzer method = REL\n");
    else fprintf(fOut,"#  analyzer method = REL\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_AOPT) != 0)
-        fprintf(fOut,"   analyzer method = AOPT\n");
-   else fprintf(fOut,"#  analyzer method = AOPT\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_GOWER) != 0)
-        fprintf(fOut,"   analyzer method = GOWER\n");
-   else fprintf(fOut,"#  analyzer method = GOWER\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_AOPT) != 0)
+   //     fprintf(fOut,"   analyzer method = AOPT\n");
+   //else fprintf(fOut,"#  analyzer method = AOPT\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_GOWER) != 0)
+   //     fprintf(fOut,"   analyzer method = GOWER\n");
+   //else fprintf(fOut,"#  analyzer method = GOWER\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## DELTA - Delta test for parameter screening\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_DTEST) != 0)
         fprintf(fOut,"   analyzer method = DELTA\n");
    else fprintf(fOut,"#  analyzer method = DELTA\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ETEST) != 0)
-        fprintf(fOut,"   analyzer method = ETA\n");
-   else fprintf(fOut,"#  analyzer method = ETA\n");
-   if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ARSMMBBS) != 0)
-        fprintf(fOut,"   analyzer method = ARSM\n");
-   else fprintf(fOut,"#  analyzer method = ARSM\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ETEST) != 0)
+   //     fprintf(fOut,"   analyzer method = ETA\n");
+   //else fprintf(fOut,"#  analyzer method = ETA\n");
+   //if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ARSMMBBS) != 0)
+   //     fprintf(fOut,"   analyzer method = ARSM\n");
+   //else fprintf(fOut,"#  analyzer method = ARSM\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## LSA - local sensitivity analysis\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_LSA) != 0)
         fprintf(fOut,"   analyzer method = LSA\n");
    else fprintf(fOut,"#  analyzer method = LSA\n");
+   fprintf(fOut, "##**********************************************\n");
+
    if (pAnalysis_.analysisIntOptions_[1]+1 <= pOutput_.nOutputs_)
         fprintf(fOut,"   analyzer output_id  = %d\n", 
                 pAnalysis_.analysisIntOptions_[1]+1);
    else fprintf(fOut,"   analyzer output_id  = 1\n");
+
+   fprintf(fOut, "##**********************************************\n");
+   fprintf(fOut, "##RS: MARS - multivariate adaptive regression\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_MARS)
         fprintf(fOut,"   analyzer rstype = MARS\n");
    else fprintf(fOut,"#  analyzer rstype = MARS\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: linear - linear regression\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGR1)
         fprintf(fOut,"   analyzer rstype = linear\n"); 
    else fprintf(fOut,"#  analyzer rstype = linear\n"); 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: quadratic - quadratic regression\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGR2)
         fprintf(fOut,"   analyzer rstype = quadratic\n");
    else fprintf(fOut,"#  analyzer rstype = quadratic\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: cubic - third-order polynomial\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGR3)
         fprintf(fOut,"   analyzer rstype = cubic\n");
    else fprintf(fOut,"#  analyzer rstype = cubic\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: quartic - fourth-order polynomial\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGR4)
         fprintf(fOut,"   analyzer rstype = quartic\n");
    else fprintf(fOut,"#  analyzer rstype = quartic\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: selective - selected polynomial order terms\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGRS)
         fprintf(fOut,"   analyzer rstype = selective_regression\n");
    else fprintf(fOut,"#  analyzer rstype = selective_regression\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: GP1 - Gaussian process by MacKay\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_GP1)
         fprintf(fOut,"   analyzer rstype = GP1\n");
    else fprintf(fOut,"#  analyzer rstype = GP1\n");
-   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_GP2)
-        fprintf(fOut,"   analyzer rstype = GP2\n");
-   else fprintf(fOut,"#  analyzer rstype = GP2\n");
+   //if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_GP2)
+   //     fprintf(fOut,"   analyzer rstype = GP2\n");
+   //else fprintf(fOut,"#  analyzer rstype = GP2\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: SVM - support vector machine\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_SVM)
         fprintf(fOut,"   analyzer rstype = SVM\n");
    else fprintf(fOut,"#  analyzer rstype = SVM\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: PWL - piecewise linear approximation\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_PWL)
         fprintf(fOut,"   analyzer rstype = PWL\n");
    else fprintf(fOut,"#  analyzer rstype = PWL\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: TGP - treed Gaussian process by Lee et al.\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_TGP)
         fprintf(fOut,"   analyzer rstype = TGP\n");
    else fprintf(fOut,"#  analyzer rstype = TGP\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: MARSBag - MARS with bagging\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_MARSB)
         fprintf(fOut,"   analyzer rstype = MARSBag\n");
    else fprintf(fOut,"#  analyzer rstype = MARSBag\n");
-   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_EARTH)
-        fprintf(fOut,"   analyzer rstype = EARTH\n");
-   else fprintf(fOut,"#  analyzer rstype = EARTH\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: sum_of_trees based on repeated bisections\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_SOTS)
         fprintf(fOut,"   analyzer rstype = sum_of_trees\n");
    else fprintf(fOut,"#  analyzer rstype = sum_of_trees\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: Legendre - Legendre polynomial regression\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGRL)
         fprintf(fOut,"   analyzer rstype = Legendre\n");
    else fprintf(fOut,"#  analyzer rstype = Legendre\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: user - user provides basis functions\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGRU)
         fprintf(fOut,"   analyzer rstype = user_regression\n");
    else fprintf(fOut,"#  analyzer rstype = user_regression\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: sparse_grid - only with special quadrature pts \n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGSG)
         fprintf(fOut,"   analyzer rstype = sparse_grid_regression\n");
    else fprintf(fOut,"#  analyzer rstype = sparse_grid_regression\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: Krigining - using 2nd order correlation\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_KR)
         fprintf(fOut,"   analyzer rstype = Kriging\n");
    else fprintf(fOut,"#  analyzer rstype = Kriging\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: splines - splines on 2D/3D grid samples\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_SPLINES)
         fprintf(fOut,"   analyzer rstype = splines\n");
    else fprintf(fOut,"#  analyzer rstype = splines\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: KNN - k-nearest neighbors\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_KNN)
         fprintf(fOut,"   analyzer rstype = KNN\n");
    else fprintf(fOut,"#  analyzer rstype = KNN\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: RBF - radial basis function\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_RBF)
         fprintf(fOut,"   analyzer rstype = RBF\n");
    else fprintf(fOut,"#  analyzer rstype = RBF\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: ACOSSO - Curt Storlie's ACOSSO\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_ACOSSO)
         fprintf(fOut,"   analyzer rstype = Acosso\n");
    else fprintf(fOut,"#  analyzer rstype = Acosso\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: BSSANOVA - Curt Storlie's BSSANOVA\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_BSSANOVA)
         fprintf(fOut,"   analyzer rstype = Bssanova\n");
    else fprintf(fOut,"#  analyzer rstype = Bssanova\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: psuade_regression - PSUADE's internal function\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_LOCAL)
         fprintf(fOut,"   analyzer rstype = psuade_regression\n");
    else fprintf(fOut,"#  analyzer rstype = psuade_regression\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: RBFBag - RBF with bootstraps\n");
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_RBFB)
         fprintf(fOut,"   analyzer rstype = RBFBag\n");
    else fprintf(fOut,"#  analyzer rstype = RBFBag\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##RS: PLS - partial least squares (correlated inputs)\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_PLS)
+        fprintf(fOut,"   analyzer rstype = PLS\n");
+   else fprintf(fOut,"#  analyzer rstype = PLS\n");
+   fprintf(fOut, "##**********************************************\n");
    if (pAnalysis_.legendreOrder_ > 0)
         fprintf(fOut,"   analyzer rs_legendre_order = %d\n", 
                 pAnalysis_.legendreOrder_);
@@ -4265,6 +4457,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
         fprintf(fOut,"   rs_max_pts = %d\n", psFAMaxDataPts_);
    else fprintf(fOut,"#  rs_max_pts = 5000\n");
 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## rs_constraint - for constrained UA/SA analysis\n");
    if (pAnalysis_.numRSFilters_ > 0)
    {
       for (ii = 0; ii < pAnalysis_.numRSFilters_; ii++)
@@ -4278,8 +4472,12 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    }
    else
    {
-      fprintf(fOut,"#  analyzer rs_constraint = psData indexFile Lbnd Ubnd\n");
+      fprintf(fOut,
+         "#  analyzer rs_constraint = psData indexFile Lbnd Ubnd\n");
    }
+
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## moat_constraint - for constrained MOAT analysis\n");
    if (pAnalysis_.numMOATFilters_ > 0)
    {
       for (ii = 0; ii < pAnalysis_.numMOATFilters_; ii++)
@@ -4293,79 +4491,115 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    }
    else
    {
-      fprintf(fOut,"#  analyzer moat_constraint = psData indexFile Lbnd Ubnd\n");
+      fprintf(fOut,
+        "## analyzer moat_constraint = psData indexFile Lbnd Ubnd\n");
    }
+
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## rs_index_file - use rs but fix some inputs\n");
    if (strcmp(pAnalysis_.rsIndexFile_, "NONE"))
       fprintf(fOut,"   analyzer rs_index_file = %s\n",
               pAnalysis_.rsIndexFile_);
    else
       fprintf(fOut,"#  analyzer rs_index_file = indexFile\n");
 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## crude - optimize in raw data or rs spaces\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) && 
        (pAnalysis_.optimizeIntOptions_[1] == 0)) 
         fprintf(fOut, "   optimization method = crude\n");
    else fprintf(fOut, "#  optimization method = crude\n");
 
-   if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
-       (pAnalysis_.optimizeIntOptions_[1] == 1)) 
-        fprintf(fOut, "   optimization method = txmath\n");
-   else fprintf(fOut, "#  optimization method = txmath\n");
 
-   if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
-       (pAnalysis_.optimizeIntOptions_[1] == 2)) 
-        fprintf(fOut, "   optimization method = appspack\n");
-   else fprintf(fOut, "#  optimization method = appspack\n");
 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## minpack - optimize with user provided gradients\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 3)) 
         fprintf(fOut, "   optimization method = minpack\n");
    else fprintf(fOut, "#  optimization method = minpack\n");
 
-
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## sm - space mapping optimization\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 5)) 
         fprintf(fOut, "   optimization method = sm\n");
    else fprintf(fOut, "#  optimization method = sm\n");
 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## mm - manifold mapping optimization\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 6)) 
         fprintf(fOut, "   optimization method = mm\n");
    else fprintf(fOut, "#  optimization method = mm\n");
 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## mm - adaptive manifold mapping optimization\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 7)) 
         fprintf(fOut, "   optimization method = mm_adaptive\n");
    else fprintf(fOut, "#  optimization method = mm_adaptive\n");
 
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## cobyla: nonlinear inequality-constrained opt\n");
+   if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
+       (pAnalysis_.optimizeIntOptions_[1] == 4)) 
+        fprintf(fOut, "   optimization method = cobyla\n");
+   else fprintf(fOut, "#  optimization method = cobyla\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## bobyqa: bound-constrained optimization\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 8)) 
         fprintf(fOut, "   optimization method = bobyqa\n");
    else fprintf(fOut, "#  optimization method = bobyqa\n");
-
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## lincoa: linear inequality constrained opt\n");
+   if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
+       (pAnalysis_.optimizeIntOptions_[1] == 14)) 
+        fprintf(fOut, "   optimization method = lincoa\n");
+   else fprintf(fOut, "#  optimization method = lincoa\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## newuoa: unconstrained optimization\n");
+   if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
+       (pAnalysis_.optimizeIntOptions_[1] == 15)) 
+        fprintf(fOut, "   optimization method = newuoa\n");
+   else fprintf(fOut, "#  optimization method = newuoa\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "##  sce: genetic algorithm-type optimization\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 9)) 
         fprintf(fOut, "   optimization method = sce\n");
    else fprintf(fOut, "#  optimization method = sce\n");
-
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## moo - multi-objective optimization\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 10)) 
         fprintf(fOut, "   optimization method = moo\n");
    else fprintf(fOut, "#  optimization method = moo\n");
-
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## ouu - optimization under uncertainty\n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[1] == 11)) 
         fprintf(fOut, "   optimization method = ouu\n");
    else fprintf(fOut, "#  optimization method = ouu\n");
-
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## ouu_unconstr - ouu with no constraints \n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
-       (pAnalysis_.optimizeIntOptions_[1] == 12)) 
-        fprintf(fOut, "   optimization method = ouu1\n");
-   else fprintf(fOut, "#  optimization method = ouu1\n");
-
+       (pAnalysis_.optimizeIntOptions_[1] == 16)) 
+        fprintf(fOut, "   optimization method = ouu_unconstr\n");
+   else fprintf(fOut, "#  optimization method = ouu_unconstr\n");
+   fprintf(fOut, "##==============================================\n");
+   fprintf(fOut, "## ouu_ineq_constr - ouu with inequality constraints \n");
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
-       (pAnalysis_.optimizeIntOptions_[1] == 13)) 
-        fprintf(fOut, "   optimization method = ouu2\n");
-   else fprintf(fOut, "#  optimization method = ouu2\n");
+       (pAnalysis_.optimizeIntOptions_[1] == 18)) 
+        fprintf(fOut, "   optimization method = ouu_ineq_constr\n");
+   else fprintf(fOut, "#  optimization method = ouu_ineq_constr\n");
+   if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
+       (pAnalysis_.optimizeIntOptions_[1] == 19)) 
+        fprintf(fOut, "   optimization method = lbfgs\n");
+   else fprintf(fOut, "#  optimization method = lbfgs\n");
+
+   fprintf(fOut, "#***********************************************\n");
 
    if ((pAnalysis_.optimizeIntOptions_[0] > 0) &&
        (pAnalysis_.optimizeIntOptions_[2] > 0)) 

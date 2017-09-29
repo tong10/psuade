@@ -32,7 +32,6 @@
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "Psuade.h"
-#include "Matrix.h"
 #include "pData.h"
 #include "PsuadeData.h"
 #include "RSConstraints.h"
@@ -241,12 +240,15 @@ double MainEffectAnalyzer::analyze(aData &adata)
          printOutTS(PL_INFO,"*     ==> crude main effect analysis.\n");
          computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
                          aVariance, vce);
-         pData *pPtr = ioPtr->getAuxData();
-         pPtr->nDbles_ = nInputs;
-         pPtr->dbleArray_ = new double[nInputs * nInputs];
-         for (ii = 0; ii < nInputs; ii++)
-            pPtr->dbleArray_[ii] = vce[ii];
-         pPtr->dbleData_ = aVariance;
+         if (ioPtr != NULL)
+         {
+            pData *pPtr = ioPtr->getAuxData();
+            pPtr->nDbles_ = nInputs;
+            pPtr->dbleArray_ = new double[nInputs * nInputs];
+            for (ii = 0; ii < nInputs; ii++)
+               pPtr->dbleArray_[ii] = vce[ii];
+            pPtr->dbleData_ = aVariance;
+         }
          printResults(nInputs, aVariance, vce, ioPtr);
 
          delete [] vce;
@@ -316,12 +318,15 @@ double MainEffectAnalyzer::analyze(aData &adata)
       computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
                       aVariance, vce);
       printResults(nInputs, aVariance, vce, ioPtr);
-      pData *pPtr = ioPtr->getAuxData();
-      pPtr->nDbles_ = nInputs;
-      pPtr->dbleArray_ = new double[nInputs * nInputs];
-      for (ii = 0; ii < nInputs; ii++)
-         pPtr->dbleArray_[ii] = vce[ii];
-      pPtr->dbleData_ = aVariance;
+      if (ioPtr != NULL)
+      {
+         pData *pPtr = ioPtr->getAuxData();
+         pPtr->nDbles_ = nInputs;
+         pPtr->dbleArray_ = new double[nInputs * nInputs];
+         for (ii = 0; ii < nInputs; ii++)
+            pPtr->dbleArray_[ii] = vce[ii];
+         pPtr->dbleData_ = aVariance;
+      }
 
       delete [] Y;
       delete [] vce;
@@ -334,12 +339,15 @@ double MainEffectAnalyzer::analyze(aData &adata)
       if(fp != NULL) fclose(fp);
       return 0.0;
    }
-   pData *pPtr = ioPtr->getAuxData();
-   pPtr->nDbles_ = nInputs;
-   pPtr->dbleArray_ = new double[nInputs * nInputs];
-   for (ii = 0; ii < nInputs; ii++)
-      pPtr->dbleArray_[ii] = vce[ii];
-   pPtr->dbleData_ = aVariance;
+   if (ioPtr != NULL)
+   {
+      pData *pPtr = ioPtr->getAuxData();
+      pPtr->nDbles_ = nInputs;
+      pPtr->dbleArray_ = new double[nInputs * nInputs];
+      for (ii = 0; ii < nInputs; ii++)
+         pPtr->dbleArray_[ii] = vce[ii];
+      pPtr->dbleData_ = aVariance;
+   }
 
 
 #if 1

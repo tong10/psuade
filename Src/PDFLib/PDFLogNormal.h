@@ -52,7 +52,7 @@ public:
    int getPDF(int, double *, double *);
    int getCDF(int, double *, double *);
    int invCDF(int, double *, double *, double, double);
-   int genSample(int, double *, double, double);
+   int genSample(int, double *, double *, double *);
    double getMean();
 };
 

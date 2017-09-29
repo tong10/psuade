@@ -27,6 +27,8 @@
 #ifndef __gNH__
 #define __gNH__
 
+#include "Vector.h"
+
 // ************************************************************************
 // class definition
 // ************************************************************************
@@ -66,7 +68,7 @@ public:
 
    /** This function creates a tree of grid nodes
     */
-   int  createTree(int, int *, int, double *, int, Vector &);
+   int  createTree(int, int *, int, double *, int, psVector &);
 };
 
 #endif // __GNH__

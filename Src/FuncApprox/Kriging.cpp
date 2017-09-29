@@ -54,6 +54,8 @@ extern "C" {
                 int *, int *);
    void kbobyqa_(int *,int *, double *, double *, double *, double *,
                 double *, int *, int *, double*);
+   void newuoa_(int *,int *,double *,double *,double *,int *,
+                int *,double*);
 }
 
 // ************************************************************************
@@ -178,7 +180,8 @@ extern "C"
             KRI_MMatrix[jj+kk*nBasis] = ddata;
          }
       }
-      if (nBasis > 1) dpotrf_(&uplo, &nBasis, KRI_MMatrix, &nBasis, &status);
+      if (nBasis > 1) 
+         dpotrf_(&uplo,&nBasis,KRI_MMatrix,&nBasis,&status);
       for (jj = 0; jj < KRI_nSamples; jj++) KRI_Ytmp[jj] = KRI_Y[jj];
       kk = 1;
       dpotrs_(&uplo,&KRI_nSamples,&kk,KRI_SMatrix,&KRI_nSamples,KRI_Ytmp,
@@ -202,19 +205,20 @@ extern "C"
       else
       {
          kk = 1;
-         dpotrs_(&uplo,&kk,&kk,KRI_MMatrix,&nBasis,&KRI_Ytmp[KRI_nSamples],
-                 &kk, &status);
+         dpotrs_(&uplo,&kk,&kk,KRI_MMatrix,&nBasis,
+                 &KRI_Ytmp[KRI_nSamples], &kk, &status);
       }
       for (jj = 0; jj < KRI_nSamples; jj++)
       {
          ddata = 0.0;
          for (ii = 0; ii < nBasis; ii++)
-            ddata += KRI_FMatrix[jj+ii*KRI_nSamples]*KRI_Ytmp[ii+KRI_nSamples];
+            ddata += KRI_FMatrix[jj+ii*KRI_nSamples]*
+                     KRI_Ytmp[ii+KRI_nSamples];
          KRI_Ytmp[jj] = KRI_Y[jj] - ddata;
       }
       kk = 1;
-      dpotrs_(&uplo,&KRI_nSamples,&kk,KRI_SMatrix,&KRI_nSamples,KRI_Ytmp,
-              &KRI_nSamples, &status);
+      dpotrs_(&uplo,&KRI_nSamples,&kk,KRI_SMatrix,&KRI_nSamples,
+              KRI_Ytmp,&KRI_nSamples, &status);
 
       ddata = 0.0;
       for (jj = 0; jj < KRI_nSamples; jj++)
@@ -384,7 +388,7 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
             fscanf(fp, "%d", &ii); 
             if (ii != nSamples_)
             {
-               printf("Kriging ERROR: std. dev. file should have %d entries.\n",
+               printf("Kriging ERROR: stdev file should have %d entries.\n",
                       nSamples_);
                fclose(fp);
             }
@@ -419,7 +423,8 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       if (fp != NULL)
       {
          printf("Kriging: psuade_kriging_optdata file found.\n");
-         sprintf(pString,"Use Kriging length scales from the file? (y or n) ");
+         sprintf(pString,
+                 "Use Kriging length scales from the file? (y or n) ");
          getString(pString, winput);
          if (winput[0] == 'y')
             for (ii = 0; ii < nInputs_; ii++) fscanf(fp,"%lg",&Thetas_[ii]); 
@@ -465,7 +470,8 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
                   getString(pString, winput);
                   if (winput[0] == 'y')
                   {
-                     for (jj = 1; jj < nInputs_; jj++) Thetas_[jj] = Thetas_[0];
+                     for (jj = 1; jj < nInputs_; jj++) 
+                        Thetas_[jj] = Thetas_[0];
                      break;
                   }
                }
@@ -478,7 +484,7 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          optTolerance_ = getDouble(pString);
          if (optTolerance_ <= 0 || optTolerance_ > 0.5)
          {
-            printf("Kriging INFO: optimization tolerance should be in (0,0.5]).\n");
+            printf("Kriging INFO: optimization tol should be in (0,0.5]).\n");
             printf("              Tolerance set to default = 1.0e-4.\n");
             optTolerance_ = 1.0e-4;
          }
@@ -508,7 +514,8 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
                      getString(pString, winput);
                      if (winput[0] == 'y')
                      {
-                        for (jj = 1; jj < nInputs_; jj++) Thetas_[jj] = Thetas_[0];
+                        for (jj = 1; jj < nInputs_; jj++) 
+                           Thetas_[jj] = Thetas_[0];
                         break;
                      }
                   }
@@ -625,7 +632,7 @@ int Kriging::gen1DGridData(double *X, double *Y, int ind1, double *settings,
 // Generate 2D results for display
 // ------------------------------------------------------------------------
 int Kriging::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
-                           double *settings, int *n, double **X2, double **Y2)
+                      double *settings, int *n, double **X2, double **Y2)
 {
    int    ii, jj, kk, totPts, index;
    double *HX, *XX, *YY;
@@ -919,20 +926,21 @@ double Kriging::train(double *X, double *Y)
          }
          if (psMasterMode_ == 1 && psInteractive_ == 1)
          {
-            printf("Kriging: current optimization lower bound for input %d = %e\n",
-                   ii+1,TLowers[ii]);
+            printf("Kriging: for input %d :\n", ii+1);
+            printf("Kriging: current optimization lower bound = %e\n",
+                   TLowers[ii]);
             sprintf(pString,
-               "Kriging: Enter optimization lower bound for input %d : ",ii+1);
+               "Kriging: Enter new optimization lower bound : ");
             TLowers[ii] = getDouble(pString);
             if (TLowers[ii] <= 0.0)
             {
                printf("Kriging ERROR: lower bound <= 0\n");
                exit(1);
             }
-            printf("Kriging: current optimization upper bound for input %d = %e\n",
-                   ii+1,TUppers[ii]);
+            printf("Kriging: current optimization upper bound = %e\n",
+                   TUppers[ii]);
             sprintf(pString,
-               "Kriging: Enter optimization upper bound for input %d : ",ii+1);
+               "Kriging: Enter optimization upper bound : ");
             TUppers[ii] = getDouble(pString);
             if (TLowers[ii] > TUppers[ii])
             {
@@ -951,7 +959,10 @@ double Kriging::train(double *X, double *Y)
       rhoend = rhobeg * optTolerance_;
       TValues = new double[nInputs_+1];
       nPts = (nInputs_ + 1) * (nInputs_ + 2) / 2;
-      work = new double[(nPts+5)*(nPts+nInputs_)+3*nInputs_*(nInputs_+5)/2+1];
+      jj = (nPts+13) * (nPts+nInputs_) + 3*nInputs_*(nInputs_+3)/2;
+      kk = (nPts+5)*(nPts+nInputs_)+3*nInputs_*(nInputs_+5)/2+1;
+      if (jj > kk) work = new double[jj];
+      else         work = new double[kk];
       if (outputLevel_ > 0)
       {
          printEquals(PL_INFO, 0);
@@ -994,7 +1005,7 @@ double Kriging::train(double *X, double *Y)
          sampler->setPrintLevel(0);
          sampler->setInputBounds(nInputs_, TLowers, TUppers);
          sampler->setOutputParams(iOne);
-         sampler->setSamplingParams(nSamOpt, iOne, iZero);
+         sampler->setSamplingParams(nSamOpt+2, iOne, iZero);
          sampler->initialize(0);
          nSamOpt = sampler->getNumSamples();
          samInputs  = new double[nSamOpt * nInputs_];
@@ -1002,6 +1013,9 @@ double Kriging::train(double *X, double *Y)
          samStates  = new int[nSamOpt];
          sampler->getSamples(nSamOpt, nInputs_, iOne, samInputs,
                              samOutputs, samStates);
+         nSamOpt -= 2;
+         for (ii = 0; ii < nSamOpt*nInputs_; ii++)
+            samInputs[ii] = samInputs[ii+2*nInputs_];
          delete [] samOutputs;
          delete [] samStates;
          delete sampler;
@@ -1052,7 +1066,6 @@ double Kriging::train(double *X, double *Y)
             printf("Kriging multi-start optimization: start = %d (%d)\n",
                    kk+1, nSamOpt);
          KRI_iter = 0;
-         pLevel = 8888;
          for (ii = 0; ii < nInputs_; ii++) 
             TValues[ii] = samInputs[kk*nInputs_+ii];
          if (outputLevel_ >= 1) 
@@ -1061,10 +1074,17 @@ double Kriging::train(double *X, double *Y)
                printf("Kriging: Input %4d initial length scale = %e\n",
                       ii+1,TValues[ii]);
          }
-#ifdef HAVE_BOBYQA
          KRI_noProgressCnt = 0;
-         kbobyqa_(&nInputs_,&nPts,TValues,TLowers,TUppers,&rhobeg,&rhoend,
-                  &pLevel, &maxfun, work);
+#ifdef HAVE_BOBYQA
+//       pLevel = 8888;
+//       kbobyqa_(&nInputs_,&nPts,TValues,TLowers,TUppers,&rhobeg,&rhoend,
+//                &pLevel, &maxfun, work);
+#endif
+#ifdef HAVE_NEWUOA
+         pLevel = 6666;
+         newuoa_(&nInputs_, &nPts, TValues, &rhobeg, &rhoend, &pLevel,
+                 &maxfun, work);
+#endif
          if (outputLevel_ >= 1) 
          {
             printf("Kriging multi-start optimization: iteration = %d (%d)\n",
@@ -1072,13 +1092,19 @@ double Kriging::train(double *X, double *Y)
             for (ii = 0; ii < nInputs_; ii++) 
                printf("Kriging: Input %4d final length scale = %e\n",
                       ii+1,TValues[ii]);
-            printf("Kriging final objective value = %e\n", KRI_currY);
+            printf("Kriging final objective value = %e (ref = %e)\n", 
+                   KRI_currY, rhoend);
          }
          if (KRI_OptY < optY)
          {
             optY = KRI_OptY;
             for (ii = 0; ii < nInputs_; ii++)
                optThetas[ii] = KRI_OptThetas[ii];
+            if (optY < rhoend)
+            {
+               printf("Kriging INFO: termination (sufficiently accurate)\n");
+               break;
+            }
          }
          fp = fopen("psuade_stop", "r");
          if (fp != NULL)
@@ -1096,7 +1122,8 @@ double Kriging::train(double *X, double *Y)
             printf("Kriging: turn on rs_expert mode.\n");
             psRSExpertMode_ = 1;
          }
-         for (ii = 0; ii < nInputs_; ii++) TValSave[kk*nInputs_+ii] = TValues[ii];
+         for (ii = 0; ii < nInputs_; ii++) 
+            TValSave[kk*nInputs_+ii] = TValues[ii];
          if (kk >= 4)
          {
             for (ii = 0; ii < nInputs_; ii++)
@@ -1116,15 +1143,14 @@ double Kriging::train(double *X, double *Y)
             if (stopFlag == nInputs_) 
             {
                if (outputLevel_ >= 1) 
-                  printf("Kriging INFO: same optimum after %d iterations, stop.\n",
+               {
+                  printf("Kriging INFO: same optimum after %d iterations.\n",
                          kk+1);
+                  printf("              Stop further processing.\n");
+               }
                break;
             }  
          }  
-#else
-         printf("ERROR: Bobyqa optimizer not installed.\n");
-         exit(1);
-#endif
       }
       for (ii = 0; ii < nInputs_; ii++) Thetas_[ii] = optThetas[ii];
       if (outputLevel_ >= 1) 
@@ -1364,7 +1390,8 @@ double Kriging::train(double *X, double *Y)
    fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
    fprintf(fp,"    exit(1);\n");
    fprintf(fp,"  }\n");
-   fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+   fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",
+           nInputs_);
    fprintf(fp,"  fclose(fIn);\n");
    fprintf(fp,"  initialize();\n");
    fprintf(fp,"  interpolate(iOne, X, &Y, &Std);\n");
@@ -1780,7 +1807,8 @@ double Kriging::train(double *X, double *Y)
    fprintf(fp,"  WX = (2 * nBasis) * [0.0]\n");
    fprintf(fp,"  for ss in range(npts) : \n");
    fprintf(fp,"    for ii in range(nInputs) : \n");
-   fprintf(fp,"      Xt[ii] = (XX[ss*nInputs+ii]-XParams[ii][0])/XParams[ii][1]\n");
+   fprintf(fp,
+      "      Xt[ii] = (XX[ss*nInputs+ii]-XParams[ii][0])/XParams[ii][1]\n");
    fprintf(fp,"    for jj in range(nSamples) : \n");
    fprintf(fp,"      sig = 0.0\n");
    fprintf(fp,"      for ii in range(nInputs) : \n");

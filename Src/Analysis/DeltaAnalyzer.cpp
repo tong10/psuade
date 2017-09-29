@@ -85,7 +85,7 @@ double DeltaAnalyzer::analyze(aData &adata)
    X          = adata.sampleInputs_;
    YY         = adata.sampleOutputs_;
    nInputs    = adata.nInputs_;
-   nInputs_	  = nInputs;
+   nInputs_   = nInputs;
    nOutputs   = adata.nOutputs_;
    nSamples   = adata.nSamples_;
    outputID   = adata.outputID_;

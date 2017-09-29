@@ -66,9 +66,9 @@ RSMSobol2Analyzer::~RSMSobol2Analyzer()
 // ------------------------------------------------------------------------
 double RSMSobol2Analyzer::analyze(aData &adata)
 {
-   int    nInputs, nOutputs, nSamples, ii, jj, kk, *S, status, outputID;
-   int    nSubSamples=100, iL, sCnt, *SS, nLevels=100, noPDF=1;
-   int    ii2, iR, currNLevels, nSamp, printLevel, *pdfFlags;
+   int    nInputs, nOutputs, nSamples, ii, jj, kk, status, outputID;
+   int    nSubSamples=100, iL, sCnt, *SS, nLevels=100, noPDF=1, pdfNull=0;
+   int    ii2, iR, currNLevels, nSamp, printLevel, *pdfFlags, rstype;
    int    *bins, totalCnt, *pdfFlags1, *pdfFlags2, selectedInput=-1;
    double *xLower, *xUpper, *X, *Y, *Y2, *YY, *cLower, *cUpper, *XX;
    double *oneSamplePt, *means, *vars, vce, ddata, variance, *ZZ;
@@ -79,9 +79,9 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    PsuadeData    *ioPtr;
    FuncApprox    *faPtr;
    RSConstraints *constrPtr;
-   Vector        vecIn, vecOut, vecUB, vecLB;
+   psVector      vecIn, vecOut, vecUB, vecLB;
    pData         pCorMat, pPDF;
-   Matrix        *corMatp, corMat;
+   psMatrix      *corMatp, corMat;
    PDFManager    *pdfman, *pdfman1, *pdfman2;
    Sampling      *sampler;
 
@@ -107,20 +107,32 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    xUpper      = adata.iUpperB_;
    X           = adata.sampleInputs_;
    Y2          = adata.sampleOutputs_;
-   S           = adata.sampleStates_;
    outputID    = adata.outputID_;
    ioPtr       = adata.ioPtr_;
    printLevel  = adata.printLevel_;
    pdfFlags    = adata.inputPDFs_;
    inputMeans  = adata.inputMeans_;
    inputStdevs = adata.inputStdevs_;
+   if (inputMeans == NULL || pdfFlags == NULL || inputStdevs == NULL)
+   {
+      pdfNull = 1;
+      pdfFlags    = new int[nInputs];
+      inputMeans  = new double[nInputs];
+      inputStdevs = new double[nInputs];
+      for (ii = 0; ii < nInputs; ii++)
+      {
+         pdfFlags[ii] = 0;
+         inputMeans[ii]  = 0;
+         inputStdevs[ii] = 0;
+      }
+   }
    if (pdfFlags != NULL)
    {
       for (ii = 0; ii < nInputs; ii++)
          if (pdfFlags[ii] != 0) noPDF = 0;
       for (ii = 0; ii < nInputs; ii++)
       {
-         if (pdfFlags[ii] == PSUADE_PDF_USER)
+         if (pdfFlags[ii] == PSUADE_PDF_SAMPLE)
          {
             printOutTS(PL_ERROR,
                  "RSMSobol2 ERROR: S PDF type not currently supported.\n");
@@ -159,26 +171,33 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    }
    if (ioPtr == NULL)
    {
-      printOutTS(PL_ERROR,"RSMSobol2 ERROR: no data.\n");
-      return PSUADE_UNDEFINED;
+      printOutTS(PL_INFO,
+           "RSMSobol2 INFO: no data object (PsuadeData) found.\n");
+      printOutTS(PL_INFO,"          Several features will be turned off.\n");
+      corMatp = new psMatrix();
+      corMatp->setDim(nInputs, nInputs);
+      for (ii = 0; ii < nInputs; ii++) corMatp->setEntry(ii,ii,1.0e0);
    } 
-   ioPtr->getParameter("input_cor_matrix", pCorMat);
-   corMatp = (Matrix *) pCorMat.psObject_;
-   for (ii = 0; ii < nInputs; ii++)
+   else
    {
-      for (jj = 0; jj < ii; jj++)
+      ioPtr->getParameter("input_cor_matrix", pCorMat);
+      corMatp = (psMatrix *) pCorMat.psObject_;
+      for (ii = 0; ii < nInputs; ii++)
       {
-         if (corMatp->getEntry(ii,jj) != 0.0)
+         for (jj = 0; jj < ii; jj++)
          {
-            printOutTS(PL_INFO,
-                 "RSMSobol2 INFO: this method cannot handle correlated\n");
-            printOutTS(PL_INFO,
-                 "          inputs using joint PDFs. PSUADE will try\n");
-            printOutTS(PL_INFO,
-                 "          a variant of this method, or you can re-run\n");
-            printOutTS(PL_INFO,
-                 "          using the group variance-based method.\n");
-            return analyze2(adata);
+            if (corMatp->getEntry(ii,jj) != 0.0)
+            {
+               printOutTS(PL_INFO,
+                    "RSMSobol2 INFO: this method cannot handle correlated\n");
+               printOutTS(PL_INFO,
+                    "          inputs using joint PDFs. PSUADE will try\n");
+               printOutTS(PL_INFO,
+                    "          a variant of this method, or you can re-run\n");
+               printOutTS(PL_INFO,
+                    "          using the group variance-based method.\n");
+               return analyze2(adata);
+            }
          }
       }
    }
@@ -196,10 +215,27 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    Y = new double[nSamples];
    for (ii = 0; ii < nSamples; ii++) Y[ii] = Y2[ii*nOutputs+outputID];
 
-   constrPtr = new RSConstraints();
-   constrPtr->genConstraints(ioPtr);
+   if (ioPtr != NULL)
+   {
+      constrPtr = new RSConstraints();
+      constrPtr->genConstraints(ioPtr);
+   }
+   else 
+   {
+      constrPtr = NULL;
+      printf("RSMSobolTSI INFO: no PsuadeData ==> no constraints.\n");
+   }
 
-   faPtr = genFAInteractive(ioPtr, 0);
+   if (ioPtr == NULL)
+   {
+      printf("Select response surface. Options are: \n");
+      writeFAInfo(0);
+      strcpy(pString, "Choose response surface: ");
+      rstype = getInt(0, PSUADE_NUM_RS, pString);
+      faPtr = genFA(rstype, nInputs, 0, nSamples);
+   }
+   else faPtr = genFAInteractive(ioPtr, 0);
+   faPtr->setBounds(xLower, xUpper);
    status = faPtr->initialize(X, Y);
 
    printAsterisks(PL_INFO, 0);
@@ -248,7 +284,8 @@ double RSMSobol2Analyzer::analyze(aData &adata)
             else
             {
                printOutTS(PL_INFO, 
-                  "RSMSobol2 INFO: nSubSamples = %d (config).\n",nSubSamples);
+                  "RSMSobol2 INFO: nSubSamples = %d (config).\n",
+                  nSubSamples);
             }
          }
          cString = psConfig_->getParameter("RSMSobol2_nlevels");
@@ -321,7 +358,9 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    for (ii = 0; ii < nSamp; ii++)
    {
       oneSamplePt = &(XX[ii*nInputs]);
-      ddata = constrPtr->evaluate(oneSamplePt,YY[ii],status);
+      status = 1;
+      if (constrPtr != NULL)
+         ddata = constrPtr->evaluate(oneSamplePt,YY[ii],status);
       if (status == 0) YY[ii] = PSUADE_UNDEFINED;
    }
    
@@ -385,11 +424,15 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    samplePts2D  = new double[nLevels*nLevels*2];
    mSamplePts   = new double[nInputs*nSubSamples];
 
-   pData *pPtr = ioPtr->getAuxData();
-   pPtr->nDbles_ = nInputs * nInputs;
-   pPtr->dbleArray_ = new double[nInputs * nInputs];
-   for (ii = 0; ii < nInputs*nInputs; ii++) pPtr->dbleArray_[ii] = 0.0;
-   pPtr->dbleData_ = variance;
+   pData *pPtr = NULL;
+   if (ioPtr != NULL)
+   {
+      pPtr = ioPtr->getAuxData();
+      pPtr->nDbles_ = nInputs * nInputs;
+      pPtr->dbleArray_ = new double[nInputs * nInputs];
+      for (ii = 0; ii < nInputs*nInputs; ii++) pPtr->dbleArray_[ii] = 0.0;
+      pPtr->dbleData_ = variance;
+   }
 
    printAsterisks(PL_INFO, 0);
 
@@ -399,7 +442,8 @@ double RSMSobol2Analyzer::analyze(aData &adata)
       {
          vce = 0.0;
          if (ii2 <= ii) continue;
-         if (selectedInput != -1 && ii != selectedInput && ii2 != selectedInput)
+         if (selectedInput != -1 && ii != selectedInput && 
+             ii2 != selectedInput)
             continue;
          printOutTS(PL_DETAIL, "RSMSobol2: processing input pair %d, %d\n",
                     ii+1, ii2+1);
@@ -445,7 +489,8 @@ double RSMSobol2Analyzer::analyze(aData &adata)
                sampler->initialize(0);
                SS = new int[currNLevels*currNLevels];
                ZZ = new double[currNLevels*currNLevels];
-               sampler->getSamples(currNLevels*currNLevels,2,1,samplePts2D,ZZ,SS);
+               sampler->getSamples(currNLevels*currNLevels,2,1,
+                                   samplePts2D,ZZ,SS);
                delete [] SS;
                delete [] ZZ;
                delete sampler;
@@ -542,7 +587,9 @@ double RSMSobol2Analyzer::analyze(aData &adata)
                for (jj = 0; jj < nSubSamples; jj++)
                {
                   oneSamplePt = &(mSamplePts[jj*nInputs]);
-                  ddata = constrPtr->evaluate(oneSamplePt,YY[jj],status);
+                  status = 1;
+                  if (constrPtr != NULL)
+                     ddata = constrPtr->evaluate(oneSamplePt,YY[jj],status);
                   if (status == 0) YY[jj] = PSUADE_UNDEFINED;
                }
 
@@ -558,7 +605,8 @@ double RSMSobol2Analyzer::analyze(aData &adata)
                }
                bins[iL] = sCnt;
                if (sCnt < 1 && printLevel >= 5)
-                  printOutTS(PL_INFO, "RSMSobol2 WARNING: subsample size = 0.\n");
+                  printOutTS(PL_INFO, 
+                       "RSMSobol2 WARNING: subsample size = 0.\n");
                if (sCnt < 1) means[iL] = PSUADE_UNDEFINED;
                else          means[iL] /= (double) sCnt;
 
@@ -576,11 +624,14 @@ double RSMSobol2Analyzer::analyze(aData &adata)
 
             dmean = 0.0;
             totalCnt = 0;
-            for (iL = 0; iL < currNLevels*currNLevels; iL++) totalCnt += bins[iL];
+            for (iL = 0; iL < currNLevels*currNLevels; iL++) 
+               totalCnt += bins[iL];
             if (totalCnt == 0)
             {
-               printOutTS(PL_ERROR,"RSMSobol2 ERROR: empty constrained space.\n");
-               printOutTS(PL_ERROR,"          Either try larger sample size or\n");
+               printOutTS(PL_ERROR,
+                    "RSMSobol2 ERROR: empty constrained space.\n");
+               printOutTS(PL_ERROR,
+                    "          Either try larger sample size or\n");
                printOutTS(PL_ERROR,"          use looser constraints.\n");
                exit(1);
             }
@@ -593,19 +644,23 @@ double RSMSobol2Analyzer::analyze(aData &adata)
             for (iL = 0; iL < currNLevels*currNLevels; iL++)
             {
                if (means[iL] != PSUADE_UNDEFINED)
-                  vce += (means[iL]-dmean) * (means[iL]-dmean) * bins[iL] / totalCnt;
+                  vce += (means[iL]-dmean) * (means[iL]-dmean) * 
+                         bins[iL] / totalCnt;
             }
 
             ecv = 0.0;
             for (iL = 0; iL < currNLevels*currNLevels; iL++)
-               if (vars[iL] != PSUADE_UNDEFINED) ecv += vars[iL] * bins[iL] / totalCnt;
+               if (vars[iL] != PSUADE_UNDEFINED) 
+                  ecv += vars[iL] * bins[iL] / totalCnt;
 
             if (printLevel > 1 || iR == 1)
-               printOutTS(PL_INFO, "VCE(%3d,%3d) = %12.4e, (normalized) = %10.3e\n",
-                          ii+1, ii2+1, vce, vce/variance);
+               printOutTS(PL_INFO, 
+                    "VCE(%3d,%3d) = %12.4e, (normalized) = %10.3e\n",
+                    ii+1, ii2+1, vce, vce/variance);
             if (printLevel > 2)
-               printOutTS(PL_INFO, "ECV(%3d,%3d) = %12.4e, (normalized) = %10.3e\n",
-                          ii+1, ii2+1, ecv, ecv/variance);
+               printOutTS(PL_INFO, 
+                    "ECV(%3d,%3d) = %12.4e, (normalized) = %10.3e\n",
+                    ii+1, ii2+1, ecv, ecv/variance);
             currNLevels *= 2;
          }
 
@@ -616,14 +671,15 @@ double RSMSobol2Analyzer::analyze(aData &adata)
          //auto ECV = std::tuple<int, int, double>(ii, ii2, ecv);
          record rec2 = {ii+1, ii2+1, ecv};
          ecvs_.push_back(rec2);
-         pPtr->dbleArray_[ii*nInputs+ii2] = vce;
-         pPtr->dbleArray_[ii2*nInputs+ii] = vce;
+         if (pPtr != NULL)
+         {
+            pPtr->dbleArray_[ii*nInputs+ii2] = vce;
+            pPtr->dbleArray_[ii2*nInputs+ii] = vce;
+         }
       }
    }
    printAsterisks(PL_INFO, 0);
 
-   delete constrPtr;
-   delete faPtr;
    delete [] cLower;
    delete [] cUpper;
    delete [] XX;
@@ -640,6 +696,15 @@ double RSMSobol2Analyzer::analyze(aData &adata)
    delete [] inputMeans2;
    delete [] inputStdevs1;
    delete [] inputStdevs2;
+   delete faPtr;
+   if (ioPtr == NULL) delete corMatp;
+   if (constrPtr != NULL) delete constrPtr;
+   if (pdfNull == 1)
+   {
+      delete [] pdfFlags;
+      delete [] inputMeans;
+      delete [] inputStdevs;
+   }
    return 0.0;
 }
 
@@ -648,7 +713,7 @@ double RSMSobol2Analyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 double RSMSobol2Analyzer::analyze2(aData &adata)
 {
-   int    nInputs, nOutputs, nSamples, ii, ii2, jj, iR, *S, status;
+   int    nInputs, nOutputs, nSamples, ii, ii2, jj, iR, status;
    int    nSubSamples=100, iL, sCnt, nLevels=100, outputID;
    int    currNLevels, nSamp, printLevel, *bins, totalCnt, bin1, bin2;
    double *xLower, *xUpper, *X, *Y, *XX, *YY, *Y2, dmean, ecv, ddata;
@@ -657,7 +722,7 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
    PsuadeData    *ioPtr;
    FuncApprox    *faPtr;
    RSConstraints *constrPtr;
-   Vector        vecIn, vecOut, vecUB, vecLB;
+   psVector      vecIn, vecOut, vecUB, vecLB;
    PDFManager    *pdfman;
 
    printAsterisks(PL_INFO, 0);
@@ -670,7 +735,6 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
    xUpper      = adata.iUpperB_;
    X           = adata.sampleInputs_;
    Y2          = adata.sampleOutputs_;
-   S           = adata.sampleStates_;
    outputID    = adata.outputID_;
    ioPtr       = adata.ioPtr_;
    printLevel  = adata.printLevel_;
@@ -683,7 +747,8 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
    faPtr = genFAInteractive(ioPtr, 0);
    if (faPtr == NULL)
    {
-      printOutTS(PL_ERROR,"RSMSobol2 ERROR: cannot create response surface.\n");
+      printOutTS(PL_ERROR,
+           "RSMSobol2 ERROR: cannot create response surface.\n");
       delete [] Y;
       delete constrPtr;
       return 1.0e12;
@@ -693,8 +758,9 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
    printAsterisks(PL_INFO, 0);
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO,"* RSMSobol2 creates a sample of size M of K levels\n");
-      printOutTS(PL_INFO,"* for each input pair. The total sample size is \n");
+      printOutTS(PL_INFO,
+           "* RSMSobol2 creates a sample of size M of K levels\n");
+      printOutTS(PL_INFO,"* for each input pair. The total sample size is\n");
       printOutTS(PL_INFO,"* N = M * K * K.\n");
       printOutTS(PL_INFO,"* NOW, nInputs = %d\n", nInputs);
       printOutTS(PL_INFO,"* Please select your desired M and K.\n");
@@ -703,7 +769,7 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
       sprintf(pString,"Enter M (suggestion: 100 - 10000) : ");
       nSubSamples = getInt(100, 10000, pString);
       if (nSubSamples > 5000)
-         printOutTS(PL_INFO, "M = %d may take very long time.\n",nSubSamples);
+         printOutTS(PL_INFO,"M = %d may take very long time.\n",nSubSamples);
 
       sprintf(pString, "Enter nLevels (suggestion: 100 - 1000) : ");
       nLevels = getInt(100, 1000, pString);
@@ -785,10 +851,12 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
          variance += (YY[ii] - dmean) * (YY[ii] - dmean) ;
    }
    variance /= (double) sCnt;
-   printOutTS(PL_INFO,"* RSMSobol2: sample mean    (based on %d points) = %e\n",
-          sCnt, dmean);
-   printOutTS(PL_INFO,"* RSMSobol2: total std dev  (based on %d points) = %e\n",
-          sCnt, sqrt(variance));
+   printOutTS(PL_INFO,
+        "* RSMSobol2: sample mean    (based on %d points) = %e\n",
+        sCnt, dmean);
+   printOutTS(PL_INFO,
+        "* RSMSobol2: total std dev  (based on %d points) = %e\n",
+        sCnt, sqrt(variance));
    if (variance == 0.0) variance = 1.0;
    delete pdfman;
    printAsterisks(PL_INFO, 0);
@@ -836,7 +904,8 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
             {
                sCnt = bins[iL];
                if (sCnt < 1 && printLevel >= 5)
-                  printOutTS(PL_DUMP,"RSMSobol2 WARNING: subsample size = 0.\n");
+                  printOutTS(PL_DUMP,
+                       "RSMSobol2 WARNING: subsample size = 0.\n");
                if (sCnt < 1) means[iL] = PSUADE_UNDEFINED;
                else          means[iL] /= (double) sCnt;
             }
@@ -861,7 +930,7 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
                if (sCnt < 1) vars[iL] = PSUADE_UNDEFINED;
                else          vars[iL] /= (double) sCnt;
 
-               printOutTS(PL_DETAIL, "RSMSobol2: inputs (%d,%d)\n",ii+1,ii2+1);
+               printOutTS(PL_DETAIL,"RSMSobol2: inputs (%d,%d)\n",ii+1,ii2+1);
                printOutTS(PL_DETAIL, 
                          "  refinement %d, grid point (%d), size %d (%d)\n",
                          iR, iL+1, sCnt, nSubSamples);
@@ -870,11 +939,14 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
             }
 
             totalCnt = 0;
-            for (iL = 0; iL < currNLevels*currNLevels; iL++) totalCnt += bins[iL];
+            for (iL = 0; iL < currNLevels*currNLevels; iL++) 
+               totalCnt += bins[iL];
             if (totalCnt == 0)
             {
-               printOutTS(PL_ERROR, "RSMSobol2 ERROR: empty constrained space.\n");
-               printOutTS(PL_ERROR, "          Either try larger sample size or\n");
+               printOutTS(PL_ERROR, 
+                    "RSMSobol2 ERROR: empty constrained space.\n");
+               printOutTS(PL_ERROR, 
+                    "          Either try larger sample size or\n");
                printOutTS(PL_ERROR, "          use looser constraints.\n");
                exit(1);
             }
@@ -888,7 +960,8 @@ double RSMSobol2Analyzer::analyze2(aData &adata)
             vce = 0.0;
             for (iL = 0; iL < currNLevels*currNLevels; iL++)
                if (means[iL] != PSUADE_UNDEFINED)
-                  vce += (means[iL]-dmean) * (means[iL]-dmean) * bins[iL] / totalCnt;
+                  vce += (means[iL]-dmean) * (means[iL]-dmean) * 
+                         bins[iL] / totalCnt;
 
             ecv = 0.0;
             for (iL = 0; iL < currNLevels*currNLevels; iL++)

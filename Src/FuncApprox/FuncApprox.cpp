@@ -55,6 +55,7 @@
 #include "Acosso.h"
 #include "BSSAnova.h"
 #include "PsuadeRegression.h"
+#include "PLS.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "PDFBase.h"
@@ -339,8 +340,9 @@ int FuncApprox::initInputScaling(double *XIn, double *XOut, int flag)
          for (jj = 0; jj < nSamples_; jj++)
             XOut[jj*nInputs_+ii] = (XIn[jj*nInputs_+ii]-XMeans_[ii])/
                                    XStds_[ii];
-         //printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
-         //       XMeans_[ii], XStds_[ii]);
+         if (outputLevel_ > 3)
+            printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
+                   XMeans_[ii], XStds_[ii]);
       }
    }
    else if (psRSExpertMode_ == 1)
@@ -490,8 +492,6 @@ int getFAType(char *pString)
 #ifdef HAVE_TGP
    if (faType == PSUADE_RS_TGP) faType = -1;
 #endif
-   if      (faType == 24) faType = PSUADE_RS_RBFB;
-   else if (faType == 25) faType = PSUADE_RS_LOCAL;
    return faType;
 }
 
@@ -684,6 +684,7 @@ int writeFAInfo(int level)
    printf("22. Acosso (by Storlie, LANL. Need R to run)\n");
    printf("23. BSSAnova (by Storlie, LANL. Need R to run)\n");
    printf("24. Radial Basis Function with bagging\n");
+   printf("25. Partial Least Squares Linear Regression (PLS)\n");
    return PSUADE_NUM_RS;
 }
 
@@ -742,18 +743,18 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
         faPtr = new KNN(nInputs, nSamples);
    else if (rsType == PSUADE_RS_RBF)
         faPtr = new RBF(nInputs, nSamples);
-   else if (rsType == PSUADE_RS_LOCAL)
-        faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (rsType == PSUADE_RS_ACOSSO)
         faPtr = new Acosso(nInputs, nSamples);
    else if (rsType == PSUADE_RS_BSSANOVA)
         faPtr = new BSSAnova(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_RBFB)
+        faPtr = new RBFBagg(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_PLS)
+        faPtr = new PLS(nInputs, nSamples);
    else if (faType == PSUADE_RS_LOCAL)
         faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (rsType == PSUADE_RS_NPL)
         faPtr = new NPLearning(nInputs, nSamples);
-   else if (rsType == PSUADE_RS_RBFB)
-        faPtr = new RBFBagg(nInputs, nSamples);
    else
    {
       printf("INFO: rstype = regression.\n");
@@ -877,10 +878,12 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
         faPtr = new Acosso(nInputs, nSamples);
    else if (faType == PSUADE_RS_BSSANOVA)
         faPtr = new BSSAnova(nInputs, nSamples);
-   else if (faType == PSUADE_RS_LOCAL)
-        faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (faType == PSUADE_RS_RBFB)
         faPtr = new RBFBagg(nInputs, nSamples);
+   else if (faType == PSUADE_RS_PLS)
+        faPtr = new PLS(nInputs, nSamples);
+   else if (faType == PSUADE_RS_LOCAL)
+        faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (faType == PSUADE_RS_NPL)
         faPtr = new NPLearning(nInputs, nSamples);
    else

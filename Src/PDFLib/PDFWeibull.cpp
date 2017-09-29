@@ -154,19 +154,26 @@ int PDFWeibull::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFWeibull::genSample(int length, double *outData, double lower,
-                          double upper)
+int PDFWeibull::genSample(int length, double *outData, double *lowers,
+                          double *uppers)
 {
    int    ii;
-   double UU, xlo, xhi, xmi, ylo, yhi, ymi;
+   double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFWeibull genSample ERROR - lower/upper bound unavailable.\n");
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    if (upper <= lower)
    {
       printf("PDFWeibull genSample ERROR - lower bound >= upper bound.\n");
       exit(1);
    }
 
-   printf("PDFWeibull: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFWeibull: genSample begins (Take too long? Check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -198,7 +205,7 @@ int PDFWeibull::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
-   printf("PDFWeibull: genSample ends.\n");
+   //printf("PDFWeibull: genSample ends.\n");
    return 0;
 }
 

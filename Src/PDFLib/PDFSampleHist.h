@@ -20,12 +20,12 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Definition for the class PDFSpecial
+// Definition for the class PDFSampleHist
 // AUTHOR : CHARLES TONG
-// DATE   : 2013
+// DATE   : 2015
 // ************************************************************************
-#ifndef __PDFSPECIALH__
-#define __PDFSPECIALH__
+#ifndef __PDFSAMPLEHISTH__
+#define __PDFSAMPLEHISTH__
 
 /**
  * @name User-provided distribution 
@@ -37,27 +37,33 @@
 // ************************************************************************
 #include "PDFBase.h"
 
-class PDFSpecial : public PDFBase
+class PDFSampleHist : public PDFBase
 {
    int    nInputs_;
    int    nSamples_;
    double *samples_;
    int    whichInput_;
-   int    perturb_;
-   double *ranges_;
+   int    nRegions_;
+   int    *sampleMap_;
+   double *regionProbs_;
+   double *lowerBs_;
+   double *upperBs_;
+   int    n1d_;
+   int    nCells_;
+   int    *cellsOccupied_;
 
 public:
 
-   PDFSpecial(int, char *, int *);    
-   ~PDFSpecial();
+   PDFSampleHist(char *, int, int *);    
+   ~PDFSampleHist();
 
    int getPDF(int, double *, double *);
    int getCDF(int, double *, double *);
    int invCDF(int, double *, double *, double, double);
-   int genSample(int, double *, double, double);
+   int genSample(int, double *, double *, double *);
    double getMean();
    int setParam(char *);
 };
 
-#endif // __PDFSPECIALH__
+#endif // __PDFSAMPLEHISTH__
 

@@ -52,7 +52,7 @@ public:
    double *inputMeans_;
    double *inputStdevs_;
    void   *psuadeIO_;
-   Matrix corMatrix_;
+   psMatrix corMatrix_;
 
    PsuadeSession();
    PsuadeSession(const PsuadeSession & ps);

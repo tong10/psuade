@@ -266,8 +266,16 @@ int RBF::initialize(double *X, double *Y)
    double *WW = new double[wlen];
    dgesvd_(&jobu,&jobvt,&nSamp1,&nSamp1,Dmat,&nSamp1,SS,UU,&nSamp1,VV,
            &nSamp1,WW, &wlen,&info);
-   if (info != 0 && psInteractive_ == 1) 
-      printOutTS(PL_WARN,"RBF WARNING: dgesvd returns error %d.\n",info);
+   if (info != 0) 
+   {
+      printOutTS(PL_WARN,"RBF ERROR: dgesvd returns error %d.\n",info);
+      delete [] SS;
+      delete [] UU;
+      delete [] VV;
+      delete [] WW;
+      delete [] Dmat;
+      return -1;
+   }
    regCoeffs_ = new double[nSamp1];
    for (ii = 0; ii < nSamples_; ii++) regCoeffs_[ii] = YNormalized_[ii];
 #ifdef PS_RBF1
@@ -281,7 +289,7 @@ int RBF::initialize(double *X, double *Y)
          cnt++;
       }
    }
-   if (cnt > 0 && psInteractive_ == 1)
+   if (cnt > 0 && psInteractive_ == 1 && outputLevel_ > 0) 
    {
       printOutTS(PL_WARN,
            "WARNING: RBF matrix is near-singular. Small singular values\n");

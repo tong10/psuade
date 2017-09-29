@@ -45,7 +45,7 @@ class UserRegression : public FuncApprox
    int    *XScales_;
    int    **coefTerms_;
    char   regFile_[1001];
-   Matrix covMatrix_;
+   psMatrix covMatrix_;
    int    numArgs_;
    char   auxArg_[501];
  

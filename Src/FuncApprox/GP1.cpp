@@ -86,8 +86,10 @@ int GP1::initialize(double *XIn, double *YIn)
    }
    
    X = new double[nSamples_*nInputs_];
+   checkAllocate(X, "X in GP1::initialize");
    initInputScaling(XIn, X, 0);
    Y = new double[nSamples_];
+   checkAllocate(Y, "Y in GP1::initialize");
    if (response[0] == 'y')
    {
       initOutputScaling(YIn, Y);
@@ -99,14 +101,17 @@ int GP1::initialize(double *XIn, double *YIn)
       YStd_ = 1.0;
    }
    
+   double *lengthScales;
    stds = new double[nSamples_];
+   checkAllocate(stds, "stds in GP1::initialize");
    if (outputLevel_ >= 1) printf("GP1 training begins....\n");
    TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, stds);
    for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
    if (outputLevel_ >= 1) printf("GP1 training completed.\n");
    if (psRSExpertMode_)
    {
-      double *lengthScales = new double[nInputs_];
+      lengthScales = new double[nInputs_];
+      checkAllocate(lengthScales, "lengthScales in GP1::initialize");
       TprosGetLengthScales(nInputs_, lengthScales);
       printf("GP1 training information: \n");
       for (ii = 0; ii < nInputs_; ii++)
@@ -146,6 +151,7 @@ int GP1::genNDGridData(double *XIn, double *YIn, int *N, double **X2,
    if (outputLevel_ >= 1) printf("GP1 interpolation begins....\n");
    YY = new double[totPts];
    X  = new double[totPts*nInputs_];
+   checkAllocate(X, "X in GP1::genNDGrid");
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < totPts; jj++)
@@ -184,6 +190,7 @@ int GP1::gen1DGridData(double *XIn, double *YIn, int ind1,
 
    (*X2) = new double[totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in GP1::gen1DGrid");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (kk = 0; kk < nInputs_; kk++) 
@@ -194,6 +201,7 @@ int GP1::gen1DGridData(double *XIn, double *YIn, int ind1,
     
    YY = new double[totPts];
    X  = new double[totPts*nInputs_];
+   checkAllocate(X, "X in GP1::gen1DGrid");
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < totPts; jj++)
@@ -234,6 +242,7 @@ int GP1::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[2*totPts];
+   checkAllocate(*X2, "X2 in GP1::gen2DGrid");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -250,6 +259,7 @@ int GP1::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
     
    YY = new double[totPts];
    X = new double[totPts*nInputs_];
+   checkAllocate(X, "X in GP1::gen2DGrid");
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < totPts; jj++)
@@ -293,6 +303,7 @@ int GP1::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[3*totPts];
+   checkAllocate(*X2, "X2 in GP1::gen3DGrid");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -314,6 +325,7 @@ int GP1::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
     
    YY = new double[totPts];
    X = new double[totPts*nInputs_];
+   checkAllocate(X, "X in GP1::gen3DGrid");
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < totPts; jj++)
@@ -359,6 +371,7 @@ int GP1::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[4*totPts];
+   checkAllocate(*X2, "X2 in GP1::gen4DGrid");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -386,6 +399,7 @@ int GP1::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
     
    YY = new double[totPts];
    X = new double[totPts*nInputs_];
+   checkAllocate(X, "X in GP1::gen4DGrid");
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < totPts; jj++)
@@ -423,6 +437,7 @@ double GP1::evaluatePoint(double *X)
       exit(1);
    }
    XX = new double[nInputs_];
+   checkAllocate(XX, "XX in GP1::evaluatePoint");
    for (ii = 0; ii < nInputs_; ii++)
       XX[ii] = (X[ii] - XMeans_[ii]) / XStds_[ii];
    TprosInterp(iOne, XX, &Y, NULL);
@@ -448,6 +463,7 @@ double GP1::evaluatePoint(int npts, double *X, double *Y)
       exit(1);
    }
    XX = new double[npts*nInputs_];
+   checkAllocate(XX, "XX in GP1::evaluatePoint");
    for (ii = 0; ii < nInputs_; ii++)
       for (jj = 0; jj < npts; jj++)
          XX[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - XMeans_[ii]) / XStds_[ii];
@@ -476,6 +492,7 @@ double GP1::evaluatePointFuzzy(double *X, double &std)
       exit(1);
    }
    XX = new double[nInputs_];
+   checkAllocate(XX, "XX in GP1::evaluatePointFuzzy");
    for (ii = 0; ii < nInputs_; ii++)
       XX[ii] = (X[ii] - XMeans_[ii]) / XStds_[ii];
    TprosInterp(1, XX, &Y, &std);
@@ -503,6 +520,7 @@ double GP1::evaluatePointFuzzy(int npts,double *X, double *Y, double *Ystd)
       exit(1);
    }
    XX = new double[npts*nInputs_];
+   checkAllocate(XX, "XX in GP1::evaluatePointFuzzy");
    for (ii = 0; ii < nInputs_; ii++)
       for (jj = 0; jj < npts; jj++)
          XX[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - XMeans_[ii]) / XStds_[ii];
@@ -533,6 +551,7 @@ double GP1::setParams(int targc, char **targv)
    if (targc > 0 && !strcmp(targv[0], "rank"))
    {
       lengthScales = new double[nInputs_];
+      checkAllocate(lengthScales,"lengthScales in GP1::evaluatePointFuzzy");
 #ifdef HAVE_TPROS
       TprosGetLengthScales(nInputs_, lengthScales);
 #else
@@ -580,10 +599,11 @@ double GP1::setParams(int targc, char **targv)
          fwritePlotXLabel(fp, pString);
          sprintf(pString, "GP Measure");
          fwritePlotYLabel(fp, pString);
-        if (psPlotTool_ == 1)
+         if (psPlotTool_ == 1)
          {
-            fprintf(fp, "a=gca();\n");
-            fprintf(fp, "a.data_bounds=[0, ymin; n+1, ymax+0.01*(ymax-ymin)];\n");
+            fprintf(fp,"a=gca();\n");
+            fprintf(fp,
+               "a.data_bounds=[0, ymin; n+1, ymax+0.01*(ymax-ymin)];\n");
          }
          else
          {
@@ -614,7 +634,6 @@ double GP1::setParams(int targc, char **targv)
          if (ind >= 0 && ind < nInputs_) ddata = lengthScales[ind];
       }
       delete [] lengthScales;
-
    }
    if(iArray != NULL) delete [] iArray;
    return ddata;

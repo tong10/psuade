@@ -47,7 +47,7 @@ public:
    /** run optimization 
      @param odata - an object that contains all needed data
      */
-   virtual void optimize(oData *odata);
+   void optimize(oData *odata);
 
    /** assign operator override */ 
    TxMathOptimizer& operator=(const TxMathOptimizer &);

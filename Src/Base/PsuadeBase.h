@@ -61,7 +61,7 @@ public:
    int    *inputPDFs_;
    double *inputMeans_;
    double *inputStds_;
-   Matrix *inputCMat_;
+   psMatrix *inputCMat_;
    char   **inputNames_;
    char   **outputNames_;
    int    *tagArray_;

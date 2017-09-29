@@ -37,6 +37,7 @@
 #include "FuncApprox.h"
 #include "Psuade.h"
 #include "MOATSampling.h"
+#include "PrintingTS.h"
 #define PABS(x) ((x) > 0 ? (x) : -(x))
 
 //*************************************************************************
@@ -110,12 +111,14 @@ int MOATSampling::initialize(int initLevel)
 
    if (nSamples_ == 0)
    {
-      printf("MOATSampling::initialize ERROR - nSamples = 0.\n");
+      printOutTS(PL_ERROR,
+           "MOATSampling::initialize ERROR - nSamples = 0.\n");
       exit(1);
    }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
-      printf("MOATSampling::initialize ERROR - input not set up.\n");
+      printOutTS(PL_ERROR,
+           "MOATSampling::initialize ERROR - input not set up.\n");
       exit(1);
    }
 
@@ -123,8 +126,10 @@ int MOATSampling::initialize(int initLevel)
    randomize = (randomize_ & 1);
    if (nSamples_/(nInputs_+1) * (nInputs_+1) != nSamples_) 
    {
-      printf("MOATSampling: nSamples should be multiples of nInputs+1.\n");
-      printf("              nSamples reset to be 10*(nInputs+1).\n");
+      printOutTS(PL_INFO,
+           "MOATSampling: nSamples should be multiples of nInputs+1.\n");
+      printOutTS(PL_INFO,
+           "              nSamples reset to be 10*(nInputs+1).\n");
       nSamples_ = 10 * (nInputs_ + 1);
    }
 
@@ -138,15 +143,16 @@ int MOATSampling::initialize(int initLevel)
          sscanf(cString, "%s %s %d",winput1,winput2,&P_);
          P_ = P_ / 2 * 2;
          if (P_ <= 0 || P_ > 100) P_ = 4;
-         printf("MOATSampling: P set to %d (config)\n", P_);
+         printOutTS(PL_INFO,"MOATSampling: P set to %d (config)\n", P_);
          setFlag = 1;
       }
       cString = psConfig_->getParameter("MOAT_partition_file");
       if (cString != NULL)
       {
          sscanf(cString, "%s %s %s",winput1,winput2,partitionFile);
-         printf("MOATSampling: use MOAT input partition file %s.\n",
-                partitionFile);
+         printOutTS(PL_INFO,
+              "MOATSampling: use MOAT input partition file %s.\n",
+              partitionFile);
          fp = fopen(partitionFile, "r");
          if (fp != NULL)
          {
@@ -155,8 +161,10 @@ int MOATSampling::initialize(int initLevel)
             fscanf(fp, "%d", &ss);
             if (ss <= 0 || ss >= nInputs_)
             {
-               printf("MOATSampling: invalid MOAT input partition file.\n");
-               printf("              The first line should be nInputs.\n");
+               printOutTS(PL_INFO,
+                    "MOATSampling: invalid MOAT input partition file.\n");
+               printOutTS(PL_INFO,
+                    "              The first line should be nInputs.\n");
                fclose(fp);
                fp = NULL;
             }
@@ -169,8 +177,10 @@ int MOATSampling::initialize(int initLevel)
 		  fscanf(fp, "%d", &ii2);
                   if (ii2 < 1 || ii2 > nInputs_)
                   {
-                     printf("MOATSampling: invalid input partition file.\n");
-                     printf("               invalid input index %d.\n", ii);
+                     printOutTS(PL_INFO,
+                          "MOATSampling: invalid input partition file.\n");
+                     printOutTS(PL_INFO,
+                          "               invalid input index %d.\n", ii);
                      delete [] inputSubset_;
                      inputSubset_ = NULL;
                      if(fp != NULL) fclose(fp);
@@ -186,7 +196,7 @@ int MOATSampling::initialize(int initLevel)
    }
    if (psSamExpertMode_ == 1 && setFlag == 0)
    {
-      printf("MOATSampling: the current P is %d.\n", P_);
+      printOutTS(PL_INFO,"MOATSampling: the current P is %d.\n", P_);
       sprintf(winput1, "Please choose a new P: (4 - 10, even) ");
       P_ = getInt(4, 10, winput1);
       P_ = P_ / 2 * 2;
@@ -194,18 +204,21 @@ int MOATSampling::initialize(int initLevel)
 
    if (printLevel_ > 4)
    {
-      printf("MOATSampling: initialize: nSamples  = %d\n", nSamples_);
-      printf("MOATSampling: initialize: nInputs   = %d\n", nInputs_);
-      printf("MOATSampling: initialize: nOutputs  = %d\n", nOutputs_);
-      printf("MOATSampling: initialize: numLevels = %d\n", P_);
+      printOutTS(PL_INFO,"MOATSampling: initialize: nSamples  = %d\n", 
+                 nSamples_);
+      printOutTS(PL_INFO,"MOATSampling: initialize: nInputs   = %d\n", 
+                 nInputs_);
+      printOutTS(PL_INFO,"MOATSampling: initialize: nOutputs  = %d\n", 
+                 nOutputs_);
+      printOutTS(PL_INFO,"MOATSampling: initialize: numLevels = %d\n",P_);
       if (randomize != 0)
-           printf("MOATSampling: initialize: randomize on\n");
-      else printf("MOATSampling: initialize: randomize off\n");
+           printOutTS(PL_INFO,"MOATSampling: initialize: randomize on\n");
+      else printOutTS(PL_INFO,"MOATSampling: initialize: randomize off\n");
    }
 
    if (nInputs_ > 100)
    {
-      printf("MOATSampling: nInputs > 100, use fast version.\n");
+      printOutTS(PL_INFO,"MOATSampling: nInputs > 100, use fast version.\n");
       initializeHighDimension();
       return 0;
    }
@@ -220,8 +233,10 @@ int MOATSampling::initialize(int initLevel)
 
    for (rr = 1; rr < nReps; rr++) 
    {
-      printf("MOATSampling::generate: finding path %d (out of %d)\n", 
-             rr+1, nReps);
+      if (printLevel_ > 0)
+         printOutTS(PL_INFO,
+              "MOATSampling::generate: finding path %d (out of %d)\n", 
+              rr+1, nReps);
       maxDist = 0;
       index = rr;
       base1 = (rr - 1) * (nInputs_ + 1);
@@ -294,7 +309,8 @@ int MOATSampling::initialize(int initLevel)
    {
       if (checkSample(nInputs_, nSamples_, sampleMatrix_) != 0)
       {
-         printf("MOATSampling: generated sample is not MOAT.\n");
+         printOutTS(PL_ERROR,
+              "MOATSampling: generated sample is not MOAT.\n");
          exit(1);
       }
    }
@@ -457,12 +473,12 @@ int MOATSampling::refine(int refineRatio, int randomize, double thresh,
 
    if (inputSubset_ != NULL)
    {
-      printf("MOATSampling: refine is not available due to the use of\n");
-      printf("              selective replications.\n");
+      printOutTS(PL_INFO,"MOATSampling: refine is not available due to the\n");
+      printOutTS(PL_INFO,"              use of selective replications.\n");
       return 0;
    }
    if (refineRatio != 2)
-      printf("MOATSampling WARNING: refinement ratio set to 2.\n");
+      printOutTS(PL_INFO,"MOATSampling WARNING: refinement ratio set to 2.\n");
 
    nTimes = 2;
 
@@ -523,25 +539,25 @@ int MOATSampling::refine(int refineRatio, int randomize, double thresh,
 
    if (checkSample(nInputs_, nSamples_, sampleMatrix_) != 0)
    {
-      printf("MOATSampling: refined sample is not MOAT.\n");
+      printOutTS(PL_ERROR,"MOATSampling: refined sample is not MOAT.\n");
       exit(1);
    }
 
    if (printLevel_ > 4)
    {
-      printf("MOATSampling::refine: nSamples = %d\n", nSamples_);
-      printf("MOATSampling::refine: nInputs  = %d\n", nInputs_);
-      printf("MOATSampling::refine: nOutputs = %d\n", nOutputs_);
+      printOutTS(PL_INFO,"MOATSampling::refine: nSamples = %d\n",nSamples_);
+      printOutTS(PL_INFO,"MOATSampling::refine: nInputs  = %d\n",nInputs_);
+      printOutTS(PL_INFO,"MOATSampling::refine: nOutputs = %d\n",nOutputs_);
       if (randomize != 0)
-           printf("MOATSampling::refine: randomize on\n");
-      else printf("MOATSampling::refine: randomize off\n");
+           printOutTS(PL_INFO,"MOATSampling::refine: randomize on\n");
+      else printOutTS(PL_INFO,"MOATSampling::refine: randomize off\n");
    }
 
    if (repair(NULL, nSamples_/nTimes) != 0)
    {
       if (checkSample(nInputs_, nSamples_, sampleMatrix_) != 0)
       {
-         printf("MOATSampling: refined sample is not MOAT.\n");
+         printOutTS(PL_ERROR,"MOATSampling: refined sample is not MOAT.\n");
          exit(1);
       }
    }
@@ -560,7 +576,8 @@ int MOATSampling::repair(char *fname, int start)
 
    if (start / (nInputs_+1) * (nInputs_ + 1) != start)
    {
-      printf("MOATSampling: start should be multiples of nInputs+1.\n");
+      printOutTS(PL_ERROR,
+           "MOATSampling: start should be multiples of nInputs+1.\n");
       exit(1);
    }
   
@@ -584,19 +601,19 @@ int MOATSampling::repair(char *fname, int start)
    }
    if (fp == NULL)
    {
-      printf("MOAT repair: no repair file found.\n");
+      printOutTS(PL_INFO,"MOAT repair: no repair file found.\n");
       return 1;
    }
   
    fscanf(fp, "%s", inStr);
    if (strcmp(inStr, "BEGIN"))
    {
-      printf("MOATSampling: wrong format in repair file.\n");
-      printf("First  line : BEGIN\n");
-      printf("Second line : nPatterns nInputs.\n");
-      printf("Third  line : a list of input IDs (1-based).\n");
-      printf("Fourth line : (and on) set of patterns.\n");
-      printf("Last   line : END\n");
+      printOutTS(PL_ERROR,"MOATSampling: wrong format in repair file.\n");
+      printOutTS(PL_ERROR,"First  line : BEGIN\n");
+      printOutTS(PL_ERROR,"Second line : nPatterns nInputs.\n");
+      printOutTS(PL_ERROR,"Third  line : a list of input IDs (1-based).\n");
+      printOutTS(PL_ERROR,"Fourth line : (and on) set of patterns.\n");
+      printOutTS(PL_ERROR,"Last   line : END\n");
       fclose(fp);
       exit(1);
    }
@@ -604,14 +621,15 @@ int MOATSampling::repair(char *fname, int start)
    fscanf(fp, "%d %d", &nPatterns, &nInps);
    if (nPatterns <= 0 || nInps <= 0)
    {
-      printf("MOATSampling: nPatterns or nInps <= 0.\n");
+      printOutTS(PL_ERROR,"MOATSampling: nPatterns or nInps <= 0.\n");
       fclose(fp);
       exit(1);
    }
    nSets = nPatterns / (nInps + 1);
    if (nSets*(nInps+1) != nPatterns)
    {
-      printf("MOATSampling: nPatterns should be multiples of nInputs+1.\n");
+      printOutTS(PL_ERROR,
+           "MOATSampling: nPatterns should be multiples of nInputs+1.\n");
       fclose(fp);
       exit(1);
    }
@@ -623,8 +641,9 @@ int MOATSampling::repair(char *fname, int start)
       fscanf(fp, "%d", &inpList[ii]);
       if (inpList[ii] <= 0 || inpList[ii] > nInputs_)
       {
-         printf("MOATSampling ERROR: input index out of range (%d,%d)\n",
-                inpList[ii], nInputs_);
+         printOutTS(PL_ERROR,
+              "MOATSampling ERROR: input index out of range (%d,%d)\n",
+              inpList[ii], nInputs_);
          fclose(fp);
          exit(1);
       }
@@ -632,7 +651,8 @@ int MOATSampling::repair(char *fname, int start)
       {
          if (inpList[ii] == inpList[jj])
          {
-            printf("MOATSampling ERROR: repeated index (%d)\n",inpList[ii]);
+            printOutTS(PL_ERROR,
+                 "MOATSampling ERROR: repeated index (%d)\n",inpList[ii]);
             fclose(fp);
             return 1;
          }
@@ -650,14 +670,15 @@ int MOATSampling::repair(char *fname, int start)
 
    if (strcmp(inStr, "END"))
    {
-      printf("MOATSampling ERROR: wrong format in repair file.\n");
-      printf("The file should end with END\n");
+      printOutTS(PL_ERROR,"MOATSampling ERROR: wrong format in repair file.\n");
+      printOutTS(PL_ERROR,"The file should end with END\n");
       exit(1);
    }
 
    if (checkSample(nInps, nPatterns, patterns) != 0)
    {
-      printf("MOATSampling ERROR: pattern in repair file is not MOAT.\n");
+      printOutTS(PL_ERROR,
+           "MOATSampling ERROR: pattern in repair file is not MOAT.\n");
       exit(1);
    }
 
@@ -694,7 +715,7 @@ int MOATSampling::repair(char *fname, int start)
 
    if (checkSample(nInputs_, nSamples_, sampleMatrix_) != 0)
    {
-      printf("MOATSampling ERROR: repaired file is not MOAT.\n");
+      printOutTS(PL_ERROR,"MOATSampling ERROR: repaired file is not MOAT.\n");
       exit(1);
    }
 
@@ -727,7 +748,7 @@ int MOATSampling::merge()
    file1[strlen(file1)-1] = '\0';
    if ((fp1=fopen(file1,"r")) == NULL)
    {
-      printf("ERROR : File %s not found.\n", file1);
+      printOutTS(PL_ERROR,"ERROR : File %s not found.\n", file1);
       return 1;
    }
    else fclose(fp1);
@@ -735,7 +756,8 @@ int MOATSampling::merge()
    psuadeIO1->setOutputLevel(0);
    if (psuadeIO1->readPsuadeFile(file1) != 0)
    {
-      printf("MOAT ERROR : problem with reading file %s.\n", file1);
+      printOutTS(PL_ERROR,
+           "MOAT ERROR : problem with reading file %s.\n", file1);
       delete psuadeIO1;
       return 1;
    }
@@ -750,7 +772,7 @@ int MOATSampling::merge()
    if (samplingMethod != PSUADE_SAMP_MOAT &&
        samplingMethod != PSUADE_SAMP_GMOAT)
    {
-      printf("MOAT Merge ERROR : data1 is not MOAT.\n");
+      printOutTS(PL_ERROR,"MOAT Merge ERROR : data1 is not MOAT.\n");
       delete psuadeIO1;
       pINames1.clean();
       return 1;
@@ -761,7 +783,8 @@ int MOATSampling::merge()
    sampleInputs1 = pPtr1.dbleArray_;
    if (checkSample2(nInps1, nSamp1, sampleInputs1) != 0)
    {
-      printf("MOAT Merge ERROR : first sample is not MOAT.\n");
+      printOutTS(PL_ERROR,
+           "MOAT Merge ERROR : first sample is not MOAT.\n");
       delete psuadeIO1;
       pINames1.clean();
       return 1;
@@ -772,7 +795,7 @@ int MOATSampling::merge()
    file2[strlen(file2)-1] = '\0';
    if ((fp2=fopen(file2,"r")) == NULL)
    {
-      printf("MOAT ERROR : File %s not found.\n", file2);
+      printOutTS(PL_ERROR,"MOAT ERROR : File %s not found.\n", file2);
       delete psuadeIO1;
       pINames1.clean();
       return 1;
@@ -783,7 +806,8 @@ int MOATSampling::merge()
    psuadeIO2->setOutputLevel(0);
    if (psuadeIO2->readPsuadeFile(file2) != 0)
    {
-      printf("MOAT ERROR : problem with reading file %s.\n", file2);
+      printOutTS(PL_ERROR,
+           "MOAT ERROR : problem with reading file %s.\n", file2);
       delete psuadeIO1;
       delete psuadeIO2;
       pINames1.clean();
@@ -798,7 +822,7 @@ int MOATSampling::merge()
    if (samplingMethod != PSUADE_SAMP_MOAT &&
        samplingMethod != PSUADE_SAMP_GMOAT)
    {
-      printf("MOAT Merge ERROR : data2 is not MOAT.\n");
+      printOutTS(PL_ERROR,"MOAT Merge ERROR : data2 is not MOAT.\n");
       delete psuadeIO1;
       delete psuadeIO2;
       pINames1.clean();
@@ -811,7 +835,8 @@ int MOATSampling::merge()
    sampleInputs2 = pPtr2.dbleArray_;
    if (checkSample2(nInps2, nSamp2, sampleInputs2) != 0)
    {
-      printf("MOAT Merge ERROR : second sample is not MOAT.\n");
+      printOutTS(PL_ERROR,
+           "MOAT Merge ERROR : second sample is not MOAT.\n");
       delete psuadeIO1;
       delete psuadeIO2;
       pINames1.clean();
@@ -822,7 +847,8 @@ int MOATSampling::merge()
    nReps = nSamp1 / (nInps1 + 1);
    if (nReps != (nSamp2 / (nInps2 + 1)))
    {
-      printf("MOAT Merge ERROR : different number of replications.\n");
+      printOutTS(PL_ERROR,
+           "MOAT Merge ERROR : different number of replications.\n");
       delete psuadeIO1;
       delete psuadeIO2;
       pINames1.clean();
@@ -998,14 +1024,14 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
       status = ioPtr->readPsuadeFile(winput);
       if (status != 0)
       {
-         printf("moatgen READ ERROR: file = %s\n", winput);
+         printOutTS(PL_ERROR,"moatgen READ ERROR: file = %s\n", winput);
          exit(1);
       }
       ioPtr->getParameter("input_ninputs", pPtr);
       jj = pPtr.intData_;
       if (jj != nInputs)
       {
-         printf("moatgen ERROR: nInputs mismatch.\n");
+         printOutTS(PL_ERROR,"moatgen ERROR: nInputs mismatch.\n");
          exit(1);
       }
       pLower.clean();
@@ -1014,7 +1040,8 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
       {
          if (lbounds[ii] != pLower.dbleArray_[ii])
          {
-            printf("MOAT genRepair ERROR: lower bound mismatch.\n");
+            printOutTS(PL_ERROR,
+                 "MOAT genRepair ERROR: lower bound mismatch.\n");
             exit(1);
          }
       }
@@ -1024,7 +1051,7 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
       {
          if (ubounds[ii] != pUpper.dbleArray_[ii])
          {
-            printf("moatgen ERROR: upper bound mismatch.\n");
+            printOutTS(PL_ERROR,"moatgen ERROR: upper bound mismatch.\n");
             exit(1);
          }
       }
@@ -1199,21 +1226,23 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
          {
             count += (nInputs + 1);
             if (printLevel_ > 2)
-               printf("MOAT genRepair: path %d (out of %d) found.\n", ii+1,
-                      nPaths);
+               printOutTS(PL_INFO,
+                    "MOAT genRepair: path %d (out of %d) found.\n", ii+1,
+                    nPaths);
             break; 
          }
          else
          {
             if (printLevel_ > 2)
-               printf("Current path fails (%d out of max %d).\n",
-                      trial, nTrials); 
+               printOutTS(PL_INFO,
+                    "Current path fails (%d out of max %d).\n",
+                    trial, nTrials); 
          }
       }
       if (trial >= nTrials)
       {
-         printf("moatgen fails to find all possible paths.\n");
-         printf("Suggestion: try a larger P than %d.\n", currP);
+         printOutTS(PL_INFO,"moatgen fails to find all possible paths.\n");
+         printOutTS(PL_INFO,"Suggestion: try a larger P than %d.\n", currP);
          break;
       }
    }
@@ -1223,8 +1252,9 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
       {
          dtemp = faPtrs[kk]->evaluatePoint(moatSample[ii]);
          if (dtemp < threshLs[kk] || dtemp > threshUs[kk])
-         printf("MOAT genRepair:sample %d fails final test (%e <? %e <? %e).\n",
-                ii, threshLs[kk], dtemp, threshUs[kk]);
+         printOutTS(PL_ERROR,
+            "MOAT genRepair:sample %d fails final test (%e <? %e <? %e).\n",
+            ii, threshLs[kk], dtemp, threshUs[kk]);
       }
    }
    delete [] tempW;
@@ -1238,7 +1268,7 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
       for (ii = 0; ii < nPaths*(nInputs+1); ii++)
          delete [] moatSample[ii];
       delete [] moatSample;
-      printf("MOAT genRepair FAILS.\n");
+      printOutTS(PL_ERROR,"MOAT genRepair FAILS.\n");
       return 0; 
    }
    fp = fopen("MOAT_repair_file", "w");
@@ -1265,16 +1295,18 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
    for (ii = 0; ii < count; ii++)
       for (jj = 0; jj < nInputs; jj++)
          tempW[ii*nInputs+jj] = moatSample[ii][jj];
-   printf("MOAT genRepair: check for repeated sample points.\n");
+   printOutTS(PL_INFO,"MOAT genRepair: check for repeated sample points.\n");
    for (ii = 0; ii < count; ii++)
    {
       status = compareSamples(ii,count,nInputs, tempW, states);
       if (status >= 0)
-         printf("MOAT genRepair check: sample %d and %d are identical.\n",
-                ii+1,status+1);
+         printOutTS(PL_INFO,
+              "MOAT genRepair check: sample %d and %d are identical.\n",
+              ii+1,status+1);
    }
-   printf("MOAT genRepair: repair file created in MOAT_repair_file.\n");
-   printf("         Make sure to change the input indices.\n");
+   printOutTS(PL_INFO,
+        "MOAT genRepair: repair file created in MOAT_repair_file.\n");
+   printOutTS(PL_INFO,"         Make sure to change the input indices.\n");
    for (ii = 0; ii < nPaths*(nInputs+1); ii++) delete [] moatSample[ii];
    delete [] moatSample;
    delete [] tempW;
@@ -1300,7 +1332,11 @@ int MOATSampling::genRepair(PsuadeData *psIO)
 
    faFlag = 3;
    faPtr = genFAInteractive(psIO, faFlag);
-   if (faPtr == NULL) {printf("ERROR detected.\n"); return 0;}
+   if (faPtr == NULL) 
+   {
+      printOutTS(PL_ERROR,"ERROR detected.\n"); 
+      return 0;
+   }
    faPtr->setOutputLevel(printLevel_);
    psIO->getParameter("ana_outputid", pPtr);
    outputID = pPtr.intData_;
@@ -1477,29 +1513,32 @@ int MOATSampling::genRepair(PsuadeData *psIO)
          {
             count += (nInputs + 1);
             if (printLevel_ > 2)
-               printf("moatgen: path %d (out of %d) found.\n", ii+1,
-                      nPaths);
+               printOutTS(PL_INFO,"moatgen: path %d (out of %d) found.\n", 
+                    ii+1, nPaths);
             break; 
          }
          else
          {
             if (printLevel_ > 2)
-               printf("Current path fails (%d out of max %d).\n",
-                      trial, nTrials); 
+               printOutTS(PL_INFO,"Current path fails (%d out of max %d).\n",
+                          trial, nTrials); 
          }
       }
       if (trial >= nTrials)
       {
-         printf("MOAT genRepair FAILS to find all possible paths.\n");
-         printf("Suggestion: try a larger P than %d.\n", currP);
+         printOutTS(PL_INFO,
+              "MOAT genRepair FAILS to find all possible paths.\n");
+         printOutTS(PL_INFO,
+              "Suggestion: try a larger P than %d.\n", currP);
       }
    }
    for (ii = 0; ii < nPaths; ii++)
    {
       dtemp = faPtr->evaluatePoint(moatSample[ii]);
       if (dtemp < threshL || dtemp > threshU)
-         printf("MOAT genRepair:sample %d fails final test (%e <? %e <? %e).\n",
-                ii, threshL, dtemp, threshU);
+         printOutTS(PL_INFO,
+            "MOAT genRepair:sample %d fails final test (%e <? %e <? %e).\n",
+            ii, threshL, dtemp, threshU);
    }
    delete [] tempW;
    delete [] indSet;
@@ -1515,18 +1554,18 @@ int MOATSampling::genRepair(PsuadeData *psIO)
    // add a check for NULL by Bill Oliver
    if(fp != NULL)
    {
-     fprintf(fp, "BEGIN\n");
-     fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
-     for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
-     fprintf(fp, "\n");
-     for (ii = 0; ii < nPaths*(nInputs+1); ii++)
-       {
-	 for (jj = 0; jj < nInputs; jj++)
-	   fprintf(fp, "%e ", moatSample[ii][jj]);
-	 fprintf(fp, "\n");
-       }
-     fprintf(fp, "END\n");
-     fclose(fp);
+      fprintf(fp, "BEGIN\n");
+      fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
+      for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
+      fprintf(fp, "\n");
+      for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+      {
+         for (jj = 0; jj < nInputs; jj++)
+            fprintf(fp, "%e ", moatSample[ii][jj]);
+         fprintf(fp, "\n");
+      }
+      fprintf(fp, "END\n");
+      fclose(fp);
    }
    count = nPaths * (nInputs + 1); 
    tempW = new double[count*nInputs];
@@ -1535,7 +1574,8 @@ int MOATSampling::genRepair(PsuadeData *psIO)
    for (ii = 0; ii < count; ii++)
       for (jj = 0; jj < nInputs; jj++)
          tempW[ii*nInputs+jj] = moatSample[ii][jj];
-   printf("MOAT genRepair: check for repeated sample points.\n");
+   printOutTS(PL_INFO,
+        "MOAT genRepair: check for repeated sample points.\n");
    for (ii = 0; ii < count; ii++)
    {
       status = compareSamples(ii,count,nInputs, tempW, states);
@@ -1543,8 +1583,10 @@ int MOATSampling::genRepair(PsuadeData *psIO)
          printf("moatgen check: sample %d and %d are identical.\n",
                 ii+1,status+1);
    }
-   printf("MOAT genRepair: repair file created in MOAT_repair_file.\n");
-   printf("                Make sure to change the input indices.\n");
+   printOutTS(PL_INFO,
+        "MOAT genRepair: repair file created in MOAT_repair_file.\n");
+   printOutTS(PL_INFO,
+        "                Make sure to change the input indices.\n");
    for (ii = 0; ii < nPaths*(nInputs+1); ii++) delete [] moatSample[ii];
    delete [] moatSample;
    delete [] tempW;
@@ -1632,18 +1674,21 @@ int MOATSampling::initializeHighDimension()
          {
             if (tempX[ii2] != tempX[ii2-1])
             {
-               printf("MOAT: input %3d - level = %12.4e, # times = %4d\n",
-                      ii+1, tempX[ii2-1], nn);
+               printOutTS(PL_INFO,
+                    "MOAT: input %3d - level = %12.4e, # times = %4d\n",
+                    ii+1, tempX[ii2-1], nn);
                bins[currBin++] += nn;
                nn = 1;
             } else nn++;
          }
-         printf("MOAT: input %3d - level = %12.4e, # times = %4d\n",
-                ii+1, tempX[ii2-1], nn);
+         printOutTS(PL_INFO,
+              "MOAT: input %3d - level = %12.4e, # times = %4d\n",
+              ii+1, tempX[ii2-1], nn);
          bins[currBin++] += nn;
       }
       for (ii = 0; ii < P_; ii++) 
-         printf("MOAT: frequency of visit to bin %5d = %d\n",ii+1,bins[ii]);
+         printOutTS(PL_INFO,
+              "MOAT: frequency of visit to bin %5d = %d\n",ii+1,bins[ii]);
       delete [] bins;
       delete [] tempX;
    }

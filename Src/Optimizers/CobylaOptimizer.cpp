@@ -26,11 +26,6 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
-#include <fstream>
-#include <string>
-using namespace std;
-
 #include "CobylaOptimizer.h"
 #include "Psuade.h"
 #include "PsuadeUtil.h"
@@ -41,15 +36,11 @@ using namespace std;
 #define psCobylaMaxSaved_ 10000
 int     psCobylaNSaved_=0;
 double  psCobylaSaveX_[psCobylaMaxSaved_*10];
-double  psCobylaSaveY_[psCobylaMaxSaved_];
-int     psNumOVars_=0;
-int     psNumLVars_=0;
+double  psCobylaSaveY_[psCobylaMaxSaved_*10];
+int     psCobylaSaveHistory_=0;
+char    psCobylaExec_[5000];
+int     psCobylaNConstr_=-1;
 int     psCCurrDriver_=-1;
-int     *psOVars_=NULL;
-int     *psLVars_=NULL;
-double  *psOWghts_=NULL;
-double  *psLWghts_=NULL;
-double  *psLVals_=NULL;
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
 // ************************************************************************
@@ -64,56 +55,14 @@ extern "C"
    int evaluateFunction(int nInputs, int nConstraints, double *XValues, 
                         double *YValue, double *constraints, void *data)
    {
-      int    ii, jj, kk, funcID, nOutputs, outputID, ignoreFlag, found;
-      int    index;
+      int    ii, jj, kk, funcID, nOuts, ignoreFlag, found, index;
       double *localY, ddata; 
       oData  *odata;
-      FILE   *infile;
-
-      if (psOptExpertMode_ != 0 && psCobylaNSaved_ == 0)
-      {
-         infile = fopen("psuade_cobyla_data","r");
-         if (infile != NULL)
-         {
-            fscanf(infile, "%d %d", &psCobylaNSaved_, &kk);
-            if ((psCobylaNSaved_ <= 0) || 
-                (psCobylaNSaved_+1 > psCobylaMaxSaved_*10/nInputs))
-            {
-               printf("PSUADE Cobyla: history file has too much data.\n");
-               printf("               Ask PSUADE developer for help.\n");
-               fclose(infile);
-               psCobylaNSaved_ = 0;
-            }
-            else if (kk != nInputs)
-            {
-               printf("PSUADE Cobyla: history file has invalid nInputs.\n");
-               fclose(infile);
-               psCobylaNSaved_ = 0;
-            }
-            else
-            {
-               for (ii = 0; ii < psCobylaNSaved_; ii++)
-               {
-                  fscanf(infile, "%d", &kk);
-                  if (kk != ii+1)
-                  {
-                     printf("PSUADE Cobyla: data index mismatch.\n");
-                     psCobylaNSaved_ = 0;
-                     break;
-                  }
-                  for (jj = 0; jj < nInputs; jj++)
-                     fscanf(infile, "%lg", &psCobylaSaveX_[ii*nInputs+jj]);
-                  fscanf(infile, "%lg", &psCobylaSaveY_[ii]);
-               }
-               fclose(infile);
-            }
-         } 
-      } 
+      FILE   *fp;
 
       odata    = (oData *) data;
-      nOutputs = odata->nOutputs_;
-      localY   = (double *) malloc(nOutputs * sizeof(double));
-      outputID = odata->outputID_;
+      nOuts    = psCobylaNConstr_ + 1;
+      localY   = (double *) malloc(nOuts * sizeof(double));
 
       found = 0;
       for (ii = 0; ii < psCobylaNSaved_; ii++)
@@ -124,6 +73,7 @@ extern "C"
          {
             found = 1;
             index = ii;
+            printf("Cobyla: simulation results reuse (%d).\n",ii+1);
             break;
          }
       }
@@ -131,79 +81,61 @@ extern "C"
       funcID = odata->numFuncEvals_;
       if (found == 0)
       {
-         odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         odata->funcIO_->evaluate(funcID,nInputs,XValues,nOuts,localY,0);
          funcID = odata->numFuncEvals_++;
-         if (psNumOVars_ + psNumLVars_ > 0)
-         {
-            ddata = 0.0;
-            for (ii = 0; ii < psNumOVars_; ii++)
-            {
-               kk = psOVars_[ii];
-               ddata += psOWghts_[ii] * localY[kk];
-            }
-            (*YValue) = ddata;
-            ddata = 0.0;
-            for (ii = 0; ii < psNumLVars_; ii++)
-            {
-               kk = psLVars_[ii];
-               ddata += pow(psLVals_[ii] - localY[kk], 2.0) * psLWghts_[ii];
-            }
-            (*YValue) += ddata;
-         }
-         else (*YValue) = localY[outputID];
+         (*YValue) = localY[0];
+         for (ii = 0; ii < nOuts-1; ii++) constraints[ii] = localY[ii+1];
       }
       else
       {
-         localY[outputID] = psCobylaSaveY_[index];
-         (*YValue) = localY[outputID];
+         localY[0] = psCobylaSaveY_[index*nOuts];
+         (*YValue) = localY[0];
+         for (ii = 0; ii < nOuts-1; ii++) 
+            constraints[ii] = psCobylaSaveY_[index*nOuts+ii+1];
       }
 
-      if (psOptExpertMode_ != 0 && found == 0)
+      if (psCobylaSaveHistory_ == 1 && found == 0 &&
+          (psCobylaNSaved_+1)*nInputs < psCobylaMaxSaved_*10 &&
+          (psCobylaNSaved_+1)*nOuts < psCobylaMaxSaved_*10 &&
+          psCobylaNSaved_ < psCobylaMaxSaved_)
       {
          for (jj = 0; jj < nInputs; jj++)
             psCobylaSaveX_[psCobylaNSaved_*nInputs+jj] = XValues[jj];
-         psCobylaSaveY_[psCobylaNSaved_] = localY[outputID];
+         for (jj = 0; jj < nOuts; jj++)
+            psCobylaSaveY_[psCobylaNSaved_*nOuts+jj] = localY[jj];
          psCobylaNSaved_++;
+         fp = fopen("psuade_cobyla_history","w");
+         if (fp != NULL)
+         {
+            for (ii = 0; ii < psCobylaNSaved_; ii++)
+            {
+               fprintf(fp, "999 %d %d ", nInputs, nOuts);
+               for (kk = 0; kk < nInputs; kk++)
+                  fprintf(fp, "%24.16e ", psCobylaSaveX_[ii*nInputs+kk]);
+               for (kk = 0; kk < nOuts; kk++)
+                  fprintf(fp, "%24.16e ", psCobylaSaveY_[ii*nOuts+kk]);
+               fprintf(fp, "\n");
+            }
+            fclose(fp);
+         }
+      }
+      if (odata->outputLevel_ > 4)
+      {
+         printf("CobylaOptimizer %6d : \n", odata->numFuncEvals_); 
+         for (ii = 0; ii < nInputs; ii++)
+            printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
+         printf("    ObjY  = %16.8e\n", localY[0]);
       }
 
       ignoreFlag = 0;
-      for (ii = 0; ii < nInputs; ii++)
-      {
-         constraints[ii] = XValues[ii] - odata->lowerBounds_[ii];
-         constraints[ii+nInputs] = odata->upperBounds_[ii] - XValues[ii];
-         if (constraints[ii] < 0.0 || constraints[ii+nInputs] < 0.0)
-            ignoreFlag = 1;
-      }
+      for (ii = 0; ii < nConstraints; ii++)
+         if (constraints[ii] < 0.0) ignoreFlag = 1;
       if ((ignoreFlag == 0) && ((*YValue) < odata->optimalY_))
       {
          odata->optimalY_ = (*YValue);
          for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = XValues[ii];
-         if (odata->outputLevel_ > 2)
-         {
-            printf("CobylaOptimizer %6d : \n", odata->numFuncEvals_); 
-            for (ii = 0; ii < nInputs; ii++)
-               printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
-            printf("    Ymin  = %16.8e\n", odata->optimalY_);
-         }
       }
       free(localY);
-
-      if (psOptExpertMode_ != 0 && found == 0)
-      {
-         infile = fopen("psuade_cobyla_data","w");
-         if (infile != NULL)
-         {
-            fprintf(infile, "%d %d\n", psCobylaNSaved_, nInputs);
-            for (ii = 0; ii < psCobylaNSaved_; ii++)
-            {
-               fprintf(infile, "%d ", ii+1);
-               for (jj = 0; jj < nInputs; jj++)
-                  fprintf(infile, "%24.16e ", psCobylaSaveX_[ii*nInputs+jj]);
-               fprintf(infile, "%24.16e\n", psCobylaSaveY_[ii]);
-            }
-            fclose(infile);
-         }
-      }
       return 0;
    }
 #ifdef __cplusplus
@@ -215,6 +147,29 @@ extern "C"
 // ------------------------------------------------------------------------
 CobylaOptimizer::CobylaOptimizer()
 {
+   printAsterisks(PL_INFO, 0);
+   printf("*   COBYLA Optimizer Usage Information\n");
+   printEquals(PL_INFO, 0);
+   printf("* - To run this optimizer, first make sure opt_driver has\n");
+   printf("*   been initialized to point to your optimization objective\n");
+   printf("*   function evaluator\n");
+   printf("* - Set optimization tolerance in your PSUADE input file\n");
+   printf("* - Set maximum number of iterations in PSUADE input file\n");
+   printf("* - Set num_local_minima to perform multistart optimization\n");
+   printf("* - Set optimization print_level to give additonal outputs\n");
+   printf("* - In Opt EXPERT mode, the optimization history log will be\n");
+   printf("*   turned on automatically. Previous psuade_cobyla_history\n");
+   printf("*   file will also be reused.\n");
+   printf("* - If your opt_driver is a response surface which has more\n");
+   printf("*   inputs than the number of optimization inputs, you can fix\n");
+   printf("*   some driver inputs by creating a (analyzer) rs_index_file.\n");
+   printf("* - The optimization objective function is: \n\n");
+   printf("        F(X)+SIGMA*MAX(0.0,-C1(X),-C2(X),...,-CM(X)) \n\n");
+   printf("    where C1, C2, ..., CM are the results of evaluating the\n");
+   printf("    constraint functions. The constraint function evaluation\n");
+   printf("    should be performed in the function evaluator so make \n");
+   printf("    sure the number of outputs in your evaluator is M+1.\n");
+   printAsterisks(PL_INFO, 0);
 }
 
 // ************************************************************************
@@ -229,15 +184,14 @@ CobylaOptimizer::~CobylaOptimizer()
 // ------------------------------------------------------------------------
 void CobylaOptimizer::optimize(oData *odata)
 {
-   int    nInputs, nConstraints, ii, maxfun;
-   int    ntimes=3, printLevel=0, nOutputs, outputID, cmpFlag;
+   int    nInputs, nConstraints, ii, jj, nIns, nOuts, maxfun;
+   int    ntimes=3, printLevel=0, nOutputs, cmpFlag, token;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp;
-   char   filename[500];
-   string   iLine;
-   ifstream iFile;
+   char   filename[500], *cString;
+   FILE   *fp=NULL;
 
+   printLevel = odata->outputLevel_;
    nInputs = odata->nInputs_;
-   nConstraints = 2 * nInputs;
    for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = 0.0;
    maxfun = odata->maxFEval_;
    odata->optimalY_ = 1.0e50;
@@ -254,130 +208,10 @@ void CobylaOptimizer::optimize(oData *odata)
    if (rhobeg < rhoend)
    {
       printf("CobylaOptimizer WARNING: tolerance too large.\n");
-      printf("                         tolerance reset to 1.0e-6.\n");
-      rhoend = rhobeg * 1.0e-6;
+      printf("                         tolerance reset to 1.0e-4.\n");
+      rhoend = rhobeg * 1.0e-4;
    }
-
    nOutputs = odata->nOutputs_;
-   outputID = odata->outputID_;
-   if (nOutputs > 1)
-   {
-      printAsterisks(PL_INFO, 0);
-      printf("* You have multiple outputs in your problem definition.\n");
-      printf("* Minimization will be performed with respect to output %d.\n",
-             outputID+1);
-      printf("* NOTE: However, by turning on the Opt EXPERT mode, \n");
-      printf("* You may specialize the objective function by creating a\n");
-      printf("* file called psuadeCobylaSpecial in your current directory.\n");
-      printf("*\n");
-      printf("* The objective function is in the form: \n");
-      printf("*\n");
-      printf("*  sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2\n");
-      printf("*\n");
-      printf("* where\n");
-      printf("*   m - number of outputs to be used to form linear sum.\n");
-      printf("*   n - number of outputs to form Lagrange multiplier.\n");
-      printf("*   w_i - weight of output i.\n");
-      printf("*   C_j - constraint for output j.\n");
-      printf("* The psuadeCobylaSpecial should have the following format: \n");
-      printf("*\n");
-      printf("\tPSUADE_BEGIN\n");
-      printf("\t<m>          /* m in the above formula */\n");
-      printf("\t1  <double>  /* w_1 if output 1 is used. */\n");
-      printf("\t3  <double>  /* w_3 if output 3 is used (and O2 not used)*/\n");
-      printf("\t...\n");
-      printf("\t<n>          /* n in the above formula */\n");
-      printf("\t2  <double>  /* C_2 if output 2 is used in Lagrange */\n");
-      printf("\t...\n");
-      printf("\tPSUADE_END\n");
-      printDashes(PL_INFO, 0);
-      if (psOptExpertMode_ != 0)
-      {
-         strcpy(filename, "psuadeCobylaSpecial");
-         iFile.open(filename);
-         if (iFile.is_open())
-         {
-            printf("INFO: psuadeCobylaSpecial file found.\n");
-            getline (iFile, iLine);
-            cmpFlag = iLine.compare("PSUADE_BEGIN");
-            if (cmpFlag != 0)
-            {
-               printf("Cobyla ERROR: PSUADE_BEGIN not found.\n");
-               iFile.close();
-               return;
-            }
-            iFile >> psNumOVars_;
-            if (psNumOVars_ <= 0)
-            {
-               printf("Cobyla ERROR: numOVars <= 0\n");
-               iFile.close();
-               return;
-            }
-            psOVars_  = new int[psNumOVars_];
-            psOWghts_ = new double[psNumOVars_];
-            for (ii = 0; ii < psNumOVars_; ii++)
-            {
-               iFile >> psOVars_[ii];
-               if (psOVars_[ii] <= 0 || psOVars_[ii] > nOutputs)
-               {
-                  printf("Cobyla ERROR: invalid variable index %d.\n",
-                         psOVars_[ii]);
-                  iFile.close();
-                  return;
-               }
-               psOVars_[ii]--;
-               iFile >> psOWghts_[ii];
-            }
-            printf("%d outputs selected: \n", psNumOVars_);
-            for (ii = 0; ii < psNumOVars_; ii++)
-               printf("%4d   weight = %16.8e\n", psOVars_[ii]+1, psOWghts_[ii]);
-            iFile >> psNumLVars_;
-            if (psNumLVars_ < 0)
-            {
-               printf("Cobyla ERROR: numLVars < 0\n");
-               iFile.close();
-               return;
-            }
-            if (psNumLVars_ > 0)
-            {
-               psLVars_  = new int[psNumLVars_];
-               psLWghts_ = new double[psNumLVars_];
-               psLVals_  = new double[psNumLVars_];
-            }
-            for (ii = 0; ii < psNumLVars_; ii++)
-            {
-               iFile >> psLVars_[ii];
-               if (psLVars_[ii] <= 0 || psLVars_[ii] > nOutputs)
-               {
-                  printf("Cobyla ERROR: invalid variable index %d.\n",
-                         psLVars_[ii]);
-                  iFile.close();
-                  return;
-               }
-               psLVars_[ii]--;
-               iFile >> psLVals_[ii];
-               iFile >> psLWghts_[ii];
-            }
-            printf("%d Lagrange outputs selected: \n", psNumLVars_);
-            for (ii = 0; ii < psNumLVars_; ii++)
-               printf("%4d   value = %16.8e, weight = %16.8e\n",
-                      psLVars_[ii]+1, psLVals_[ii], psLWghts_[ii]);
-            getline (iFile, iLine);
-            cmpFlag = iLine.compare("PSUADE_END");
-            if (cmpFlag != 0)
-            {
-               getline (iFile, iLine);
-               cmpFlag = iLine.compare("PSUADE_END");
-               if (cmpFlag != 0)
-               {
-                  printf("Bobyqa ERROR: PSUADE_END not found.\n");
-                  iFile.close();
-                  return;
-               }
-            }
-         }
-      }
-   }
 
    if ((odata->setOptDriver_ & 1))
    {
@@ -386,25 +220,83 @@ void CobylaOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(1);
    }
    printAsterisks(PL_INFO, 0);
-   printf("Cobyla optimizer: max fevals = %d\n", odata->maxFEval_*ntimes);
-   printf("Cobyla optimizer: tolerance  = %e\n", odata->tolerance_);
-   if (printLevel > 1)
-      printf("Cobyla optimizer: rho1, rho2 = %e %e\n",rhobeg,rhoend);
-   if (psNumOVars_ + psNumLVars_ == 0)
-      printf("Cobyla optimizer: selected output = %d\n", outputID+1);
+   printf("Cobyla optimizer: max fevals   = %d\n", odata->maxFEval_);
+   printf("Cobyla optimizer: tolerance    = %e\n", odata->tolerance_);
    printEquals(PL_INFO, 0);
+   psCobylaNConstr_ = nOutputs - 1;
+   printf("Cobyla optimizer: nConstraints = %d\n",psCobylaNConstr_); 
+
+   if (psConfig_ != NULL)
+   {
+      cString = psConfig_->getParameter("opt_save_history");
+      if (cString != NULL) psCobylaSaveHistory_ = 1;
+      cString = psConfig_->getParameter("opt_use_history");
+      if (cString != NULL)
+      {
+         printf("Cobyla: use history has been turned on.\n");
+         fp = fopen("psuade_cobyla_history","r");
+         if (fp != NULL)
+         {
+            psCobylaNSaved_ = 0;
+            token = 999;
+            while (token == 999)
+            {
+               fscanf(fp, "%d", &token);
+               if (token != 999) 
+               {
+                  fclose(fp);
+                  break;
+               }
+               fscanf(fp, "%d %d", &nIns, &nOuts);
+               if (nIns != nInputs)
+               {
+                  printf("Cobyla: history file has invalid nInputs.\n");
+                  fclose(fp);
+                  psCobylaNSaved_ = 0;
+                  break;
+               }
+               else if (nOuts != psCobylaNConstr_+1)
+               {
+                  printf("Cobyla: history file has invalid nOutputs.\n");
+                  fclose(fp);
+                  psCobylaNSaved_ = 0;
+                  break;
+               }
+               ii = psCobylaNSaved_;
+               for (jj = 0; jj < nInputs; jj++)
+                  fscanf(fp, "%lg", &psCobylaSaveX_[ii*nInputs+jj]);
+               for (jj = 0; jj < nOuts; jj++)
+                  fscanf(fp, "%lg", &psCobylaSaveY_[ii*nOuts+jj]);
+               psCobylaNSaved_++;
+               if (psCobylaNSaved_ > psCobylaMaxSaved_*10/nInputs)
+               {
+                  printf("Cobyla: History file has too much data.\n");
+                  printf("        Truncate after %d samples.\n",
+                         psCobylaNSaved_);
+                  fclose(fp);
+                  break;
+               }
+               if (psCobylaNSaved_ > psCobylaMaxSaved_*10/nOuts)
+               {
+                  printf("PSUADE Cobyla: history file has too much data.\n");
+                  printf("               Ask PSUADE developer for help.\n");
+                  fclose(fp);
+                  break;
+               }
+            }
+         }
+      }
+   }
 
 #ifdef HAVE_COBYLA
-   int tfevals = 0;
-   for (int kk = 0; kk < ntimes; kk++)
-   {
-      cobyla(nInputs, nConstraints, XValues, rhobeg, rhoend, 
-             printLevel, &maxfun, evaluateFunction, 
-             (void *) odata);
-      tfevals += odata->numFuncEvals_;
-   }
-   odata->numFuncEvals_ = tfevals;
-   printf("Cobyla optimizer: number of function evaluation = %d\n",tfevals);
+   nConstraints = psCobylaNConstr_; 
+   odata->numFuncEvals_ = 0;
+   cobyla(nInputs, nConstraints, XValues, rhobeg, rhoend, printLevel, 
+          &maxfun, evaluateFunction, (void *) odata);
+   for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = XValues[ii];
+   odata->optimalY_ = XValues[nInputs];
+   printf("Cobyla optimizer: number of function evaluation = %d\n",
+          odata->numFuncEvals_);
 #else
    printf("ERROR : Cobyla optimizer not installed.\n");
    exit(1);
@@ -416,17 +308,6 @@ void CobylaOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(psCCurrDriver_);
    }
    delete [] XValues;
-   delete [] psOVars_;
-   delete [] psOWghts_;
-   delete [] psLVars_;
-   delete [] psLWghts_;
-   delete [] psLVals_;
-   psLVals_ = NULL;
-   psLWghts_ = NULL;
-   psOWghts_ = NULL;
-   psOVars_ = NULL;
-   psLVars_ = NULL;
-   psNumOVars_ = psNumLVars_ = 0;
 }
 
 // ************************************************************************

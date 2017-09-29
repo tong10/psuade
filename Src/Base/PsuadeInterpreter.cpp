@@ -113,8 +113,8 @@ int PsuadeBase::interpretInteractive()
    FunctionInterface *funcIO=NULL;
    AnalysisManager   *anaManager=NULL;
    PDFManager *pdfman=NULL;
-   Matrix     corMat;
-   Vector     vecIn, vecOut, vecUpper, vecLower;
+   psMatrix   corMat;
+   psVector   vecIn, vecOut, vecUpper, vecLower;
    PsuadeSession *currSession=NULL, *newSession=NULL;
 
    // loop on the command interpreter
@@ -170,7 +170,7 @@ int PsuadeBase::interpretInteractive()
             printf("\t\t 1. Sampling: MC, LPTAU, METIS, LH, OA, or OALH\n");
             printf("\t\t    Analyzer: use 'ua' in command line mode\n");
             printf("\t\t 2. Sampling: first construct response surface (rs)\n");
-            printf("\t\t    Analyzer: use rsua\n");
+            printf("\t\t    Analyzer: use rsua, rsua2\n");
             printf("\t\t 3. Sampling: first construct response surface (rs)\n");
             printf("\t\t    Analyzer: use rsuab (rsua with bootstrapping)\n");
             printf("\tII.   Parameter Screening: \n");
@@ -337,7 +337,8 @@ int PsuadeBase::interpretInteractive()
          {
             printf("Commands for RS-based uncertainty/sensitivity analysis:\n");
             printf("(to see details of each command, use '-h' option)\n");
-            printf("\trsua       (RS-based UA on fuzzy response surface)\n");
+            printf("\trsua2      (RS-based UA on fuzzy response surface)\n");
+            printf("\trsua       (Same as rsua2: user to provide sample file)\n");
             printf("\trsuab      (RS-based UA on response surface with bootstrap)\n");
             printf("\trsmeb      (RS-based McKay main effect with bootstrap)\n");
             printf("\trsieb      (RS-based McKay pairwise effect with bootstrap)\n");
@@ -402,7 +403,6 @@ int PsuadeBase::interpretInteractive()
             printf("\tiplot2_all (all pairs 2-input plots)\n");
             printf("\tiplot_pdf  (plot sample PDF of selected inputs)\n");
             printf("\tiplot2_pdf (plot sample PDFs of all input pairs)\n");
-            printf("\tiplot_pdf  (plot the sample PDF of selected inputs)\n");
             printf("\toplot2     (2-output scatter plot)\n");
             printf("\toplot_pdf  (plot sample PDF of selected outputs)\n");
             printf("\toplot2_pdf (plot sample PDF of all output pairs)\n");
@@ -456,6 +456,8 @@ int PsuadeBase::interpretInteractive()
             printf("\tvalidate      (validate certain sample outputs)\n");
             printf("\tinvalidate    (invalidate selected sample points)\n");
             printf("\tsrandomize    (randomize sample point orders)\n");
+            printf("\timodify       (modify an input of a selected sample)\n");
+            printf("\tomodify       (modify an output of a selected sample)\n");
             printf("\tifilter       (take out points outside input bounds)\n");
             printf("\tofilter       (take out points outside output bounds)\n");
             printf("\tidelete       (delete one input from data)\n");
@@ -679,8 +681,8 @@ int PsuadeBase::interpretInteractive()
             psuadeIO_->getParameter("input_sample_indices", pPDFSIndices);
             SPDFIndices = pPDFSIndices.intArray_;
             psuadeIO_->getParameter("input_cor_matrix", pPtr);
-            inputCMat_ = new Matrix();
-            Matrix *tmpMat = (Matrix *) pPtr.psObject_;
+            inputCMat_ = new psMatrix();
+            psMatrix *tmpMat = (psMatrix *) pPtr.psObject_;
             inputCMat_->load(*tmpMat);
 
             psuadeIO_->getParameter("output_noutputs", pPtr);
@@ -1248,7 +1250,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_  = new int[nInputs_];
          inputMeans_ = new double[nInputs_];
          inputStds_  = new double[nInputs_];
-         inputCMat_  = new Matrix();
+         inputCMat_  = new psMatrix();
          inputCMat_->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -1466,6 +1468,17 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          cleanUp();
+         kk = '#';
+         while (kk == '#')
+         {
+            kk = getc(fp);
+            if (kk != '#') 
+            {
+               ungetc (kk, fp);
+               break;
+            }
+            else fgets(pString, 50000, fp);
+         }
          fscanf(fp, "%d %d %d", &nSamples_, &nInputs_, &nOutputs_);
          if (nSamples_ <= 0) 
          {
@@ -1538,7 +1551,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_  = new int[nInputs_];
          inputMeans_ = new double[nInputs_];
          inputStds_  = new double[nInputs_];
-         inputCMat_  = new Matrix();
+         inputCMat_  = new psMatrix();
          inputCMat_->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -1797,7 +1810,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_  = new int[nInputs_];
          inputMeans_ = new double[nInputs_];
          inputStds_  = new double[nInputs_];
-         inputCMat_  = new Matrix();
+         inputCMat_  = new psMatrix();
          inputCMat_->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -2059,7 +2072,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_  = new int[nInputs_];
          inputMeans_ = new double[nInputs_];
          inputStds_  = new double[nInputs_];
-         inputCMat_  = new Matrix();
+         inputCMat_  = new psMatrix();
          inputCMat_->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -2646,8 +2659,8 @@ int PsuadeBase::interpretInteractive()
                pStds.clean();
 
                ioPtr->getParameter("input_cor_matrix", pPtr);
-               Matrix *tmpMat1 = (Matrix *) pPtr.psObject_;
-               Matrix *tmpMat2 = new Matrix();
+               psMatrix *tmpMat1 = (psMatrix *) pPtr.psObject_;
+               psMatrix *tmpMat2 = new psMatrix();
                tmpMat2->setDim(nInputs_+ind,nInputs_+ind);
                for (ii = 0; ii < nInputs_; ii++)
                {
@@ -2862,7 +2875,7 @@ int PsuadeBase::interpretInteractive()
          }
          if (inputCMat_ != NULL)
          {
-            Matrix *tmpMat2 = new Matrix();
+            psMatrix *tmpMat2 = new psMatrix();
             tmpMat2->setDim(nInputs_+1,nInputs_+1);
             for (ii = 0; ii < nInputs_; ii++)
             {
@@ -3901,7 +3914,7 @@ int PsuadeBase::interpretInteractive()
             inputStds_ = new double[nInputs_];
             for (ii = 0; ii < nInputs_; ii++) inputStds_[ii] = tempW[ii];
             for (ii = nInputs_; ii < nInputs_+ind; ii++) inputStds_[ii] = 0;
-            Matrix *tmpMat = new Matrix();
+            psMatrix *tmpMat = new psMatrix();
             tmpMat->setDim(nInputs_+ind,nInputs_+ind);
             for (ii = 0; ii < nInputs_; ii++)
             {
@@ -7037,7 +7050,7 @@ int PsuadeBase::interpretInteractive()
          int    *iPDFs = new int[nInputs_];
          double *iMeans = new double[nInputs_];
          double *iStds = new double[nInputs_];
-         Matrix *iCMat = new Matrix();
+         psMatrix *iCMat = new psMatrix();
          iCMat->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -7205,7 +7218,7 @@ int PsuadeBase::interpretInteractive()
       }
 
       // +++ rs_ua, rsua, rsb_ua, rsuab and others
-      else if (!strcmp(command, "rs_ua")  || !strcmp(command, "rsua") ||
+      else if (!strcmp(command, "rsua")  || !strcmp(command, "rsua2") ||
                !strcmp(command, "rsb_ua") || !strcmp(command, "rs_ua2") ||
                !strcmp(command, "rs_uab") || !strcmp(command, "rsuab") ||
                !strcmp(command, "rs_uap") ||
@@ -9269,13 +9282,77 @@ int PsuadeBase::interpretInteractive()
          printf("rm_dup completed. Use write to store the reduced sample.\n");
       }
 
+      // +++ imodify 
+      else if (!strcmp(command, "imodify"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("imodify: modify an input of a selected sample point\n");
+            printf("syntax: imodify (no argument needed)\n");
+            continue;
+         }
+         if (psuadeIO_ == NULL || nInputs_ <= 0)
+         {
+            printf("ERROR: data not loaded yet.\n");
+            continue;
+         }
+         sprintf(pString, "Enter sample number (1 - %d) : ", nSamples_);
+         sInd = getInt(1, nSamples_, pString);
+         sInd--;
+         sprintf(pString, "Enter input number (1 - %d) : ", nInputs_);
+         inputID = getInt(1, nInputs_, pString);
+         inputID--;
+         printf("Current value of input = %e\n",
+                sampleInputs_[sInd*nInputs_+inputID]);
+         sprintf(pString, "Enter new value : ");
+         sampleInputs_[sInd*nInputs_+inputID] = getDouble(pString);
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                          sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
+      }
+
+      // +++ omodify 
+      else if (!strcmp(command, "omodify"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("omodify: modify an output of a selected sample point\n");
+            printf("syntax: omodify (no argument needed)\n");
+            continue;
+         }
+         if (psuadeIO_ == NULL || nInputs_ <= 0)
+         {
+            printf("ERROR: data not loaded yet.\n");
+            continue;
+         }
+         sprintf(pString, "Enter sample number (1 - %d) : ", nSamples_);
+         sInd = getInt(1, nSamples_, pString);
+         sInd--;
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         ii = getInt(1, nOutputs_, pString);
+         ii--;
+         printf("Current value of output = %e\n",
+                sampleOutputs_[sInd*nOutputs_+ii]);
+         sprintf(pString, "Enter new value : ");
+         sampleOutputs_[sInd*nOutputs_+ii] = getDouble(pString);
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                        sampleStates_, NULL);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
+      }
+
       // +++ ifilter 
       else if (!strcmp(command, "ifilter"))
       {
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("ifilter: take out sample points based on input constraints\n");
+            printf("ifilter: take out sample points based on constraints\n");
             printf("syntax: ifilter (no argument needed)\n");
             continue;
          }
@@ -9344,7 +9421,7 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("ofilter: take out sample points based on output constraints\n");
+            printf("ofilter: take out sample points based on constraints\n");
             printf("syntax: ofilter (no argument needed)\n");
             continue;
          }
@@ -9413,10 +9490,10 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("oop: form linear combinations of output values for each point.\n");
+            printf("oop: form linear combinations of outputs for the sample\n");
             printf("syntax: oop (no argument needed)\n");
-            printf("Sometimes one may want to combine some outputs to form a\n");
-            printf("new output (e.g. the difference of two outputs).\n");
+            printf("Sometimes one may want to combine some outputs to form\n");
+            printf("a new output (e.g. the difference of two outputs).\n");
             continue;
          }
          if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
@@ -9593,7 +9670,8 @@ int PsuadeBase::interpretInteractive()
                distPairs[kk] = 0.0;
                for (jj = 0; jj < nInputs_; jj++)
                {
-                  ddata = sampleInputs_[ss*nInputs_+jj] - sampleInputs_[ss2*nInputs_+jj];
+                  ddata = sampleInputs_[ss*nInputs_+jj] - 
+                          sampleInputs_[ss2*nInputs_+jj];
                   ddata = ddata / (iUpperB_[jj] - iLowerB_[jj]);
                   distPairs[kk] += pow(ddata, 2.0);
                }
@@ -9711,7 +9789,7 @@ int PsuadeBase::interpretInteractive()
             int    *iPDFs = new int[nInputs_];
             double *iMeans = new double[nInputs_];
             double *iStds = new double[nInputs_];
-            Matrix *iCMat = new Matrix();
+            psMatrix *iCMat = new psMatrix();
             iCMat->setDim(nInputs_, nInputs_);
             for (ii = 0; ii < nInputs_; ii++)
             {
@@ -9792,7 +9870,7 @@ int PsuadeBase::interpretInteractive()
          int    *iPDFs = new int[nInputs_];
          double *iMeans = new double[nInputs_];
          double *iStds = new double[nInputs_];
-         Matrix *iCMat = new Matrix();
+         psMatrix *iCMat = new psMatrix();
          iCMat->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -9854,7 +9932,7 @@ int PsuadeBase::interpretInteractive()
          int    *iPDFs = new int[nInputs_];
          double *iMeans = new double[nInputs_];
          double *iStds = new double[nInputs_];
-         Matrix *iCMat = new Matrix();
+         psMatrix *iCMat = new psMatrix();
          iCMat->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -10018,7 +10096,7 @@ int PsuadeBase::interpretInteractive()
          int    *iPDFs = new int[nInputs_+nInputs2];
          double *iMeans = new double[nInputs_+nInputs2];
          double *iStds = new double[nInputs_+nInputs2];
-         Matrix *iCMat = new Matrix();
+         psMatrix *iCMat = new psMatrix();
          iCMat->setDim(nInputs_+nInputs2, nInputs_+nInputs2);
          for (ii = 0; ii < nInputs_+nInputs2; ii++)
          {
@@ -10953,7 +11031,7 @@ int PsuadeBase::interpretInteractive()
                   printf("%6d: Sample %7d : ", sInd+1, kk+1);
                   for (ii = 0; ii < nInputs_; ii++)
                      printf("%12.4e ", sampleInputs_[kk*nInputs_+ii]);
-                  printf("= %12.4e\n", tmpOuts[ss]);
+                  printf("= %12.4e\n", tmpOuts[kk]);
                }
                delete [] tmpOuts;
                delete [] tmpInds;
@@ -10995,7 +11073,7 @@ int PsuadeBase::interpretInteractive()
                printf("   input  %3d = %16.8e\n", ii+1, 
                       sampleInputs_[ind*nInputs_+ii]);
             for (ii = 0; ii < nOutputs_; ii++)
-               printf("   output %3d = %16.8e\n", sInd+1, 
+               printf("   output %3d = %16.8e\n", ii+1, 
                       sampleOutputs_[ind*nOutputs_+ii]);
          }
       }
@@ -11174,7 +11252,7 @@ int PsuadeBase::interpretInteractive()
                kk++;
             }
          }
-         Matrix *tmpMat = new Matrix();
+         psMatrix *tmpMat = new psMatrix();
          tmpMat->setDim(inpCnt,inpCnt);
          for (ii = 0; ii < inpCnt; ii++)
          {
@@ -11371,7 +11449,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_ = tmpPDFs;
          inputMeans_ = tmpMeans;
          inputStds_ = tmpStds;
-         Matrix *tmpMat = new Matrix();
+         psMatrix *tmpMat = new psMatrix();
          tmpMat->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -11481,7 +11559,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_  = tmpPDFs;
          inputMeans_ = tmpMeans;
          inputStds_  = tmpStds;
-         Matrix *tmpMat = new Matrix();
+         psMatrix *tmpMat = new psMatrix();
          tmpMat->setDim(indexCnt, indexCnt);
          for (ii = 0; ii < indexCnt; ii++)
          {
@@ -11614,7 +11692,7 @@ int PsuadeBase::interpretInteractive()
          inputPDFs_  = tmpPDFs;
          inputMeans_ = tmpMeans;
          inputStds_  = tmpStds;
-         Matrix *tmpMat = new Matrix();
+         psMatrix *tmpMat = new psMatrix();
          tmpMat->setDim(indexCnt, indexCnt);
          for (ii = 0; ii < indexCnt; ii++)
          {
@@ -12501,8 +12579,9 @@ int PsuadeBase::interpretInteractive()
          fwritePlotXLabel(fp, "Input Value");
          fwritePlotYLabel(fp, "Probabilities");
          fclose(fp);
-         if (psPlotTool_ == 1) printf("Histogram is available in scilabihist.sci\n");
-         else                  printf("Histogram is available in matlabihist.m\n");
+         if (psPlotTool_ == 1) 
+              printf("Histogram is available in scilabihist.sci\n");
+         else printf("Histogram is available in matlabihist.m\n");
       }
          
       // +++ ihist2 
@@ -12867,7 +12946,7 @@ int PsuadeBase::interpretInteractive()
          for (ii = 0; ii < nSamples_; ii++)
          {
             for (jj = 0; jj < kk; jj++)
-               fprintf(fp, "%e ", sampleInputs_[ii*nInputs_+indSet[jj]]);
+               fprintf(fp, "%24.16e ",sampleInputs_[ii*nInputs_+indSet[jj]]);
             fprintf(fp, "\n");
          }
          fprintf(fp, "];\n"); 
@@ -13209,7 +13288,7 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("rscreate: create a response surface with data from 'load'\n");
+            printf("rscreate: create response surface with loaded sample\n");
             printf("syntax: rscreate (no argument needed)\n");
             printf("This command is useful for creating a response surface\n");
             printf("on the fly, and then use rseval new sample points.\n");
@@ -13230,7 +13309,8 @@ int PsuadeBase::interpretInteractive()
          faPtrsRsEval = new FuncApprox*[nOutputs_];
          if (outputID != 0)
          {
-            psuadeIO_->updateAnalysisSection(-1,-1,-1,outputLevel_,outputID-1,-1);
+            psuadeIO_->updateAnalysisSection(-1,-1,-1,outputLevel_,
+                                             outputID-1,-1);
             faPtrsRsEval[0] = genFAInteractive(psuadeIO_, faFlag);
             for (ii = 1; ii < nOutputs_; ii++) faPtrsRsEval[ii] = NULL;
          }
@@ -13272,7 +13352,8 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          count = 0;
-         sprintf(pString, "Data taken from a file (n - from register)? (y or n) ");
+         sprintf(pString,
+            "Data taken from a file (n - from register)? (y or n) ");
          getString(pString, winput);
          if (winput[0] == 'y')
          {
@@ -13409,7 +13490,8 @@ int PsuadeBase::interpretInteractive()
                {
                   if (flag == 1)
                      dtemp = faPtrsRsEval[ii]->evaluatePointFuzzy(count,
-                                 inputSettings,&(tempY[ii*count]),&(tempW[ii*count]));
+                                 inputSettings,&(tempY[ii*count]),
+                                 &(tempW[ii*count]));
                   else
                      dtemp = faPtrsRsEval[ii]->evaluatePoint(count,
                                  inputSettings,&(tempY[ii*count]));
@@ -13430,7 +13512,8 @@ int PsuadeBase::interpretInteractive()
                         printf("output %d = %e (stdev = %e) ",
                                ii+1,tempY[ii*count+kk], tempW[ii*count+kk]);
                         if (fp != NULL)
-                           fprintf(fp,"%e %e ",tempY[ii*count+kk],tempW[ii*count+kk]);
+                           fprintf(fp,"%e %e ",tempY[ii*count+kk],
+                                   tempW[ii*count+kk]);
                      }
                      else
                      {
@@ -13939,9 +14022,9 @@ int PsuadeBase::interpretInteractive()
          printf("Please enter the number of bins per input dimension.\n");
          for (ii = 0; ii < nInputs_; ii++)
          {
-            sprintf(pString,"Number of histogram bins for input %d : ",
+            sprintf(pString,"Number of histogram bins for input %d (1-1000): ",
                     ii+1);
-            incrs[ii] = getInt(2, 1000, pString);
+            incrs[ii] = getInt(1, 1000, pString);
          }
          PDFHistogram *pdfhist = new PDFHistogram(nSamples_, nInputs_, 
                                                   sampleInputs_,incrs,1);
@@ -13952,7 +14035,7 @@ int PsuadeBase::interpretInteractive()
          delete [] tempX;
          count = 100000;
          tempX = new double[count*nInputs_];
-         pdfhist->genSample(count,tempX,0,0);
+         pdfhist->genSample(count,tempX,iLowerB_,iUpperB_);
          ioPtr = new PsuadeData();
          ioPtr->updateInputSection(count, nInputs_, NULL, iLowerB_,
                       iUpperB_,tempX,inputNames_,NULL,NULL,NULL,NULL);
@@ -13983,8 +14066,7 @@ int PsuadeBase::interpretInteractive()
          {
             fscanf(fp, "%d", &kk);
             fclose(fp);
-            printf("Final iteration: nbins = %d, scenario size = %d\n",
-                   incrs[0],kk);
+            printf("Final iteration: scenario size = %d\n", kk);
             printf("Histogram has been created in psuade_pdfhist_sample.\n");
          }
          delete [] incrs;
@@ -14057,11 +14139,11 @@ int PsuadeBase::interpretInteractive()
          }
          delete [] incrs;
          printf("Histogram has been created in psuade_pdfhist_sample.\n");
-         printf("Info: To estimate the goodness of this histogram, run the\n");
-         printf("   genhistogram command with the nbins information\n");
-         printf("   given above. Thereafter, use the large sample in\n");
-         printf("   psuade_pdfhist_checksample with iplot2_pdf to compare\n");
-         printf("   against the iplot2_pdf plots from the original sample.\n");
+         //printf("Info: To estimate the goodness of this histogram, run \n");
+         //printf("  the genhistogram command with the nbins information\n");
+         //printf("  given above. Thereafter, use the large sample in\n");
+         //printf("  psuade_pdfhist_checksample with iplot2_pdf to compare\n");
+         //printf("  against the iplot2_pdf plots from the original sample.\n");
       }
 
       // +++ master 
@@ -14625,7 +14707,7 @@ int PsuadeBase::interpretInteractive()
       {
          int    nSam, *PDFs;
          double *sOutputs, *slbounds, *subounds, *smeans, *sstdevs;
-         Vector vIn, vOut;
+         psVector vIn, vOut;
 
          PDFs     = new int[4];
          smeans   = new double[4];
@@ -14984,7 +15066,7 @@ int PsuadeBase::interpretInteractive()
          int    *iPDFs = new int[nInputs_];
          double *iMeans = new double[nInputs_];
          double *iStds = new double[nInputs_];
-         Matrix *iCMat = new Matrix();
+         psMatrix *iCMat = new psMatrix();
          iCMat->setDim(nInputs_, nInputs_);
          for (ii = 0; ii < nInputs_; ii++)
          {
@@ -15728,9 +15810,8 @@ int PsuadeBase::interpretInteractive()
          if (dataReg_ != NULL) delete [] dataReg_;
          dataReg_ = new double[nInputs_];
          for (ii = 0; ii < nInputs_; ii++) 
-            dataReg_[ii] = iLowerB_[ii] + PSUADE_drand() *
-                           (iUpperB_[ii] - iLowerB_[ii]);; 
-         printf("Internal sample vector created and the values have been set");
+            dataReg_[ii] = 0.5 * (iUpperB_[ii] + iLowerB_[ii]); 
+         printf("Internal vector created and the values have been set");
          printf(" to be the mid points.\n");
       }
 
@@ -15816,14 +15897,14 @@ int PsuadeBase::interpretInteractive()
          printDashes(PL_INFO, 0);
          printf("MCMC experimental data file format (O1 = output 1): \n");
          printf("  line 1: PSUADE_BEGIN\n");
-         printf("  line 2: nExperiments(p) nOutputs(n) nDesignInputs designInputList\n");
-         printf("  line 3: 1 <designInput values...> <O1 mean> <O1 std dev> ... <On std dev> \n");
-         printf("  line 4: 2 <designInput values...> <O1 mean> <O1 std dev> ... <On std dev> \n");
+         printf("  line 2: nExps(p) nOutputs(n) nDesignInps designInpList\n");
+         printf("  line 3: 1 <designInp ...> <O1 mean> <O1 std dev> ... \n");
+         printf("  line 4: 2 <designInp ...> <O1 mean> <O1 std dev> ... \n");
          printf("  ...\n");
-         printf("  line  : p <designInput values...> <O1 mean> <O1 std dev> ... <On std dev> \n");
+         printf("  line  : p <designInp ...> <O1 mean> <O1 std dev> ... \n");
          printf("  line  : PSUADE_END\n");
          printDashes(PL_INFO, 0);
-         printf("Sample Input Only file format (used in PDF S type, rs_uab, iread): \n");
+         printf("Sample Input Only format (used in PDF S type,rs_uab,iread):\n");
          printf("  line 1: PSUADE_BEGIN\n");
          printf("  line 2: <number of sample points> <number of inputs>\n");
          printf("  line 3: (optional) : '#' followed by input names\n");
@@ -15833,7 +15914,7 @@ int PsuadeBase::interpretInteractive()
          printf("  ...\n");
          printf("  line n: PSUADE_END\n");
          printDashes(PL_INFO, 0);
-         printf("RSConstraints file format (used in Analysis: rs_constraint): \n");
+         printf("RSConstraints file format (used in Analysis: rs_constraint):\n");
          printf("  line 1: nInputs\n ");
          printf("  line 2: <input (or 0)> <value (nominal val if 0)> \n ");
          printf("  line 3: <input (or 0)> <value (nominal val if 0)> \n ");
@@ -15847,7 +15928,7 @@ int PsuadeBase::interpretInteractive()
          printf("  line 5: 4 <num> <0 if num != 0>\n");
          printf("  ...\n");
          printDashes(PL_INFO, 0);
-         printf("MOATConstraints file format (used in Analysis: moat_constraint): \n");
+         printf("MOATConstraints file format (used in Analysis: moat_constraint):\n");
          printf("  line 1: nInputs \n");
          printf("  line 2: <input (or 0)> <value (nominal val if 0)> \n");
          printf("  line 3: <input (or 0)> <value (nominal val if 0)> \n");

@@ -42,6 +42,9 @@
 #include "Sampling.h"
 #include "FuncApprox.h"
 #include "PrintingTS.h"
+#ifdef HAVE_COBYLA
+#include "cobyla.h"
+#endif
 
 // ************************************************************************
 // External functions
@@ -50,6 +53,8 @@ extern "C" void bobyqa_(int *,int *, double *, double *, double *, double *,
                         double *, int *, int *, double*);
 extern "C" void obobyqa_(int *,int *, double *, double *, double *, double *,
                         double *, int *, int *, double*);
+extern "C"  void newuoa_(int *,int *,double *,double *,double *,int *,
+                         int *,double*);
 
 // ************************************************************************
 // Internal 'global' variables (for passing parameters to Fortran and C)
@@ -71,6 +76,7 @@ double  *psOUUZ4SamInputs_=NULL;
 double  *psOUUZ4LBounds_=NULL;
 double  *psOUUZ4UBounds_=NULL;
 double  *psOUUSamOutputs_=NULL;
+double  *psOUUSamConstrNorms_=NULL;
 double  *psOUUSamProbs_=NULL;
 double  *psOUUXValues_=NULL;
 double  *psOUUWValues_=NULL;
@@ -81,6 +87,7 @@ int     psOUULargeSampleSize_=0;
 double  *psOUULargeSamInputs_=NULL;
 double  *psOUULargeSamOutputs_=NULL;
 int     psOUUMode_=1;
+int     psOUUCMode_=1;
 double  psOUUPercentile_=0.5;
 double  psOUUStdevMultiplier_=0;
 int     psOUUCounter_=0;
@@ -348,11 +355,11 @@ extern "C"
                   printf("OUU: inner optimization begins (sample %d of %d)\n",
                          ss+1,nSamp);
                bobyqaFlag = 1112;
-               obobyqa_(&M2, &nPts, XLocal, lowers, uppers, &rhobeg, &rhoend, 
+               obobyqa_(&M2,&nPts,XLocal,lowers,uppers,&rhobeg,&rhoend, 
                         &bobyqaFlag, &maxfun, workArray);
                psOUUSamOutputs_[ss] = psOUUOptimalY_;
                if (odata->outputLevel_ > 3) 
-                  printf("OUU: inner optimization sample %d ends, best Y = %e\n",
+                  printf("OUU: inner optimization %d ends, best Y = %e\n",
                          ss+1,psOUUSamOutputs_[ss]); 
                free(workArray);
                free(lowers);
@@ -419,7 +426,8 @@ extern "C"
                            XLocal[ii] = psOUUSaveX_[kk*M+ii];
                      }   
                      psOUUSamOutputs_[ss] = psOUUSaveY_[kk];
-                     for (ii = 0; ii < M; ii++) psOUUOptimalX_[ii] = XLocal[ii];
+                     for (ii = 0; ii < M; ii++) 
+                        psOUUOptimalX_[ii] = XLocal[ii];
                      readys[ss] = 0;
                      break;
                   }
@@ -432,9 +440,10 @@ extern "C"
                   psOUUSamOutputs_[ss] = ddata;
                   for (ii = 0; ii < M; ii++) psOUUOptimalX_[ii] = XLocal[ii];
                   if (odata->outputLevel_ > 3 && readys[ss] == 0) 
-                     printf("OUUOptimizer (2) sample %d completed, best Y = %e\n",
+                     printf("OUUOptimizer sample %d completed, best Y = %e\n",
                          ss+1,psOUUSamOutputs_[ss]); 
-                  if (psOUUSaveHistory_ == 1 && (psOUUNSaved_+1)*M < psOUUMaxSaved_*10)
+                  if (psOUUSaveHistory_ == 1 && 
+                      (psOUUNSaved_+1)*M < psOUUMaxSaved_*10)
                   {
                      for (ii = 0; ii < M; ii++)
                         psOUUSaveX_[psOUUNSaved_*M+ii] = XLocal[ii];
@@ -465,7 +474,7 @@ extern "C"
                   }
                   psOUUSamOutputs_[ss] = ddata;
                   if (odata->outputLevel_ > 3)
-                     printf("OUUOptimizer (3) sample %d completed, best Y = %e\n",
+                     printf("OUUOptimizer sample %d completed, best Y = %e\n",
                             ss+1,psOUUSamOutputs_[ss]); 
                   odata->numFuncEvals_++;
                }
@@ -529,7 +538,8 @@ extern "C"
          odata->numFuncEvals_ += nSamp;
          for (ss = 0; ss < nSamp; ss++)
          {
-            if (psOUUSaveHistory_ == 1 && (psOUUNSaved_+1)*M < psOUUMaxSaved_*10)
+            if (psOUUSaveHistory_ == 1 && 
+                (psOUUNSaved_+1)*M < psOUUMaxSaved_*10)
             {
                for (kk = 0; kk < M; kk++)
                   psOUUSaveX_[psOUUNSaved_*M+kk] = psOUUXValues_[ss*M+kk];
@@ -547,19 +557,19 @@ extern "C"
          printf("WARNING: there are %d failed runs out of %d\n",failCnt,nSamp);
       if (failCnt == nSamp || (failCnt > 0 && psOUUSamProbs_ != NULL))
       {   
-         printf("ERROR: X3 sample cannot admit any failures ==> terminate.\n");
+         printf("ERROR: X3 sample cannot admit failures ==> terminate.\n");
          exit(1);
       }
       if (failCnt > 0 && psOUUMode_ > 2)
       {   
-         printf("ERROR: OUU mode %d cannot admit any failures ==> terminate.\n",
+         printf("ERROR: OUU mode %d cannot admit failures ==> terminate.\n",
                 psOUUMode_);
          exit(1);
       }
       if (psOUUUseRS_ == 0 || nSamp == 1)
       {
          if (odata->outputLevel_ > 2) 
-            printf("OUUOptimizer: computing objective (no RS), nFuncEval = %d\n",
+            printf("OUUOpt: computing objective (no RS), nFuncEval = %d\n",
                    odata->numFuncEvals_);
          if (psOUUMode_ == 1 || psOUUMode_ == 2)
          {
@@ -617,7 +627,7 @@ extern "C"
       else
       {
          if (odata->outputLevel_ > 2) 
-            printf("OUUOptimizer: computing objective with RS, nFuncEval = %d\n",
+            printf("OUUOpt: computing objective with RS, nFuncEval = %d\n",
                    odata->numFuncEvals_);
          
          double totalMean=0.0, totalStdv=0.0, *resultStore, cverrors[3];
@@ -634,11 +644,13 @@ extern "C"
                   {
                      for (kk = 0; kk < M4; kk++) 
                         fprintf(fp,"%24.16e ",psOUUZ4SamInputs_[ss*M4+kk]);
-                     fprintf(fp,"%24.16e\n",psOUUSamOutputs_[ii*psOUUZ4nSamples_+ss]);
+                     fprintf(fp,"%24.16e\n",
+                             psOUUSamOutputs_[ii*psOUUZ4nSamples_+ss]);
                   }
                }
                fclose(fp);
-               printf("OUU INFO: a Z4 sample is ready for viewing in ouuZ4Sample.\n");
+               printf("OUU INFO: a Z4 sample is ready for viewing in file");
+               printf(" ouuZ4Sample.\n");
                printf("To continue, enter 0 (or 1 if no more interruption) : ");
                scanf("%d", &kk);
                if (kk == 1) psGMMode_ = 0;
@@ -649,7 +661,8 @@ extern "C"
             {
                validate(psOUUZ4nSamples_,psOUUZ4SamInputs_,
                         &psOUUSamOutputs_[ii*psOUUZ4nSamples_], cverrors);
-               printf("OUUOptimizer: Z3 sample %d (of %d)\n",ii+1,psOUUZ3nSamples_);
+               printf("OUUOptimizer: Z3 sample %d (of %d)\n",ii+1,
+                      psOUUZ3nSamples_);
                printf("RS CV avg error = %e (scaled) \n", cverrors[0]);
                printf("RS CV rms error = %e (scaled) \n", cverrors[1]);
                printf("RS CV max error = %e (scaled) \n", cverrors[2]);
@@ -731,6 +744,548 @@ extern "C"
       free(XLocal);
       return NULL;
    }
+   /* ****************************************************************** */
+   /* This function is similar to ouuevalfunc but it works with cobyla   */
+   /* -------------------------------------------------------------------*/
+   int ouuevalfunccobyla(int nInputs, int nConstraints, double *XValues,
+                        double *YValue, double *constraints, void *odata2)
+   {
+      int    ii, kk, ss, funcID, M, M1, M2, M3, M4, bobyqaFlag=1112, nPts;
+      int    maxfun, *readys, status, index, nSamp, nOuts;
+      double rhobeg, rhoend, ddata, *workArray, mean, stdev, *XLocal;
+      double *lowers, *uppers, *outYs, *tempY;
+      char   winput[1000];
+      oData  *odata;
+      FILE   *fp=NULL;
+
+      odata = (oData *) psOUUObj_;
+      nOuts = odata->nOutputs_;
+      M1    = psOUUM1_;
+      M2    = psOUUM2_;
+      M3    = psOUUM3_;
+      M4    = psOUUM4_;
+      M     = M1 + M2 + M3 + M4;
+      
+      fp = fopen("psuade_ouu_stop","r");
+      if (fp != NULL)
+      {
+         unlink("psuade_ouu_stop");
+         printf("OUUOptimizer: psuade_ouu_stop file found.\n");
+         printf("              Abrupt termination.\n");
+         if (psOUUNSaved_ > 0)
+         {
+            fp = fopen("psuade_ouu_history","w");
+            if (fp != NULL)
+            {
+               for (ii = 0; ii < psOUUNSaved_; ii++)
+               {
+                  fprintf(fp, "999 %d ", M);
+                  for (kk = 0; kk < M; kk++)
+                     fprintf(fp, "%24.16e ", psOUUSaveX_[ii*M+kk]);
+                  for (kk = 0; kk < nOuts; kk++)
+                     fprintf(fp, "%24.16e\n",
+                             psOUUSaveY_[ii*nOuts+kk]);
+               }
+               fclose(fp);
+            }
+            printf("OUUOptimizer: history saved in psuade_ouu_history\n");
+         }
+         exit(1);
+      }
+
+      nSamp = psOUUZ3nSamples_ * psOUUZ4nSamples_;
+      XLocal = (double *) malloc(M*sizeof(double));
+      readys = (int *) malloc(nSamp*sizeof(int));
+
+      index = 0;
+      for (ii = 0; ii < M; ii++)
+      {
+         if (psOUUInputTypes_[ii] == psOUUType1)
+         {
+            psOUUXValues_[ii] = XValues[index];
+            index++;
+         }
+      }
+
+      if (odata->outputLevel_ > 1)
+      {
+         printf("OUUOptimizer: Outer optimization loop FuncEval %d.\n",
+                odata->numFuncEvals_+1);
+         index = 0;
+         for (ii = 0; ii < M; ii++)
+         {
+            if (psOUUInputTypes_[ii] == psOUUType1)
+            {
+               printf("    Current Level 1 input %3d = %e\n", ii+1,
+               XValues[index]);
+               index++;
+            }
+         }
+      }
+
+      if (psOUUEnsembleEval_ == 0)
+      {
+         outYs = new double[nOuts];
+         for (ss = 0; ss < nSamp; ss++)
+         {
+            if (odata->outputLevel_ > 3)
+               printf("OUUOptimizer sample %d (of %d)\n",ss+1,nSamp);
+            readys[ss] = -1;
+            psOUUOptimalY_ = PSUADE_UNDEFINED;
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType3)
+               {
+                  kk = ss / psOUUZ4nSamples_;
+                  psOUUWValues_[index] = psOUUZ3SamInputs_[kk*M3+index];
+                  index++;
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType4)
+               {
+                  kk = ss % psOUUZ4nSamples_;
+                  psOUUWValues_[index] = psOUUZ4SamInputs_[kk*M4+index];
+                  index++;
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType1)
+               {
+                  XLocal[ii] = psOUUXValues_[index];
+                  index++;
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType2)
+               {
+                  XLocal[ii] = 0.5 * (odata->lowerBounds_[ii] +
+                                      odata->upperBounds_[ii]);
+                  index++;
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType3)
+               {
+                  kk = ss / psOUUZ4nSamples_;
+                  XLocal[ii] = psOUUZ3SamInputs_[kk*M3+index];
+                  index++;
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType4)
+               {
+                  kk = ss % psOUUZ4nSamples_;
+                  XLocal[ii] = psOUUZ4SamInputs_[kk*M4+index];
+                  index++;
+               }
+            }
+            int found = 0;
+            for (kk = 0; kk < psOUUNSaved_; kk++)
+            {
+               for (ii = 0; ii < M; ii++)
+               {
+                  if (psOUUInputTypes_[ii] != psOUUType2 &&
+                      (PABS(psOUUSaveX_[kk*M+ii]-XLocal[ii])>1.0e-14))
+                     break;
+               }
+               if (ii == M)
+               {
+                  found = 1;
+                  if (odata->outputLevel_ > 2)
+                     printf("OUUOptimizer: simulation results reuse.\n");
+                  for (ii = 0; ii < M; ii++)
+                  {
+                     if (psOUUInputTypes_[ii] == psOUUType2)
+                        XLocal[ii] = psOUUSaveX_[kk*M+ii];
+                  }
+                  for (ii = 0; ii < nOuts; ii++)
+                     psOUUSamOutputs_[ss*nOuts+ii] = psOUUSaveY_[kk*nOuts+ii];
+                  for (ii = 0; ii < M; ii++) psOUUOptimalX_[ii] = XLocal[ii];
+                  readys[ss] = 0;
+                  break;
+               }
+            }
+            if (found == 0)
+            {
+               funcID = psOUUCounter_ * nSamp + ss;
+               readys[ss] = odata->funcIO_->evaluate(funcID,M,XLocal,nOuts,
+                                                     outYs,0);
+               for (ii = 0; ii < M; ii++) psOUUOptimalX_[ii] = XLocal[ii];
+               for (ii = 0; ii < nOuts; ii++)
+                  psOUUSamOutputs_[ss*nOuts+ii] = outYs[ii];
+               if (psOUUSaveHistory_ == 1 && 
+                   (psOUUNSaved_+1)*M < psOUUMaxSaved_*10 &&
+                   (psOUUNSaved_+1)*nOuts < psOUUMaxSaved_*10)
+               {
+                  for (ii = 0; ii < M; ii++)
+                     psOUUSaveX_[psOUUNSaved_*M+ii] = XLocal[ii];
+                  for (ii = 0; ii < nOuts; ii++)
+                     psOUUSaveY_[psOUUNSaved_*nOuts+ii] =
+                              psOUUSamOutputs_[ss*nOuts+ii];
+                  psOUUNSaved_++;
+               }
+               if (psOUUParallel_ == 0) odata->numFuncEvals_++;
+            }
+         }
+
+         if (psOUUUserOpt_ == 1 && psOUUParallel_ == 1)
+         {
+            for (ss = 0; ss < nSamp; ss++)
+            {
+               funcID = psOUUCounter_ * nSamp + ss;
+               if (readys[ss] != 0)
+               {
+                  while (readys[ss] != 0)
+                  {
+#ifdef WINDOWS
+                     Sleep(1000);
+#else
+                     sleep(1);
+#endif
+                     readys[ss] = odata->funcIO_->evaluate(funcID,M,XLocal,
+                                                           nOuts,outYs,2);
+                  }
+                  for (ii = 0; ii < nOuts; ii++)
+                     psOUUSamOutputs_[ss*nOuts+ii] = outYs[ii];
+                  odata->numFuncEvals_++;
+               }
+            }
+         }
+         delete [] outYs;
+      }
+      else
+      {
+         index = 0;
+         for (ii = 0; ii < M; ii++)
+         {
+            if (psOUUInputTypes_[ii] == psOUUType1)
+            {
+               XLocal[index] = psOUUXValues_[ii];
+               index++;
+            }
+         }
+         for (ss = 0; ss < nSamp; ss++)
+         {
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType1)
+               {
+                  psOUUXValues_[ss*M+ii] = XLocal[index];
+                  index++;
+               }
+            }
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType2)
+               {
+                  psOUUXValues_[ss*M+ii] = 0.5*(odata->lowerBounds_[ii] +
+                                                odata->upperBounds_[ii]);
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType3)
+               {
+                  kk = ss / psOUUZ4nSamples_;
+                  psOUUXValues_[ss*M+ii] = psOUUZ3SamInputs_[kk*M3+index];
+                  index++;
+               }
+            }
+            index = 0;
+            for (ii = 0; ii < M; ii++)
+            {
+               if (psOUUInputTypes_[ii] == psOUUType4)
+               {
+                  kk = ss % psOUUZ4nSamples_;
+                  psOUUXValues_[ss*M+ii] = psOUUZ4SamInputs_[kk*M4+index];
+                  index++;
+               }
+            }
+         }
+         funcID = odata->numFuncEvals_;
+         odata->funcIO_->ensembleEvaluate(nSamp,M,psOUUXValues_,
+                                          nOuts,psOUUSamOutputs_,funcID);
+         odata->numFuncEvals_ += nSamp;
+         for (ss = 0; ss < nSamp; ss++)
+         {
+            if (psOUUSaveHistory_ == 1 && 
+                (psOUUNSaved_+1)*M < psOUUMaxSaved_*10 &&
+                (psOUUNSaved_+1)*nOuts < psOUUMaxSaved_*10)
+            {
+               for (kk = 0; kk < M; kk++)
+                  psOUUSaveX_[psOUUNSaved_*M+kk] = psOUUXValues_[ss*M+kk];
+               for (kk = 0; kk < nOuts; kk++)
+                  psOUUSaveY_[psOUUNSaved_*nOuts+kk] =
+                     psOUUSamOutputs_[ss*nOuts+kk];
+               psOUUNSaved_++;
+            }
+         }
+         for (ii = 0; ii < M; ii++) psOUUOptimalX_[ii] = psOUUXValues_[ii];
+      }
+
+      int failCnt=0;
+      for (ss = 0; ss < nSamp; ss++)
+         if (psOUUSamOutputs_[ss*nOuts] >= 0.98*PSUADE_UNDEFINED) failCnt++;
+      if (failCnt != 0)
+         printf("WARNING: there are %d failed runs out of %d\n",failCnt,nSamp);
+      if (failCnt == nSamp || (failCnt > 0 && psOUUSamProbs_ != NULL))
+      {
+         printf("ERROR: X3 sample cannot admit any failures ==> terminate.\n");
+         exit(1);
+      }
+      if (failCnt > 0 && psOUUMode_ > 2)
+      {
+         printf("ERROR: OUU mode %d cannot admit any failures ==> terminate.\n",
+                psOUUMode_);
+         exit(1);
+      }
+      for (ss = 0; ss < nConstraints; ss++) constraints[ss] = 0.0;
+      if (psOUUUseRS_ == 0 || nSamp == 1)
+      {
+         if (odata->outputLevel_ > 2)
+            printf("OUUOpt: computing objective (no RS), nFuncEval = %d\n",
+                   odata->numFuncEvals_);
+         if (psOUUMode_ == 1 || psOUUMode_ == 2)
+         {
+            mean = 0.0;
+            if (psOUUZ3nSamples_ == 1)
+            {
+               for (ss = 0; ss < nSamp; ss++)
+                  if (psOUUSamOutputs_[ss*nOuts] < 0.98*PSUADE_UNDEFINED)
+                     mean += psOUUSamOutputs_[ss*nOuts]/(1.0*nSamp-failCnt);
+            }
+            else
+            {
+               for (ss = 0; ss < nSamp; ss++)
+               {
+                  index = ss / psOUUZ4nSamples_;
+                  mean += psOUUSamOutputs_[ss*nOuts] / psOUUZ4nSamples_ *
+                          psOUUSamProbs_[index];
+               }
+            }
+            (*YValue) = mean;
+         }
+         if (psOUUMode_ == 2 && psOUUStdevMultiplier_ != 0.0)
+         {
+            stdev = 0.0;
+            for (ss = 0; ss < nSamp; ss++)
+            {
+               index = ss / psOUUZ4nSamples_;
+               if (psOUUZ3nSamples_ == 1)
+               {
+                  if (psOUUSamOutputs_[ss*nOuts] < 0.98*PSUADE_UNDEFINED)
+                     stdev += pow(psOUUSamOutputs_[ss*nOuts]-mean,2.0)/
+                              (double) (nSamp - failCnt);
+               }
+               else
+               {
+                  stdev += pow(psOUUSamOutputs_[ss*nOuts]-mean, 2.0)*
+                           psOUUSamProbs_[index] / (double) psOUUZ4nSamples_;
+               }
+            }
+            (*YValue) = mean + psOUUStdevMultiplier_ * sqrt(stdev);
+         }
+         if (psOUUMode_ == 3)
+         {
+            tempY = new double[nSamp];
+            for (ss = 0; ss < nSamp; ss++)
+               tempY[ss] = psOUUSamOutputs_[ss*nOuts];
+            sortDbleList(nSamp, tempY);
+            kk = (int) (psOUUPercentile_ * nSamp);
+            if (kk >= nSamp) kk = nSamp - 1;
+            (*YValue) = tempY[kk];
+            delete [] tempY;
+         }
+         if (psOUUCMode_ == 1)
+         {
+            for (ii = 0; ii < nConstraints; ii++)
+            {
+               constraints[ii] = 0;
+               for (ss = 0; ss < nSamp; ss++)
+                  constraints[ii] += psOUUSamOutputs_[ss*nOuts+ii+1];
+               constraints[ii] /= (double) nSamp;
+            }
+         }
+         else if (psOUUCMode_ == 2)
+         {
+            for (ss = 0; ss < nSamp; ss++)
+            {
+               ddata = 0.0;
+               for (ii = 0; ii < nConstraints; ii++)
+                  if (psOUUSamOutputs_[ss*nOuts+ii+1] < 0)
+                     ddata += pow(psOUUSamOutputs_[ss*nOuts+ii+1],2.0);
+               psOUUSamConstrNorms_[ss] = sqrt(ddata);
+            }
+            ddata = psOUUSamConstrNorms_[0];
+            for (ss = 1; ss < nSamp; ss++)
+            {
+               if (psOUUSamConstrNorms_[ss] > ddata)
+               {
+                  ddata = psOUUSamConstrNorms_[ss];
+                  kk = ss;
+               }
+            }
+            for (ii = 0; ii < nConstraints; ii++)
+               constraints[ii] = psOUUSamOutputs_[kk*nOuts+ii+1];
+         }
+         else if (psOUUCMode_ == 3)
+         {
+            for (ss = 0; ss < nSamp; ss++)
+            {
+               ddata = 0.0;
+               for (ii = 0; ii < nConstraints; ii++)
+                  if (psOUUSamOutputs_[ss*nOuts+ii+1] < 0)
+                     ddata += psOUUSamOutputs_[ss*nOuts+ii+1];
+               psOUUSamConstrNorms_[ss] = - ddata;
+            }
+            ddata = psOUUSamConstrNorms_[0];
+            for (ss = 1; ss < nSamp; ss++)
+            {
+               if (psOUUSamConstrNorms_[ss] > ddata)
+               {
+                  ddata = psOUUSamConstrNorms_[ss];
+                  kk = ss;
+               }
+            }
+            for (ii = 0; ii < nConstraints; ii++)
+               constraints[ii] = psOUUSamOutputs_[kk*nOuts+ii+1];
+         }
+         else if (psOUUCMode_ == 4)
+         {
+            for (ss = 0; ss < nSamp; ss++)
+            {
+               ddata = 0;
+               for (ii = 0; ii < nConstraints; ii++)
+                  if (psOUUSamOutputs_[ss*nOuts+ii+1] < 0 &&
+                      psOUUSamOutputs_[ss*nOuts+ii+1] < ddata)
+                     ddata = psOUUSamOutputs_[ss*nOuts+ii+1];
+               psOUUSamConstrNorms_[ss] = - ddata;
+            }
+            ddata = psOUUSamConstrNorms_[0];
+            for (ss = 1; ss < nSamp; ss++)
+            {
+               if (psOUUSamConstrNorms_[ss] > ddata)
+               {
+                  ddata = psOUUSamConstrNorms_[ss];
+                  kk = ss;
+               }
+            }
+            for (ii = 0; ii < nConstraints; ii++)
+               constraints[ii] = psOUUSamOutputs_[kk*nOuts+ii+1];
+         }
+         if (odata->outputLevel_ > 2)
+         {
+            printf("OUUOptimizer: computed  objective (no RS) = %e.\n",
+                   (*YValue));
+         }
+      }
+      else
+      {
+         if (odata->outputLevel_ > 2)
+            printf("OUUOpt: computing objective with RS, nFuncEval = %d\n",
+                   odata->numFuncEvals_);
+
+         double totalMean=0.0, totalStdv=0.0, *resultStore, cverrors[3];
+         resultStore=(double *) malloc(psOUUZ3nSamples_*sizeof(double));
+         for (ii = 0; ii < psOUUZ3nSamples_; ii++)
+         {
+            status = psOUUfaPtr_->initialize(psOUUZ4SamInputs_,
+                            &psOUUSamOutputs_[(ii*psOUUZ4nSamples_)*nOuts]);
+            psOUUfaPtr_->evaluatePoint(psOUULargeSampleSize_,
+                               psOUULargeSamInputs_,psOUULargeSamOutputs_);
+            if (psOUUMode_ == 1 || psOUUMode_ == 2)
+            {
+               mean = 0.0;
+               for (ss = 0; ss < psOUULargeSampleSize_; ss++)
+                  mean += psOUULargeSamOutputs_[ss*nOuts];
+               mean /= (double) psOUULargeSampleSize_;
+               resultStore[ii] = mean;
+            }
+            if (psOUUMode_ == 2 && psOUUStdevMultiplier_ != 0.0)
+            {
+               stdev = 0.0;
+               for (ss = 0; ss < psOUULargeSampleSize_; ss++)
+                  stdev += pow(psOUULargeSamOutputs_[ss*nOuts]-mean, 2.0);
+               stdev /= (double) psOUULargeSampleSize_;
+               resultStore[ii] = mean + psOUUStdevMultiplier_ * stdev;
+            }
+            if (psOUUMode_ == 3)
+            {
+               tempY = new double[psOUULargeSampleSize_];
+               for (ss = 0; ss < psOUULargeSampleSize_; ss++)
+                  tempY[ss] = psOUUSamOutputs_[ss*nOuts];
+               sortDbleList(psOUULargeSampleSize_, tempY);
+               kk = (int) (psOUUPercentile_ * psOUULargeSampleSize_);
+               if (kk >= psOUULargeSampleSize_)
+                  kk = psOUULargeSampleSize_ - 1;
+               resultStore[ii] = tempY[kk];
+               delete [] tempY;
+            }
+         }
+         if (psOUUMode_ == 1 || psOUUMode_ == 2)
+         {
+            mean = 0.0;
+            for (ii = 0; ii < psOUUZ3nSamples_; ii++)
+            {
+               if (psOUUSamProbs_ == NULL)
+                  mean += resultStore[ii] / (double) psOUUZ3nSamples_;
+               else
+                  mean += resultStore[ii] * psOUUSamProbs_[ii];
+            }
+            (*YValue) = mean;
+         }
+         if (psOUUMode_ == 3)
+         {
+            mean = 0.0;
+            for (ii = 0; ii < psOUUZ3nSamples_; ii++)
+               mean += resultStore[ii] / (double) psOUUZ3nSamples_;
+            (*YValue) = mean;
+         }
+         if (odata->outputLevel_ > 2)
+         {
+            printf("OUUOptimizer: computed  objective (with RS) = %e.\n",
+                   (*YValue));
+         }
+         free(resultStore);
+      }
+
+      if ((*YValue) < odata->optimalY_)
+      {
+         odata->optimalY_ = (*YValue);
+         for (ii = 0; ii < M; ii++)
+            odata->optimalX_[ii] = psOUUOptimalX_[ii];
+         if (odata->outputLevel_ > 0)
+         {
+            printf("    OUUOptimizer outer loop new Ymin = %16.8e (***)\n",
+                   (*YValue));
+            if (psOUUUserOpt_ == 0)
+            {
+               for (ii = 0; ii < M1+M2; ii++)
+                  printf("        Input %3d at min = %e\n", ii+1,
+                         odata->optimalX_[ii]);
+            }
+         }
+      }
+      psOUUCounter_++;
+
+      free(readys);
+      free(XLocal);
+      return 0;
+   }
 #ifdef __cplusplus
 }
 #endif
@@ -752,11 +1307,13 @@ OUUOptimizer::OUUOptimizer()
    psOUUZ4LBounds_ = NULL;
    psOUUZ4UBounds_ = NULL;
    psOUUSamOutputs_ = NULL;
+   psOUUSamConstrNorms_ = NULL;
    psOUUXValues_ = NULL;
    psOUUWValues_ = NULL;
    psOUUOptimalX_ = NULL;
    psOUUOptimalY_ = 0.0;
    psOUUUseRS_ = 0;
+   optCode_ = 0;
 }
 
 // ************************************************************************
@@ -773,13 +1330,14 @@ void OUUOptimizer::optimize(oData *odata)
 {
    int    nInputs, printLevel=0, ii, kk, maxfun, nPts=0, bobyqaFlag=1111;
    int    M1, M2, M3, M4, index, iOne=1, iZero=0, printHeader=1;
-   int    currDriver, count, *inputPDFs;
+   int    currDriver, count, *inputPDFs, nOutputs;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, ddata, *workArray;
    char   pString[1000], *cString, lineIn[20001], filename[1000];
    FILE   *fp=NULL;
    pData  pdata;
 
-   nInputs = odata->nInputs_;
+   nInputs  = odata->nInputs_;
+   nOutputs = odata->nOutputs_;
    printLevel = odata->outputLevel_;
    if (((psOUUM1_+psOUUM2_+psOUUM3_+psOUUM4_) == nInputs) && 
        psOUUM1_ > 0) printHeader = 0;
@@ -787,11 +1345,15 @@ void OUUOptimizer::optimize(oData *odata)
    {
       printAsterisks(PL_INFO, 0);
       printAsterisks(PL_INFO, 0);
-      printf("*     ONE- OR TWO-STAGE OPTIMIZATION UNDER UNCERTAINTY (OUU)\n");
+      printf("*     1- OR 2-STAGE OPTIMIZATION UNDER UNCERTAINTY (OUU)\n");
       printEquals(PL_INFO, 0);
       printf("This optimization capability solves the following problem:\n");
       printf("\n   minimize_Z1 { Phi_{Z3,Z4} [ G(Z1,Z2,Z3,Z4) ] } \n\n");
-      printf("   subject to bound constraints on Z1, Z2, and Z4; and\n\n");
+      printf("   subject to either:\n");
+      printf("    (a) bound constraints on Z1, Z2, and Z4 (use bobyqa); or \n");
+      printf("    (b) no constraint on Z1, Z2, and Z4 (use newuoa); or\n");
+      printf("    (c) inequality constraints on Z1,Z2,Z3,Z4 (use cobyla)\n");
+      printf("    as the level-1 optimizer.)\n\n");
       printf("   Z3 is a set of discrete parameters for which a sample\n\n");
       printf("   is to be provided by the user. \n\n");
       printf("   (0) How to perform regular optimization? \n");
@@ -800,63 +1362,62 @@ void OUUOptimizer::optimize(oData *odata)
       printf("       - Z2 should be an empty set\n");
       printf("       - Z3 should be an empty set\n");
       printf("       - Z4 should be an empty set\n");
-      printf("       - G(Z1,Z3,Z4)=G(Z1) is the simulation function (opt_driver)\n");
+      printf("       - G(Z1,Z3,Z4)=G(Z1) is the simulator (opt_driver)\n");
       printf("   (1) How to perform 1-level OUU? \n");
       printf("       In this case \n"); 
-      printf("       - Z1 will be the optimization variables\n");
-      printf("       - Z2 should be an empty set\n");
-      printf("       - Z3 are parameters that you will provide a sample for.\n");
-      printf("       - Z4 are parameters that you do not provide a sample.\n");
+      printf("       - Z1: the optimization variables\n");
+      printf("       - Z2: should be an empty set\n");
+      printf("       - Z3: parameters that you will provide a sample for.\n");
+      printf("       - Z4: parameters that you do not provide a sample.\n");
       printf("         (optionally, you can choose sampling schemed and\n");
       printf("          whether you want response surface for Z4).\n");
-      printf("       - G(Z1,Z3,Z4) is the simulation function (opt_driver)\n");
+      printf("       - G(Z1,Z3,Z4) is the simulator (opt_driver)\n");
       printf("\n");
       printf("   (2) How to perform 2-level OUU? \n");
       printf("       In this case \n"); 
-      printf("       - Z1 will be the optimization variables\n");
-      printf("       - Z2 is the set of second level optimization parameters.\n");
-      printf("         If Z2 is entirely embedded in your level 2 optimization\n");
-      printf("         driver (that is, their initial and final values do not\n");
-      printf("         need to be published outside of the G function), then it\n");
-      printf("         can be specified as an empty set.\n");
-      printf("       - Z3 are parameters that you will provide a sample for.\n");
-      printf("       - Z4 are parameters that you do not provide a sample.\n");
-      printf("       - There are two options to how to set up G(Z1,Z2,Z3,Z4): \n");
-      printf("         (a) It is a user-provided level 2 optimizer that does\n\n");
-      printf("               G(Z1,Z2,Z3,Z4) = minimize_Z2 { F(Z1,Z2,Z3,Z4) }\n\n");
-      printf("             where F(Z1,Z2,Z3,Z4) is embedded in G(Z1,Z2,Z3,Z4)\n\n");
-      printf("             In this case, the user will provide G(Z1,Z2,Z3,Z4)\n");
-      printf("             via opt_driver (that is, opt_driver = gfunction)\n");
-      printf("         (b) It is again solving\n\n");
-      printf("               G(Z1,Z2,Z3,Z4) = minimize_Z2 { F(Z1,Z2,Z3,Z4) }\n\n");
-      printf("             but in this case, user is expected to provide the\n");
-      printf("             F(Z1,Z2,Z3,Z4) function via 'opt_driver = ffunction'\n");
-      printf("             and OUU will provide the optimization solver (BOBYQA).\n");
-      printf("\n   In case 1 and 2, Phi_{Z3,Z4} is a functional on G(Z1,Z2,Z3,Z4)\n");
-      printf("   with respect to Z3 and Z4. For example, Phi_{Z3,Z4} can be:\n");
+      printf("       - Z1: the optimization variables\n");
+      printf("       - Z2: the set of level-2 optimization parameters.\n");
+      printf("         If Z2 do not need to be published outside of the G\n");
+      printf("         function, then it can be specified as an empty set.\n");
+      printf("       - Z3: parameters that you will provide a sample for.\n");
+      printf("       - Z4: parameters that you do not provide a sample.\n");
+      printf("       - There are 2 options to how to set up G(Z1,Z2,Z3,Z4):\n");
+      printf("         (a) A user-provided level 2 optimizer that does\n\n");
+      printf("              G(Z1,Z2,Z3,Z4) = minimize_Z2{F(Z1,Z2,Z3,Z4)}\n\n");
+      printf("             where F(Z1,Z2,Z3,Z4) is embedded in G(Z1,...)\n\n");
+      printf("             In this case, the user will provide G(Z1,...)\n");
+      printf("             via opt_driver (i.e. opt_driver = gfunction)\n");
+      printf("         (b) A user-provided function F(Z1,...) such that\n\n");
+      printf("              G(Z1,Z2,Z3,Z4) = minimize_Z2 {F(Z1,Z2,Z3,Z4)}\n\n");
+      printf("             In this case, user is expected to provide the\n");
+      printf("             F(Z1,...) function via 'opt_driver = ffunction'\n");
+      printf("             and OUU provides the optimizer (BOBYQA).\n\n");
+      printf("   In case 1 and 2, Phi_{Z3,Z4} is a functional on G(Z1,...)\n");
+      printf("   with respect to Z3 and Z4, e.g. Phi_{Z3,Z4} may be:\n");
       printf("   1. mean of G(Z1,Z2,Z3,Z4) with respect to Z3,Z4 (default)\n"); 
-      printf("   2. mean of G(Z1,Z2,Z3,Z4) + alpha * std dev of G(Z1,Z2,Z3,Z4)\n"); 
+      printf("   2. mean of G(Z1,Z2,Z3,Z4) + alpha * std dev of G(Z1,...)\n"); 
       printf("   3. G(Z1,Z2,Z3*,Z4*) such that \n");
-      printf("           Prob(G(Z1,Z2,Z3,Z4)>G(Z1,Z2,Z3*,Z4*)) = epsilon\n");
-      printf("   4. min_{Z3,Z4} G(Z1,Z2,Z3,Z4) given Z1 and Z2 (robust opt.)\n");
+      printf("         Prob(G(Z1,Z2,Z3,Z4)>G(Z1,Z2,Z3*,Z4*)) = epsilon\n");
+      printf("   4. min_{Z3,Z4} G(Z1,Z2,Z3,Z4) given Z1,Z2 (robust opt.)\n");
       printEquals(PL_INFO, 0);
-      printf("In the above formulation, the total number of parameters M = %d\n", 
+      printf("In the above formulation, the total no. of parameters M = %d\n", 
              nInputs);
       printf("These parameters are to be divided into four groups:\n");
       printf("(1) Stage 1 optimization parameters Z1 (M1 >= 1) \n");
-      printf("(2) Stage 2 optimization parameters Z2\n");
+      printf("(2) Stage 2 optimization (recourse) parameters Z2\n");
       printf("(3) uncertain parameters Z3 (with a user-provided sample) \n");
       printf("(4) uncertain parameters Z4 \n");
-      printf("    - be continuous parameters (PSUADE to generate sample), or\n");
-      printf("    - a large sample (PSUADE to create RS using a small subset\n");
+      printf("    - continuous parameters (PSUADE to generate sample), or\n");
+      printf("    - a large sample (created by PSUADE from RS) \n");
       printf("Thus, the first M1+M2 parameters are considered to be\n");
       printf("optimization parameters, and M3+M4 are uncertain parameters\n");
       printf("so that M = M1 + M2 + M3 + M4.\n");
       printEquals(PL_INFO, 0);
-      printf("To reuse the simulations (e.g. restart due to abrupt termination),\n");
-      printf("turn on save_history and use_history optimization options in the\n");
-      printf("ANALYSIS section (e.g. optimization save_history). You will see\n");
-      printf("a file created called 'psuade_bobyqa_history' afterward.\n");
+      printf("To reuse simulation results (e.g. from before abrupt\n");
+      printf("termination), turn on save_history and use_history\n");
+      printf("optimization options in the ANALYSIS section (e.g.\n");
+      printf("optimization save_history). You will see a text file\n");
+      printf("called 'psuade_ouu_history' afterward.\n");
       printAsterisks(PL_INFO, 0);
       printf("IF YOU ARE READY TO MOVE ON, ENTER 'y' AND RETURN : ");
       lineIn[0] = '0';
@@ -873,13 +1434,27 @@ void OUUOptimizer::optimize(oData *odata)
       }
       printEquals(PL_INFO, 0);
    }
+   if (nOutputs > 1)
+   {
+      printf("OUUOptimzer detects inequality-constrained optimization\n");
+      printf("   is requested (nOutputs > 1). If this is not the case,\n");
+      printf("   exit and re-define your simulator to have 1 output.\n");
+      printf("   Otherwise, OUUOptimizer thinks there are %d constraints.\n",
+             nOutputs-1);
+      if (psOUUM2_ > 0)
+      {
+         printf("Unfortunately, OUUOptimizer currently does not support\n");
+         printf("2-level OUU with inequality constraints.\n");
+         exit(1);
+      }
+   } 
    if (psMasterMode_ != 0)
    {
       printf("OUUOptimizer INFO: Master mode to be turned off.\n");
       psMasterMode_ = 0;
       psOUUMasterMode_ = 1;
    }
-   if ((psOUUM1_+psOUUM2_+psOUUM3_+psOUUM4_) == nInputs && (psOUUM1_ > 0))
+   if ((psOUUM1_+psOUUM2_+psOUUM3_+psOUUM4_) == nInputs && (psOUUM1_>0))
    {
       M1 = psOUUM1_;
       M2 = psOUUM2_;
@@ -889,7 +1464,7 @@ void OUUOptimizer::optimize(oData *odata)
    else
    {
       M1 = M2 = M3 = M4 = 0;
-      printf("M1 = number of design (level 1 optimization) parameters\n");
+      printf("M1 = number of design (level 1 optim.) parameters\n");
       while (M1 <= 0 || M1 > nInputs)
       {
          printf("Enter M1 (between 1 and %d) : ", nInputs);
@@ -897,12 +1472,15 @@ void OUUOptimizer::optimize(oData *odata)
       }
       if (M1 < nInputs)
       {
-         printf("M2 = number of recourse (level 2 optimization) parameters\n");
-         M2 = -1;
-         while (M2 < 0 || M1+M2 > nInputs)
+         if (nOutputs == 1)
          {
-            printf("Enter M2 (between 0 and %d) : ", nInputs-M1);
-            scanf("%d", &M2);
+            printf("M2 = no. of recourse (level 2 optim.) parameters\n");
+            M2 = -1;
+            while (M2 < 0 || M1+M2 > nInputs)
+            {
+               printf("Enter M2 (between 0 and %d) : ", nInputs-M1);
+               scanf("%d", &M2);
+            }
          }
          if ((M1 + M2) < nInputs)
          {
@@ -924,10 +1502,10 @@ void OUUOptimizer::optimize(oData *odata)
    if (printLevel >= 0)
    {
       printDashes(PL_INFO, 0);
-      printf("Number of first  stage optimization parameters = %d\n", M1);
-      printf("Number of second stage optimization parameters = %d\n", M2);
-      printf("Number of discrete   uncertain parameters      = %d\n", M3);
-      printf("Number of continuous uncertain parameters      = %d\n", M4);
+      printf("Number of first  stage optimization parameters = %d\n",M1);
+      printf("Number of second stage optimization parameters = %d\n",M2);
+      printf("Number of discrete   uncertain parameters      = %d\n",M3);
+      printf("Number of continuous uncertain parameters      = %d\n",M4);
       printDashes(PL_INFO, 0);
    }
 
@@ -943,7 +1521,7 @@ void OUUOptimizer::optimize(oData *odata)
       printf("  2. operating variable (level 2 optimization parameter)\n");
       printf("  3. discrete uncertain variable (a sample will be given)\n");
       printf("  4. continuous uncertain variable\n");
-      printf("NOTE: make sure your specification matches the data above.\n");
+      printf("NOTE: make sure your specification matches with above.\n");
       fgets(lineIn, 5000, stdin);
       psOUUInputTypes_ = new int[nInputs];
       for (ii = 0; ii < nInputs; ii++)
@@ -1007,7 +1585,7 @@ void OUUOptimizer::optimize(oData *odata)
                strcpy(pString, "Gamma");            
             if (inputPDFs[ii] == PSUADE_PDF_EXPONENTIAL) 
                strcpy(pString, "Exponential");            
-            if (inputPDFs[ii] == PSUADE_PDF_USER) 
+            if (inputPDFs[ii] == PSUADE_PDF_SAMPLE) 
                strcpy(pString, "User");            
             if (inputPDFs[ii] == PSUADE_PDF_F) 
                strcpy(pString, "F");            
@@ -1069,11 +1647,12 @@ void OUUOptimizer::optimize(oData *odata)
    {
       printEquals(PL_INFO, 0);
       printf("Select which functional Phi_{Z3,Z4} to use: \n");
-      printf("  1. mean of G(Z1,Z2,Z3,Z4) with respect to Z3,Z4 (default)\n"); 
-      printf("  2. mean of G(Z1,Z2,Z3,Z4) + beta * std dev of G(Z1,Z2,Z3,Z4)\n"); 
+      printf("  1. mean of G(Z1,...) with respect to Z3,Z4 (default)\n"); 
+      printf("  2. mean of G(Z1,...) + beta * std dev of G(Z1,...)\n"); 
       printf("  3. G(Z1,Z2,Z3*,Z4*) such that \n");
-      printf("           Prob(G(Z1,Z2,Z3,Z4)>G(Z1,Z2,Z3*,Z4*)) = 1 - alpha\n");
-      printf("     This is also called value-at-risk with confidence level alpha.\n");
+      printf("         Prob(G(Z1,...)>G(Z1,Z2,Z3*,Z4*)) = 1 - alpha\n");
+      printf("     This is also called value-at-risk with confidence\n");
+      printf("     level alpha.\n");
       sprintf(pString,"Enter your choice of functional (1, 2 or 3) : ");
       psOUUMode_ = getInt(1, 3, pString);
       if (psOUUMode_ == 2)
@@ -1094,13 +1673,26 @@ void OUUOptimizer::optimize(oData *odata)
             psOUUPercentile_ = getDouble(pString);
          } 
       }
+      if (nOutputs > 1)
+      {
+         printf("Please select below the scheme to compute the returned\n");
+         printf("constraints from the ensemble constraints.\n");
+         printf("The returned constraints are computed from:\n");
+         printf(" 1. the means of constraints from all sample runs\n");
+         printf(" 2. the simulation with largest 2-norm violations\n");
+         printf(" 3. the simulation with largest 1-norm violations\n");
+         printf(" 4. the simulation with largest infinity-norm violations\n");
+         printf("NOTE: constraints are such that they should be >= 0.\n");
+         sprintf(pString,"Enter your choice (1 - 4) : ");
+         psOUUCMode_ = getInt(1, 4, pString);
+      }
    }
 
    psOUUZ3nSamples_ = 1;
    if (M3 > 0)
    {
       printEquals(PL_INFO, 0);
-      printf("A sample for Z3 is needed from you. Data format should be :\n");
+      printf("A sample for Z3 is needed from you. Data format is:\n");
       printf("line 1: <nSamples> <nInputs> \n");
       printf("line 2: <sample 1 input 1> <input 2> ... <probability>\n");
       printf("line 3: <sample 2 input 1> <input 2> ... <probability>\n");
@@ -1119,13 +1711,15 @@ void OUUOptimizer::optimize(oData *odata)
       sscanf(lineIn, "%d %d", &psOUUZ3nSamples_, &ii);
       if (ii != M3)
       {
-         printf("OUUOptimizer ERROR: user sample nInputs %d != %d\n",ii, M3);
+         printf("OUUOptimizer ERROR: user sample nInputs %d != %d\n",
+                ii, M3);
          fclose(fp);
          exit(1);
       } 
       if (psOUUZ3nSamples_ < M3+1)
       {
-         printf("OUUOptimizer ERROR: user sample size should be >= %d\n",M3+1);
+         printf("OUUOptimizer ERROR: user sample size must be >= %d\n",
+                M3+1);
          fclose(fp);
          exit(1);
       } 
@@ -1143,7 +1737,8 @@ void OUUOptimizer::optimize(oData *odata)
             while (lineIn[index] == ' ') index++;
             if (lineIn[index] == '\0' || lineIn[index] == '\n')
             {
-               printf("ERROR: reading sample file %s line %d.\n",filename,ii+2);
+               printf("ERROR: reading sample file %s line %d.\n",
+                      filename,ii+2);
                fclose(fp);
                exit(1);
             }
@@ -1151,7 +1746,8 @@ void OUUOptimizer::optimize(oData *odata)
             while (lineIn[index] != ' ') index++;
             if (lineIn[index] == '\0' || lineIn[index] == '\n')
             {
-               printf("ERROR: reading sample file %s line %d.\n",filename,ii+2);
+               printf("ERROR: reading sample file %s line %d.\n",
+                      filename,ii+2);
                fclose(fp);
                exit(1);
             }
@@ -1162,9 +1758,9 @@ void OUUOptimizer::optimize(oData *odata)
          while (lineIn[index] == ' ') index++;
          if (lineIn[index] == '\0' || lineIn[index] == '\n')
          {
-            printf("WARNING: reading probability at line %d of %s.\n",ii+2,
-                   filename);
-            printf("         Will set probabilities to be equiprobable.\n");
+            printf("WARNING: reading probability at line %d of %s.\n",
+                   ii+2, filename);
+            printf("    Will set probabilities to be equiprobable.\n");
             psOUUSamProbs_[ii] = PSUADE_UNDEFINED;
             ddata += 1.0;
          }
@@ -1194,8 +1790,8 @@ void OUUOptimizer::optimize(oData *odata)
    char   **targv;
    Sampling   *sampler = NULL;
    PDFManager *pdfman=NULL;
-   Vector     vecLB, vecUB, vecOut;
-   Matrix     *corMat1, corMat2;
+   psVector   vecLB, vecUB, vecOut;
+   psMatrix   *corMat1, corMat2;
    psOUUZ4nSamples_ = 1;
    if (M4 > 0)
    {
@@ -1226,13 +1822,15 @@ void OUUOptimizer::optimize(oData *odata)
          sscanf(lineIn, "%d %d", &psOUUZ4nSamples_, &ii);
          if (ii != M4)
          {
-            printf("OUUOptimizer ERROR: user sample nInputs %d != %d\n",ii, M4);
+            printf("OUUOptimizer ERROR: user sample nInputs %d != %d\n",
+                   ii, M4);
             fclose(fp);
             exit(1);
          }
          if (psOUUZ4nSamples_ < M4+1)
          {
-            printf("OUUOptimizer ERROR: user sample size should be >= %d\n",M4+1);
+            printf("OUUOptimizer ERROR: user sample size should be >= %d\n",
+                   M4+1);
             fclose(fp);
             exit(1);
          }
@@ -1244,38 +1842,49 @@ void OUUOptimizer::optimize(oData *odata)
                fscanf(fp,"%lg",&psOUUZ4SamInputs_[ii*M4+kk]);
          }
          fclose(fp);
-         printf("The user sample for Z4 has %d points\n", psOUUZ4nSamples_);
-         printf("You have the option to select a subset of Z4 for building\n");
-         printf("response surfaces and use the original larger Z4 sample\n");
-         printf("to estimate the statistics from the response surface.\n");
-         printf("Use response surface for Z4 to compute statistics? (y or n) ");
-         scanf("%s", lineIn);
-         if (lineIn[0] == 'y') psOUUUseRS_ = 1;
+         if (nOutputs == 1)
+         {
+            printf("The user sample for Z4 has %d points\n",psOUUZ4nSamples_);
+            printf("You have the option to select a subset of Z4 to build a\n");
+            printf("response surface and use the original larger Z4 sample\n");
+            printf("to estimate the statistics from the response surface.\n");
+            printf("Use response surface for Z4? (y or n) ");
+            scanf("%s", lineIn);
+            if (lineIn[0] == 'y') psOUUUseRS_ = 1;
+         }
+         else
+         {
+            psOUUUseRS_ = 0;
+            printf("OUUOptimizer INFO: response surface not available for");
+            printf("             use for problems with constraints.\n");
+         }
          if (psOUUUseRS_ == 1)
          {
             fgets(lineIn, 5000, stdin);
             psOUULargeSampleSize_ = psOUUZ4nSamples_;
             psOUULargeSamInputs_= new double[psOUULargeSampleSize_*M4];
-            psOUULargeSamOutputs_ = new double[psOUULargeSampleSize_];
+            psOUULargeSamOutputs_ = new double[psOUULargeSampleSize_*nOutputs];
             for (ii = 0; ii < psOUULargeSampleSize_*M4; ii++)
                psOUULargeSamInputs_[ii] = psOUUZ4SamInputs_[ii]; 
-            for (ii = 0; ii < psOUULargeSampleSize_; ii++)
+            for (ii = 0; ii < psOUULargeSampleSize_*nOutputs; ii++)
                psOUULargeSamOutputs_[ii] = 0.0;
             printf("Your Z4 sample size is %d.\n", psOUUZ4nSamples_);
             printf("This sample size may be too large for building a RS.\n");
-            sprintf(pString,"How many points to use for building RS? (%d - %d) ",
+            sprintf(pString,
+                    "Number of points to use for building RS? (%d - %d) ",
                     M4+1, psOUUZ4nSamples_);
             psOUUZ4nSamples_ = getInt(M4+1, psOUUZ4nSamples_, pString);
             printf("You have 2 options on how to generate this RS set:\n");
-            printf("(1) You upload another Z4 sample of size %d\n",psOUUZ4nSamples_);
-            printf("(2) PSUADE automatically selects another Z4 sample of size %d\n",
+            printf("(1) You upload another Z4 sample of size %d\n",
+                   psOUUZ4nSamples_);
+            printf("(2) PSUADE randomly draws %d points from your sample\n",
                    psOUUZ4nSamples_);
             sprintf(pString,"Select option 1 or 2 : ");
             kk = getInt(1, 2, pString);
             if (kk == 2)
             {
-               printf("OUU will select a random subset of sample points from\n");
-               printf("your original Z4 sample for building response surface.\n");
+               printf("OUU will randomly select a subset of points from\n");
+               printf("the original Z4 sample to build response surface.\n");
                count = 0;
                for (ii = 0; ii < psOUULargeSampleSize_; ii++)
                {
@@ -1291,7 +1900,7 @@ void OUUOptimizer::optimize(oData *odata)
             else if (kk == 1)
             {
                printEquals(PL_INFO, 0);
-               printf("A Z4 RS sample is needed from you. The file format should be:\n");
+               printf("A Z4 RS sample is needed. The file format is:\n");
                printf("line 1: <nSamples> <nInputs> \n");
                printf("line 2: <sample 1 input 1> <input 2> \n");
                printf("line 3: <sample 2 input 1> <input 2> \n");
@@ -1302,7 +1911,7 @@ void OUUOptimizer::optimize(oData *odata)
                fp = fopen(filename, "r");
                if (fp == NULL)
                {
-                  printf("OUUOptimizer ERROR: user sample file %s not found.\n",
+                  printf("OUUOptimizer ERROR: sample file %s not found.\n",
                          filename);
                   exit(1);
                }
@@ -1457,7 +2066,7 @@ void OUUOptimizer::optimize(oData *odata)
             }
             pdata.dbleArray_ = NULL;
             odata->psIO_->getParameter("input_cor_matrix", pdata);
-            corMat1 = (Matrix *) pdata.psObject_;
+            corMat1 = (psMatrix *) pdata.psObject_;
             pdata.psObject_ = NULL;
 
             corMat2.setDim(M4,M4);
@@ -1496,9 +2105,9 @@ void OUUOptimizer::optimize(oData *odata)
             vecOut.setLength(psOUUZ4nSamples_*M4);
             pdfman->genSample(psOUUZ4nSamples_, vecOut, vecLB, vecUB);
             psOUUZ4SamInputs_= new double[psOUUZ4nSamples_*M4];
-            psOUUSamOutputs_ = new double[psOUUZ4nSamples_];
             for (ii = 0; ii < psOUUZ4nSamples_*M4; ii++)
                psOUUZ4SamInputs_[ii] = vecOut[ii];
+            //psOUUSamOutputs_ = new double[psOUUZ4nSamples_*nOutputs];
             delete [] inputPDFs;
             delete [] inputMeans;
             delete [] inputStdevs;
@@ -1551,7 +2160,8 @@ void OUUOptimizer::optimize(oData *odata)
                sampler->initialize(0);
                psOUULargeSampleSize_ = sampler->getNumSamples();
                psOUULargeSamInputs_= new double[psOUULargeSampleSize_*M4];
-               psOUULargeSamOutputs_ = new double[psOUULargeSampleSize_];
+               kk = psOUULargeSampleSize_*nOutputs;
+               psOUULargeSamOutputs_ = new double[kk];
                samStates = new int[psOUULargeSampleSize_];
                sampler->getSamples(psOUULargeSampleSize_, M4, iOne,
                             psOUULargeSamInputs_,psOUULargeSamOutputs_,
@@ -1578,7 +2188,7 @@ void OUUOptimizer::optimize(oData *odata)
                }
                pdata.dbleArray_ = NULL;
                odata->psIO_->getParameter("input_cor_matrix", pdata);
-               corMat1 = (Matrix *) pdata.psObject_;
+               corMat1 = (psMatrix *) pdata.psObject_;
                pdata.psObject_ = NULL;
 
                corMat2.setDim(M4,M4);
@@ -1614,7 +2224,8 @@ void OUUOptimizer::optimize(oData *odata)
                vecOut.setLength(psOUULargeSampleSize_*M4);
                pdfman->genSample(psOUULargeSampleSize_, vecOut, vecLB, vecUB);
                psOUULargeSamInputs_= new double[psOUULargeSampleSize_*M4];
-               psOUULargeSamOutputs_ = new double[psOUULargeSampleSize_];
+               kk = psOUULargeSampleSize_*nOutputs;
+               psOUULargeSamOutputs_ = new double[kk];
                for (ii = 0; ii < psOUULargeSampleSize_*M4; ii++)
                   psOUULargeSamInputs_[ii] = vecOut[ii];
                delete [] inputMeans;
@@ -1632,7 +2243,8 @@ void OUUOptimizer::optimize(oData *odata)
    }
 
    int nSamp=psOUUZ3nSamples_*psOUUZ4nSamples_;
-   psOUUSamOutputs_ = new double[nSamp];
+   psOUUSamOutputs_ = new double[nSamp*nOutputs];
+   psOUUSamConstrNorms_ = new double[nSamp];
    if (M2 > 0)
    {
       printf("For 2-stage OUU, you have 2 options for inner optimization:\n");
@@ -1662,12 +2274,12 @@ void OUUOptimizer::optimize(oData *odata)
  
    if (psOUUUserOpt_ == 1 && (M3+M4) > 0)
    {
-      printf("Each simulation will call your opt_driver with one sample point.\n");
-      printf("However, for higher efficiency (less I/O), you have the option\n");
-      printf("to provide in 'ensemble_opt_driver' an executable that can run\n");
-      printf("multiple sample points. In this case, OUU will call your ensemble\n");
-      printf("executable with the following sequence: \n");
-      printf("      <Your ensemble_opt_driver> <sampleFile> <outputFile>\n\n");
+      printf("Each simulation calls the opt_driver with 1 sample point.\n");
+      printf("For higher efficiency (less I/O), you have the option to\n");
+      printf("provide in 'ensemble_opt_driver' an executable that can\n");
+      printf("run multiple sample points. In this case, OUU calls the\n");
+      printf("ensemble executable with the following sequence: \n");
+      printf("    <ensemble_opt_driver> <sampleFile> <outputFile>\n\n");
       printf("where <sampleFile> is in the following format:\n");
       printf("   line 1: <nSamples>\n");
       printf("   line 2: Sample point 1 input values\n");
@@ -1687,11 +2299,13 @@ void OUUOptimizer::optimize(oData *odata)
    if ((psOUUEnsembleEval_ == 0) && ((M3+M4)>0))
    {
       printf("You can configure OUU to run the ensemble simulations in\n");
-      printf("parallel/asynchronous using the Linux fork/join.\n");
-      printf("If you say 'n', your simulator (opt_driver) will be evaluated\n");
-      printf("sequentially (one sample point at a time). But if you say 'y',\n");
-      printf("be careful; because PSUADE will launch %d jobs simultaneously.\n",
+      printf("parallel/asynchronous using the Linux fork/join. If 'n'\n");
+      printf("is entered below, the opt_driver simulator will be\n");
+      printf("evaluated sequentially (one sample point at a time).\n");
+      printf("If 'y' is selected instead, be careful, because PSUADE\n");
+      printf("PSUADE will launch %d jobs simultaneously, which may\n",
              psOUUZ3nSamples_*psOUUZ4nSamples_);
+      printf("jam up the job queuing system.\n");
       printf("Turn on asynchronous mode ? (y or n) ");
       lineIn[0] = '1';
       while (lineIn[0] != 'n' && lineIn[0] != 'y')
@@ -1803,11 +2417,9 @@ void OUUOptimizer::optimize(oData *odata)
    }
 
    nPts = (M1 + 1) * (M1 + 2) / 2;
-   workArray = new double[(nPts+5)*(nPts+M1)+3*M1*(M1+5)/2+1];
    psOUUCounter_ = 0;
    if (psOUUParallel_ == 1) odata->funcIO_->setAsynchronousMode();
 
-#ifdef HAVE_BOBYQA
    if (psConfig_ != NULL)
    {
       cString = psConfig_->getParameter("opt_save_history");
@@ -1833,7 +2445,8 @@ void OUUOptimizer::optimize(oData *odata)
                {
                   for (ii = 0; ii < nInputs; ii++)
                      fscanf(fp, "%lg",&psOUUSaveX_[psOUUNSaved_*nInputs+ii]);
-                  fscanf(fp, "%lg",&psOUUSaveY_[psOUUNSaved_]);
+                  for (ii = 0; ii < nOutputs; ii++)
+                     fscanf(fp, "%lg",&psOUUSaveY_[psOUUNSaved_*nOutputs+ii]);
                   psOUUNSaved_++;
                }
                if (((psOUUNSaved_+1)*nInputs > psOUUMaxSaved_*10) ||
@@ -1846,8 +2459,46 @@ void OUUOptimizer::optimize(oData *odata)
 
    for (ii = 0; ii < M1; ii++) 
       printf("OUUOptimizer initial X %3d = %e\n", ii+1, XValues[ii]);
-   bobyqa_(&M1, &nPts, XValues, odata->lowerBounds_, odata->upperBounds_, 
-           &rhobeg, &rhoend, &bobyqaFlag, &maxfun, workArray);
+   if (optCode_ == 0 && nOutputs == 1)
+   {
+#ifdef HAVE_BOBYQA
+      kk = (nPts + 5) * (nPts + M1) + 3 * M1 * (M1 + 5) / 2 + 1;
+      workArray = new double[kk];
+      printf("OUUOptimizer: calling bobyqa\n");
+      bobyqa_(&M1, &nPts, XValues, odata->lowerBounds_, odata->upperBounds_,
+              &rhobeg, &rhoend, &bobyqaFlag, &maxfun, workArray);
+      delete [] workArray;
+#else
+      printf("OUUOptimizer ERROR: bobyqa not installed.\n");
+      exit(1);
+#endif
+   }
+   else if (optCode_ == 1 && nOutputs == 1)
+   {
+#ifdef HAVE_NEWUOA
+      printf("OUUOptimizer: calling newuoa\n");
+      int newuoaFlag = 8888;
+      kk = (nPts + 13) * (nPts + M1) + 3 * M1 * (M1 + 3) / 2;
+      workArray = new double[kk];
+      newuoa_(&M1, &nPts, XValues, &rhobeg, &rhoend, &newuoaFlag,
+              &maxfun, workArray);
+      delete [] workArray;
+#else
+      printf("OUUOptimizer ERROR: newuoa not installed.\n");
+      exit(1);
+#endif
+   }
+   else
+   {
+#ifdef HAVE_COBYLA
+      printf("OUUOptimizer: calling cobyla\n");
+      cobyla(M1, nOutputs-1, XValues, rhobeg, rhoend, printLevel,
+             &maxfun, ouuevalfunccobyla, (void *) odata);
+#else
+      printf("OUUOptimizer ERROR: cobyla not installed.\n");
+      exit(1);
+#endif
+   }
    printf("OUUOptimizer: total number of evaluations = %d\n",
            odata->numFuncEvals_);
 
@@ -1861,16 +2512,13 @@ void OUUOptimizer::optimize(oData *odata)
             fprintf(fp, "999 %d ", nInputs);
             for (kk = 0; kk < nInputs; kk++)
                fprintf(fp, "%24.16e ", psOUUSaveX_[ii*nInputs+kk]);
-            fprintf(fp, "%24.16e\n", psOUUSaveY_[ii]);
+            for (kk = 0; kk < nOutputs; kk++)
+               fprintf(fp, "%24.16e\n", psOUUSaveY_[ii*nOutputs+kk]);
          }
          fclose(fp);
       }
       printf("OUUOptimizer: history saved in psuade_ouu_history\n");
    }
-#else
-   printf("ERROR : Bobyqa optimizer not installed.\n");
-   exit(1);
-#endif
    if (psOUUParallel_ == 1) odata->funcIO_->setSynchronousMode();
 
    if (odata->setOptDriver_ & 2)
@@ -1878,13 +2526,13 @@ void OUUOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(currDriver);
    }
    delete [] XValues;
-   delete [] workArray;
    if (psOUUZ3SamInputs_ != NULL) delete [] psOUUZ3SamInputs_;
    if (psOUUZ4SamInputs_ != NULL) delete [] psOUUZ4SamInputs_;
-   if (psOUUZ4LBounds_ != NULL) delete [] psOUUZ4LBounds_;
-   if (psOUUZ4UBounds_ != NULL) delete [] psOUUZ4UBounds_;
+   if (psOUUZ4LBounds_   != NULL) delete [] psOUUZ4LBounds_;
+   if (psOUUZ4UBounds_   != NULL) delete [] psOUUZ4UBounds_;
    if (psOUUSamOutputs_  != NULL) delete [] psOUUSamOutputs_;
    if (psOUUSamProbs_    != NULL) delete [] psOUUSamProbs_;
+   if (psOUUSamConstrNorms_  != NULL) delete [] psOUUSamConstrNorms_;
    if (psOUULargeSamInputs_  != NULL) delete [] psOUULargeSamInputs_;
    if (psOUULargeSamOutputs_ != NULL) delete [] psOUULargeSamOutputs_;
    if (psOUUXValues_  != NULL) delete [] psOUUXValues_;
@@ -1897,6 +2545,7 @@ void OUUOptimizer::optimize(oData *odata)
    psOUUZ4LBounds_ = NULL;
    psOUUZ4UBounds_ = NULL;
    psOUUSamOutputs_ = NULL;
+   psOUUSamConstrNorms_ = NULL;
    psOUUSamProbs_ = NULL;
    psOUULargeSamInputs_ = NULL;
    psOUULargeSamOutputs_ = NULL;
@@ -1907,6 +2556,16 @@ void OUUOptimizer::optimize(oData *odata)
    psOUUfaPtr_ = NULL;
    odata->intData_ = M1;
    if (psOUUMasterMode_ != 0) psMasterMode_ = 1;
+}
+
+// ************************************************************************
+// set local optimizer
+// ------------------------------------------------------------------------
+void OUUOptimizer::setLocalOptimizer(int optcode)
+{
+   if (optcode == 0) optCode_ = 0; 
+   if (optcode == 1) optCode_ = 1; 
+   if (optcode == 2) optCode_ = 2; 
 }
 
 // ************************************************************************

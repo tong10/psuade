@@ -1,5 +1,5 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.5)
+*      Welcome to PSUADE (version 1.7.6)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
@@ -14,8 +14,6 @@ PDFSample INFO: sample file 'sample2' has been read.
    no. of inputs = 1
    Perturbation has been turned on (sample drawn will be perturbed).
    Input 1 has column 2 in the sample file.
-PDFNormal: genSample begins (Take too long? Check ranges)
-PDFNormal: genSample ends.
 PSUADE run: creating interface to user driver.
 PSUADE run: output level = 1
 PSUADE run: max parallel jobs = 1

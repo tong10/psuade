@@ -592,9 +592,9 @@ void OUU1Optimizer::optimize(oData *odata)
    int        rstype=0, *inputPDFs=NULL;
    double     *inputMeans=NULL, *inputStdevs=NULL;
    PDFManager *pdfman=NULL;
-   Vector     vecLB, vecUB, vecOut;
+   psVector   vecLB, vecUB, vecOut;
    pData      pdata;
-   Matrix     *corMat1, corMat2;
+   psMatrix   *corMat1, corMat2;
    if (psOUU1UseRS_ == 1)
    {
       if (printLevel > 2)
@@ -670,7 +670,7 @@ void OUU1Optimizer::optimize(oData *odata)
          }
          pdata.dbleArray_ = NULL;
          odata->psIO_->getParameter("input_cor_matrix", pdata);
-         corMat1 = (Matrix *) pdata.psObject_;
+         corMat1 = (psMatrix *) pdata.psObject_;
          pdata.psObject_ = NULL;
          corMat2.setDim(M2,M2);
          for (ii = 0; ii < M2; ii++)

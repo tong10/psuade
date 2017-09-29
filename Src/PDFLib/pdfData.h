@@ -39,10 +39,10 @@ class pdfData
 public:
    int     nInputs_;
    iVector pdfTypes_;
-   Vector  pdfMeans_;
-   Vector  pdfStdevs_;
-   Matrix  corMatrix_;
-   Vector  **pdfTables_;
+   psVector  pdfMeans_;
+   psVector  pdfStdevs_;
+   psMatrix  corMatrix_;
+   psVector  **pdfTables_;
 
    pdfData();
    ~pdfData();

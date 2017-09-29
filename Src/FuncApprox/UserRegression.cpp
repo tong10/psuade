@@ -127,10 +127,11 @@ UserRegression::UserRegression(int nInputs,int nSamples):
    fp = fopen(regFile_, "r");
    if (fp == NULL)
    {
-      printf("UserRegression ERROR: user-generated executable not found (%s).\n",
+      printf("UserRegression ERROR: user-generated executable %s not found.\n",
              regFile_);
       exit(1);
    }
+   fclose(fp);
  
    noAnalysis_ = 0;
    if (numTerms_ == 1 && psRSExpertMode_ == 1)
@@ -769,7 +770,9 @@ double UserRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
                sprintf(sysCmd,"%s %s ps_input ps_output %s",
                        psPythonInterpreter_,regFile_,auxArg_);
             }
-            else sprintf(sysCmd,"python %s ps_input ps_output %s",regFile_,auxArg_);
+            else 
+               sprintf(sysCmd,"python %s ps_input ps_output %s",regFile_,
+                       auxArg_);
          }
          else sprintf(sysCmd,"%s ps_input ps_output %s", regFile_,auxArg_);
       }
@@ -845,7 +848,7 @@ int UserRegression::analyze(double *X, double *Y)
    int    N, M, mm, nn, wlen, info, NRevised;
    double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bvar;
    double esum, ymax, *WW, *SS, *AA, *UU, *VV;
-   char   jobu  = 'A', jobvt = 'A';
+   char   jobu  = 'S', jobvt = 'S';
    char   pString[100];
    FILE   *fp;
 
@@ -860,7 +863,7 @@ int UserRegression::analyze(double *X, double *Y)
 
    wlen = 5 * M;
    AA = new double[M*N];
-   UU = new double[M*M];
+   UU = new double[M*N];
    SS = new double[N];
    VV = new double[M*N];
    WW = new double[wlen];
@@ -1068,7 +1071,7 @@ int UserRegression::analyze(double *X, double *Y)
       }
    }
    pdfman->initialize(numTerms_,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
-   Vector vLower, vUpper, vOut;
+   psVector vLower, vUpper, vOut;
    vLower.load(numTerms_, inLowers);
    vUpper.load(numTerms_, inUppers);
    vOut.setLength(numTerms_*nTimes);

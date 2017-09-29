@@ -172,11 +172,20 @@ int PDFF::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFF::genSample(int length, double *outData, double lower, double upper)
+int PDFF::genSample(int length, double *outData, double *lowers, 
+                    double *uppers)
 {
    int    ii;
    double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, xlo2, xhi2, xmi2;
+   double lower, upper;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFF genSample ERROR - lower/upper bound not available.\n"); 
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    if (upper <= lower)
    {
       printf("PDFF genSample ERROR - lower bound >= upper bound.\n");
@@ -189,7 +198,7 @@ int PDFF::genSample(int length, double *outData, double lower, double upper)
       exit(1);
    }
 
-   printf("PDFF: genSample begins (Take too long? Check ranges)\n");
+   //printf("PDFF: genSample begins (Take too long? Check ranges)\n");
    mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
    for (ii = 0; ii < length; ii++)
    {
@@ -225,7 +234,7 @@ int PDFF::genSample(int length, double *outData, double lower, double upper)
          else                             outData[ii] = xhi;
       }
    }
-   printf("PDFF: genSample ends.\n");
+   //printf("PDFF: genSample ends.\n");
    return 0;
 }
 

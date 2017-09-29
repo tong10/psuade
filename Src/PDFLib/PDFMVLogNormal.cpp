@@ -38,7 +38,7 @@
 // constructor 
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
-PDFMVLogNormal::PDFMVLogNormal(Vector &means, Matrix &corMat)
+PDFMVLogNormal::PDFMVLogNormal(psVector &means, psMatrix &corMat)
 {
    int ii, jj, length;
    double ddata, sigmaI, sigmaJ;
@@ -100,12 +100,12 @@ PDFMVLogNormal::~PDFMVLogNormal()
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFMVLogNormal::genSample(int length, Vector &vecOut, Vector &lower,
-                              Vector &upper)
+int PDFMVLogNormal::genSample(int length, psVector &vecOut, psVector &lower,
+                              psVector &upper)
 {
    int    ii, jj, nInputs, flag, count, total;
-   double One=1.0, Zero=0.0, *localData1, *localData2;
-   Vector localVec;
+   double One=1.0, Zero=0.0, *localData1, *localData2, d1, d2;
+   psVector localVec;
    PDFNormal *normalPtr;
 
    if (length <= 0)
@@ -126,11 +126,13 @@ int PDFMVLogNormal::genSample(int length, Vector &vecOut, Vector &lower,
    localData1 = new double[length];
    localData2 = new double[length*nInputs];
    count = total = 0;
+   d1 = -4.0 * One;
+   d2 =  4.0 * One;
    while (count < length)
    {
       for (jj = 0; jj < nInputs; jj++)
       {
-         normalPtr->genSample(length,localData1,-4*One,4*One);
+         normalPtr->genSample(length,localData1,&d1,&d2);
          for (ii = 0; ii < length; ii++)
             localData2[ii*nInputs+jj] = localData1[ii];
       }

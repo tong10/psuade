@@ -1,12 +1,10 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.5)
+*      Welcome to PSUADE (version 1.7.6)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
 PDFManager INFO: some distributions are not UNIFORM.
 LogNormal genSample : mean, stdev = 1.000000e+00 1.000000e+00
-PDFLognormal: genSample begins (Take too long? Check ranges)
-PDFLognormal: genSample ends.
 PSUADE run: creating interface to user driver.
 PSUADE run: output level = 2
 PSUADE run: max parallel jobs = 1

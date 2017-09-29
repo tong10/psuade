@@ -157,12 +157,19 @@ int PDFTriangle::invCDF(int length, double *inData, double *outData,
 // ************************************************************************
 // generate a sample
 // ------------------------------------------------------------------------
-int PDFTriangle::genSample(int length, double *outData, double lower,
-                           double upper)
+int PDFTriangle::genSample(int length, double *outData, double *lowers,
+                           double *uppers)
 {
    int    ii, iOne=1;
-   double range, low, xlo, xhi, xmi, ylo, yhi, ymi, UU;
+   double range, low, xlo, xhi, xmi, ylo, yhi, ymi, UU, lower, upper;
 
+   if (lowers == NULL || uppers == NULL)
+   {
+      printf("PDFTriangle genSample ERROR - lower/upper bound unavailable.\n"); 
+      exit(1);
+   }
+   lower = lowers[0];
+   upper = uppers[0];
    if (upper <= lower)
    {
       printf("PDFTriangle genSample ERROR - lower bound >= upper bound.\n");
@@ -172,7 +179,7 @@ int PDFTriangle::genSample(int length, double *outData, double lower,
    getCDF(iOne, &lower, &low);
    getCDF(iOne, &upper, &range);
    range = range - low;
-   printf("PDFTriangle: genSample begins (Take too long? check ranges)\n");
+   //printf("PDFTriangle: genSample begins (Take too long? check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       xlo = lower;
@@ -203,7 +210,7 @@ int PDFTriangle::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
-   printf("PDFTriangle: genSample ends.\n");
+   //printf("PDFTriangle: genSample ends.\n");
    return 0;
 }
 

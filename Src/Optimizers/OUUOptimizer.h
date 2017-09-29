@@ -35,6 +35,8 @@
 // ************************************************************************
 class OUUOptimizer : public Optimizer
 {
+   int optCode_;
+
 public:
 
    /** constructor */
@@ -46,7 +48,11 @@ public:
    /** run optimization 
      @param odata - an object that contains all needed data
      */
-   virtual void optimize(oData *odata);
+   void optimize(oData *odata);
+   /** select which local optimizer to use 
+     @param optcode - local optimizer code
+     */
+   void setLocalOptimizer(int optcode);
 
    /** assign operator override */ 
    OUUOptimizer& operator=(const OUUOptimizer &);

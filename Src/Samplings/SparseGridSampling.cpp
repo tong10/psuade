@@ -104,8 +104,8 @@ int SparseGridSampling::initialize(int initLevel)
    int    nPerms, **pcePerms, *counts, total, *midx, newLeng, nVecs, numNew;
    int    *keepFlags;
    double **newn, *neww, **ddata, val, *ranges;
-   Vector *Vnodes;
-   Vector  Vweights;
+   psVector *Vnodes;
+   psVector  Vweights;
    FILE   *fp;
 
    if (nSamples_ == 0)
@@ -140,7 +140,7 @@ int SparseGridSampling::initialize(int initLevel)
    if (minQ < 0) minQ = 0;
    maxQ = pOrder_;
    midx = new int[nInputs_];
-   Vnodes = new Vector[nInputs_];
+   Vnodes = new psVector[nInputs_];
    nVecs = 0;
    for (ii = minQ; ii <= maxQ; ii++)
    {

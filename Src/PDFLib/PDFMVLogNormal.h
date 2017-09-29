@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
-
 #ifndef __PDFMVLOGNORMALH__
 #define __PDFMVLOGNORMALH__
 
@@ -36,22 +35,21 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 #include "Matrix.h"
 #include "Vector.h"
 #include "PDFMVNormal.h"
 
 class PDFMVLogNormal
 {
-   Vector  means_;
-   Matrix  covMat_;
+   psVector  means_;
+   psMatrix  covMat_;
 
 public:
 
-   PDFMVLogNormal(Vector &, Matrix &);    
+   PDFMVLogNormal(psVector &, psMatrix &);    
    ~PDFMVLogNormal();
 
-   int genSample(int, Vector &, Vector &, Vector &);
+   int genSample(int, psVector &, psVector &, psVector &);
 };
 
 #endif // __PDFMVLOGNORMALH__

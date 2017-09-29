@@ -33,8 +33,6 @@
 #include "PsuadeData.h"
 #include "PsuadeUtil.h"
 #include "sysdef.h"
-#include "Matrix.h"
-#include "Vector.h"
 #include "PDFNormal.h"
 #include "PDFLogNormal.h"
 #include "PDFMVNormal.h"
@@ -43,10 +41,13 @@
 #include "PDFBeta.h"
 #include "PDFWeibull.h"
 #include "PDFGamma.h"
+#include "PDFInvGamma.h"
+#include "PDFCauchy.h"
 #include "PDFExponential.h"
-#include "PDFSpecial.h"
+#include "PDFSample.h"
 #include "PDFF.h"
-#include "PDFSpecial2.h"
+#include "PDFSampleHist.h"
+#include "PDFUser.h"
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
@@ -97,7 +98,7 @@ int PDFManager::initialize(PsuadeData *psData)
    double  *inputMeans, *inputStdevs;
    char    **snames;
    pData   pPtr, pPDFs, pMeans, pStdevs, pCorMat, pSIndices;
-   Matrix  *corMatrix;
+   psMatrix *corMatrix;
 
    if (pdfMap_ != NULL) delete [] pdfMap_;
    if (PDFptrs_ != NULL)
@@ -140,7 +141,7 @@ int PDFManager::initialize(PsuadeData *psData)
    psData->getParameter("input_sample_indices", pSIndices);
    indices = pSIndices.intArray_;
    psData->getParameter("input_cor_matrix", pCorMat);
-   corMatrix = (Matrix *) pCorMat.psObject_; 
+   corMatrix = (psMatrix *) pCorMat.psObject_; 
    pCorMat.psObject_ = NULL; 
    count = 0;
    for (ii = 0; ii < nInputs; ii++) count += inputPDFs[ii];
@@ -151,21 +152,22 @@ int PDFManager::initialize(PsuadeData *psData)
       samplingMethod = pPtr.intData_;
       if (samplingMethod != PSUADE_SAMP_MC)  
       {
-         //printf("PSUADE INFO: if you want to draw a sample from non-uniform\n");
-         //printf("       distributions, set the sampling method to be Monte\n");
-         //printf("       Carlo (MC). If you have created a space-filling sample\n");
-         //printf("       and would like to convert it to the desired PDFs, add\n");
-         //printf("       the PDF information in the INPUT section of your sample\n");
-         //printf("       file, launch PSUADE in command line mode, load the\n");
-         //printf("       sample file, use 'pdfconvert' to convert your sample,\n");
-         //printf("       and write the converted sample to another PSUADE data\n");
-         //printf("       file.\n");
+         //printf("INFO: if you want to draw a sample from non-uniform\n");
+         //printf("distributions, set the sampling method to be Monte\n");
+         //printf("Carlo (MC). If you have created a space-filling sample\n");
+         //printf("and would like to convert it to the desired PDFs, add\n");
+         //printf("the PDF information in the INPUT section of your sample\n");
+         //printf("file, launch PSUADE in command line mode, load the\n");
+         //printf("sample file, use 'pdfconvert' to convert your sample,\n");
+         //printf("and write the converted sample to another PSUADE data\n");
+         //printf("file.\n");
          printf("PDFManager INFO: non-uniform distribution detected.\n");
          printf("                 Switching to Monte Carlo.\n");
          samplingMethod = PSUADE_SAMP_MC;
       }
    }
-   initialize(nInputs,inputPDFs,inputMeans,inputStdevs,*corMatrix,snames,indices);
+   initialize(nInputs,inputPDFs,inputMeans,inputStdevs,*corMatrix,
+              snames,indices);
    return 0;
 }
 
@@ -174,14 +176,14 @@ int PDFManager::initialize(PsuadeData *psData)
 // ------------------------------------------------------------------------
 int PDFManager::initialize(int nInputs, int *inputPDFs, 
                            double *inputMeans, double *inputStdevs,
-                           Matrix &corMatrix, char **snames, int *indices)
+                           psMatrix &corMatrix, char **snames, int *indices)
 {
    int     ii, jj, kk, errFlag, normalFlag, lognormalFlag, scount, corErrFlag;
    int     *indices2;
    double  *means, mean, stdev, ddata;
    char    pString[1001];
-   Matrix  corMat;
-   Vector  meanVec;
+   psMatrix corMat;
+   psVector meanVec;
    FILE    *fp;
 
    nInputs_ = nInputs;
@@ -252,7 +254,7 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
    for (ii = 0; ii < nInputs_; ii++)
    {
       usrPDFFlags_[ii] = -1;
-      if (inputPDFs[ii] == PSUADE_PDF_USER)
+      if (inputPDFs[ii] == PSUADE_PDF_SAMPLE)
       {
          for (jj = 0; jj < ii; jj++)
          {
@@ -264,7 +266,7 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
          }
          if (usrPDFFlags_[ii] == -1) usrPDFFlags_[ii] = ii;
       }
-      if (inputPDFs[ii] == PSUADE_PDF_USER2)
+      if (inputPDFs[ii] == PSUADE_PDF_SAMPLEHIST)
       {
          for (jj = 0; jj < ii; jj++)
          {
@@ -322,11 +324,11 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
    PDFptrs_ = new PDFBase*[nInputs_];
    normalFlag = lognormalFlag = 0;
    means = new double[nInputs_];
+   for (ii = 0; ii < nInputs_; ii++) PDFptrs_[ii] = NULL;
    for (ii = 0; ii < nInputs_; ii++)
    {
       mean = inputMeans[ii]; 
       stdev = inputStdevs[ii]; 
-      PDFptrs_[ii] = NULL;
       if (pdfMap_[ii] == PSUADE_PDF_NORMAL)
       {
          PDFptrs_[ii] = (PDFBase *) new PDFNormal(mean, stdev);
@@ -351,11 +353,19 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
       {
          PDFptrs_[ii] = (PDFBase *) new PDFGamma(mean, stdev);
       }
+      else if (pdfMap_[ii] == PSUADE_PDF_INVGAMMA)
+      {
+         PDFptrs_[ii] = (PDFBase *) new PDFInvGamma(mean, stdev);
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_CAUCHY)
+      {
+         PDFptrs_[ii] = (PDFBase *) new PDFCauchy(mean, stdev);
+      }
       else if (pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
       {
          PDFptrs_[ii] = (PDFBase *) new PDFExponential(mean, stdev);
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      else if (pdfMap_[ii] == PSUADE_PDF_SAMPLE)
       {
          if (usrPDFFlags_[ii] == ii)
          {
@@ -363,7 +373,8 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
             scount = 0;
             for (jj = 0; jj < nInputs_; jj++)
                if (usrPDFFlags_[jj] == ii) indices2[scount++] = indices[jj];
-            PDFptrs_[ii] = (PDFBase *) new PDFSpecial(scount,snames[ii],indices2);
+            PDFptrs_[ii] = 
+                     (PDFBase *) new PDFSample(scount,snames[ii],indices2);
             delete [] indices2;
             fp = fopen(snames[ii], "r");
             if (fp == NULL)
@@ -381,9 +392,11 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
             fscanf(fp, "%d %d", &jj, &kk);
             if (kk < scount)
             {
-               printf("PDFManager ERROR: sample file does not have enough inputs.\n");
-               printf("                  sample file has %d inputs\n", kk);
-               printf("                  PDFManager needs %d inputs\n", scount);
+               printf("PDFManager ERROR: ");
+               printf("sample file %s does not have enough inputs.\n",
+                      snames[ii]);
+               printf("                  sample file has %d inputs\n",kk);
+               printf("                  PDFManager needs %d inputs\n",scount);
                exit(1);
             }
             fclose(fp);
@@ -394,7 +407,7 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
       {
          PDFptrs_[ii] = (PDFBase *) new PDFF(mean, stdev);
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      else if (pdfMap_[ii] == PSUADE_PDF_SAMPLEHIST)
       {
          if (usrPDFFlags_[ii] == ii)
          {
@@ -402,7 +415,8 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
             scount = 0;
             for (jj = 0; jj < nInputs_; jj++)
                if (usrPDFFlags_[jj] == ii) indices2[scount++] = indices[jj];
-            PDFptrs_[ii] = (PDFBase *) new PDFSpecial2(snames[ii],scount,indices2);
+            PDFptrs_[ii] = 
+                  (PDFBase *) new PDFSampleHist(snames[ii],scount,indices2);
             delete [] indices2;
             fp = fopen(snames[ii], "r");
             if (fp == NULL)
@@ -420,9 +434,11 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
             fscanf(fp, "%d %d", &jj, &kk);
             if (kk < scount)
             {
-               printf("PDFManager ERROR: sample file does not have enough inputs.\n");
-               printf("                  sample file has %d inputs\n", kk);
-               printf("                  PDFManager needs %d inputs\n", scount);
+               printf("PDFManager ERROR: ");
+               printf("sample file %s does not have enough inputs.\n",
+                      snames[ii]);
+               printf("                  sample file has %d inputs\n",kk);
+               printf("                  PDFManager needs %d inputs\n",scount);
                exit(1);
             }
             fclose(fp);
@@ -453,6 +469,20 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
             lognormalFlag = 1;
          }
       }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         for (jj = 0; jj < nInputs_; jj++)
+         {
+            if (pdfMap_[ii] != PSUADE_PDF_USER)
+            {
+               printf("PDFManager ERROR: if U(ser) PDF is selected,\n");
+               printf("           it must be used on all inputs.\n");
+               exit(1);
+            }
+         }
+         PDFptrs_[0] = (PDFBase *) new PDFUser(nInputs_);
+         break;
+      }
    }
    
    delete [] means;
@@ -462,13 +492,13 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
 // ************************************************************************
 // forward transformation 
 // ------------------------------------------------------------------------
-int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
-                       Vector &vecLower, Vector &vecUpper)
+int PDFManager::getPDF(int nSamples, psVector &vecIn, psVector &vecOut,
+                       psVector &vecLower, psVector &vecUpper)
 {
    int    ss, ii, jj, nInputs;
    double *localData1, *localData2, *inData, *outData;
    char   cString[1001];
-   Vector vecLocalIn, vecLocalOut;
+   psVector vecLocalIn, vecLocalOut;
 
    if (nInputs_ <= 0)
    {
@@ -529,7 +559,8 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       else if (pdfMap_[ii] == PSUADE_PDF_LOGNORMAL)
       {
-         if (printLevel_ > 2) printf("Input %d: lognormal distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: lognormal distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
@@ -538,7 +569,8 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       else if (pdfMap_[ii] == PSUADE_PDF_TRIANGLE)
       {
-         if (printLevel_ > 2) printf("Input %d: triangle distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: triangle distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
@@ -547,7 +579,8 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       else if (pdfMap_[ii] == PSUADE_PDF_BETA)
       {
-         if (printLevel_ > 2) printf("Input %d: beta distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: beta distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
@@ -556,7 +589,8 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       else if (pdfMap_[ii] == PSUADE_PDF_WEIBULL)
       {
-         if (printLevel_ > 2) printf("Input %d: Weibull distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: Weibull distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
@@ -565,7 +599,28 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       else if (pdfMap_[ii] == PSUADE_PDF_GAMMA)
       {
-         if (printLevel_ > 2) printf("Input %d: gamma distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: gamma distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = inData[ss*nInputs+ii];
+         PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs+ii] = localData2[ss];
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_INVGAMMA)
+      {
+         if (printLevel_ > 2) 
+            printf("Input %d: inverse gamma distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = inData[ss*nInputs+ii];
+         PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs+ii] = localData2[ss];
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_CAUCHY)
+      {
+         if (printLevel_ > 2) 
+            printf("Input %d: inverse Cauchy distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
@@ -574,16 +629,17 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       else if (pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
       {
-         if (printLevel_ > 2) printf("Input %d: exponential distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: exponential distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs+ii] = localData2[ss];
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      else if (pdfMap_[ii] == PSUADE_PDF_SAMPLE)
       {
-         if (printLevel_ > 2) printf("Input %d: User distribution.\n",ii+1);
+         if (printLevel_ > 2) printf("Input %d: S distribution.\n",ii+1);
          jj = 0;
          for (ss = 0; ss < ii; ss++)
             if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
@@ -604,9 +660,9 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs+ii] = localData2[ss];
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      else if (pdfMap_[ii] == PSUADE_PDF_SAMPLEHIST)
       {
-         if (printLevel_ > 2) printf("Input %d: User2 distribution.\n",ii+1);
+         if (printLevel_ > 2) printf("Input %d: S2 distribution.\n",ii+1);
          jj = 0;
          for (ss = 0; ss < ii; ss++)
             if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
@@ -628,6 +684,11 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
          printf("ERROR: getPDF for multivariate lognormal not available.\n");
          exit(1);
       }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         printf("ERROR: getPDF for user distribution not available.\n");
+         exit(1);
+      }
    }
    delete [] localData1;
    delete [] localData2;
@@ -637,13 +698,13 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
 // ************************************************************************
 // generate sample
 // ------------------------------------------------------------------------
-int PDFManager::genSample(int nSamples, Vector &vecOut, 
-                          Vector &vecLower, Vector &vecUpper)
+int PDFManager::genSample(int nSamples, psVector &vecOut, 
+                          psVector &vecLower, psVector &vecUpper)
 {
    int    ss, ii, jj, normalFlag, lognormalFlag, ind, nInputs;
    int    scount, *counts;
    double *localData, *outData, range, low, high;
-   Vector vecLocalOut, vLower, vUpper;
+   psVector vecLocalOut, vLower, vUpper;
 
    if (nInputs_ <= 0)
    {
@@ -687,12 +748,14 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
           pdfMap_[ii] == PSUADE_PDF_NORMAL ||
           pdfMap_[ii] == PSUADE_PDF_LOGNORMAL ||
           pdfMap_[ii] == PSUADE_PDF_GAMMA ||
+          pdfMap_[ii] == PSUADE_PDF_INVGAMMA ||
+          pdfMap_[ii] == PSUADE_PDF_CAUCHY ||
           pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL ||
           pdfMap_[ii] == PSUADE_PDF_F)
       {
          low = vecLower[ii];
          high = vecUpper[ii];
-         PDFptrs_[ii]->genSample(nSamples,localData,low,high);
+         PDFptrs_[ii]->genSample(nSamples,localData,&low,&high);
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData[ss];
       }
@@ -758,7 +821,7 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
    
    for (ii = 0; ii < nInputs_; ii++)
    {
-      if (pdfMap_[ii] == PSUADE_PDF_USER)
+      if (pdfMap_[ii] == PSUADE_PDF_SAMPLE)
       {
          if (usrPDFFlags_[ii] == ii)
          {
@@ -766,7 +829,7 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
             scount = 1;
             for (jj = ii+1; jj < nInputs_; jj++)
                if (usrPDFFlags_[jj] == ii) counts[scount++] = jj;
-            PDFptrs_[ii]->genSample(nSamples,localData,0,0);
+            PDFptrs_[ii]->genSample(nSamples,localData,NULL,NULL);
             for (jj = 0; jj < scount; jj++)
             {
                ind = counts[jj];
@@ -778,7 +841,7 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
    }
    for (ii = 0; ii < nInputs_; ii++)
    {
-      if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      if (pdfMap_[ii] == PSUADE_PDF_SAMPLEHIST)
       {
          if (usrPDFFlags_[ii] == ii)
          {
@@ -786,7 +849,7 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
             scount = 1;
             for (jj = ii+1; jj < nInputs_; jj++)
                if (usrPDFFlags_[jj] == ii) counts[scount++] = jj;
-            PDFptrs_[ii]->genSample(nSamples,localData,0,0);
+            PDFptrs_[ii]->genSample(nSamples,localData,NULL,NULL);
             for (jj = 0; jj < scount; jj++)
             {
                ind = counts[jj];
@@ -795,6 +858,10 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
             }
          }
       }
+   }
+   if (pdfMap_[0] == PSUADE_PDF_USER)
+   {
+      PDFptrs_[0]->genSample(nSamples,outData,NULL,NULL);
    }
    delete [] localData;
    delete [] counts;
@@ -809,7 +876,7 @@ int PDFManager::genSample()
    int    ss, ii, nSamples, nInputs, nOutputs, *sampleStates;
    double *sampleInputs, *sampleOutputs, *iLowerB, *iUpperB;
    pData  pPtr, pLowerB, pUpperB;
-   Vector vecLocalIn, vecLocalOut, vecUpper, vecLower;
+   psVector vecLocalIn, vecLocalOut, vecUpper, vecLower;
 
    if (printLevel_ > 2) printf("PDFManager genSample\n");
    if (PSIOptr_ == NULL)
@@ -864,13 +931,13 @@ int PDFManager::genSample()
 // ************************************************************************
 // look up the cumulative density function
 // ------------------------------------------------------------------------
-int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut, 
-                       Vector &vecLower, Vector &vecUpper)
+int PDFManager::invCDF(int nSamples, psVector &vecIn, psVector &vecOut, 
+                       psVector &vecLower, psVector &vecUpper)
 {
    int    ss, ii, jj, nInputs;
    double *localData1, *localData2, *inData, *outData;
    char   cString[1001];
-   Vector vecLocalIn, vecLocalOut;
+   psVector vecLocalIn, vecLocalOut;
 
    if (nInputs_ <= 0)
    {
@@ -917,13 +984,15 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
    {
       if (pdfMap_[ii] == PSUADE_PDF_UNIFORM)
       {
-         if (printLevel_ > 2) printf("Input %d: uniform distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: uniform distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs+ii] = vecIn[ss*nInputs+ii];
       }
       if (pdfMap_[ii] == PSUADE_PDF_NORMAL)
       {
-         if (printLevel_ > 2) printf("Input %d: normal distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: normal distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -933,7 +1002,8 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       if (pdfMap_[ii] == PSUADE_PDF_LOGNORMAL)
       {
-         if (printLevel_ > 2) printf("Input %d: lognormal distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: lognormal distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -943,7 +1013,8 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       if (pdfMap_[ii] == PSUADE_PDF_TRIANGLE)
       {
-         if (printLevel_ > 2) printf("Input %d: triangle distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: triangle distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -953,7 +1024,8 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       if (pdfMap_[ii] == PSUADE_PDF_BETA)
       {
-         if (printLevel_ > 2) printf("Input %d: beta distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: beta distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -963,7 +1035,8 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       if (pdfMap_[ii] == PSUADE_PDF_WEIBULL)
       {
-         if (printLevel_ > 2) printf("Input %d: Weibull distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: Weibull distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -973,7 +1046,30 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       if (pdfMap_[ii] == PSUADE_PDF_GAMMA)
       {
-         if (printLevel_ > 2) printf("Input %d: gamma distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: gamma distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = vecIn[ss*nInputs_+ii];
+         PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
+                              vecLower[ii], vecUpper[ii]);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs_+ii] = localData2[ss];
+      }
+      if (pdfMap_[ii] == PSUADE_PDF_INVGAMMA)
+      {
+         if (printLevel_ > 2) 
+            printf("Input %d: inverse gamma distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = vecIn[ss*nInputs_+ii];
+         PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
+                              vecLower[ii], vecUpper[ii]);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs_+ii] = localData2[ss];
+      }
+      if (pdfMap_[ii] == PSUADE_PDF_CAUCHY)
+      {
+         if (printLevel_ > 2) 
+            printf("Input %d: inverse Cauchy distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -983,7 +1079,8 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       }
       if (pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
       {
-         if (printLevel_ > 2) printf("Input %d: exponential distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: exponential distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
@@ -991,9 +1088,10 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData2[ss];
       }
-      if (pdfMap_[ii] == PSUADE_PDF_USER)
+      if (pdfMap_[ii] == PSUADE_PDF_SAMPLE)
       {
-         if (printLevel_ > 2) printf("Input %d: User distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: S distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          jj = 0;
@@ -1016,9 +1114,10 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData2[ss];
       }
-      if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      if (pdfMap_[ii] == PSUADE_PDF_SAMPLEHIST)
       {
-         if (printLevel_ > 2) printf("Input %d: User2 distribution.\n",ii+1);
+         if (printLevel_ > 2) 
+            printf("Input %d: S2 distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
          jj = 0;
@@ -1041,6 +1140,26 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          printf("invCDF for multivariate lognormal is not available.\n");
          exit(1);
       }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         for (jj = 0; jj < nInputs_; jj++)
+         {
+            if (pdfMap_[ii] != PSUADE_PDF_USER)
+            {
+               printf("PDFManager ERROR: if U(ser) PDF is selected,\n");
+               printf("           it must be used on all inputs.\n");
+               exit(1);
+            }
+            PDFptrs_[0]->invCDF(nSamples,localData1,localData2,
+                                 vecLower[ii], vecUpper[ii]);
+            break;
+         }
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         printf("invCDF for user distribution is not available.\n");
+         exit(1);
+      }
    }
    delete [] localData1;
    delete [] localData2;
@@ -1050,14 +1169,14 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
 // ************************************************************************
 // look up the cumulative density function
 // ------------------------------------------------------------------------
-int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut, 
-                       Vector &vecLower, Vector &vecUpper)
+int PDFManager::getCDF(int nSamples, psVector &vecIn, psVector &vecOut, 
+                       psVector &vecLower, psVector &vecUpper)
 {
    int    ss, ii, jj, nInputs;
    double *localData1, *localData2, *inData, *outData;
    double range;
    char   cString[1001];
-   Vector vecLocalIn, vecLocalOut;
+   psVector vecLocalIn, vecLocalOut;
 
    if (nInputs_ <= 0)
    {
@@ -1109,6 +1228,8 @@ int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut,
           pdfMap_[ii] == PSUADE_PDF_NORMAL ||
           pdfMap_[ii] == PSUADE_PDF_LOGNORMAL ||
           pdfMap_[ii] == PSUADE_PDF_GAMMA ||
+          pdfMap_[ii] == PSUADE_PDF_INVGAMMA ||
+          pdfMap_[ii] == PSUADE_PDF_CAUCHY ||
           pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL ||
           pdfMap_[ii] == PSUADE_PDF_F)
       {
@@ -1118,7 +1239,7 @@ int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData2[ss];
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      else if (pdfMap_[ii] == PSUADE_PDF_SAMPLE)
       {
          jj = 0;
          for (ss = 0; ss < ii; ss++)
@@ -1131,7 +1252,7 @@ int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData2[ss];
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      else if (pdfMap_[ii] == PSUADE_PDF_SAMPLEHIST)
       {
          jj = 0;
          for (ss = 0; ss < ii; ss++)
@@ -1152,6 +1273,11 @@ int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut,
       else if (pdfMap_[ii] == 1000+PSUADE_PDF_LOGNORMAL)
       {
          printf("getCDF for multivariate lognormal is not available.\n");
+         exit(1);
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         printf("getCDF for user distribution is not available.\n");
          exit(1);
       }
    }
