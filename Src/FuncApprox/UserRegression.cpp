@@ -374,15 +374,16 @@ int UserRegression::gen1DGridData(double *X, double *Y, int ind1,
    (*NN) = totPts;
    (*XX) = new double[totPts];
    (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
-    
+   Xloc  = new double[totPts*nInputs_];
+   for (mm = 0; mm < nPtsPerDim_; mm++) 
+      for (nn = 0; nn < nInputs_; nn++) 
+         Xloc[mm*nInputs_+nn] = settings[nn]; 
    for (mm = 0; mm < nPtsPerDim_; mm++) 
    {
-      Xloc[ind1] = HX * mm + lowerBounds_[ind1];
-      (*XX)[mm] = Xloc[ind1];
-      (*YY)[mm] = evaluatePoint(Xloc);
+      Xloc[mm*nInputs_+ind1] = HX * mm + lowerBounds_[ind1];
+      (*XX)[mm] = Xloc[mm*nInputs_+ind1];
    }
+   evaluatePoint(totPts,Xloc,*YY);
 
    delete [] Xloc;
    return 0;
@@ -395,7 +396,7 @@ int UserRegression::gen2DGridData(double *X, double *Y, int ind1,
                         int ind2, double *settings, int *NN, 
                         double **XX, double **YY)
 {
-   int    totPts, mm, nn, index;
+   int    totPts, mm, nn, kk, index;
    double *HX, *Xloc;
 
    if (initialize(X, Y) != 0)
@@ -413,21 +414,28 @@ int UserRegression::gen2DGridData(double *X, double *Y, int ind1,
    (*NN) = totPts;
    (*XX) = new double[totPts * 2];
    (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
-    
+   Xloc  = new double[totPts*nInputs_];
+   for (mm = 0; mm < nPtsPerDim_; mm++) 
+   {
+      for (nn = 0; nn < nPtsPerDim_; nn++) 
+      {
+         index = mm * nPtsPerDim_ + nn;
+         for (kk = 0; kk < nInputs_; kk++) 
+            Xloc[index*nInputs_+kk] = settings[kk]; 
+      }
+   }
    for (mm = 0; mm < nPtsPerDim_; mm++) 
    {
       for (nn = 0; nn < nPtsPerDim_; nn++)
       {
          index = mm * nPtsPerDim_ + nn;
-         Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-         Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-         (*XX)[index*2]   = Xloc[ind1];
-         (*XX)[index*2+1] = Xloc[ind2];
-         (*YY)[index] = evaluatePoint(Xloc);
+         Xloc[index*nInputs_+ind1] = HX[0] * mm + lowerBounds_[ind1];
+         Xloc[index*nInputs_+ind2] = HX[1] * nn + lowerBounds_[ind2];
+         (*XX)[index*2]   = Xloc[index*nInputs_+ind1];
+         (*XX)[index*2+1] = Xloc[index*nInputs_+ind2];
       }
    }
+   evaluatePoint(totPts,Xloc,*YY);
 
    delete [] Xloc;
    delete [] HX;
@@ -441,7 +449,7 @@ int UserRegression::gen3DGridData(double *X, double *Y, int ind1,
                                   int ind2, int ind3, double *settings, 
                                   int *NN, double **XX, double **YY)
 {
-   int    totPts, mm, nn, pp, index;
+   int    totPts, mm, nn, pp, kk, index;
    double *HX, *Xloc;
 
    if (initialize(X, Y) != 0)
@@ -460,9 +468,7 @@ int UserRegression::gen3DGridData(double *X, double *Y, int ind1,
    (*NN) = totPts;
    (*XX) = new double[totPts * 3];
    (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
-    
+   Xloc  = new double[totPts*nInputs_];
    for (mm = 0; mm < nPtsPerDim_; mm++) 
    {
       for (nn = 0; nn < nPtsPerDim_; nn++)
@@ -470,16 +476,28 @@ int UserRegression::gen3DGridData(double *X, double *Y, int ind1,
          for (pp = 0; pp < nPtsPerDim_; pp++)
          {
             index = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
-            Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-            Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-            Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-            (*XX)[index*3]   = Xloc[ind1];
-            (*XX)[index*3+1] = Xloc[ind2];
-            (*XX)[index*3+2] = Xloc[ind3];
-            (*YY)[index] = evaluatePoint(Xloc);
+            for (kk = 0; kk < nInputs_; kk++)
+               Xloc[index*nInputs_+kk] = settings[kk];
          }
       }
    }
+   for (mm = 0; mm < nPtsPerDim_; mm++) 
+   {
+      for (nn = 0; nn < nPtsPerDim_; nn++)
+      {
+         for (pp = 0; pp < nPtsPerDim_; pp++)
+         {
+            index = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
+            Xloc[index*nInputs_+ind1] = HX[0] * mm + lowerBounds_[ind1];
+            Xloc[index*nInputs_+ind2] = HX[1] * nn + lowerBounds_[ind2];
+            Xloc[index*nInputs_+ind3] = HX[2] * pp + lowerBounds_[ind3];
+            (*XX)[index*3]   = Xloc[index*nInputs_+ind1];
+            (*XX)[index*3+1] = Xloc[index*nInputs_+ind2];
+            (*XX)[index*3+2] = Xloc[index*nInputs_+ind3];
+         }
+      }
+   }
+   evaluatePoint(totPts,Xloc,*YY);
 
    delete [] Xloc;
    delete [] HX;
@@ -597,15 +615,30 @@ double UserRegression::evaluatePoint(int npts, double *X, double *Y)
    if (numArgs_ == 2) 
    {
       if (psPythonOverride_ == 0)
-           sprintf(sysCmd,"python %s ps_input ps_output", regFile_);
+      {
+         if (psPythonInterpreter_ != NULL)
+         {
+            sprintf(sysCmd,"%s %s ps_input ps_output",psPythonInterpreter_,
+                    regFile_);
+         }
+         else sprintf(sysCmd,"python %s ps_input ps_output", regFile_);
+      }
       else sprintf(sysCmd,"%s ps_input ps_output", regFile_);
    }
    else
    {
       if (psPythonOverride_ == 0)
-           sprintf(sysCmd,"python %s ps_input ps_output %s",regFile_,auxArg_);
+      {
+         if (psPythonInterpreter_ != NULL)
+         {
+            sprintf(sysCmd,"%s %s ps_input ps_output %s",psPythonInterpreter_,
+                    regFile_,auxArg_);
+         }
+         else sprintf(sysCmd,"python %s ps_input ps_output %s",regFile_,auxArg_);
+      }
       else sprintf(sysCmd,"%s ps_input ps_output %s", regFile_,auxArg_);
    }
+   if (outputLevel_ > 1) printf("UserRegression run : %s\n",sysCmd);
    system(sysCmd);
    if (outputLevel_ > 2) 
       printOutTS(PL_INFO, "Basis function evaluation completed.\n");
@@ -717,16 +750,30 @@ double UserRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
       if (numArgs_ == 2) 
       {
          if (psPythonOverride_ == 0)
-              sprintf(sysCmd,"python %s ps_input ps_output", regFile_);
+         {
+            if (psPythonInterpreter_ != NULL)
+            {
+               sprintf(sysCmd,"%s %s ps_input ps_output",psPythonInterpreter_,
+                       regFile_);
+            }
+            else sprintf(sysCmd,"python %s ps_input ps_output",regFile_);
+         }
          else sprintf(sysCmd,"%s ps_input ps_output", regFile_);
       }
       else
       {
          if (psPythonOverride_ == 0)
-              sprintf(sysCmd,"python %s ps_input ps_output %s",
-                      regFile_,auxArg_);
+         {
+            if (psPythonInterpreter_ != NULL)
+            {
+               sprintf(sysCmd,"%s %s ps_input ps_output %s",
+                       psPythonInterpreter_,regFile_,auxArg_);
+            }
+            else sprintf(sysCmd,"python %s ps_input ps_output %s",regFile_,auxArg_);
+         }
          else sprintf(sysCmd,"%s ps_input ps_output %s", regFile_,auxArg_);
       }
+      if (outputLevel_ > 1) printf("UserRegression run : %s\n",sysCmd);
       system(sysCmd);
  
       fp = fopen("ps_output", "r");
@@ -844,7 +891,7 @@ int UserRegression::analyze(double *X, double *Y)
       fprintf(fp, "];\n");
       fprintf(fp, "A = AA(:,1:%d);\n", N);
       fprintf(fp, "Y = AA(:,%d);\n", N+1);
-      fprintf(fp, "B = A \\ Y;\n", N+1);
+      fprintf(fp, "B = A \\ Y;\n");
       fclose(fp);
       printf("Regression matrix written to user_regression_matrix.m\n");
    }
@@ -1298,12 +1345,34 @@ int UserRegression::loadXMatrix(double *X, double **XXOut)
    M = nSamples_;
    N = numTerms_;
    XX = new double[M*N];
-   if (numArgs_ == 2) 
-        sprintf(sysCmd,"%s ps_input ps_output",regFile_);
-   else sprintf(sysCmd,"%s ps_input ps_output %s",regFile_,auxArg_);
+   if (psPythonOverride_ == 0)
+   {
+      if (psPythonInterpreter_ != NULL)
+      {
+         if (numArgs_ == 2) 
+              sprintf(sysCmd,"%s %s ps_input ps_output",
+                      psPythonInterpreter_,regFile_);
+         else sprintf(sysCmd,"%s %s ps_input ps_output %s",
+                      psPythonInterpreter_,regFile_,auxArg_);
+      }
+      else
+      {
+         if (numArgs_ == 2) 
+              sprintf(sysCmd,"python %s ps_input ps_output",regFile_);
+         else sprintf(sysCmd,"python %s ps_input ps_output %s",
+                      regFile_,auxArg_);
+      }
+   }
+   else
+   {
+      if (numArgs_ == 2) 
+           sprintf(sysCmd,"%s ps_input ps_output",regFile_);
+      else sprintf(sysCmd,"%s ps_input ps_output %s",regFile_,auxArg_);
+   }
    fp = fopen("ps_input", "w");
    if(fp == NULL)
    {
+      printf("file 'ps_input' expected but not found.\n");
       printf("fopen returned NULL in file %s line %d, exiting\n",
              __FILE__, __LINE__);
       exit(1);
@@ -1317,10 +1386,12 @@ int UserRegression::loadXMatrix(double *X, double **XXOut)
       fprintf(fp, "\n");
    }
    fclose(fp);
+   if (outputLevel_ > 1) printf("UserRegression run : %s\n",sysCmd);
    system(sysCmd);
    fp = fopen("ps_output", "r");
    if (fp == NULL)
    {
+      printf("file 'ps_output' expected but not found.\n");
       printf("fopen returned NULL in file %s line %d, exiting\n", 
              __FILE__, __LINE__);
       exit(1);
@@ -1409,11 +1480,15 @@ int UserRegression::computeSS(int N, double *XX, double *Y,
    }
    for (mm = 0; mm < nSamples_; mm++)
       SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   printf("* UserRegression: SStot  = %24.16e\n", SStotal);
-   printf("* UserRegression: SSreg  = %24.16e\n", SSreg);
-   printf("* UserRegression: SSres  = %24.16e\n", SSresid);
-   printf("* UserRegression: SSres  = %24.16e (true)\n", SSresidCheck);
-   if (nSamples_ != N)
+   if (outputLevel_ > 0)
+   {
+      printf("* UserRegression: SStot  = %24.16e\n", SStotal);
+      printf("* UserRegression: SSreg  = %24.16e\n", SSreg);
+      printf("* UserRegression: SSres  = %24.16e\n", SSresid);
+      printf("* UserRegression: SSres  = %24.16e (true)\n", SSresidCheck);
+   }
+   SSresid = SSresidCheck;
+   if (outputLevel_ > 0 && nSamples_ != N)
    {
       printf("* UserRegression: eps(Y) = %24.16e\n",
              SSresidCheck/(nSamples_-N));
@@ -1548,7 +1623,7 @@ int UserRegression::computeCoeffVariance(int N,double *XX,double var,
       fprintf(fp, "D = 1.0 ./ D;\n");
       fprintf(fp, "D = sqrt(D);\n");
       fprintf(fp, "C0 = diag(D) * (variance * invA) * diag(D);\n");
-      fprintf(fp, "%%% C should be equal to C0\n");
+      fprintf(fp, "%% C should be equal to C0\n");
       fclose(fp);
    }
    errCnt = 0;

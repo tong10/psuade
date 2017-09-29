@@ -33,7 +33,6 @@
 #include "Psuade.h"
 #include "pData.h"
 #include "PrintingTS.h"
-#include <algorithm>
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -80,8 +79,10 @@ double LSAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printOutTS(PL_INFO, "LocalSA INFO: some inputs have non-uniform PDFs, but\n");
-         printOutTS(PL_INFO, "              they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO, 
+              "LocalSA INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO, 
+              "              they are not relevant in this analysis.\n");
       }
    }
    whichOutput = outputID;
@@ -103,7 +104,8 @@ double LSAnalyzer::analyze(aData &adata)
    } 
    if (nSamples != nInputs + 1)
    {
-      printOutTS(PL_ERROR, "LSAnalyzer ERROR: nSamples should be equal to nInputs+1.\n");
+      printOutTS(PL_ERROR, 
+           "LSAnalyzer ERROR: nSamples should be equal to nInputs+1.\n");
       printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
@@ -111,7 +113,9 @@ double LSAnalyzer::analyze(aData &adata)
    printOutTS(PL_INFO, "\n");
    printAsterisks(PL_INFO, 0);
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "* Local Sensitivity Analysis\n");
+   printOutTS(PL_INFO,"* Local Sensitivity Analysis\n");
+   printOutTS(PL_INFO,"* This analysis works if the model output can be\n");
+   printOutTS(PL_INFO,"* approximated by linear combination of the inputs.\n");
    printDashes(PL_INFO, 0);
    printOutTS(PL_INFO, "* total number of samples = %d\n",nSamples);
    printOutTS(PL_INFO, "* number of Inputs        = %d\n",nInputs);
@@ -175,7 +179,7 @@ double LSAnalyzer::analyze(aData &adata)
    {
       if (mEffect[ii] == PSUADE_UNDEFINED)
       {
-         printOutTS(PL_INFO, "LocalSA ERROR: sample not suitable for LSA.\n");
+         printOutTS(PL_INFO,"LocalSA ERROR: sample not suitable for LSA.\n");
          delete [] mEffect;
          // Bill Oliver added code to close fp prior to returning
          if(fp != NULL) fclose(fp);
@@ -185,8 +189,8 @@ double LSAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs; ii++)
    {
       lsMeasures_[ii] = mEffect[ii];
-      printOutTS(PL_INFO, "* Input %3d (importance measure = %12.4e)\n", ii+1,
-             mEffect[ii]);
+      printOutTS(PL_INFO,"* Input %3d (importance measure = %12.4e)\n", 
+                 ii+1, mEffect[ii]);
    }
 
    if (fp != NULL)
@@ -236,23 +240,24 @@ double LSAnalyzer::analyze(aData &adata)
       fwritePlotAxes(fp);
       if (psPlotTool_ == 1)
       {
-         fprintf(fp, "a=gca();\n");
-         fprintf(fp, "a.data_bounds=[0, ymin-0.01*(ymax-ymin); nn+1, ymax+0.01*(ymax-ymin)];\n");
-         fprintf(fp, "newtick = a.x_ticks;\n");
-         fprintf(fp, "newtick(2) = [1:nn]';\n");
-         fprintf(fp, "newtick(3) = Str';\n");
-         fprintf(fp, "a.x_ticks = newtick;\n");
-         fprintf(fp, "a.x_label.font_size = 3;\n");
-         fprintf(fp, "a.x_label.font_style = 4;\n");
+         fprintf(fp,"a=gca();\n");
+         fprintf(fp,"a.data_bounds=[0, ymin-0.01*(ymax-ymin); nn+1, ");
+         fprintf(fp,"ymax+0.01*(ymax-ymin)];\n");
+         fprintf(fp,"newtick = a.x_ticks;\n");
+         fprintf(fp,"newtick(2) = [1:nn]';\n");
+         fprintf(fp,"newtick(3) = Str';\n");
+         fprintf(fp,"a.x_ticks = newtick;\n");
+         fprintf(fp,"a.x_label.font_size = 3;\n");
+         fprintf(fp,"a.x_label.font_style = 4;\n");
       }
       else
       {
-         fprintf(fp, "axis([0 nn+1 ymin-0.01*(ymax-ymin) ymax+0.01*(ymax-ymin)])\n");
-         fprintf(fp, "set(gca,'XTickLabel',[]);\n");
-         fprintf(fp, "th=text(1:nn, repmat(ymin-0.07*(ymax-ymin),nn,1),Str,");
-         fprintf(fp, "'HorizontalAlignment','left','rotation',90);\n");
-         fprintf(fp, "set(th, 'fontsize', 12)\n");
-         fprintf(fp, "set(th, 'fontweight', 'bold')\n");
+         fprintf(fp,"axis([0 nn+1 ymin-0.01*(ymax-ymin) ymax+0.01*(ymax-ymin)])\n");
+         fprintf(fp,"set(gca,'XTickLabel',[]);\n");
+         fprintf(fp,"th=text(1:nn, repmat(ymin-0.07*(ymax-ymin),nn,1),Str,");
+         fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp,"set(th, 'fontsize', 12)\n");
+         fprintf(fp,"set(th, 'fontweight', 'bold')\n");
       }
       sprintf(pString, "Linear Sensitivity Measures");
       fwritePlotTitle(fp, pString);
@@ -274,7 +279,7 @@ double LSAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 LSAnalyzer& LSAnalyzer::operator=(const LSAnalyzer &)
 {
-   printOutTS(PL_ERROR, "LocalSA operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"LocalSA operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -292,7 +297,8 @@ double *LSAnalyzer::get_lsMeasures()
    if (lsMeasures_)
    {
       retVal = new double[nInputs_];
-      std::copy(lsMeasures_, lsMeasures_+nInputs_, retVal);
+      for (int ii = 0; ii < nInputs_; ii++)
+         retVal[ii] = lsMeasures_[ii];
    }
    return retVal;
 }

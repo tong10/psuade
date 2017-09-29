@@ -73,8 +73,10 @@ double IntegrationAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printOutTS(PL_INFO,"Integration INFO: some inputs have non-uniform PDFs,\n");
-         printOutTS(PL_INFO,"            but they are not relevant in this analysis\n");
+         printOutTS(PL_INFO,
+              "Integration INFO: some inputs have non-uniform PDFs,\n");
+         printOutTS(PL_INFO,
+              "            but they are not relevant in this analysis\n");
       }
    }
 
@@ -107,8 +109,10 @@ double IntegrationAnalyzer::analyze(aData &adata)
    {
       if (Y[ss] == PSUADE_UNDEFINED)
       {
-         printOutTS(PL_ERROR,  "Integration ERROR: some outputs are undefined.\n");
-         printOutTS(PL_ERROR,  "                   Prune them before analyze.\n");
+         printOutTS(PL_ERROR,  
+              "Integration ERROR: some outputs are undefined.\n");
+         printOutTS(PL_ERROR,  
+              "                   Prune them before analyze.\n");
          return PSUADE_UNDEFINED;
       }
    }
@@ -118,7 +122,7 @@ double IntegrationAnalyzer::analyze(aData &adata)
    result /= (double) nSamples;
    for (ii = 0; ii < nInputs; ii++) result *= (iUpper[ii] - iLower[ii]);
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO,  "Integration: numerical integral = %14.4e\n", result);
+   printOutTS(PL_INFO,"Integration: numerical integral = %14.4e\n",result);
    printAsterisks(PL_INFO, 0);
 
    integral_ = result;
@@ -133,7 +137,7 @@ double IntegrationAnalyzer::analyze(aData &adata)
    if (result == 0.0) error = result;
    else               error = PABS((last-result)/result); 
    if (adata.printLevel_ > 0)
-      printOutTS(PL_INFO,  "Integration: numerical error    = %14.4e\n", error);
+      printOutTS(PL_INFO,"Integration: numerical error    = %14.4e\n",error);
 
    return error;
 }
@@ -143,7 +147,7 @@ double IntegrationAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 IntegrationAnalyzer& IntegrationAnalyzer::operator=(const IntegrationAnalyzer &)
 {
-   printOutTS(PL_ERROR,  "Integration operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"Integration operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

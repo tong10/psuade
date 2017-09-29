@@ -17,6 +17,10 @@ METHOD
 END
 APPLICATION
    driver = ./simulator
+#  if ensemble mode is desired, uncomment the next 3 lines
+#  ensemble_driver = ./ensemble_simulator
+#  ensemble_run_mode
+#  max_parallel_jobs = 300
 END
 ANALYSIS
    analyzer output_id  = 1

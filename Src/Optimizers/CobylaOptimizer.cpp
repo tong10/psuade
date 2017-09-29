@@ -29,6 +29,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+using namespace std;
 
 #include "CobylaOptimizer.h"
 #include "Psuade.h"

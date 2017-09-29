@@ -28,10 +28,7 @@
 #define __BASESAMPLINGH__
 
 #include <string.h>
-#include <string>
-#include <iostream>
 #include "PsuadeData.h"
-using namespace std;
 
 /**
  * @name Sampling class (abstract)
@@ -44,7 +41,6 @@ using namespace std;
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class Sampling 
 {
 public:
@@ -202,7 +198,7 @@ public:
        @param command : command string
        @param paramStrings : pointers to parameters
     */
-   virtual int setParam(string sparam);
+   virtual int setParam(char *sparam);
 };
 
 /*@}*/
@@ -210,10 +206,9 @@ public:
 // ************************************************************************
 // These functions are used to create and destroy sampling objects.
 // ************************************************************************
-
 extern Sampling *SamplingCreateFromID(int);
 extern int      SamplingDestroy(Sampling *);
-extern double   SamplingQuality(int, int, double *);
+extern int      SamplingQuality(int,int,double *,double *,double *,double *);
 
 #endif // __BASESAMPLINGH__
 

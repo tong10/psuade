@@ -86,8 +86,10 @@ double BinomialAnalyzer::analyze(aData &adata)
       if (Y[ss] == PSUADE_UNDEFINED) info++;
    if (info > 0)
    {
-      printOutTS(PL_ERROR, "BinomialAnalyzer ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR, "                        Prune them first before analyze.\n");
+      printOutTS(PL_ERROR,
+           "BinomialAnalyzer ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR,
+           "                        Prune them first before analyze.\n");
       return PSUADE_UNDEFINED;
    }
 
@@ -106,8 +108,9 @@ double BinomialAnalyzer::analyze(aData &adata)
    nBelow_ = 0;
    for (ss = 0; ss < nSamples_; ss++) if (Ybin_[ss] == 1.0) nBelow_++;
    if (printLevel > 2)
-      printOutTS(PL_INFO, "   ====> BinomialAnalyzer: number below threshold = %d (%d)\n",
-             nBelow_, nSamples_);
+      printOutTS(PL_INFO,
+           "   ====> BinomialAnalyzer: number below threshold = %d (%d)\n",
+           nBelow_, nSamples_);
 
    BinomialCDF_ = setupBinomialCDF(nSamples_, p0);
    for (ss = 0; ss <= nSamples_; ss++)
@@ -160,7 +163,8 @@ double BinomialAnalyzer::factorial(int n)
 // ------------------------------------------------------------------------
 BinomialAnalyzer& BinomialAnalyzer::operator=(const BinomialAnalyzer &)
 {
-   printOutTS(PL_ERROR, "BinomialAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, 
+        "BinomialAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

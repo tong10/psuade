@@ -23,6 +23,6 @@ APPLICATION
 END
 ANALYSIS
    analyzer method = Moment
-   diagnostics 1
+   printlevel 1
 END
 END

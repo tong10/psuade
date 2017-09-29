@@ -43,6 +43,8 @@ class PDFSpecial : public PDFBase
    int    nSamples_;
    double *samples_;
    int    whichInput_;
+   int    perturb_;
+   double *ranges_;
 
 public:
 

@@ -33,6 +33,7 @@
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "Psuade.h"
+#include "PrintingTS.h"
 
 extern "C" {
 #if 0
@@ -65,11 +66,11 @@ RBF::RBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 
    // display banner and additonal information
    printAsterisks(PL_INFO, 0);
-   printf(PL_INFO,"*           Radial Basis Function (RBF) Analysis\n");
-   printf(PL_INFO,"* Set printlevel to 1-4 to see RBF details.\n");
-   printf(PL_INFO,"* Default kernel    = multi-quadratic \n");
-   printf(PL_INFO,"* Default threshold = 1.0e-15 (for SVD truncation)\n");
-   printf(PL_INFO,"* Turn on rs_expert mode to make changes.\n");
+   printOutTS(PL_INFO,"*           Radial Basis Function (RBF) Analysis\n");
+   printOutTS(PL_INFO,"* Set printlevel to 1-4 to see RBF details.\n");
+   printOutTS(PL_INFO,"* Default kernel    = multi-quadratic \n");
+   printOutTS(PL_INFO,"* Default threshold = 1.0e-15 (for SVD truncation)\n");
+   printOutTS(PL_INFO,"* Turn on rs_expert mode to make changes.\n");
    printEquals(PL_INFO, 0);
    
    if (psRSExpertMode_ == 1)

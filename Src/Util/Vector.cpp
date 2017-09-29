@@ -50,31 +50,25 @@ Vector::Vector()
 // ************************************************************************
 // Copy Constructor by Bill Oliver
 // ------------------------------------------------------------------------
-Vector::Vector(const Vector & v){
-
-  length_ = v.length_;
-  Vec_ = new double[length_];
-  for(int i = 0; i < length_; i++)
-    Vec_[i] = v.Vec_[i];
-
+Vector::Vector(const Vector & v)
+{
+   length_ = v.length_;
+   Vec_ = new double[length_];
+   for (int i = 0; i < length_; i++) Vec_[i] = v.Vec_[i];
 }
 
 // ************************************************************************
 // overload operator= by Bill Oliver
 // ------------------------------------------------------------------------
-Vector & Vector::operator=(const Vector & v){
-
-  if(this == &v) return *this;
-  delete [] Vec_;
-  length_ = v.length_;
-  Vec_ = new double[length_];
-  for(int i = 0; i < length_; i++)
-    Vec_[i] = v.Vec_[i];
-
-  return * this;
-
+Vector & Vector::operator=(const Vector & v)
+{
+   if(this == &v) return *this;
+   delete [] Vec_;
+   length_ = v.length_;
+   Vec_ = new double[length_];
+   for(int i = 0; i < length_; i++) Vec_[i] = v.Vec_[i];
+   return *this;
 }
-
 
 // ************************************************************************
 // destructor

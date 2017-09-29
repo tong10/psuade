@@ -94,29 +94,29 @@ double MainEffectAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printOutTS(PL_ERROR, "MainEffect ERROR: invalid arguments.\n");
-      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
-      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
-      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR,"MainEffect ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR,"    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR,"    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR,"    nSamples = %d\n", nSamples);
       exit(1);
    } 
    if (nSamples/nSubSamples*nSubSamples != nSamples)
    {
-      printOutTS(PL_ERROR, "MainEffect ERROR: nSamples != k*nLevels.\n");
-      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
-      printOutTS(PL_ERROR, "    nLevels  = %d\n", nSubSamples);
+      printOutTS(PL_ERROR,"MainEffect ERROR: nSamples != k*nLevels.\n");
+      printOutTS(PL_ERROR,"    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR,"    nLevels  = %d\n", nSubSamples);
       exit(1);
    } 
    if (whichOutput >= nOutputs || whichOutput < 0)
    {
-      printOutTS(PL_ERROR, "MainEffect ERROR: invalid outputID.\n");
-      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
-      printOutTS(PL_ERROR, "    outputID = %d\n", whichOutput+1);
+      printOutTS(PL_ERROR,"MainEffect ERROR: invalid outputID.\n");
+      printOutTS(PL_ERROR,"    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR,"    outputID = %d\n", whichOutput+1);
       exit(1);
    }
    if (ioPtr == NULL)
    {
-      printOutTS(PL_ERROR, "MainEffect ERROR: no data (PsuadeData).\n");
+      printOutTS(PL_ERROR,"MainEffect ERROR: no data (PsuadeData).\n");
       return PSUADE_UNDEFINED;
    }
    if (adata.inputPDFs_ != NULL)
@@ -125,10 +125,13 @@ double MainEffectAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printOutTS(PL_INFO, "MainEffect INFO: Some inputs have non-uniform PDFs.\n");
-         printOutTS(PL_INFO, "           However, they are relevant in this analysis\n");
-         printOutTS(PL_INFO, "           (the sample should have been generated\n");
-         printOutTS(PL_INFO, "            with the desired distributions.)\n");
+         printOutTS(PL_INFO, 
+              "MainEffect INFO: Some inputs have non-uniform PDFs.\n");
+         printOutTS(PL_INFO, 
+              "           However, they are relevant in this analysis\n");
+         printOutTS(PL_INFO, 
+              "           (the sample should have been generated\n");
+         printOutTS(PL_INFO,"            with the desired distributions.)\n");
       }
    }
    if (inputVCE_) delete [] inputVCE_;
@@ -140,8 +143,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
       if(constrPtr != NULL) constrPtr->genConstraints(ioPtr);
       else 
       {
-	 printOutTS(PL_ERROR, "out of memory in file %s line %d, exiting.\n",
-                __FILE__, __LINE__);
+	 printOutTS(PL_ERROR,"out of memory in file %s line %d, exiting.\n",
+                    __FILE__, __LINE__);
 	 exit(1);
       }
    }
@@ -158,43 +161,47 @@ double MainEffectAnalyzer::analyze(aData &adata)
    }
    if (ncount == 0)
    {
-      printOutTS(PL_ERROR, "MainEffect ERROR: no valid sample point.\n");
-      printOutTS(PL_ERROR, "    nSamples before filtering = %d\n", nSamples);
-      printOutTS(PL_ERROR, "    nSamples after  filtering = %d\n", ncount);
-      printOutTS(PL_ERROR, "    INFO: check your data file for undefined's (1e35)\n");
+      printOutTS(PL_ERROR,"MainEffect ERROR: no valid sample point.\n");
+      printOutTS(PL_ERROR,"    nSamples before filtering = %d\n", nSamples);
+      printOutTS(PL_ERROR,"    nSamples after  filtering = %d\n", ncount);
+      printOutTS(PL_ERROR, 
+           "    INFO: check your data file for undefined's (1e35)\n");
       delete [] Y;
       if (constrPtr != NULL) delete constrPtr;
       return 1.0;
    } 
    if (ncount != nSamples)
    {
-      printOutTS(PL_INFO, "MainEffect: nSamples before filtering = %d\n", nSamples);
-      printOutTS(PL_INFO, "MainEffect: nSamples after  filtering  = %d\n", ncount);
+      printOutTS(PL_INFO, 
+           "MainEffect: nSamples before filtering = %d\n", nSamples);
+      printOutTS(PL_INFO, 
+           "MainEffect: nSamples after  filtering  = %d\n", ncount);
    }
    if (nSamples < 1000)
    {
-      printOutTS(PL_INFO, "MainEffect INFO: nSamples may be too small to\n");
-      printOutTS(PL_INFO, "                 give results with acceptable accuracy.\n");
+      printOutTS(PL_INFO,"MainEffect INFO: nSamples may be too small to\n");
+      printOutTS(PL_INFO, 
+           "                 give results with acceptable accuracy.\n");
    }
 
    computeMeanVariance(nInputs,1,nSamples,Y,&aMean,&aVariance,0);
-   if (printLevel > 0)
+   if (printLevel >= 0)
    {
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "* Main Effect Analysis\n");
+      printOutTS(PL_INFO,"*              Main Effect Analysis\n");
       printDashes(PL_INFO, 0);
-      printOutTS(PL_INFO, " - TURN ON HIGHER printlevel TO DISPLAY MORE INFORMATION\n");
-      printOutTS(PL_INFO, " - TURN ON ana_expert MODE FOR MORE PLOTS\n");
+      printOutTS(PL_INFO, 
+           "* Turn on higher printlevel to display more information\n");
+      printOutTS(PL_INFO,"* Turn on ana_expert mode for more plots\n");
       printDashes(PL_INFO, 0);
-      printOutTS(PL_INFO, "* total number of samples = %10d                     **\n",
-             nSamples);
-      printOutTS(PL_INFO, "* number of Inputs        = %10d                     **\n",
-             nInputs);
+      printOutTS(PL_INFO,"* Number of sample points = %10d\n",nSamples);
+      printOutTS(PL_INFO,"* Number of Inputs        = %10d\n",nInputs);
       printEquals(PL_INFO, 0);
-      printOutTS(PL_INFO, "Output %d\n", whichOutput+1);
-      printOutTS(PL_INFO, "=====> MainEffect: mean               = %12.4e\n",aMean);
-      printOutTS(PL_INFO, "=====> MainEffect: standard deviation = %12.4e\n",
-             sqrt(aVariance));
+      printOutTS(PL_INFO,"Output %d\n", whichOutput+1);
+      printOutTS(PL_INFO,"====> MainEffect: mean               = %12.4e\n",
+                 aMean);
+      printOutTS(PL_INFO,"====> MainEffect: standard deviation = %12.4e\n",
+                  sqrt(aVariance));
    }
    mainEffectMean_ = aMean;
    mainEffectStd_ = sqrt(aVariance);
@@ -203,7 +210,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
 #if 0
    if (nReplications <= 1)
    {
-      printOutTS(PL_INFO, "MainEffectAnalyzer INFO: go no further since nReps = 1.\n");
+      printOutTS(PL_INFO, 
+           "MainEffectAnalyzer INFO: go no further since nReps = 1.\n");
       return 1.0;
    }
 #endif
@@ -228,9 +236,9 @@ double MainEffectAnalyzer::analyze(aData &adata)
       }
       if (nReplications <= 1)
       {
-         printOutTS(PL_INFO, "* MainEffect INFO: nReps = 1 for input %d.\n",ii+1);
-         printOutTS(PL_INFO, "*            ==> not replicated Latin hypercube\n");
-         printOutTS(PL_INFO, "*            ==> crude main effect analysis.\n");
+         printOutTS(PL_INFO,"* MainEffect INFO: nReps = 1 for input %d.\n",ii+1);
+         printOutTS(PL_INFO,"*            ==> not replicated Latin hypercube\n");
+         printOutTS(PL_INFO,"*            ==> crude main effect analysis.\n");
          computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
                          aVariance, vce);
          pData *pPtr = ioPtr->getAuxData();
@@ -269,7 +277,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
          fp = fopen(meFileName, "w");
          if (fp != NULL)
          {
-            printOutTS(PL_INFO, "MainEffect: main effect file = %s\n", meFileName);
+            printOutTS(PL_INFO,"MainEffect: main effect file = %s\n", meFileName);
          }
       }
    }
@@ -302,8 +310,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
       }
    }
 
-   status = computeVCE(nInputs, nSamples, nSubSamples, X, Y, whichOutput, fp, 
-                       varVCEMean, meanVCEVar, varVCEVar, vce);
+   status = computeVCE(nInputs, nSamples, nSubSamples, X, Y, whichOutput, 
+                       fp, varVCEMean, meanVCEVar, varVCEVar, vce);
    if (status == -1)
    {
       computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
@@ -339,17 +347,18 @@ double MainEffectAnalyzer::analyze(aData &adata)
    if (printLevel >= 0)
    {
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "            McKay's correlation ratio\n");
-      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO,"            McKay's correlation ratio\n");
+      printEquals(PL_INFO,0);
       totalVCE = 0.0;
-      if (aVariance == 0) printOutTS(PL_INFO, "Total VCE = %9.2e\n", totalVCE);
+      if (aVariance == 0) printOutTS(PL_INFO, "Total VCE = %9.2e\n",totalVCE);
       else
       {
          for (ii = 0; ii < nInputs; ii++)
          {
             totalVCE += vce[ii] / aVariance;
-            printOutTS(PL_INFO, "Input %4d, first order sensitivity = %9.2e (raw = %9.2e)\n",
-                   ii+1, vce[ii]/aVariance, vce[ii]);
+            printOutTS(PL_INFO, 
+                 "Input %4d, normalized 1st-order effect = %9.2e (raw = %9.2e)\n",
+                 ii+1, vce[ii]/aVariance, vce[ii]);
          }
          printOutTS(PL_INFO, "Total VCE = %9.2e\n", totalVCE);
       }
@@ -360,7 +369,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
    if (printLevel > 2)
    {
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "     McKay's biased correlation ratio (stdVCEMean)\n");
+      printOutTS(PL_INFO,"     McKay's biased correlation ratio (stdVCEMean)\n");
       printDashes(PL_INFO, 0);
       totalVCE = 0.0;
       for (ii = 0; ii < nInputs; ii++)
@@ -379,11 +388,11 @@ double MainEffectAnalyzer::analyze(aData &adata)
       printOutTS(PL_INFO, "           Strength of interaction (varVCEVar)\n");
       printDashes(PL_INFO, 0);
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "    Input %2d = %9.2e (meanVCEVar = %9.2e)\n", ii+1,
-                varVCEVar[ii], meanVCEVar[ii]);
+         printOutTS(PL_INFO,"    Input %2d = %9.2e (meanVCEVar = %9.2e)\n",
+                    ii+1, varVCEVar[ii], meanVCEVar[ii]);
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "            Hora and Iman sensitivity index\n");
-      printOutTS(PL_INFO, "   (may not be valid in the presence of constraints)\n");
+      printOutTS(PL_INFO,"            Hora and Iman sensitivity index\n");
+      printOutTS(PL_INFO,"   (may not be valid in the presence of constraints)\n");
       printDashes(PL_INFO, 0);
       totalVCE = 0.0;
       for (ii = 0; ii < nInputs; ii++) 
@@ -497,16 +506,22 @@ double MainEffectAnalyzer::analyze(aData &adata)
          fwriteHold(fp, 0);
       }
       fclose(fp);
-      printOutTS(PL_INFO, "Main effect matlab plot %s has been generated.\n", meFileName);
+      printOutTS(PL_INFO, 
+           "Main effect matlab plot %s has been generated.\n", meFileName);
    }
 
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO, "Bootstrap analysis takes the sample, replicates it n times,\n");
-      printOutTS(PL_INFO, "and assess whether the sensitivity indices have converged.\n");
-      printOutTS(PL_INFO, "If you are performed iterative analysis with refinements,\n");
-      printOutTS(PL_INFO, "you will need to enter 'no index reuse' below at the first\n");
-      printOutTS(PL_INFO, "iteration and 'yes' afterward until the final refinement.\n");
+      printOutTS(PL_INFO, 
+           "Bootstrap analysis takes the sample, replicates it n times,\n");
+      printOutTS(PL_INFO, 
+           "and assess whether the sensitivity indices have converged.\n");
+      printOutTS(PL_INFO, 
+           "If you are performed iterative analysis with refinements,\n");
+      printOutTS(PL_INFO, 
+           "you will need to enter 'no index reuse' below at the first\n");
+      printOutTS(PL_INFO, 
+           "iteration and 'yes' afterward until the final refinement.\n");
       sprintf(pString,"Perform bootstrap main effect analysis? (y or n) ");
       getString(pString, winput1);
       ncount = 0;
@@ -533,7 +548,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
                {
                   printOutTS(PL_ERROR, "ERROR: expect the first line to be %d.\n",
                          nReplications*ncount);
-                  printOutTS(PL_ERROR, "       Instead found the first line to be %d.n",
+                  printOutTS(PL_ERROR, 
+                       "       Instead found the first line to be %d.n",
                          ii);
                   exit(1);
                }
@@ -544,7 +560,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
                fp1 = fopen(".ME_bootstrap_indset", "w");
                if (fp1 == NULL)
                {
-                  printOutTS(PL_ERROR, "ERROR: cannot open ME_bootstrap_indset file.\n");
+                  printOutTS(PL_ERROR, 
+                       "ERROR: cannot open ME_bootstrap_indset file.\n");
                   exit(1);
                }
                fprintf(fp1, "%d\n", nReplications*ncount);
@@ -555,7 +572,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
             fp1 = fopen(".ME_bootstrap_indset", "w");
             if (fp1 == NULL)
             {
-               printOutTS(PL_ERROR, "ERROR: cannot open .ME_bootstrap_indset file.\n");
+               printOutTS(PL_ERROR, 
+                    "ERROR: cannot open .ME_bootstrap_indset file.\n");
                exit(1);
             }
             fprintf(fp1, "%d\n", nReplications*ncount);
@@ -570,9 +588,11 @@ double MainEffectAnalyzer::analyze(aData &adata)
                   fscanf(fp1, "%d\n", &index);
                   if (index < 0 || index >= nReplications)
                   {
-                     printOutTS(PL_ERROR, "ERROR: reading index from file .ME_bootstrap_indset\n");
-                     printOutTS(PL_ERROR, "       index read = %d\n", index);
-                     printOutTS(PL_ERROR, "       expected   = [0,%d]\n", nReplications-1);
+                     printOutTS(PL_ERROR, 
+                          "ERROR: reading index from file .ME_bootstrap_indset\n");
+                     printOutTS(PL_ERROR,"       index read = %d\n", index);
+                     printOutTS(PL_ERROR,"       expected   = [0,%d]\n", 
+                                nReplications-1);
                   }
                }
                else 
@@ -904,17 +924,22 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
    nSize = nSamples / nIntervals;
    if (nSize < 10) nSize = 10;
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "*                Crude Main Effect\n");
+   printOutTS(PL_INFO,"*                Crude Main Effect\n");
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "* MainEffect: number of levels   = %d\n", nIntervals);
-   printOutTS(PL_INFO, "* MainEffect: sample size/levels = %d\n", nSize);
-   printDashes(PL_INFO, 0);
-   printOutTS(PL_INFO, "* For small to moderate sample sizes, this method gives\n");
-   printOutTS(PL_INFO, "* rough estimates of main effect (first order sensitivity).\n");
-   printOutTS(PL_INFO, "* These estimates can vary with different choices of internal\n");
-   printOutTS(PL_INFO, "* settings. For example, try different number of bins to assess\n");
-   printOutTS(PL_INFO, "* sensitivity of the computed measures with respect to it.\n");
-   printOutTS(PL_INFO, "* Turn on analysis expert mode to change the settings.\n");
+   printOutTS(PL_INFO, 
+       "* For small to moderate sample sizes, this method gives rough\n");
+   printOutTS(PL_INFO, 
+       "* estimates of main effect (first order sensitivity). These\n");
+   printOutTS(PL_INFO, 
+       "* estimates can vary with different choices of internal settings.\n");
+   printOutTS(PL_INFO, 
+       "* For example, try different number of levels to assess sensitivity\n");
+   printOutTS(PL_INFO, 
+       "* of the computed measures with respect to it.\n");
+   printOutTS(PL_INFO, 
+       "* Turn on analysis expert mode to change the settings.\n");
+   printOutTS(PL_INFO,"* MainEffect: number of levels   = %d\n", nIntervals);
+   printOutTS(PL_INFO,"* MainEffect: sample size/levels = %d\n", nSize);
    if (psAnaExpertMode_ == 1)
    {
       sprintf(pString,"number of levels (>5, default = %d): ", nIntervals);
@@ -995,8 +1020,9 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
       for (ii = 0; ii < nInputs; ii++)
       {
          ddata += vce[ii] / aVariance;
-         printOutTS(PL_INFO, "Input %4d, first order sensitivity = %9.2e (raw = %9.2e)\n",
-                ii+1, vce[ii]/aVariance, vce[ii]);
+         printOutTS(PL_INFO, 
+              "Input %4d, normalized 1st-order effect = %9.2e (raw = %9.2e)\n",
+              ii+1, vce[ii]/aVariance, vce[ii]);
       }
       printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
    }
@@ -1016,7 +1042,7 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
 // ------------------------------------------------------------------------
 MainEffectAnalyzer& MainEffectAnalyzer::operator=(const MainEffectAnalyzer &)
 {
-   printOutTS(PL_ERROR, "MainEffect operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"MainEffect operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -1123,7 +1149,7 @@ int MainEffectAnalyzer::printResults(int nInputs, double variance,
    }
    else
    {
-      printOutTS(PL_ERROR, "MainEffect ERROR: cannot create matlabme.m file.\n");
+      printOutTS(PL_ERROR,"MainEffect ERROR: cannot create matlabme.m file.\n");
       return 0;
    }
 }

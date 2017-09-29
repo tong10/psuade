@@ -154,51 +154,9 @@ G. Now read the short manual in the Doc/Manual directory and follow the
 
 3. MacOSX
 
-   Requires cmake, macports, and gcc, g++, gfortran >= 4.4 (from macports).
+   Requires cmake, and cc/gcc, c++/g++, gfortran >= 4.4.
 
-A. First, make sure you have gcc installed from macports:
-
-   Available versions for gcc:
-        llvm-gcc42
-        mp-gcc45 (active)
-        none
- 
-   I have 4.5 installed here, so I'll make sure that's my default cc:
-
-   [leek2ml:~/psuade] leek2% sudo /opt/local/bin/port select --set gcc mp-gcc45
-   Password:
-   Selecting 'mp-gcc45' for 'gcc' succeeded. 'mp-gcc45' is now active.
-
-   So, lets make sure I have all the versions I need:
-
-   [leek2ml:~/psuade] leek2% cc --version
-   Apple LLVM version 4.2 (clang-425.0.27) (based on LLVM 3.2svn)
-   Target: x86_64-apple-darwin12.4.0
-   Thread model: posix
-
-   [leek2ml:~/psuade] leek2% c++ --version
-   c++ (MacPorts gcc45 4.5.4_6) 4.5.4
-   Copyright (C) 2010 Free Software Foundation, Inc.
-   This is free software; see the source for copying conditions.  There is NO
-   warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-   [leek2ml:~/psuade] leek2% gfortran --version
-   GNU Fortran (MacPorts gcc45 4.5.4_6) 4.5.4
-   Copyright (C) 2010 Free Software Foundation, Inc.
-
-   GNU Fortran comes with NO WARRANTY, to the extent permitted by law.
-   You may redistribute copies of GNU Fortran
-   under the terms of the GNU General Public License.
-   For more information about these matters, see the file named COPYING
-
-   [leek2ml:~/psuade] leek2% gcc --version
-   gcc (MacPorts gcc45 4.5.4_6) 4.5.4
-   Copyright (C) 2010 Free Software Foundation, Inc.
-   This is free software; see the source for copying conditions.  There is NO
-   warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-  ---- Hmm, I can see that cc is still pointing at clang.  That's bad.
-  ---- I'll have to make sure cmake doesn't pick that one up.
+A. Check to make sure you have cc, c++, gfortran, ccmake
 
 B. Now let's run cmake.  Go to your psuade source.
    mkdir build

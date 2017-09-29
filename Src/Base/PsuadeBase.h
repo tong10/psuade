@@ -24,10 +24,10 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __PSUADEBASEH__
 #define __PSUADEBASEH__
 
+#include "Matrix.h"
 #include "PsuadeData.h"
 #include "FunctionInterface.h"
 #include "Sampling.h"
@@ -38,7 +38,6 @@
 // ************************************************************************
 // class definition 
 // ************************************************************************
-
 class PsuadeBase 
 {
    int    outputLevel_;
@@ -52,6 +51,24 @@ class PsuadeBase
    double *optInitXData_;
    double *optInitYData_;
    Sampling    *sampler_;
+
+public:
+   double *sampleInputs_;
+   double *sampleOutputs_;
+   int    *sampleStates_;
+   double *iLowerB_;
+   double *iUpperB_;
+   int    *inputPDFs_;
+   double *inputMeans_;
+   double *inputStds_;
+   Matrix *inputCMat_;
+   char   **inputNames_;
+   char   **outputNames_;
+   int    *tagArray_;
+   double *dataReg_;
+   int    nInputs_;
+   int    nSamples_;
+   int    nOutputs_;
 
 public:
    PsuadeData  *psuadeIO_;
@@ -81,14 +98,18 @@ public:
    int  run() throw(Psuade_Stop_Exception);
 
    // run in interactive mode
-   int  analyzeInteractive();
+   int  sessionInteractive();
 
+   // run in parallel interactive mode
+   int  sessionInteractiveParallel();
+   //
    // assign operator 
    PsuadeBase& operator=(const PsuadeBase &);
 
 private:
 
    int    runUniform();
+   int    runEnsemble();
    int    runAdaptiveErrBased0();
    int    runAdaptiveNN();
    int    runAdaptiveErrBased1();
@@ -99,6 +120,7 @@ private:
    void   pgPlotResponseSurface();
    void   cleanUp();
    int    interpretInteractive();
+   int    interpretInteractiveParallel();
    int    RSBasedAnalysis(char *, PsuadeSession *);
    int    setupAnalysis(int, int);
    int    deleteAnalysis(int);

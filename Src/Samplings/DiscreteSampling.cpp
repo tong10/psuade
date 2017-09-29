@@ -27,9 +27,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
-#include <fstream>
-#include <string>
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -43,9 +40,9 @@
 DiscreteSampling::DiscreteSampling() : Sampling()
 {
    samplingID_   = PSUADE_SAMP_DISCRETE;
-   //inputValCnts_ = NULL;
-   //inputValues_  = NULL;
-   //inputProbs_   = NULL;
+   inputValCnts_ = NULL;
+   inputValues_  = NULL;
+   inputProbs_   = NULL;
 }
 
 // ************************************************************************
@@ -62,24 +59,27 @@ DiscreteSampling::DiscreteSampling(const DiscreteSampling & ds) : Sampling()
    nReplications_ = ds.nReplications_;
    lowerBounds_ = new double[nInputs_];
    upperBounds_ = new double[nInputs_];
-   for (int i = 0; i < nInputs_; i++)
+   for (int ii = 0; ii < nInputs_; ii++)
    {
-      lowerBounds_[i] = ds.lowerBounds_[i];
-      upperBounds_[i] = ds.upperBounds_[i];
+      lowerBounds_[ii] = ds.lowerBounds_[ii];
+      upperBounds_[ii] = ds.upperBounds_[ii];
    }
    sampleMatrix_ = new double*[nSamples_];
-   for (int i = 0; i < nSamples_; i++)
+   for (int ii = 0; ii < nSamples_; ii++)
    {
-      sampleMatrix_[i] = new double[nInputs_];
-      for(int j = 0; j < nInputs_; j++)
-         sampleMatrix_[i][j] = ds.sampleMatrix_[i][j];
+      sampleMatrix_[ii] = new double[nInputs_];
+      for(int jj = 0; jj < nInputs_; jj++)
+         sampleMatrix_[ii][jj] = ds.sampleMatrix_[ii][jj];
    }
    sampleOutput_ = new double[nSamples_*nOutputs_];
-   for (int i = 0; i < nSamples_*nOutputs_; i++)
-      sampleOutput_[i] = ds.sampleOutput_[i];
+   for (int ii = 0; ii < nSamples_*nOutputs_; ii++)
+      sampleOutput_[ii] = ds.sampleOutput_[ii];
    sampleStates_ = new int[nSamples_];
-   for (int i = 0; i < nSamples_; i++)
-      sampleStates_[i] = ds.sampleStates_[i];
+   for (int ii = 0; ii < nSamples_; ii++)
+      sampleStates_[ii] = ds.sampleStates_[ii];
+   inputValCnts_ = NULL;
+   inputValues_  = NULL;
+   inputProbs_   = NULL;
 }
 
 // ************************************************************************
@@ -87,7 +87,7 @@ DiscreteSampling::DiscreteSampling(const DiscreteSampling & ds) : Sampling()
 // ------------------------------------------------------------------------
 DiscreteSampling::~DiscreteSampling()
 {
-  /*   if (inputValues_ != NULL)
+   if (inputValues_ != NULL)
    {
       for (int ii = 0; ii < nInputs_; ii++)
          if (inputValues_[ii] != NULL) delete [] inputValues_[ii];
@@ -99,7 +99,16 @@ DiscreteSampling::~DiscreteSampling()
       for (int ii = 0; ii < nInputs_; ii++)
          if (inputProbs_[ii] != NULL) delete [] inputProbs_[ii];
       delete [] inputProbs_;
-      } */
+   }
+   if (upperBounds_  != NULL) delete [] upperBounds_;
+   if (lowerBounds_  != NULL) delete [] lowerBounds_;
+   if (sampleMatrix_ != NULL)
+   {
+      for (int ii = 0; ii < nSamples_; ii++) delete [] sampleMatrix_[ii];
+      delete [] sampleMatrix_;
+   }
+   if (sampleOutput_ != NULL) delete [] sampleOutput_;
+   if (sampleStates_ != NULL) delete [] sampleStates_;
 }
 
 // ************************************************************************
@@ -108,14 +117,10 @@ DiscreteSampling::~DiscreteSampling()
 int DiscreteSampling::initialize(int initLevel)
 {
    int    inLeng, ii, jj, kk, ll, sampleID, **probArrays, cnt, num;
-   double dsum;
-   char   lineIn[501], filename[501];
-   string sfname, iline;
-   size_t compFlag;
-   ifstream ifile;
-   int **inputValues_ = NULL;
-   int * inputValCnts_ = NULL;
-   double **inputProbs_ = NULL;
+   int    **inputValues_=NULL, *inputValCnts_=NULL;
+   double dsum, **inputProbs_ = NULL;
+   char   lineIn[1001], filename[1001], cword[1001];
+   FILE   *fp=NULL;
 
    deleteSampleData();
    if (inputValues_ != NULL)
@@ -151,15 +156,14 @@ int DiscreteSampling::initialize(int initLevel)
    printf("      Pn        - probability of the last level\n");
    printf("Note: the sum of P's for an input should be 1.\n");
    printf("Enter the name of the parameter file: ");
-   cin >> sfname;
+   scanf("%s", filename);
    fgets(lineIn, 500, stdin);
-   inLeng = sfname.size();
+   inLeng = strlen(filename);
    if (inLeng < 500)
    {
       filename[inLeng] = '\0';
-      sfname.copy(filename, inLeng, 0);
-      ifile.open(filename);
-      if (! ifile.is_open())
+      fp = fopen(filename, "r");
+      if (fp == NULL)
       {
          printf("DiscreteSampling ERROR: cannot open file %s.\n",filename);
          return -1;
@@ -170,23 +174,21 @@ int DiscreteSampling::initialize(int initLevel)
       printf("DiscreteSampling ERROR: file name too long.\n");
       return -1;
    }
-   getline (ifile, iline);
-   compFlag = iline.compare("PSUADE_BEGIN");
-   if (compFlag == 0)
+   fgets(lineIn, 1000, stdin);
+   sscanf(lineIn, "%s", cword);
+   if (!strcmp(cword, "PSUADE_BEGIN"))
    {
-      ifile >> nInputs_;
+      scanf("%d %d", &nInputs_, &nSamples_);
       if (nInputs_ <= 0)
       {
          printf("DiscreteSampling ERROR : nInputs <= 0.\n");
-         ifile.close();
+         fclose(fp);
          return -1;
       }
-      ifile >> nSamples_;
       if (nSamples_ <= 0)
       {
          printf("DiscreteSampling ERROR : nSamples <= 0.\n");
-         ifile.close();
-	 
+         fclose(fp);
          return -1;
       }
       inputValCnts_ = new int[nInputs_];
@@ -200,12 +202,12 @@ int DiscreteSampling::initialize(int initLevel)
       }
       for (ii = 0; ii < nInputs_; ii++)
       {
-         ifile >> kk;
+         scanf("%d", &kk);
          if (kk != ii+1)
          {
             printf("DiscreteSampling ERROR: invalid input index %d (!= %d).\n",
                    kk,ii+1);
-            ifile.close();
+            fclose(fp);
             if (inputValues_ != NULL)
             {
                for (int ii = 0; ii < nInputs_; ii++)
@@ -224,17 +226,15 @@ int DiscreteSampling::initialize(int initLevel)
             inputProbs_   = NULL;
             return -1;
          }
-         ifile >> num;
+         scanf("%d", &num);
          if (num <= 0)
          {
             printf("DiscreteSampling ERROR: invalid numLevels %d (input %d).\n",
                    num,ii+1);
-            ifile.close();
-            for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputValues_[ii];
+            fclose(fp);
+            for(int ii = 0; ii < nInputs_; ii++) delete [] inputValues_[ii];
 	    delete [] inputValues_;
-            for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputProbs_[ii];
+            for(int ii = 0; ii < nInputs_; ii++) delete [] inputProbs_[ii];
 	    delete [] inputProbs_;
 	    delete [] inputValCnts_;
 	    inputValues_ = NULL;
@@ -249,22 +249,19 @@ int DiscreteSampling::initialize(int initLevel)
          if (printLevel_ > 1) printf("Input %4d: \n", ii+1);
          for (jj = 0; jj < num; jj++)
          {
-            ifile >> inputValues_[ii][jj];
-            ifile >> inputProbs_[ii][jj];
+            scanf("%d %lg",&inputValues_[ii][jj],&inputProbs_[ii][jj]);
             if (inputProbs_[ii][jj] <= 0.0)
             {
-               ifile.close();
+               fclose(fp);
                printf("DiscreteSampling ERROR: probability should be > 0.\n");
-	       for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputValues_[ii];
-	    delete [] inputValues_;
-            for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputProbs_[ii];
-	    delete [] inputProbs_;
-	    delete [] inputValCnts_;
-	    inputValues_ = NULL;
-	    inputValCnts_ = NULL;
-	    inputProbs_ = NULL;
+	       for(int ii = 0; ii < nInputs_; ii++) delete [] inputValues_[ii];
+	       delete [] inputValues_;
+               for(int ii = 0; ii < nInputs_; ii++) delete [] inputProbs_[ii];
+	       delete [] inputProbs_;
+	       delete [] inputValCnts_;
+	       inputValues_ = NULL;
+	       inputValCnts_ = NULL;
+	       inputProbs_ = NULL;
                return -1;
             }
             if (printLevel_ > 1)
@@ -274,13 +271,11 @@ int DiscreteSampling::initialize(int initLevel)
          } 
          if (dsum != 1.0)
          {
-            ifile.close();
+            fclose(fp);
             printf("DiscreteSampling ERROR: sum of probability should be 1.\n");
-	    for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputValues_[ii];
+	    for(int ii = 0; ii < nInputs_; ii++) delete [] inputValues_[ii];
 	    delete [] inputValues_;
-            for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputProbs_[ii];
+            for(int ii = 0; ii < nInputs_; ii++) delete [] inputProbs_[ii];
 	    delete [] inputProbs_;
 	    delete [] inputValCnts_;
 	    inputValues_ = NULL;
@@ -293,29 +288,27 @@ int DiscreteSampling::initialize(int initLevel)
    else
    {
       printf("DiscreteSampling ERROR: PSUADE_BEGIN not found.\n");
-      ifile.close();
+      fclose(fp);
       return -1;
    }
-   getline (ifile, iline);
-   getline (ifile, iline);
-   compFlag = iline.compare("PSUADE_END");
-   if (compFlag != 0)
+   fgets(lineIn, 1000, stdin);
+   fgets(lineIn, 1000, stdin);
+   sscanf(lineIn, "%s", cword);
+   if (strcmp(cword, "PSUADE_END"))
    {
       printf("DiscreteSampling ERROR: PSUADE_END not found.\n");
-      ifile.close();
-      for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputValues_[ii];
-	    delete [] inputValues_;
-            for(int ii = 0; ii < nInputs_; ii++)
-	      delete [] inputProbs_[ii];
-	    delete [] inputProbs_;
-	    delete [] inputValCnts_;
-	    inputValues_ = NULL;
-	    inputValCnts_ = NULL;
-	    inputProbs_ = NULL;
+      fclose(fp);
+      for(int ii = 0; ii < nInputs_; ii++) delete [] inputValues_[ii];
+      delete [] inputValues_;
+      for(int ii = 0; ii < nInputs_; ii++) delete [] inputProbs_[ii];
+      delete [] inputProbs_;
+      delete [] inputValCnts_;
+      inputValues_ = NULL;
+      inputValCnts_ = NULL;
+      inputProbs_ = NULL;
       return -1;
    }
-   ifile.close();
+   fclose(fp);
 
    allocSampleData();
    probArrays = new int*[nInputs_];
@@ -349,11 +342,9 @@ int DiscreteSampling::initialize(int initLevel)
 
    for (ii = 0; ii < nInputs_; ii++) delete [] probArrays[ii];
    delete [] probArrays;
-   for(int ii = 0; ii < nInputs_; ii++)
-     delete [] inputValues_[ii];
+   for(int ii = 0; ii < nInputs_; ii++) delete [] inputValues_[ii];
    delete [] inputValues_;
-   for(int ii = 0; ii < nInputs_; ii++)
-     delete [] inputProbs_[ii];
+   for(int ii = 0; ii < nInputs_; ii++) delete [] inputProbs_[ii];
    delete [] inputProbs_;
    delete [] inputValCnts_;
    inputValues_ = NULL;

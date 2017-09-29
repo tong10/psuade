@@ -37,6 +37,7 @@ class PsuadeConfig
 {
    int  printLevel_;
    int  nLines_;
+   int  nLinesUsed_;
    char **fileData_;
 
 public:
@@ -46,6 +47,9 @@ public:
    // printLevel : diagnostics print level
    PsuadeConfig(char *fname, int printLevel);
 
+   // Constructor
+   PsuadeConfig();
+
    // Copy Contructor by Bill Oliver
    PsuadeConfig(const PsuadeConfig & ps);
 
@@ -54,6 +58,9 @@ public:
 
    // Get parameter 
    char *getParameter(const char *);
+
+   // put parameter 
+   void putParameter(const char *);
 
    // write file
    // fname : configure file name

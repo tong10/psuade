@@ -193,7 +193,12 @@ int MOATConstraints::initialize(PsuadeData *psuadeIO)
          {
             pIO = new PsuadeData();
             status = pIO->readPsuadeFile(filterDataFiles[ii]);
-            if (status != 0) exit(1);
+            if (status != 0) 
+            {
+               printf("MOATConstraints ERROR: cannot read filter file %s.\n",
+                      filterDataFiles[ii]);
+               exit(1);
+            }
             constraintFAs_[ii] = genFAInteractive(pIO, 2);
             pIO->getParameter("input_ninputs", pPtr);
             nInputsChk = pPtr.intData_;

@@ -25,8 +25,6 @@
 // DATE   : 2005
 // ************************************************************************
 #include <stdio.h>
-#include <sstream>
-
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "CentralCompositeSampling.h"
@@ -179,30 +177,20 @@ int CentralCompositeSampling::refine(int,int,double, int, double *)
 // ************************************************************************
 // set internal scheme
 // ------------------------------------------------------------------------
-int CentralCompositeSampling::setParam(string sparam)
+int CentralCompositeSampling::setParam(char *sparam)
 {
-   istringstream buffer;
-   int           pos = sparam.find("setResolution");
-   string        substr;
-
-   if (pos >= 0)
+   char winput[501];
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "setResolution"))
    {
-      substr = sparam.substr(14);
-      buffer.str(substr);
-      buffer >> resolution_;
+      sscanf(sparam, "%s %d", winput, &resolution_);
       if (resolution_ != 4 && resolution_ != 5 && resolution_ != 0)
          resolution_ = 4;
    }
-   else
+   else if (!strcmp(winput, "setScheme"))
    {
-      pos = sparam.find("setScheme");
-      if (pos >= 0)
-      { 
-         substr = sparam.substr(10);
-         buffer.str(substr);
-         buffer >> scheme_;
-         if (scheme_ < 0 && scheme_ > 2) scheme_ = 0;
-      }
+      sscanf(sparam, "%s %d", winput, &scheme_);
+      if (scheme_ < 0 && scheme_ > 2) scheme_ = 0;
    }
    if (resolution_ == 0 && scheme_ == 0) samplingID_ = PSUADE_SAMP_CCIF;
    if (resolution_ == 4 && scheme_ == 0) samplingID_ = PSUADE_SAMP_CCI4;

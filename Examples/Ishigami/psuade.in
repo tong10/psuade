@@ -24,6 +24,6 @@ ANALYSIS
    analyzer output_id  = 1
    analyzer rstype  = MARS
    analyzer threshold  = 0.00001
-   diagnostics 2
+   printlevel 2
 END
 END

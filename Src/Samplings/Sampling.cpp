@@ -611,7 +611,7 @@ int Sampling::deleteSampleData()
 // ************************************************************************
 // set parameter
 // ------------------------------------------------------------------------
-int Sampling::setParam(string)
+int Sampling::setParam(char *)
 {
    return -1;
 }
@@ -622,7 +622,7 @@ int Sampling::setParam(string)
 Sampling *SamplingCreateFromID(int samplingMethod)
 {
    Sampling *sampler;
-   string   sparam;
+   char     sparam[101];
 
    switch (samplingMethod)
    {
@@ -664,95 +664,75 @@ Sampling *SamplingCreateFromID(int samplingMethod)
            break;
       case PSUADE_SAMP_FF4:
            sampler = (Sampling *) new FractFactSampling();
-           sparam.clear();
-           sparam.append("setResolution 4");
+           strcpy(sparam, "setResolution 4");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_FF5:
            sampler = (Sampling *) new FractFactSampling();
-           sparam.clear();
-           sparam.append("setResolution 5");
+           strcpy(sparam, "setResolution 5");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCI4:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 4");
+           strcpy(sparam, "setResolution 4");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 0");
+           strcpy(sparam, "setScheme 0");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCI5:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 5");
+           strcpy(sparam, "setResolution 5");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 0");
+           strcpy(sparam, "setScheme 0");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCIF:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 0");
+           strcpy(sparam, "setResolution 0");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 0");
+           strcpy(sparam, "setScheme 0");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCF4:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 4");
+           strcpy(sparam, "setResolution 4");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 1");
+           strcpy(sparam, "setScheme 1");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCF5:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 5");
+           strcpy(sparam, "setResolution 5");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 1");
+           strcpy(sparam, "setScheme 1");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCFF:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 0");
+           strcpy(sparam, "setResolution 0");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 1");
+           strcpy(sparam, "setScheme 1");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCC4:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 4");
+           strcpy(sparam, "setResolution 4");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 2");
+           strcpy(sparam, "setScheme 2");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCC5:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 5");
+           strcpy(sparam, "setResolution 5");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 2");
+           strcpy(sparam, "setScheme 2");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_CCCF:
            sampler = (Sampling *) new CentralCompositeSampling();
-           sparam.clear();
-           sparam.append("setResolution 0");
+           strcpy(sparam, "setResolution 0");
            sampler->setParam(sparam);
-           sparam.clear();
-           sparam.append("setScheme 2");
+           strcpy(sparam, "setScheme 2");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_SFAST:
@@ -778,14 +758,12 @@ Sampling *SamplingCreateFromID(int samplingMethod)
            break;
       case PSUADE_SAMP_RFF4:
            sampler = (Sampling *) new RFractFactSampling();
-           sparam.clear();
-           sparam.append("setResolution 4");
+           strcpy(sparam, "setResolution 4");
            sampler->setParam(sparam);
            break;
       case PSUADE_SAMP_RFF5:
            sampler = (Sampling *) new RFractFactSampling();
-           sparam.clear();
-           sparam.append("setResolution 5");
+           strcpy(sparam, "setResolution 5");
            sampler->setParam(sparam);
            break;
       default :
@@ -966,12 +944,14 @@ int SamplingDestroy(Sampling *sampler)
 // ************************************************************************
 // compute sample quality
 // ------------------------------------------------------------------------
-double SamplingQuality(int nSamples, int nInputs, double *sampleInputs)
+int SamplingQuality(int nSamples, int nInputs, double *sampleInputs,
+                    double *lbnds, double *ubnds, double *quality)
 {
    int    ss1, ss2, ii;
-   double distance, minDistance, minMaxDist, dtemp;
+   double distance, minDistance, minMaxDist, dtemp, minMinDist;
 
    minMaxDist = -1.0e35;
+   minMinDist =  1.0e35;
    for (ss1 = 0; ss1 < nSamples; ss1++)
    {
       minDistance = 1.0e35;
@@ -984,14 +964,17 @@ double SamplingQuality(int nSamples, int nInputs, double *sampleInputs)
             {
                dtemp = sampleInputs[ss1*nInputs+ii] - 
                        sampleInputs[ss2*nInputs+ii];
-               distance += dtemp * dtemp;
+               distance += pow(dtemp/(ubnds[ii]-lbnds[ii]), 2.0);
             }
             distance = sqrt(distance);
             if (distance < minDistance) minDistance = distance;
          }
       }
       if (minDistance > minMaxDist) minMaxDist = minDistance;
+      if (minDistance < minMinDist) minMinDist = minDistance;
    }
-   return minMaxDist;
+   quality[0] = minMaxDist;
+   quality[1] = minMinDist;
+   return 0;
 }
 

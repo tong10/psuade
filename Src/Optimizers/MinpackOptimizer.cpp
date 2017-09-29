@@ -482,7 +482,7 @@ void MinpackOptimizer::optimize(oData *odata)
 // ------------------------------------------------------------------------
 MinpackOptimizer& MinpackOptimizer::operator=(const MinpackOptimizer &)
 {
-   printf("MinpackOptimzer operator= ERROR: operation not allowed.\n");
+   printf("MinpackOptimizer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

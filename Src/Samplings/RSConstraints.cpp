@@ -80,6 +80,14 @@ RSConstraints::~RSConstraints()
 }
 
 // ************************************************************************
+// return number of constraints
+// ------------------------------------------------------------------------
+int RSConstraints::getNumConstraints()
+{
+   return nConstraints_;
+}
+
+// ************************************************************************
 // generate all output constraints
 // ------------------------------------------------------------------------
 int RSConstraints::genConstraints(PsuadeData *psuadeIO)
@@ -144,7 +152,12 @@ int RSConstraints::genConstraints(PsuadeData *psuadeIO)
          {
             pIO = new PsuadeData();
             status = pIO->readPsuadeFile(filterDataFiles[ii]);
-            if (status != 0) exit(1);
+            if (status != 0) 
+            {
+               printf("RSConstraints ERROR: cannot read filter data file %s.\n",
+                      filterDataFiles[ii]);
+               exit(1);
+            }
             if (printLevel > 0)
                printf("RSConstraints: filter data file = %s\n",
                       filterDataFiles[ii]);

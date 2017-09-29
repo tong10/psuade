@@ -1082,11 +1082,15 @@ int SelectiveRegression::computeSS(int N, double *XX, double *Y,
    }
    for (mm = 0; mm < nSamples_; mm++)
       SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   printf("* SelectiveRegression: SStot  = %24.16e\n", SStotal);
-   printf("* SelectiveRegression: SSreg  = %24.16e\n", SSreg);
-   printf("* SelectiveRegression: SSres  = %24.16e\n", SSresid);
-   printf("* SelectiveRegression: SSres  = %24.16e (true)\n", SSresidCheck);
-   if (nSamples_ != N)
+   if (outputLevel_ > 0)
+   {
+      printf("* SelectiveRegression: SStot  = %24.16e\n", SStotal);
+      printf("* SelectiveRegression: SSreg  = %24.16e\n", SSreg);
+      printf("* SelectiveRegression: SSres  = %24.16e\n", SSresid);
+      printf("* SelectiveRegression: SSres  = %24.16e (true)\n", SSresidCheck);
+   }
+   SSresid = SSresidCheck;
+   if (outputLevel_ > 0 && nSamples_ != N)
    {
       printf("* SelectiveRegression: eps(Y) = %24.16e\n",
              SSresidCheck/(nSamples_-N));

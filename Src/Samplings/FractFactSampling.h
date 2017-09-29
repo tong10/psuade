@@ -27,7 +27,6 @@
 #ifndef __FRACTFACTSAMPLINGH__
 #define __FRACTFACTSAMPLINGH__
 
-#include <iostream>
 #include <string.h>
 #include "Sampling.h"
 
@@ -74,7 +73,7 @@ public:
    /** This function sets internal parameter
        @param sparam : specify information about what parameter to set
     */
-   int setParam(string sparam);
+   int setParam(char *sparam);
 };
 
 #endif // __FRACTFACTSAMPLINGH__

@@ -42,7 +42,7 @@ extern "C"
 
 extern "C" 
 {
-   void   PSUADE_randInit();
+   void   PSUADE_randInit(long);
    int    PSUADE_rand();
    double PSUADE_drand();
    void   PSUADE_drandn(int, double *);
@@ -148,7 +148,13 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    *factorize( int );
    int    compareSamples(int, int, int, double *, int *);
    int    computeNumPCEPermutations(int, int);
+   int    checkOUUFileFormat(char *, int, int, int);
+   int    checkMCMCFileFormat(char *, int, int);
+   int    checkSPDFFileFormat(char *, int);
+
    int    dsvdi(int, double *, double *);
+   int    read_csv(char *, int *, int *, double **, int *, 
+                   char ***, char ***);
 
    int    getTokens(char *, int *, char ***, int);
    int    getIntFromToken(char *, int *);

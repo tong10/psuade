@@ -49,7 +49,7 @@ double splint(int leng,double *X,double *Y,double *Ypp,double Xval)
    if (h == 0)
    {
       printf("ERROR: bad input for splint %e\n",h);
-      printf("The following array should be in ascending order\n",h);
+      printf("The following array should be in ascending order\n");
       for (k = 0; k < leng; k++)
       {
          printf("%e\n", X[k]);
@@ -82,6 +82,7 @@ int spline1d(int nx, double *Xn, double *Zn,
       Zm[ii] = splint(nx, Xn, Zn, ZP, Xval);
    }
    free(ZP);
+   return 0;
 }
 
 /********************************************************************

@@ -32,7 +32,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <algorithm>
 
 #include "BootstrapAnalyzer.h"
 #include "PsuadeUtil.h"
@@ -282,7 +281,8 @@ double BootstrapAnalyzer::normalCDFInv(double &value)
 // ------------------------------------------------------------------------
 BootstrapAnalyzer& BootstrapAnalyzer::operator=(const BootstrapAnalyzer &)
 {
-   printOutTS(PL_ERROR, "BootstrapAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, 
+         "BootstrapAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -307,7 +307,7 @@ double *BootstrapAnalyzer::get_storedValues()
    if (storedValues_)
    {
       retVal = new double[nSteps_];
-      std::copy(storedValues_, storedValues_+nSteps_+1, retVal);
+      for (int ii = 0; ii < nSteps_; ii++) retVal[ii] = storedValues_[ii];
    }
    return retVal;
 }

@@ -64,8 +64,10 @@ double FFAnalyzer::analyze(aData &adata)
    int    ii, ii2, rr, ss, whichOutput, ncount, nplots, *iArray, nReps, offset;
    double *X, *Y, *txArray, *twArray, *tyArray, **mEffects, accum, ***iEffects;
    double ***lolos, ***lohis, ***hilos, ***hihis, stdev, mean;
-   char   pString[500], winput[500];
+   char   pString[500], winput[500], **iNames;
    FILE   *fp=NULL;
+   PsuadeData *ioPtr=NULL;
+   pData  qData;
 
    printLevel = adata.printLevel_;
    nInputs    = adata.nInputs_;
@@ -76,18 +78,22 @@ double FFAnalyzer::analyze(aData &adata)
    outputID   = adata.outputID_;
    X          = adata.sampleInputs_;
    Y          = adata.sampleOutputs_;
+   ioPtr      = adata.ioPtr_;
    if (adata.inputPDFs_ != NULL)
    {
       ncount = 0;
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printOutTS(PL_INFO, "FFAnalysis INFO: some inputs have non-uniform PDFs, but\n");
-         printOutTS(PL_INFO, "           they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO, 
+              "FFAnalysis INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO, 
+              "           they are not relevant in this analysis.\n");
       }
    }
    whichOutput = outputID;
    if (whichOutput >= nOutputs || whichOutput < 0) whichOutput = 0;
+   if (ioPtr != NULL) ioPtr->getParameter("input_names", qData);
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
@@ -117,25 +123,18 @@ double FFAnalyzer::analyze(aData &adata)
 
    printOutTS(PL_INFO, "\n");
    printAsterisks(PL_INFO, 0);
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "* Fractional Factorial Main Effect Analysis\n");
-   printOutTS(PL_INFO, "* This analysis works for FF4, FF5 and PBD designs\n");
+   printOutTS(PL_INFO,"* Fractional Factorial Main Effect Analysis\n");
+   printOutTS(PL_INFO,"* This analysis works for FF4, FF5 and PBD designs\n");
+   printOutTS(PL_INFO,"* This analysis is good for models that are linear\n");
+   printOutTS(PL_INFO,"* with respect to each input with some pairwise\n");
+   printOutTS(PL_INFO,"* interactions, e.g. Y = X_1 + X2 + X1 * X2.\n");
    printDashes(PL_INFO, 0);
    printOutTS(PL_INFO, "* total number of samples = %10d \n",nSamples);
    printOutTS(PL_INFO, "* number of Inputs        = %10d \n",nInputs);
    printOutTS(PL_INFO, "* Output number           = %d\n", whichOutput+1);
    printDashes(PL_INFO, 0);
-   fp = NULL;
-   if (psAnaExpertMode_ == 1)
-   {
-      sprintf(pString,"Create main effect plot ? (y or n) ");
-      getString(pString, winput);
-      if (winput[0] == 'y')
-      {
-         if (psPlotTool_ == 0) fp = fopen("matlabmeff.m", "w");
-         else                  fp = fopen("scilabmeff.sci", "w");
-      }
-   }
+   if (psPlotTool_ == 0) fp = fopen("matlabmeff.m", "w");
+   else                  fp = fopen("scilabmeff.sci", "w");
    if (fp != NULL)
    {
       if (psPlotTool_ == 1)
@@ -176,8 +175,10 @@ double FFAnalyzer::analyze(aData &adata)
          if (txArray[ss] != txArray[nSamples/2]) checkSample = 0;
       if (checkSample == 0)
       {
-         printOutTS(PL_INFO, "FFAnalysis ERROR: sample not fractional factorial.\n");
-         printOutTS(PL_INFO, "If you are using replicated Fractional Factorial\n");
+         printOutTS(PL_INFO, 
+              "FFAnalysis ERROR: sample not fractional factorial.\n");
+         printOutTS(PL_INFO, 
+              "If you are using replicated Fractional Factorial\n");
          printOutTS(PL_INFO, "enter the number of replications.\n");
          sprintf(pString, "Number of replications = (2 - %d) ", nSamples/2);
          nReps = getInt(2, nSamples/2, pString);
@@ -205,8 +206,10 @@ double FFAnalyzer::analyze(aData &adata)
                   checkSample = 0;
             if (checkSample == 0)
             {
-               printOutTS(PL_ERROR, "FFAnalysis ERROR: sample not fractional factorial.\n");
-               printOutTS(PL_ERROR, "                  nor replicated fractional factorial.\n");
+               printOutTS(PL_ERROR, 
+                    "FFAnalysis ERROR: sample not fractional factorial.\n");
+               printOutTS(PL_ERROR, 
+                    "                  nor replicated fractional factorial.\n");
                delete [] twArray;
                delete [] txArray;
                delete [] tyArray;
@@ -264,8 +267,9 @@ double FFAnalyzer::analyze(aData &adata)
          for (rr = 0; rr < nReps; rr++)
             stdev += pow(mEffects[ii][rr+1]-mean, 2.0);
          stdev = sqrt(stdev / (double) (nReps - 1.0));
-         printOutTS(PL_INFO, "* Input %3d  =  %12.4e (std err = %12.4e)\n", ii+1,mean,
-                  stdev/sqrt(1.0*nReps));
+         printOutTS(PL_INFO, 
+              "* Input %3d  =  %12.4e (std err = %12.4e)\n", ii+1,mean,
+              stdev/sqrt(1.0*nReps));
       }  
       else printOutTS(PL_INFO, "* Input %3d  =  %12.4e\n", ii+1, mean);
 
@@ -279,7 +283,8 @@ double FFAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs; ii++) twArray[ii] = PABS(mEffects[ii][0]);
    sortDbleList2a(nInputs, twArray, iArray);
    for (ii = nInputs-1; ii >= 0; ii--)
-      printOutTS(PL_INFO, "* Rank %3d : Input %3d (measure = %12.4e)\n", nInputs-ii,
+      printOutTS(PL_INFO, 
+             "* Rank %3d : Input %3d (measure = %12.4e)\n", nInputs-ii,
              iArray[ii]+1, twArray[ii]);
 
    if (fp != NULL)
@@ -289,11 +294,12 @@ double FFAnalyzer::analyze(aData &adata)
          fprintf(fp, "%24.16e \n", mEffects[ii][0]);
       fprintf(fp, "]; \n");
       fwritePlotCLF(fp);
-      fprintf(fp, "plot(Y,'*'); \n");
+      fprintf(fp, "bar(Y,0.8); \n");
       fwritePlotAxes(fp);
       fwritePlotTitle(fp, "Main Effect Plot for Output");
+      fwritePlotXLabel(fp, "Input Number");
+      fwritePlotYLabel(fp, "Average Gradient");
       fprintf(fp, "disp('Press enter to continue to the next plot')\n");
-      fprintf(fp, "pause\n");
    }
 
    if (nInputs < 2 || adata.samplingMethod_ == PSUADE_SAMP_PBD)
@@ -343,8 +349,10 @@ double FFAnalyzer::analyze(aData &adata)
    if (adata.samplingMethod_ == PSUADE_SAMP_FF4 ||
        adata.samplingMethod_ == PSUADE_SAMP_RFF4)
    {
-      printOutTS(PL_INFO, "* Note: Since Fractional Factorial Resolution 4 is used,\n");
-      printOutTS(PL_INFO, "* the first and second order effects are confounded.\n");
+      printOutTS(PL_INFO, 
+           "* Note: Since Fractional Factorial Resolution 4 is used,\n");
+      printOutTS(PL_INFO, 
+           "* the first and second order effects are confounded.\n");
    }
    printDashes(PL_INFO, 0);
 
@@ -374,22 +382,25 @@ double FFAnalyzer::analyze(aData &adata)
             for (ss = 0; ss < nSamples/nReps/4; ss++) accum += tyArray[ss];
             lolos[ii][ii2][rr+1] += accum;
             accum = 0.0;
-            for (ss = nSamples*3/nReps/4; ss < nSamples/nReps; ss++) accum += tyArray[ss];
+            for (ss = nSamples*3/nReps/4; ss < nSamples/nReps; ss++) 
+               accum += tyArray[ss];
             hihis[ii][ii2][rr+1] += accum;
             accum = 0.0;
-            for (ss = nSamples/nReps/4; ss < nSamples/nReps/2; ss++) accum += tyArray[ss];
+            for (ss = nSamples/nReps/4; ss < nSamples/nReps/2; ss++) 
+               accum += tyArray[ss];
             lohis[ii][ii2][rr+1] += accum;
             accum = 0.0;
             for (ss = nSamples/nReps/2; ss < nSamples*3/nReps/4; ss++)
                accum += tyArray[ss];
             hilos[ii][ii2][rr+1] += accum;
             iEffects[ii][ii2][rr+1] = 0.5 * (lolos[ii][ii2][rr+1] +
-                  hihis[ii][ii2][rr+1] - lohis[ii][ii2][rr+1] - hilos[ii][ii2][rr+1]);
+               hihis[ii][ii2][rr+1]-lohis[ii][ii2][rr+1]-hilos[ii][ii2][rr+1]);
          }
       }
       accum = 0.0;
       for (ii = 0; ii < nInputs; ii++)
-         for (ii2 = ii+1; ii2 < nInputs; ii2++) accum += PABS(iEffects[ii][ii2][rr+1]);
+         for (ii2 = ii+1; ii2 < nInputs; ii2++) 
+            accum += PABS(iEffects[ii][ii2][rr+1]);
       if (accum == 0.0) accum = 1.0;
       for (ii = 0; ii < nInputs; ii++)
          for (ii2 = ii+1; ii2 < nInputs; ii2++) 
@@ -412,104 +423,128 @@ double FFAnalyzer::analyze(aData &adata)
          }
          iEffects[ii][ii2][nReps+1] = stdev/sqrt(1.0*nReps);
          if (nReps == 1)
-            printOutTS(PL_INFO, "* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
+            printOutTS(PL_INFO,"* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
          else
-            printOutTS(PL_INFO, "* Input %3d %3d =  %12.4e (std err = %12.4e)\n",ii+1,
-                   ii2+1, mean, stdev/sqrt(1.0*nReps));
+            printOutTS(PL_INFO,"* Input %3d %3d =  %12.4e (std err = %12.4e)\n",
+                   ii+1,ii2+1, mean, stdev/sqrt(1.0*nReps));
       }
    }
    printAsterisks(PL_INFO, 0);
 
    if (fp != NULL)
    {
-      ncount = (nInputs - 1) * nInputs / 2;
-      if      (ncount == 1) nplots = 1; 
-      else if (ncount == 2) nplots = 2; 
-      else if (ncount <= 4) nplots = 4; 
-      else if (ncount <= 8) nplots = 8; 
-      else if (ncount <= 16) nplots = 16; 
-      else if (ncount <= 32) nplots = 32; 
-      else if (ncount <= 48) nplots = 48; 
-      else                   nplots = 48;
-      ncount = 0;
       if (psPlotTool_ == 1)
-           fprintf(fp, "// matrix of interaction effect: ind1, ind2, effect\n");
-      else fprintf(fp, "%% matrix of interaction effect: ind1, ind2, effect\n");
+           fprintf(fp,"// matrix of interaction effect: ind1,ind2,effect\n");
+      else fprintf(fp,"%% matrix of interaction effect: ind1,ind2,effect\n");
+      fprintf(fp,"figure(2)\n");
+      fprintf(fp,"clf\n");
+      fprintf(fp,"nInputs = %d;\n", nInputs);
+      fprintf(fp,"inputSwitches = [\n");
+      if (nInputs <= 5)
+         for (ii = 0; ii < nInputs; ii++) fprintf(fp,"1\n");
+      else
+      {
+         for (ii = 0; ii < 5; ii++) fprintf(fp,"1\n");
+         for (ii = 5; ii < nInputs; ii++) fprintf(fp,"0\n");
+      }
+      fprintf(fp,"];\n");
+      fprintf(fp,"nPlots = sum(inputSwitches);\n");
+      iNames = qData.strArray_;
+      if (iNames == NULL)
+      {
+         fprintf(fp, "Str = {");
+         for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
+         fprintf(fp,"'X%d'};\n",nInputs);
+      }
+      else
+      {
+         fprintf(fp, "Str = {");
+         for (ii = 0; ii < nInputs-1; ii++)
+         {
+            if (iNames[ii] != NULL) fprintf(fp,"'%s',",iNames[ii]);
+            else                    fprintf(fp,"'X%d',",ii+1);
+         }
+         if (iNames[nInputs-1] != NULL) 
+              fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
+         else fprintf(fp,"'X%d'};\n",nInputs);
+      }
       fprintf(fp, "A2 = [\n");
       for (ii = 0; ii < nInputs; ii++)
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
             fprintf(fp, "%3d %3d %12.4e %12.4e\n",ii+1,ii2+1, 
                    iEffects[ii][ii2][0], iEffects[ii][ii2][nReps+1]);
       fprintf(fp, "];\n");
+      fprintf(fp, "Ya = [];\n");
+      fprintf(fp, "Yb = [];\n");
       for (ii = 0; ii < nInputs; ii++)
       {
-         for (ii2 = ii+1; ii2 < nInputs; ii2++)
+         for (ii2 = 0; ii2 < nInputs; ii2++)
          {
-            fprintf(fp, "Y1 = [\n");
+            fprintf(fp, "Y%d%da = [\n",ii+1,ii2+1);
             for (rr = 0; rr < nReps; rr++)
             {
                fprintf(fp, "   %24.16e\n", lolos[ii][ii2][rr+1]);
                fprintf(fp, "   %24.16e\n", hilos[ii][ii2][rr+1]);
             }
             fprintf(fp, "];\n");
-            fprintf(fp, "Y2 = [\n");
+            fprintf(fp, "Y%d%db = [\n",ii+1,ii2+1);
             for (rr = 0; rr < nReps; rr++)
             {
                fprintf(fp, "   %24.16e\n", lohis[ii][ii2][rr+1]);
                fprintf(fp, "   %24.16e\n", hihis[ii][ii2][rr+1]);
             }
             fprintf(fp, "];\n");
-            if (nplots == 2)
-            {
-               fprintf(fp,"subplot(1,2,%d),",ncount+1);
-               ncount++;
-            }
-            if (nplots == 4)
-            {
-               fprintf(fp,"subplot(2,2,%d),",ncount+1);
-               ncount++;
-            }
-            if (nplots == 8)
-            {
-               fprintf(fp,"subplot(2,4,%d),",ncount+1);
-               ncount++;
-            }
-            if (nplots == 16)
-            {
-               fprintf(fp,"subplot(4,4,%d),",ncount+1);
-               ncount++;
-            }
-            if (nplots == 32 || nplots == 48)
-            {
-               fprintf(fp,"subplot(4,4,%d),",ncount+1);
-               ncount++;
-               if (ncount >= 16) ncount = 0;
-            }
-            fprintf(fp, "plot(Y1,'k')\n");
-            if (psPlotTool_ == 1)
-            {
-               fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
-               fprintf(fp, "plot(Y2,'b')\n");
-               sprintf(pString, "Interaction(%d,%d)",ii+1,ii2+1);
-               fwritePlotTitle(fp, pString);
-               fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
-            }
-            else
-            {
-               fprintf(fp, "hold on\n");
-               fprintf(fp, "plot(Y2,'b')\n");
-               fprintf(fp, "hold off\n");
-               fprintf(fp, "title('Interaction(%d,%d)')\n",ii+1,ii2+1);
-               fprintf(fp, "text(0.2,0.2,'black: P1 (lo to hi), P2 = lo','sc')\n");
-               fprintf(fp, "text(0.2,0.3,'blue:  P1 (lo to hi), P2 = hi','sc')\n");
-            }
+            fprintf(fp, "Ya = [Ya Y%d%da];\n", ii+1,ii2+1);
+            fprintf(fp, "Yb = [Yb Y%d%db];\n", ii+1,ii2+1);
          }
       }
+      fprintf(fp,"cnt = 0;\n");
+      fprintf(fp,"for ii = 1 : nInputs\n");
+      fprintf(fp,"  if inputSwitches(ii) == 1\n");
+      fprintf(fp,"    for jj = 1 : nInputs\n");
+      fprintf(fp,"      if inputSwitches(jj) == 1 & ii ~= jj\n");
+      fprintf(fp,"        cnt = cnt + 1;\n");
+      fprintf(fp,"      end;\n");
+      fprintf(fp,"      if inputSwitches(jj) == 1 & jj > ii\n");
+      fprintf(fp,"        subplot(nPlots-1,nPlots-1,cnt)\n");
+      fprintf(fp,"        Y1 = Ya(:,(ii-1)*nInputs+jj);\n");
+      fprintf(fp,"        plot(Y1,'k')\n");
+      if (psPlotTool_ == 1) 
+           fprintf(fp,"        set(gca(),\"auto_clear\",\"off\")\n");
+      else fprintf(fp,"        hold on\n");
+      fprintf(fp,"        Y2 = Yb(:,(ii-1)*nInputs+jj);\n");
+      fprintf(fp,"        plot(Y2,'b')\n");
+      fprintf(fp,"        xlabel(strcat(Str(ii),'&',Str(jj)),'FontWeight',");
+      fprintf(fp,"'bold','FontSize',12)\n");
+      fprintf(fp,"        ylabel(Str(ii),'FontWeight','bold','FontSize',12)\n");
+      if (psPlotTool_ == 1) 
+         fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
+      else
+      {
+         fprintf(fp,"        hold off\n");
+         fprintf(fp,"text(0.2,0.2,'black: P1 (lo to hi), P2 = lo','sc')\n");
+         fprintf(fp,"text(0.2,0.3,'blue:  P1 (lo to hi), P2 = hi','sc')\n");
+      }
+      fwritePlotAxes(fp);
+      fprintf(fp,"      end;\n");
+      fprintf(fp,"    end;\n");
+      fprintf(fp,"  end;\n");
+      fprintf(fp,"end;\n");
+      fprintf(fp,"subplot(nPlots-1,nPlots-1,1)\n");
+      fwritePlotYLabel(fp,"Output Change");
+      fprintf(fp,"set(gcf,'NextPlot','add');\n");
+      fprintf(fp,"axes;\n");
+      fprintf(fp,"h=title('Pairwise Interaction','fontSize',12,'fontWeight'");
+      fprintf(fp,",'bold');\n");
+      fprintf(fp,"set(gca,'Visible','off');\n");
+      fprintf(fp,"set(h,'Visible','on');\n");
       fclose(fp);
       if (psPlotTool_ == 1)
-         printOutTS(PL_INFO, "The main effect plot has been generated in scilabffme.sci.\n");
+         printOutTS(PL_INFO, 
+              "The main effect plot has been generated in scilabmeff.sci.\n");
       else
-         printOutTS(PL_INFO, "The main effect plot has been generated in matlabffme.m.\n");
+         printOutTS(PL_INFO, 
+              "The main effect plot has been generated in matlabmeff.m.\n");
    }
    printAsterisks(PL_INFO, 0);
 
@@ -548,7 +583,7 @@ double FFAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 FFAnalyzer& FFAnalyzer::operator=(const FFAnalyzer &)
 {
-   printOutTS(PL_ERROR, "FFAnalysis operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"FFAnalysis operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

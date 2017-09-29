@@ -171,10 +171,11 @@ int SparseGridSampling::initialize(int initLevel)
 
          size = KronProd(nInputs_, midx, &newn, &neww);
          // Bill Oliver added check on value of size
-         if(size <= 0){
-	   printf("size variable is <= 0 in file %s line %d\n", __FILE__, __LINE__);
-           exit(1);
-
+         if (size <= 0)
+         {
+	    printf("size variable is <= 0 in file %s line %d\n",
+                    __FILE__, __LINE__);
+            exit(1);
          }
          for (ll = nVecs; ll < nVecs+counts[jj]; ll++)
          {
@@ -183,11 +184,9 @@ int SparseGridSampling::initialize(int initLevel)
             Vweights[ll] = bQ * neww[ll-nVecs];
          } 
          nVecs += counts[jj];
-	 for(int i = 0; i < size; i++)
-	   delete newn[i];
+	 for(ll = 0; ll < size; ll++) delete newn[ll];
 	 delete newn;
 	 delete neww;
-         
       }
       delete [] counts;
       for (jj = 0; jj < nPerms; jj++) delete [] pcePerms[jj];
@@ -437,18 +436,13 @@ int SparseGridSampling::nChooseK(int n, int k)
 // ************************************************************************
 // set input settings
 // ------------------------------------------------------------------------
-int SparseGridSampling::setParam(string sparam)
+int SparseGridSampling::setParam(char *sparam)
 {
-   int           pos;
-   istringstream buffer;
-   string        substr;
-
-   pos = sparam.find("pOrder");
-   if (pos >= 0)
+   char winput[1001];
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "pOrder"))
    {
-      substr = sparam.substr(8);
-      buffer.str(substr);
-      buffer >> pOrder_;
+      sscanf(sparam, "%s %d", winput, &pOrder_);
       if (pOrder_ < 1) pOrder_ = 1;
    }
    return 0;

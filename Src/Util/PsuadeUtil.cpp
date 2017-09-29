@@ -28,7 +28,6 @@
 #include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PrintingTS.h"
-#include <string>
 
 // ------------------------------------------------------------------------
 // external functions 
@@ -119,11 +118,10 @@ double PSUADE_drand()
 // ************************************************************************
 char* PSUADE_strdup(const char *s)
 {
-  size_t len = strlen (s) + 1;
-  char *result = (char*) malloc (len);
-  if (result == (char*) 0)
-    return (char*) 0;
-  return (char*) memcpy (result, s, len);
+   size_t len = strlen (s) + 1;
+   char *result = (char*) malloc (len);
+   if (result == (char*) 0) return (char*) 0;
+   return (char*) memcpy (result, s, len);
 }
 
 // ************************************************************************
@@ -131,18 +129,14 @@ char* PSUADE_strdup(const char *s)
 // ************************************************************************
 char* PSUADE_strndup(const char *s, size_t n)
 {
-  char *result;
-  size_t len = strlen (s);
+   char *result;
+   size_t len = strlen (s);
 
-  if (n < len)
-    len = n;
-
-  result = (char *) malloc (len + 1);
-  if (!result)
-    return 0;
-
-  result[len] = '\0';
-  return (char *) memcpy (result, s, len);
+   if (n < len) len = n;
+   result = (char *) malloc (len + 1);
+   if (!result) return 0;
+   result[len] = '\0';
+   return (char *) memcpy (result, s, len);
 }
 
 // ************************************************************************
@@ -755,20 +749,18 @@ int binarySearchInt(int sKey, int *sData, int length)
 // ------------------------------------------------------------------------
 void printCharLine(int printLevel, int length, char printchar)
 {
-  if(length <= 0) {
-    length = 70;
-  }
-  std::string outString = std::string(length, printchar);
-  printOutTS(printLevel, "%s\n", outString.c_str());
+   if(length <= 0) length = 70;
+   for (int ii = 0; ii < length; ii++)
+      printOutTS(printLevel, "%c", printchar);
+   printOutTS(printLevel, "\n");
 }
-
 
 // ************************************************************************
 // output a line of asterisks
 // ------------------------------------------------------------------------
 void printAsterisks(int printLevel, int length)
 {
-  printCharLine(printLevel, length, '*');
+   printCharLine(printLevel, length, '*');
 }
 
 // ************************************************************************
@@ -776,7 +768,7 @@ void printAsterisks(int printLevel, int length)
 // ------------------------------------------------------------------------
 void printDashes(int printLevel, int length)
 {
-  printCharLine(printLevel, length, '-');
+   printCharLine(printLevel, length, '-');
 }
 
 // ************************************************************************
@@ -784,7 +776,7 @@ void printDashes(int printLevel, int length)
 // ------------------------------------------------------------------------
 void printEquals(int printLevel, int length)
 {
-  printCharLine(printLevel, length, '=');
+   printCharLine(printLevel, length, '=');
 }
 
 // ************************************************************************
@@ -1023,6 +1015,321 @@ int computeNumPCEPermutations(int nRVs, int pOrder)
    for (ii = nRVs; ii < nRVs+pOrder; ii++) nTerms *= (ii + 1);
    for (ii = nRVs; ii < nRVs+pOrder; ii++) nTerms /= (ii - nRVs + 1);
    return nTerms;
+}
+
+// ************************************************************************
+// compute OUU sample file formats
+// ------------------------------------------------------------------------
+int checkOUUFileFormat(char *fname, int which, int nInps, int printLevel)
+{
+   int    intparam1, intparam2, ii, kk, index;
+   double value;
+   char   lineIn[20001];
+   FILE   *fp = fopen(fname, "r");
+   if (fp == NULL)
+   {
+      if (printLevel > 0) printf("ERROR: file %s not readable.\n", fname);
+      return -1;
+   }
+   lineIn[0] = '#';
+   fgets(lineIn, 20000, fp);
+   while (lineIn[0] == '#') fgets(lineIn, 20000, fp);
+   sscanf(lineIn, "%d %d", &intparam1, &intparam2);
+   if (intparam1 < nInps+1)
+   {
+      if (printLevel > 0)
+         printf("ERROR: first parameter in line 1 %d not large enough.\n",
+                intparam1);
+      fclose(fp);
+      return -2;
+   }
+   if (intparam2 != nInps)
+   {
+      if (printLevel > 0)
+         printf("ERROR: second parameter in line 1 %d not equal to %d.\n",
+                intparam2, nInps);
+      fclose(fp);
+      return -3;
+   }
+   if (which == 1)
+   {
+      for (ii = 0; ii < intparam1; ii++)
+      {
+         fgets(lineIn, 20000, fp);
+         index = kk = 0;
+         while (kk < nInps)
+         {
+            while (lineIn[index] == ' ') index++;
+            if (lineIn[index] == '\0' || lineIn[index] == '\n')
+            {
+               if (printLevel > 0)
+                  printf("ERROR: in reading sample data.\n");
+               fclose(fp);
+               return -4;
+            }
+            sscanf(&lineIn[index],"%lg",&value);
+            while (lineIn[index] != ' ') index++;
+            if (lineIn[index] == '\0' || lineIn[index] == '\n')
+            {
+               if (printLevel > 0)
+                  printf("ERROR: in reading sample data.\n");
+               fclose(fp);
+               return -4;
+            }
+            kk++;
+         }
+         while (lineIn[index] == ' ') index++;
+         if (lineIn[index] == '\0' || lineIn[index] == '\n')
+         {
+            if (printLevel > 0)
+               printf("ERROR: in reading sample probabilities.\n");
+            fclose(fp);
+            return -4;
+         }
+         else sscanf(&lineIn[index],"%lg",&value);
+      }
+      fclose(fp);
+   }
+   else if (which == 2)
+   {
+      for (ii = 0; ii < intparam1; ii++)
+      {
+         fgets(lineIn, 20000, fp);
+         index = kk = 0;
+         while (kk < nInps)
+         {
+            while (lineIn[index] == ' ') index++;
+            if (lineIn[index] == '\0' || lineIn[index] == '\n')
+            {
+               if (printLevel > 0)
+                  printf("ERROR: in reading sample data.\n");
+               fclose(fp);
+               return -4;
+            }
+            sscanf(&lineIn[index],"%lg",&value);
+            while (lineIn[index] != ' ') index++;
+            if (lineIn[index] == '\0' || lineIn[index] == '\n')
+            {
+               if (printLevel > 0)
+                  printf("ERROR: in reading sample data.\n");
+               fclose(fp);
+               return -4;
+            }
+            kk++;
+         }
+      }
+      fclose(fp);
+   }
+   else return -1;
+   return 0;
+}
+
+// ************************************************************************
+// compute MCMC specification file format
+// ------------------------------------------------------------------------
+int checkMCMCFileFormat(char *fname, int option, int printLevel)
+{
+   int    cnt, nExps, nOuts, nDesigns, ii, kk, jj;
+   double ddata, ddata2;
+   char   lineIn[10001], cword[1001];
+   FILE   *fp=NULL;
+
+   if (option == 0)
+   {
+      cnt = strlen(fname);
+      if (cnt <= 5000)
+      {
+         fname[cnt] = '\0';
+         fp = fopen(fname, "r");
+         if (fp == NULL) 
+         {
+            printf("ERROR: file %s not found.\n", fname);
+            return -1;
+         }
+      }
+      else return -1;
+      lineIn[0] = '#';
+      while (lineIn[0] == '#') fgets(lineIn, 2000, fp);
+      sscanf(lineIn, "%s", cword); 
+      if (!strcmp(cword, "PSUADE_BEGIN")) fgets(lineIn, 2000, fp);
+      sscanf(lineIn, "%d %d %d", &nExps, &nOuts, &nDesigns);
+      if (nExps <= 0)
+      {
+         if (printLevel > 0)
+            printf("ERROR: No experimental data available.\n");
+         fclose(fp);
+         return -1;
+      }
+      if (nOuts <= 0)
+      {
+         if (printLevel > 0)
+            printf("ERROR: number of output parameters <= 0.\n");
+         fclose(fp);
+         return -1;
+      }
+      if (nDesigns < 0)
+      {
+         if (printLevel > 0)
+            printf("ERROR: number of design parameters < 0.\n");
+         fclose(fp);
+         return -1;
+      }
+      if (nDesigns > 0)
+      {
+         cnt = 0;
+         for (ii = 0; ii < nDesigns; ii++)
+         {
+            fscanf(fp, "%d", &kk);
+            if (kk <= 0)
+            {
+               if (printLevel > 0)
+                  printf("ERROR: wrong design parameter index.\n");
+               fclose(fp);
+               return -1;
+            }
+            if (kk <= cnt)
+            {
+               if (printLevel > 0)
+                  printf("ERROR: wrong design parameter order (has to be ascending).\n");
+               fclose(fp);
+               return -1;
+            }
+            cnt = kk;
+         }
+      }
+      for (ii = 0; ii < nExps; ii++)
+      {
+         fscanf(fp, "%d", &kk);
+         if (kk != ii+1)
+         {
+            if (printLevel > 0) printf("ERROR: wrong experiment index.\n");
+            fclose(fp);
+            return -1;
+         }
+         for (jj = 0; jj < nDesigns; jj++) fscanf(fp, "%lg", &ddata);
+         for (jj = 0; jj < nOuts; jj++)
+         {
+            fscanf(fp, "%lg %lg", &ddata, &ddata2);
+            if (ddata2 < 0.0)
+            {
+               fclose(fp);
+               if (printLevel > 0)
+                  printf("ERROR: std dev zero or negative.\n");
+               return -1;
+            }
+         }
+      }
+      fclose(fp);
+   }
+   else if (option == 1)
+   {
+      cnt = strlen(fname);
+      if (cnt <= 5000)
+      {
+         fname[cnt] = '\0';
+         fp = fopen(fname, "r");
+         if (fp == NULL) 
+         {
+            printf("ERROR: file %s not found.\n", fname);
+            return -1;
+         }
+      }
+      else return -1;
+      fscanf(fp, "%s", lineIn);
+      if (strcmp(lineIn, "PSUADE_BEGIN"))
+      {
+         fclose(fp);
+         return -1;
+      }
+      fscanf(fp, "%d %d", &cnt, &kk);
+      if (cnt <= 0 || kk <= 0) return -1;
+      fgets(lineIn, 5000, fp);
+      while (1)
+      {
+         ii = getc(fp);
+         if (ii != '#')
+         {
+            ungetc(ii, fp);
+            break;
+         }
+         else fgets(lineIn, 5000, fp);
+      }
+      for (ii = 0; ii < cnt; ii++)
+      {
+         fscanf(fp, "%d", &jj);
+         if ((ii+1) != jj) 
+         {
+            fclose(fp);
+            return -1;
+         }
+         for (jj = 0; jj < kk; jj++) fscanf(fp,"%lg", &ddata);
+      }
+      fclose(fp);
+   }
+   return 0;
+}
+
+// ************************************************************************
+// check S PDF file format
+// ------------------------------------------------------------------------
+int checkSPDFFileFormat(char *fname, int printLevel)
+{
+   int    nSamp, nInps, ii, jj, nn;
+   double ddata;
+   char   pString[10001];
+   FILE   *fp;
+
+   fp = fopen(fname, "r");
+   if (fp == NULL)
+   {
+      if (printLevel > 0)
+         printf("ERROR: S PDF file %s does not exist.\n",fname);
+      return -1;
+   }
+   fscanf(fp, "%s", pString);
+   if (strcmp(pString, "PSUADE_BEGIN"))
+   {
+      fclose(fp);
+      fp = fopen(fname, "r");
+   }
+   fscanf(fp, "%d %d", &nSamp, &nInps);
+   if (nSamp < 1)
+   {
+      if (printLevel > 0)
+         printf("ERROR: S PDF sample file has nSamples <= 0.\n");
+      return -1;
+   }
+   if (nInps < 1)
+   {
+      if (printLevel > 0)
+         printf("ERROR: S PDF sample file has nInputs <= 0.\n");
+      return -1;
+   }
+   fgets(pString, 1000, fp);
+   while (1)
+   {
+      nn = getc(fp);
+      if (nn == '#') fgets(pString, 1000, fp);
+      else
+      {
+         ungetc(nn, fp);
+         break;
+      }
+   }
+   for (ii = 0; ii < nSamp; ii++)
+   {
+      fscanf(fp, "%d", &nn);
+      if (nn != (ii+1))
+      {
+         if (printLevel > 0)
+            printf("ERROR: S PDF sample file has wrong sample index.\n");
+         return -1;
+      }
+      for (jj = 0; jj < nInps; jj++) fscanf(fp, "%lg", &ddata);
+      fgets(pString, 1000, fp);
+   }
+   fclose(fp);
+   return 0;
 }
 
 // ************************************************************************

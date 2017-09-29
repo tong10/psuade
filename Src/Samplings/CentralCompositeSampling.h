@@ -27,7 +27,6 @@
 #ifndef __CENTRALCOMPOSITESAMPLINGH__
 #define __CENTRALCOMPOSITESAMPLINGH__
 
-#include <iostream>
 #include <string.h>
 #include "Sampling.h"
 
@@ -67,7 +66,7 @@ public:
    int refine(int ratio,int randomize,double thresh,int nSamples,
               double *sampleErrs);
 
-   int setParam(string);
+   int setParam(char *sparam);
 
    /** This function overloads the assignment operator
        @param obj : Sampling object

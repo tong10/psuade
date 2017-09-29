@@ -16,6 +16,6 @@ APPLICATION
    driver = simulator
 END
 ANALYSIS
-   diagnostics 1
+   printlevel 1
 END
 END

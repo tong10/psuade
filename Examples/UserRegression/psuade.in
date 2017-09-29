@@ -21,7 +21,7 @@ ANALYSIS
    analyzer rstype = MARS
    analyzer threshold = 1.000000e-03
    sam_expert
-   diagnostics 1
+   printlevel 1
 END
 END
 

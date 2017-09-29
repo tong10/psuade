@@ -19,6 +19,6 @@ APPLICATION
    launch_interval = 0
 END
 ANALYSIS
-   diagnostics
+   printlevel 1
 END
 END

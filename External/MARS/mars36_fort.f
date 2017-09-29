@@ -4814,6 +4814,7 @@ c
       real x(n,p),y(n),w(n),xm(p),xs(p),tb(5,nk),cm(*),sc(*),wt(n,2),cv( 4292
      1nk,4)                                                              4293
       double precision db(n,*),d(nk,*)                                   4294
+      real rr(1)
       data eps,big,dfs,cvm,im /1.e-6,9.9e30,2*0.0,0/                     4295
       if(it.gt.0) write(9 ,'(/,'' sample reuse to estimate df:'')')      4296
       if(ix .le. 0) go to 1                                              4297
@@ -4831,7 +4832,9 @@ c
       wt(i,2)=i                                                          4309
     3 continue                                                           4310
       do 4 i=1,n                                                         4311
-      call rnms(r,1)                                                     4312
+      rr(1) = r
+      call rnms(rr,1)                                                     4312
+      r = rr(1)
       k=(n-i+1)*r+i                                                      4313
       t=wt(i,2)                                                          4314
       wt(i,2)=wt(k,2)                                                    4315
@@ -5371,6 +5374,7 @@ c
       subroutine mkmiss (n,p,x,y,w,xm,pm,nnx,nn,xnn,yn,wn,sc)            4849
       parameter(nlist=500)                                               4850
       integer p,m(nlist)                                                 4851
+      real rr(1)
       real pm(p),xm(p),x(n,p),y(n),w(n),xnn(*),yn(*),wn(*),sc(p,*)       4852
       data tol /0.001/                                                   4853
       if(p .le. nlist) go to 1                                           4854
@@ -5404,7 +5408,9 @@ c
     7 km=km+1                                                            4882
       go to 4                                                            4883
     8 do 11 k=1,in                                                       4884
-      call rnms(r,1)                                                     4885
+      rr(1) = r
+      call rnms(rr,1)                                                     4885
+      r = rr(1)
       i=nn*r+1.0                                                         4886
       nnk=nn+k                                                           4887
       do 9 j=1,p                                                         4888

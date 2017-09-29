@@ -45,6 +45,8 @@
 #include "PDFGamma.h"
 #include "PDFExponential.h"
 #include "PDFSpecial.h"
+#include "PDFF.h"
+#include "PDFSpecial2.h"
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
@@ -149,16 +151,18 @@ int PDFManager::initialize(PsuadeData *psData)
       samplingMethod = pPtr.intData_;
       if (samplingMethod != PSUADE_SAMP_MC)  
       {
-         printf("PSUADE INFO: if you want to draw a sample from non-uniform\n");
-         printf("       distributions, set the sampling method to be Monte\n");
-         printf("       Carlo (MC). If you have created a space-filling sample\n");
-         printf("       and would like to convert it to the desired PDFs, add\n");
-         printf("       the PDF information in the INPUT section of your sample\n");
-         printf("       file, launch PSUADE in command line mode, load the\n");
-         printf("       sample file, use 'pdfconvert' to convert your sample,\n");
-         printf("       and write the converted sample to another PSUADE data\n");
-         printf("       file.\n");
-         exit(1);
+         //printf("PSUADE INFO: if you want to draw a sample from non-uniform\n");
+         //printf("       distributions, set the sampling method to be Monte\n");
+         //printf("       Carlo (MC). If you have created a space-filling sample\n");
+         //printf("       and would like to convert it to the desired PDFs, add\n");
+         //printf("       the PDF information in the INPUT section of your sample\n");
+         //printf("       file, launch PSUADE in command line mode, load the\n");
+         //printf("       sample file, use 'pdfconvert' to convert your sample,\n");
+         //printf("       and write the converted sample to another PSUADE data\n");
+         //printf("       file.\n");
+         printf("PDFManager INFO: non-uniform distribution detected.\n");
+         printf("                 Switching to Monte Carlo.\n");
+         samplingMethod = PSUADE_SAMP_MC;
       }
    }
    initialize(nInputs,inputPDFs,inputMeans,inputStdevs,*corMatrix,snames,indices);
@@ -260,6 +264,18 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
          }
          if (usrPDFFlags_[ii] == -1) usrPDFFlags_[ii] = ii;
       }
+      if (inputPDFs[ii] == PSUADE_PDF_USER2)
+      {
+         for (jj = 0; jj < ii; jj++)
+         {
+            if (!strcmp(snames[ii],snames[jj]))
+            {
+               usrPDFFlags_[ii] = jj;
+               break;
+            }
+         }
+         if (usrPDFFlags_[ii] == -1) usrPDFFlags_[ii] = ii;
+      }
    }
    assert(errFlag == 0); 
 
@@ -348,6 +364,45 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
             for (jj = 0; jj < nInputs_; jj++)
                if (usrPDFFlags_[jj] == ii) indices2[scount++] = indices[jj];
             PDFptrs_[ii] = (PDFBase *) new PDFSpecial(scount,snames[ii],indices2);
+            delete [] indices2;
+            fp = fopen(snames[ii], "r");
+            if (fp == NULL)
+            {
+               printf("PDFManager ERROR: cannot open sample file %s.\n",
+                      snames[ii]);
+               exit(1);
+            }
+            fscanf(fp, "%s", pString);
+            if (strcmp(pString, "PSUADE_BEGIN"))
+            {
+               fclose(fp);
+               fp = fopen(snames[ii], "r");
+            }
+            fscanf(fp, "%d %d", &jj, &kk);
+            if (kk < scount)
+            {
+               printf("PDFManager ERROR: sample file does not have enough inputs.\n");
+               printf("                  sample file has %d inputs\n", kk);
+               printf("                  PDFManager needs %d inputs\n", scount);
+               exit(1);
+            }
+            fclose(fp);
+         }
+         else PDFptrs_[ii] = NULL;
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_F)
+      {
+         PDFptrs_[ii] = (PDFBase *) new PDFF(mean, stdev);
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      {
+         if (usrPDFFlags_[ii] == ii)
+         {
+            indices2 = new int[nInputs_];
+            scount = 0;
+            for (jj = 0; jj < nInputs_; jj++)
+               if (usrPDFFlags_[jj] == ii) indices2[scount++] = indices[jj];
+            PDFptrs_[ii] = (PDFBase *) new PDFSpecial2(snames[ii],scount,indices2);
             delete [] indices2;
             fp = fopen(snames[ii], "r");
             if (fp == NULL)
@@ -508,20 +563,6 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs+ii] = localData2[ss];
       }
-      else if (pdfMap_[ii] == PSUADE_PDF_USER)
-      {
-         if (printLevel_ > 2) printf("Input %d: User distribution.\n",ii+1);
-         jj = 0;
-         for (ss = 0; ss < ii; ss++)
-            if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
-         for (ss = 0; ss < nSamples; ss++)
-            localData1[ss] = inData[ss*nInputs+ii];
-         sprintf(cString, "setInput %d", jj);
-         PDFptrs_[ii]->setParam(cString);
-         PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
-         for (ss = 0; ss < nSamples; ss++)
-            outData[ss*nInputs+ii] = localData2[ss];
-      }
       else if (pdfMap_[ii] == PSUADE_PDF_GAMMA)
       {
          if (printLevel_ > 2) printf("Input %d: gamma distribution.\n",ii+1);
@@ -536,6 +577,43 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
          if (printLevel_ > 2) printf("Input %d: exponential distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = inData[ss*nInputs+ii];
+         PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs+ii] = localData2[ss];
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         if (printLevel_ > 2) printf("Input %d: User distribution.\n",ii+1);
+         jj = 0;
+         for (ss = 0; ss < ii; ss++)
+            if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = inData[ss*nInputs+ii];
+         sprintf(cString, "setInput %d", jj);
+         PDFptrs_[ii]->setParam(cString);
+         PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs+ii] = localData2[ss];
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_F)
+      {
+         if (printLevel_ > 2) printf("Input %d: F distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = inData[ss*nInputs+ii];
+         PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs+ii] = localData2[ss];
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      {
+         if (printLevel_ > 2) printf("Input %d: User2 distribution.\n",ii+1);
+         jj = 0;
+         for (ss = 0; ss < ii; ss++)
+            if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = inData[ss*nInputs+ii];
+         sprintf(cString, "setInput %d", jj);
+         PDFptrs_[ii]->setParam(cString);
          PDFptrs_[ii]->getPDF(nSamples,localData1,localData2);
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs+ii] = localData2[ss];
@@ -562,7 +640,7 @@ int PDFManager::getPDF(int nSamples, Vector &vecIn, Vector &vecOut,
 int PDFManager::genSample(int nSamples, Vector &vecOut, 
                           Vector &vecLower, Vector &vecUpper)
 {
-   int    ss, ii, jj, normalFlag, lognormalFlag, ind, nInputs, *iVec;
+   int    ss, ii, jj, normalFlag, lognormalFlag, ind, nInputs;
    int    scount, *counts;
    double *localData, *outData, range, low, high;
    Vector vecLocalOut, vLower, vUpper;
@@ -600,10 +678,8 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
       if (pdfMap_[ii] == PSUADE_PDF_UNIFORM)
       {
          range = vecUpper[ii] - vecLower[ii];
-         iVec = new int[nSamples]; 
          for (ss = 0; ss < nSamples; ss++)
-            outData[ss*nInputs+ii] = PSUADE_drand() * range + vecLower[ii];
-         delete [] iVec;
+            outData[ss*nInputs+ii] = PSUADE_drand()*range+vecLower[ii];
       }
       if (pdfMap_[ii] == PSUADE_PDF_TRIANGLE ||
           pdfMap_[ii] == PSUADE_PDF_BETA ||
@@ -611,7 +687,8 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
           pdfMap_[ii] == PSUADE_PDF_NORMAL ||
           pdfMap_[ii] == PSUADE_PDF_LOGNORMAL ||
           pdfMap_[ii] == PSUADE_PDF_GAMMA ||
-          pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
+          pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL ||
+          pdfMap_[ii] == PSUADE_PDF_F)
       {
          low = vecLower[ii];
          high = vecUpper[ii];
@@ -639,10 +716,10 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
                for (ss = 0; ss < nSamples; ss++)
                {
                   outData[ss*nInputs+ind] = vecLocalOut[ss*nGNormal_+jj];
-                  if (outData[jj*nInputs_+ind] > vecUpper[ind])
-                     outData[jj*nInputs_+ind] = vecUpper[ind];
-                  if (outData[jj*nInputs_+ind] < vecLower[ind])
-                     outData[jj*nInputs_+ind] = vecLower[ind];
+                  if (outData[ss*nInputs_+ind] > vecUpper[ind])
+                     outData[ss*nInputs_+ind] = vecUpper[ind];
+                  if (outData[ss*nInputs_+ind] < vecLower[ind])
+                     outData[ss*nInputs_+ind] = vecLower[ind];
                }
             }
             normalFlag = 1;
@@ -668,10 +745,10 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
                for (ss = 0; ss < nSamples; ss++)
                {
                   outData[ss*nInputs+ind] = vecLocalOut[ss*nGLognormal_+jj];
-                  if (outData[jj*nInputs_+ind] > vecUpper[ind])
-                     outData[jj*nInputs_+ind] = vecUpper[ind];
-                  if (outData[jj*nInputs_+ind] < vecLower[ind])
-                     outData[jj*nInputs_+ind] = vecLower[ind];
+                  if (outData[ss*nInputs_+ind] > vecUpper[ind])
+                     outData[ss*nInputs_+ind] = vecUpper[ind];
+                  if (outData[ss*nInputs_+ind] < vecLower[ind])
+                     outData[ss*nInputs_+ind] = vecLower[ind];
                }
             }
             lognormalFlag = 1;
@@ -682,6 +759,26 @@ int PDFManager::genSample(int nSamples, Vector &vecOut,
    for (ii = 0; ii < nInputs_; ii++)
    {
       if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         if (usrPDFFlags_[ii] == ii)
+         {
+            counts[0] = ii;
+            scount = 1;
+            for (jj = ii+1; jj < nInputs_; jj++)
+               if (usrPDFFlags_[jj] == ii) counts[scount++] = jj;
+            PDFptrs_[ii]->genSample(nSamples,localData,0,0);
+            for (jj = 0; jj < scount; jj++)
+            {
+               ind = counts[jj];
+               for (ss = 0; ss < nSamples; ss++)
+                  outData[ss*nInputs_+ind] = localData[scount*ss+jj];
+            }
+         }
+      }
+   }
+   for (ii = 0; ii < nInputs_; ii++)
+   {
+      if (pdfMap_[ii] == PSUADE_PDF_USER2)
       {
          if (usrPDFFlags_[ii] == ii)
          {
@@ -884,6 +981,16 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData2[ss];
       }
+      if (pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
+      {
+         if (printLevel_ > 2) printf("Input %d: exponential distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = vecIn[ss*nInputs_+ii];
+         PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
+                              vecLower[ii], vecUpper[ii]);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs_+ii] = localData2[ss];
+      }
       if (pdfMap_[ii] == PSUADE_PDF_USER)
       {
          if (printLevel_ > 2) printf("Input %d: User distribution.\n",ii+1);
@@ -899,11 +1006,26 @@ int PDFManager::invCDF(int nSamples, Vector &vecIn, Vector &vecOut,
          for (ss = 0; ss < nSamples; ss++)
             outData[ss*nInputs_+ii] = localData2[ss];
       }
-      if (pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
+      if (pdfMap_[ii] == PSUADE_PDF_F)
       {
-         if (printLevel_ > 2) printf("Input %d: exponential distribution.\n",ii+1);
+         if (printLevel_ > 2) printf("Input %d: F distribution.\n",ii+1);
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
+         PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
+                              vecLower[ii], vecUpper[ii]);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs_+ii] = localData2[ss];
+      }
+      if (pdfMap_[ii] == PSUADE_PDF_USER2)
+      {
+         if (printLevel_ > 2) printf("Input %d: User2 distribution.\n",ii+1);
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = vecIn[ss*nInputs_+ii];
+         jj = 0;
+         for (ss = 0; ss < ii; ss++)
+            if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
+         sprintf(cString, "setInput %d", jj);
+         PDFptrs_[ii]->setParam(cString);
          PDFptrs_[ii]->invCDF(nSamples,localData1,localData2,
                               vecLower[ii], vecUpper[ii]);
          for (ss = 0; ss < nSamples; ss++)
@@ -987,7 +1109,8 @@ int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut,
           pdfMap_[ii] == PSUADE_PDF_NORMAL ||
           pdfMap_[ii] == PSUADE_PDF_LOGNORMAL ||
           pdfMap_[ii] == PSUADE_PDF_GAMMA ||
-          pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL)
+          pdfMap_[ii] == PSUADE_PDF_EXPONENTIAL ||
+          pdfMap_[ii] == PSUADE_PDF_F)
       {
          for (ss = 0; ss < nSamples; ss++)
             localData1[ss] = vecIn[ss*nInputs_+ii];
@@ -996,6 +1119,19 @@ int PDFManager::getCDF(int nSamples, Vector &vecIn, Vector &vecOut,
             outData[ss*nInputs_+ii] = localData2[ss];
       }
       else if (pdfMap_[ii] == PSUADE_PDF_USER)
+      {
+         jj = 0;
+         for (ss = 0; ss < ii; ss++)
+            if (usrPDFFlags_[ii] == usrPDFFlags_[ss]) jj++;
+         for (ss = 0; ss < nSamples; ss++)
+            localData1[ss] = vecIn[ss*nInputs_+ii];
+         sprintf(cString, "setInput %d", jj);
+         PDFptrs_[ii]->setParam(cString);
+         PDFptrs_[ii]->getCDF(nSamples,localData1,localData2);
+         for (ss = 0; ss < nSamples; ss++)
+            outData[ss*nInputs_+ii] = localData2[ss];
+      }
+      else if (pdfMap_[ii] == PSUADE_PDF_USER2)
       {
          jj = 0;
          for (ss = 0; ss < ii; ss++)

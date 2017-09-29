@@ -90,9 +90,12 @@ double AnovaAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printOutTS(PL_WARN, "ANOVA INFO: some inputs have non-uniform PDFs.\n");
-         printOutTS(PL_WARN, "      However, they are not relevant in this analysis\n");
-         printOutTS(PL_WARN, "      (the sample should have been generated with\n");
+         printOutTS(PL_WARN,
+              "ANOVA INFO: some inputs have non-uniform PDFs.\n");
+         printOutTS(PL_WARN,
+              "      However, they are not relevant in this analysis\n");
+         printOutTS(PL_WARN,
+              "      (the sample should have been generated with\n");
          printOutTS(PL_WARN, "       the desired distributions.)\n");
       }
    }
@@ -110,8 +113,8 @@ double AnovaAnalyzer::analyze(aData &adata)
       if (xLower[ii] >= xUpper[ii])
       {
          printOutTS(PL_ERROR, "ANOVA ERROR: invalid input bounds.\n");
-         printOutTS(PL_ERROR, "             Input %3d bounds = %e %e\n", ii+1,
-                xLower[ii], xUpper[ii]);
+         printOutTS(PL_ERROR, "             Input %3d bounds = %e %e\n", 
+                    ii+1, xLower[ii], xUpper[ii]);
          return PSUADE_UNDEFINED;
       }
    }
@@ -334,8 +337,10 @@ double AnovaAnalyzer::analyze(aData &adata)
    }
 
    printEquals(PL_INFO, 65);
-   printOutTS(PL_INFO, "|  source of | deg. of|   sum of    |   mean      |            |\n");
-   printOutTS(PL_INFO, "|  variation | freedom|   squares   |   square    |       F    |\n");
+   printOutTS(PL_INFO, 
+       "|  source of | deg. of|   sum of    |   mean      |            |\n");
+   printOutTS(PL_INFO, 
+       "|  variation | freedom|   squares   |   square    |       F    |\n");
    printDashes(PL_INFO, 65);
    for (jj = 0; jj < tableLeng_-2; jj++)
    {

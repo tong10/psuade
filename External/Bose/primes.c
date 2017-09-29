@@ -64,7 +64,7 @@ for(  q=1; q<2000; q++  )
 
 
 
-primepow( q,p,n,isit )
+void primepow( q,p,n,isit )
 int q,*p,*n,*isit;
 {
 int k, firstfactor;

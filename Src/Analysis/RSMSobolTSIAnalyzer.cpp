@@ -27,8 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <iostream>
-#include <algorithm>
 
 #include "PsuadeUtil.h"
 #include "sysdef.h"
@@ -97,14 +95,18 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO, "*          RS-based Total Order Sobol' Indices \n");
    printEquals(PL_INFO, 0); 
-   printOutTS(PL_INFO, "* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET \n");
-   printOutTS(PL_INFO, "*\n");
-   printOutTS(PL_INFO, "* - ana_expert mode to finetune RSMSobolTSI parameters, \n");
-   printOutTS(PL_INFO, "*   (e.g. sample size for integration can be adjusted).\n");
-   printOutTS(PL_INFO, "* - rs_expert mode to finetune response surface for RSMSobolTSI,\n");
-   printOutTS(PL_INFO, "* - printlevel to 1 to display more information.\n");
-   printOutTS(PL_INFO, "* - ntimes to 100 to compute also error bars for the results\n");
-   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO,"* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET \n");
+   printOutTS(PL_INFO,"*\n");
+   printOutTS(PL_INFO,
+        "* - ana_expert mode to finetune RSMSobolTSI parameters, \n");
+   printOutTS(PL_INFO,
+        "*   (e.g. sample size for integration can be adjusted).\n");
+   printOutTS(PL_INFO,
+        "* - rs_expert mode to finetune response surface for RSMSobolTSI,\n");
+   printOutTS(PL_INFO,"* - printlevel to 1 to display more information.\n");
+   printOutTS(PL_INFO,
+        "* - ntimes to 100 to compute also error bars for the results\n");
+   printEquals(PL_INFO,0);
 
    printLevel  = adata.printLevel_;
    nInputs     = adata.nInputs_;
@@ -129,16 +131,18 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
       {
          if (pdfFlags[ii] == PSUADE_PDF_USER)
          {
-            printOutTS(PL_ERROR, "* RSMSobolTSI ERROR: S PDF type currently not supported.\n");
+            printOutTS(PL_ERROR,
+              "* RSMSobolTSI ERROR: S PDF type currently not supported.\n");
             return PSUADE_UNDEFINED;
          }
       }
    }
-   if (noPDF == 1) printOutTS(PL_INFO, "* RSMSobolTSI INFO: all uniform distributions.\n");
+   if (noPDF == 1) 
+      printOutTS(PL_INFO, "* RSMSobolTSI INFO: all uniform distributions.\n");
    else
    {
-      printOutTS(PL_INFO, "* RSMSobolTSI INFO: non-uniform distributions detected\n");
-      printOutTS(PL_INFO, "                    which will be used in this analysis.\n");
+      printOutTS(PL_INFO,"* RSMSobolTSI INFO: non-uniform distributions\n");
+      printOutTS(PL_INFO,"     detected which will be used in this analysis.\n");
    }
 
    if (nInputs <= 0 || nSamples <= 0 || nOutputs <= 0) 
@@ -151,12 +155,14 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
    } 
    if (nInputs <= 1)
    {
-      printOutTS(PL_ERROR, "RSMSobolTSI: nInputs<=1 does not need this analysis.\n");
+      printOutTS(PL_ERROR,
+                 "RSMSobolTSI: nInputs<=1 does not need this analysis.\n");
       return PSUADE_UNDEFINED;
    }
    if (outputID >= nOutputs || outputID < 0)
    {
-      printOutTS(PL_ERROR, "RSMSobolTSI ERROR: invalid output ID (%d).\n", outputID);
+      printOutTS(PL_ERROR,"RSMSobolTSI ERROR: invalid output ID (%d).\n", 
+                 outputID);
       return PSUADE_UNDEFINED;
    }
    if (ioPtr == NULL)
@@ -172,8 +178,10 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
       {
          if (corMatp->getEntry(ii,jj) != 0.0)
          {
-            printOutTS(PL_ERROR, "* RSMSobolTSI INFO: this method cannot handle correlated\n");
-            printOutTS(PL_ERROR, "*           inputs using joint PDFs yet. Use group\n");
+            printOutTS(PL_ERROR,
+               "* RSMSobolTSI INFO: this method cannot handle correlated\n");
+            printOutTS(PL_ERROR,
+               "*           inputs using joint PDFs yet. Use group\n");
             printOutTS(PL_ERROR, "*           variance-based method.\n");
             return PSUADE_UNDEFINED;
          }
@@ -184,8 +192,10 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
       if (Y3[nOutputs*ii+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
    if (status == 1)
    {
-      printOutTS(PL_ERROR, "RSMSobolTSI ERROR: Some outputs are undefined. Prune the\n");
-      printOutTS(PL_ERROR, "                   undefined sample points first.\n");
+      printOutTS(PL_ERROR, 
+           "RSMSobolTSI ERROR: Some outputs are undefined. Prune the\n");
+      printOutTS(PL_ERROR,
+           "                   undefined sample points first.\n");
       return PSUADE_UNDEFINED;
    }
    Y = new double[nSamples];
@@ -201,16 +211,18 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
    {
       printAsterisks(PL_INFO, 0);
       printOutTS(PL_INFO, "\n");
-      printOutTS(PL_INFO, "* For each input, this RSMSobolTSIAnalyzer creates M sample\n");
-      printOutTS(PL_INFO, "* points by varying all other inputs. For each of the M \n");
-      printOutTS(PL_INFO, "* sample points, K levels of each input is used.\n");
-      printOutTS(PL_INFO, "* The total sample size = nInputs * M * K.\n");
-      nSubSamples = 1000;
+      printOutTS(PL_INFO,
+           "* For each input, this RSMSobolTSIAnalyzer creates M sample\n");
+      printOutTS(PL_INFO,
+           "* points by varying all other inputs. For each of the M \n");
+      printOutTS(PL_INFO,"* sample points, K levels of each input is used.\n");
+      printOutTS(PL_INFO,"* The total sample size = nInputs * M * K.\n");
+      nSubSamples = 10000;
       nLevels = 50;
-      printOutTS(PL_INFO, "* nInputs m = %d\n", nInputs);
-      printOutTS(PL_INFO, "* default M = %d\n", nSubSamples);
-      printOutTS(PL_INFO, "* default K = %d\n", nLevels);
-      printOutTS(PL_INFO, "* As a user, you are asked to decide on M and K.\n");
+      printOutTS(PL_INFO,"* nInputs m = %d\n", nInputs);
+      printOutTS(PL_INFO,"* default M = %d\n", nSubSamples);
+      printOutTS(PL_INFO,"* default K = %d\n", nLevels);
+      printOutTS(PL_INFO,"* As a user, you are asked to decide on M and K.\n");
       printEquals(PL_INFO, 0);
       sprintf(pString,"Enter M (suggestion: >= 1000) : ");
       nSubSamples = getInt(1000,100000,pString);
@@ -230,12 +242,15 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamples);
             if (nSubSamples < 1000)
             {
-               printOutTS(PL_INFO, "RSMSobolTSI INFO: nSubSamples should be >= 1000.\n");
+               printOutTS(PL_INFO, 
+                    "RSMSobolTSI INFO: nSubSamples should be >= 1000.\n");
                nSubSamples = 10000;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobolTSI INFO: nSubSamples = %d (config).\n",nSubSamples);
+               printOutTS(PL_INFO,
+                     "RSMSobolTSI INFO: nSubSamples = %d (config).\n",
+                     nSubSamples);
             }
          }
          cString = psConfig_->getParameter("RSMSoboltsi_nlevels");
@@ -244,35 +259,40 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nLevels);
             if (nLevels < 50)
             {
-               printOutTS(PL_INFO, "RSMSobolTSI INFO: nLevels should be >= 50.\n");
+               printOutTS(PL_INFO,
+                    "RSMSobolTSI INFO: nLevels should be >= 50.\n");
                nLevels = 50;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobolTSI INFO: nLevels = %d (config).\n",nLevels);
+               printOutTS(PL_INFO, 
+                    "RSMSobolTSI INFO: nLevels = %d (config).\n",nLevels);
             }
          }
       }
       if (printLevel > 0)
       {
          printAsterisks(PL_INFO, 0);
-         printOutTS(PL_INFO, "\n");
-         printOutTS(PL_INFO, "* For each input, this RSMSobolTSIAnalyzer creates M sample\n");
-         printOutTS(PL_INFO, "* points by varying all other inputs. For each of the M \n");
-         printOutTS(PL_INFO, "* sample points, K levels of each input is used.\n");
-         printOutTS(PL_INFO, "* The total sample size = nInputs * M * K.\n");
-         printOutTS(PL_INFO, "* nInputs m = %d\n", nInputs);
-         printOutTS(PL_INFO, "* default M = %d\n", nSubSamples);
-         printOutTS(PL_INFO, "* default K = %d\n", nLevels);
-         printOutTS(PL_INFO, "To change these settings, turn on ana_expert mode and rerun.\n");
+         printOutTS(PL_INFO,"\n");
+         printOutTS(PL_INFO,
+              "* For each input, this RSMSobolTSIAnalyzer creates M sample\n");
+         printOutTS(PL_INFO,
+              "* points by varying all other inputs. For each of the M \n");
+         printOutTS(PL_INFO,"* sample points, K levels of each input is used.\n");
+         printOutTS(PL_INFO,"* The total sample size = nInputs * M * K.\n");
+         printOutTS(PL_INFO,"* nInputs m = %d\n", nInputs);
+         printOutTS(PL_INFO,"* default M = %d\n", nSubSamples);
+         printOutTS(PL_INFO,"* default K = %d\n", nLevels);
+         printOutTS(PL_INFO,
+              "To change these settings, turn on ana_expert mode and rerun.\n");
          printEquals(PL_INFO, 0);
       }
    }
 
    nSamp = 100000;
-
-   printOutTS(PL_INFO, "* RSMSobolTSI INFO: creating a sample for basic statistics.\n");
-   printOutTS(PL_INFO, "*                   sample size = %d\n", nSamp);
+   printOutTS(PL_INFO,
+        "* RSMSobolTSI INFO: creating a sample for basic statistics.\n");
+   printOutTS(PL_INFO,"*                   sample size = %d\n", nSamp);
 
    sampleInputs  = new double[nSamp*nInputs];
    sampleOutputs = new double[nSamp];
@@ -280,25 +300,23 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
    pdfman = new PDFManager();
    if (pdfFlags == NULL)
    {
-      printOutTS(PL_ERROR, "pdfFlags is NULL in file %s line %d aborting\n",__FILE__,
-             __LINE__);
+      printOutTS(PL_ERROR,"pdfFlags is NULL in file %s line %d aborting\n",
+                 __FILE__, __LINE__);
       abort();
    }
-   pdfman->initialize(nInputs,pdfFlags,inputMeans,
-                      inputStdevs,*corMatp,NULL,NULL);
+   pdfman->initialize(nInputs,pdfFlags,inputMeans,inputStdevs,*corMatp,
+                      NULL,NULL);
    vecLB.load(nInputs, xLower);
    vecUB.load(nInputs, xUpper);
    vecOut.setLength(nSamp*nInputs);
    pdfman->genSample(nSamp, vecOut, vecLB, vecUB);
    for (ii = 0; ii < nSamp*nInputs; ii++) sampleInputs[ii] = vecOut[ii];
 
-
-   printOutTS(PL_INFO, "* RSMSobolTSI: running the sample with response surface...\n");
-
+   printOutTS(PL_INFO, 
+        "* RSMSobolTSI: running the sample with response surface...\n");
    faPtr->evaluatePoint(nSamp, sampleInputs, sampleOutputs);
-
-   printOutTS(PL_INFO, "* RSMSobolTSI: done running the sample with response surface.\n");
-
+   printOutTS(PL_INFO,
+        "* RSMSobolTSI: done running the sample with response surface.\n");
 
    for (ii = 0; ii < nSamp; ii++)
    {
@@ -320,8 +338,10 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
    if (sCnt > 1) dmean /= (double) sCnt;
    else
    {
-      printOutTS(PL_ERROR, "RSMSobolTSI ERROR: too few samples that satisify the ");
-      printOutTS(PL_ERROR, "constraints (%d out of %d).\n", sCnt, nSubSamples);
+      printOutTS(PL_ERROR,
+           "RSMSobolTSI ERROR: too few samples that satisify the ");
+      printOutTS(PL_ERROR, "constraints (%d out of %d).\n", 
+                 sCnt, nSubSamples);
       delete [] sampleInputs;
       delete [] sampleOutputs;
       delete faPtr;
@@ -336,10 +356,10 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
                      (sampleOutputs[ii] - dmean) ;
    }
    variance /= (double) sCnt;
-   printOutTS(PL_INFO, "* RSMSobolTSI: mean     (based on N = %d) = %10.3e\n",
-          sCnt, dmean);
+   printOutTS(PL_INFO,
+        "* RSMSobolTSI: mean     (based on N = %d) = %10.3e\n",sCnt,dmean);
    printOutTS(PL_INFO, "* RSMSobolTSI: std dev. (based on N = %d) = %10.3e\n",
-          sCnt, sqrt(variance));
+              sCnt, sqrt(variance));
    if (variance == 0.0) variance = 1.0;
    delete [] sampleInputs;
    delete [] sampleOutputs;
@@ -513,7 +533,8 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
             else           vars[jj] = vars[jj] / (double) sCnt;
          }
          if (sCnt < nSubSamples/10 && printLevel >= 5)
-            printOutTS(PL_DUMP, "RSMSobolTSI WARNING: subsample size = %d\n", sCnt);
+            printOutTS(PL_DUMP,
+                 "RSMSobolTSI WARNING: subsample size = %d\n", sCnt);
       }
 
       totalCnt = 0;
@@ -539,43 +560,49 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
                     bins[jj] / totalCnt;
       tsiRes[ii] = dvar;
 
-
-      printOutTS(PL_INFO, "RSMSobolTSI (unnormalized) for input %3d = %12.4e\n",
-                ii+1, tsi[ii]);
-      printOutTS(PL_INFO, "RSMSobolTSI (  normalized) for input %3d = %12.4e\n",
-                ii+1, tsi[ii]/variance);
+      printOutTS(PL_INFO,
+           "RSMSobolTSI (unnormalized) for input %3d = %12.4e\n",
+           ii+1,tsi[ii]);
+      printOutTS(PL_INFO,
+           "RSMSobolTSI (  normalized) for input %3d = %12.4e\n",
+           ii+1, tsi[ii]/variance);
 
    }
    printAsterisks(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++) tsi[ii] /= variance;
    for (ii = 0; ii < nInputs; ii++)
-      printOutTS(PL_INFO, "RSMSobolTSI (normalized) for input %3d = %12.4e\n",ii+1,tsi[ii]);
+      printOutTS(PL_INFO,
+           "RSMSobolTSI (normalized) for input %3d = %12.4e\n",
+           ii+1,tsi[ii]);
    printEquals(PL_INFO, 0);
    if (printLevel > 1)
    {
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "RSMSobolTSI (unnormalized) for input %3d = %12.4e\n",
-                    ii+1, tsi[ii] * variance);
+         printOutTS(PL_INFO, 
+              "RSMSobolTSI (unnormalized) for input %3d = %12.4e\n",
+              ii+1, tsi[ii] * variance);
       for (ii = 0; ii < nInputs; ii++) means[ii] = (double) ii;
       sortDbleList2(nInputs, tsi, means);
       for (ii = nInputs-1; ii >= 0; ii--)
-         printOutTS(PL_INFO, "RSMSobolTSI (normalized,ordered) for input %3d = %12.4e\n",
-                (int) means[ii]+1,tsi[ii]);
+         printOutTS(PL_INFO,
+              "RSMSobolTSI (normalized,ordered) for input %3d = %12.4e\n",
+              (int) means[ii]+1,tsi[ii]);
       printAsterisks(PL_INFO, 0);
    }
    if (printLevel > 2)
    {
       printAsterisks(PL_INFO, 0);
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "RSMSobolTSI residual (normalized) for input %3d = %12.4e\n",
-                ii+1, tsiRes[ii]/variance);
+         printOutTS(PL_INFO, 
+              "RSMSobolTSI residual (normalized) for input %3d = %12.4e\n",
+              ii+1, tsiRes[ii]/variance);
    }
    printAsterisks(PL_INFO, 0);
     
    pData *pPtr = ioPtr->getAuxData();
    pPtr->nDbles_ = nInputs;
    pPtr->dbleArray_ = new double[nInputs];
-   for (ii = 0; ii < nInputs; ii++) pPtr->dbleArray_[ii] = tsi[ii] * variance;
+   for (ii = 0; ii < nInputs; ii++) pPtr->dbleArray_[ii] = tsi[ii]*variance;
    pPtr->dbleData_ = variance;
 
    delete constrPtr;
@@ -604,7 +631,7 @@ double RSMSobolTSIAnalyzer::analyze(aData &adata)
 double RSMSobolTSIAnalyzer::analyze3(aData &adata)
 {
    int    nInputs, nOutputs, nSamples, ii, jj, kk, *S, status, outputID;
-   int    nSubSamples=1000, *sampleStates, iL, sCnt, nLevels=10000;
+   int    nSubSamples=10000, *sampleStates, iL, sCnt, nLevels=50;
    int    *pdfFlags, printLevel, *bins, totalCnt, nSamp, *pdfFlags1;
    int    corFlag, ntimes=1, noPDF, offset;
    double *xLower, *xUpper, *X, *Y, *cLower, *cUpper, *sampleInputs;
@@ -624,13 +651,13 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO, "*          RS-based Total Order Sobol' Indices \n");
    printEquals(PL_INFO, 0); 
-   printOutTS(PL_INFO, "* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET \n");
-   printOutTS(PL_INFO, "*\n");
-   printOutTS(PL_INFO, "* - ana_expert mode to finetune internal parameters\n");
-   printOutTS(PL_INFO, "*   (e.g. adjust sample size for integration).\n");
-   printOutTS(PL_INFO, "* - rs_expert to mode finetune response surface\n");
-   printOutTS(PL_INFO, "* - printlevel to 1 to display more information.\n");
-   printOutTS(PL_INFO, "* - ntimes=100 to compute error bars for the results\n");
+   printOutTS(PL_INFO,"* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET \n");
+   printOutTS(PL_INFO,"*\n");
+   printOutTS(PL_INFO,"* - ana_expert mode to finetune internal parameters\n");
+   printOutTS(PL_INFO,"*   (e.g. adjust sample size for integration).\n");
+   printOutTS(PL_INFO,"* - rs_expert to mode finetune response surface\n");
+   printOutTS(PL_INFO,"* - printlevel to 1 to display more information.\n");
+   printOutTS(PL_INFO,"* - ntimes=100 to compute error bars for the results\n");
    printEquals(PL_INFO, 0);
 
    printLevel  = adata.printLevel_;
@@ -657,17 +684,18 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       {
          if (pdfFlags[ii] == PSUADE_PDF_USER)
          {
-            printOutTS(PL_ERROR,"* RSMSobolTSI ERROR: S PDF not supported.\n");
+            printOutTS(PL_ERROR,
+                 "* RSMSobolTSI ERROR: S PDF not supported.\n");
             return PSUADE_UNDEFINED;
          }
       }
    }
    if (noPDF == 1) 
-      printOutTS(PL_INFO, "* RSMSobolTSI INFO: all uniform distributions.\n");
+      printOutTS(PL_INFO,"* RSMSobolTSI INFO: all uniform distributions.\n");
    else
    {
-      printOutTS(PL_INFO, "* RSMSobolTSI INFO: non-uniform distributions\n");
-      printOutTS(PL_INFO, " detected.\n");
+      printOutTS(PL_INFO,"* RSMSobolTSI INFO: non-uniform distributions\n");
+      printOutTS(PL_INFO,"* detected.\n");
    }
 
    if (nInputs <= 0 || nSamples <= 0 || nOutputs <= 0) 
@@ -702,8 +730,10 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       {
          if (corMatp->getEntry(ii,jj) != 0.0)
          {
-            printOutTS(PL_ERROR,"RSMSobolTSI INFO: this method cannot handle\n");
-            printOutTS(PL_ERROR,"                  correlated inputs yet. \n");
+            printOutTS(PL_ERROR,
+                 "RSMSobolTSI INFO: this method cannot handle\n");
+            printOutTS(PL_ERROR,
+                 "                  correlated inputs yet. \n");
             return PSUADE_UNDEFINED;
          }
       }
@@ -713,8 +743,10 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       if (Y3[nOutputs*ii+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
    if (status == 1)
    {
-      printOutTS(PL_ERROR,"RSMSobolTSI ERROR: Some outputs are undefined. Prune\n");
-      printOutTS(PL_ERROR,"                   the undefined sample points first.\n");
+      printOutTS(PL_ERROR,
+           "RSMSobolTSI ERROR: Some outputs are undefined. Prune\n");
+      printOutTS(PL_ERROR,
+           "                   the undefined sample points first.\n");
       return PSUADE_UNDEFINED;
    }
    Y = new double[nSamples];
@@ -734,7 +766,7 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       printOutTS(PL_INFO,"* points by varying all other inputs. For each of\n");
       printOutTS(PL_INFO,"* the M sample points, K levels of each input is\n");
       printOutTS(PL_INFO,"* used. The total sample size = nInputs * M * K.\n");
-      nSubSamples = 5000;
+      nSubSamples = 10000;
       nLevels = 50;
       printOutTS(PL_INFO,"* nInputs m = %d\n", nInputs);
       printOutTS(PL_INFO,"* default M = %d\n", nSubSamples);
@@ -742,7 +774,7 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       printOutTS(PL_INFO,"* Please enter your desired M and K below.\n");
       printOutTS(PL_INFO,"* NOTE: large M and K may take a long time\n");
       printEquals(PL_INFO, 0);
-      sprintf(pString,"Enter M (1000 - 10000) : ");
+      sprintf(pString,"Enter M (1000 - 50000) : ");
       nSubSamples = getInt(1000,510000,pString);
       sprintf(pString,"Enter K (50 - 500) : ");
       nLevels = getInt(50,500,pString);
@@ -758,7 +790,7 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    }
    else
    {  
-      nSubSamples = 5000;
+      nSubSamples = 10000;
       nLevels = 50;
       if (psConfig_ != NULL)
       {
@@ -768,13 +800,15 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamples);
             if (nSubSamples < 1000)
             {
-               printOutTS(PL_INFO,"RSMSobolTSI INFO: nSubSamples should be >= 1000.\n");
+               printOutTS(PL_INFO,
+                    "RSMSobolTSI INFO: nSubSamples should be >= 1000.\n");
                nSubSamples = 1000;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobolTSI INFO: nSubSamples = %d (config).\n",
-                          nSubSamples);
+               printOutTS(PL_INFO, 
+                    "RSMSobolTSI INFO: nSubSamples = %d (config).\n",
+                    nSubSamples);
             }
          }
          cString = psConfig_->getParameter("RSMSoboltsi_nlevels");
@@ -783,7 +817,7 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nLevels);
             if (nLevels < 50)
             {
-               printOutTS(PL_INFO, "RSMSobolTSI INFO: nLevels should be >= 50.\n");
+               printOutTS(PL_INFO,"RSMSobolTSI INFO: nLevels should be >= 50.\n");
                nLevels = 50;
             }
             else
@@ -804,14 +838,16 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
          printOutTS(PL_INFO,"* nInputs m = %d\n", nInputs);
          printOutTS(PL_INFO,"* default M = %d\n", nSubSamples);
          printOutTS(PL_INFO,"* default K = %d\n", nLevels);
-         printOutTS(PL_INFO,"To change settings, re-run with ana_expert mode on.\n");
+         printOutTS(PL_INFO,
+              "To change settings, re-run with ana_expert mode on.\n");
          printAsterisks(PL_INFO, 0);
       }
    }
 
    nSamp = 200000;
 
-   printOutTS(PL_INFO,"RSMSobolTSI INFO: creating a sample for basic statistics.\n");
+   printOutTS(PL_INFO,
+        "RSMSobolTSI INFO: creating a sample for basic statistics.\n");
    printOutTS(PL_INFO,"                  sample size = %d\n", nSamp);
 
    sampleInputs  = new double[nSamp*nInputs];
@@ -835,7 +871,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    double *sampleStdevs = new double[nSamp];
 
    if (printLevel > 1)
-      printOutTS(PL_INFO,"RSMSobolTSI: response surface evaluation begins...\n");
+      printOutTS(PL_INFO,
+           "RSMSobolTSI: response surface evaluation begins...\n");
 
    if (ntimes <= 1)
    {
@@ -844,10 +881,12 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    }
    else
    {
-      faPtr->evaluatePointFuzzy(nSamp,sampleInputs,sampleOutputs,sampleStdevs);
+      faPtr->evaluatePointFuzzy(nSamp,sampleInputs,sampleOutputs,
+                                sampleStdevs);
    }
    if (printLevel > 1)
-      printOutTS(PL_INFO,"RSMSobolTSI: response surface evaluation ends...\n");
+      printOutTS(PL_INFO,
+           "RSMSobolTSI: response surface evaluation ends...\n");
 
    dmean = 0.0;
    for (ii = 0; ii < nSamp; ii++) dmean += sampleOutputs[ii];
@@ -858,8 +897,10 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    dvar /= (double) nSamp;
    if (printLevel > 1)
    {
-      printOutTS(PL_INFO, "RSMSobolTSI: sample mean (N=%d) = %e.\n", nSamp, dmean);
-      printOutTS(PL_INFO, "RSMSobolTSI: sample std  (N=%d) = %e.\n", nSamp, sqrt(dvar));
+      printOutTS(PL_INFO,"RSMSobolTSI: sample mean (N=%d) = %e.\n",
+                 nSamp, dmean);
+      printOutTS(PL_INFO,"RSMSobolTSI: sample std  (N=%d) = %e.\n",
+                 nSamp, sqrt(dvar));
    }
 
    int    nn, count;
@@ -884,7 +925,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    {
       if (rsPDFs[ii] != NULL)
       {
-         rsPDFs[ii]->genSample(ntimes,newY,sampleOutputs[ii]-4*sampleStdevs[ii],
+         rsPDFs[ii]->genSample(ntimes,newY,
+                               sampleOutputs[ii]-4*sampleStdevs[ii],
                                sampleOutputs[ii]+4*sampleStdevs[ii]);
       }
       else 
@@ -909,7 +951,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    {
       if (rsPDFs[ii] != NULL)
       {
-         rsPDFs[ii]->genSample(ntimes,newY,sampleOutputs[ii]-4*sampleStdevs[ii],
+         rsPDFs[ii]->genSample(ntimes,newY,
+                               sampleOutputs[ii]-4*sampleStdevs[ii],
                                sampleOutputs[ii]+4*sampleStdevs[ii]);
       } 
       else 
@@ -930,12 +973,15 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
 
    count  = 0;
    for (nn = 0; nn < ntimes; nn++) count += Ycnts[nn];
-   printOutTS(PL_INFO,"* RSMSobolTSI INFO: %6.2f percent passes the contraints\n",
-          (double) count * 100.0 /((double) ntimes*nSamp));
+   printOutTS(PL_INFO,
+        "* RSMSobolTSI INFO: %6.2f percent passes the contraints\n",
+        (double) count * 100.0 /((double) ntimes*nSamp));
    if (100.0 * count / ((double) ntimes*nSamp) < 10.0)
    {
-      printOutTS(PL_ERROR, "RSMSobolTSI ERROR: too few samples that satisify the ");
-      printOutTS(PL_ERROR, "constraints (%d out of %d).\n", count, nSubSamples);
+      printOutTS(PL_ERROR,
+           "RSMSobolTSI ERROR: too few samples that satisify the ");
+      printOutTS(PL_ERROR, 
+           "constraints (%d out of %d).\n", count, nSubSamples);
       delete [] sampleInputs;
       delete [] sampleOutputs;
       delete [] sampleStdevs;
@@ -968,10 +1014,12 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       variance += (Ymeans[nn] - dmean) * (Ymeans[nn] - dmean) ;
    variance /= (double) ntimes;
 
-   printOutTS(PL_INFO,"* RSMSobolTSI: sample mean (std dev of mean) = %10.3e (%10.3e)\n",
-          dmean, sqrt(variance));
-   printOutTS(PL_INFO,"* RSMSobolTSI: std dev (std dev of std dev)  = %10.3e (%10.3e)\n",
-          smean, sstd);
+   printOutTS(PL_INFO,
+        "* RSMSobolTSI: sample mean (std dev of mean) = %10.3e (%10.3e)\n",
+        dmean, sqrt(variance));
+   printOutTS(PL_INFO,
+        "* RSMSobolTSI: std dev (std dev of std dev)  = %10.3e (%10.3e)\n",
+        smean, sstd);
 
    //save mean & std
    outputMean_ = dmean;
@@ -1014,7 +1062,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       
       if (corFlag == 0)
       {
-         printOutTS(PL_DETAIL,"RSMSobolTSI: create samples (no input correlation)\n");
+         printOutTS(PL_DETAIL,
+              "RSMSobolTSI: create samples (no input correlation)\n");
          corMat1.setDim(nInputs-1, nInputs-1);
          for (jj = 0; jj < ii; jj++)
          {
@@ -1065,7 +1114,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       }
       else
       {
-         printOutTS(PL_DETAIL,"RSMSobolTSI: create samples (has input correlation)\n");
+         printOutTS(PL_DETAIL,
+              "RSMSobolTSI: create samples (has input correlation)\n");
          if (nInputs > 51)
             sampler = SamplingCreateFromID(PSUADE_SAMP_LHS);
          else
@@ -1156,7 +1206,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       }
       else
       {
-         faPtr->evaluatePointFuzzy(nLevels*nSubSamples,mSamplePts,YFuzzy,SFuzzy);
+         faPtr->evaluatePointFuzzy(nLevels*nSubSamples,mSamplePts,
+                                   YFuzzy,SFuzzy);
       }
 
       for (jj = 0; jj < nSubSamples; jj++)
@@ -1174,7 +1225,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
             }
             else
             {
-               for (nn = 0; nn < ntimes; nn++) YZ[iL*ntimes+nn] = YFuzzy[offset+iL];
+               for (nn = 0; nn < ntimes; nn++) 
+                  YZ[iL*ntimes+nn] = YFuzzy[offset+iL];
             }
          }
 
@@ -1274,7 +1326,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
       printOutTS(PL_INFO, "RSMSobolTSI (normalized) for input %3d = %12.4e",
                  ii+1,tsiMeds[ii]);
       if (ntimes > 1)
-           printOutTS(PL_INFO, ", bounds = [%12.4e, %12.4e]\n",tsiMins[ii],tsiMaxs[ii]);
+           printOutTS(PL_INFO, ", bounds = [%12.4e, %12.4e]\n",
+                      tsiMins[ii],tsiMaxs[ii]);
       else printOutTS(PL_INFO, "\n");
    }
    if (ntimes == 1)
@@ -1307,13 +1360,15 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
    {
       printEquals(PL_INFO, 0);
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "RSMSobolTSI (unnormalized) for input %3d = %12.4e\n",
-                    ii+1, tsiMeds[ii]);
+         printOutTS(PL_INFO, 
+              "RSMSobolTSI (unnormalized) for input %3d = %12.4e\n",
+              ii+1, tsiMeds[ii]);
       for (ii = 0; ii < nInputs; ii++) means[ii] = (double) ii;
       sortDbleList2(nInputs, tsiMeds, means);
       for (ii = nInputs-1; ii >= 0; ii--)
-         printOutTS(PL_INFO, "RSMSobolTSI (unnormalized,ordered) for input %3d = %12.4e\n",
-                    (int) means[ii]+1,tsiMeds[ii]);
+         printOutTS(PL_INFO, 
+              "RSMSobolTSI (unnormalized,ordered) for input %3d = %12.4e\n",
+              (int) means[ii]+1,tsiMeds[ii]);
       printAsterisks(PL_INFO, 0);
    }
 
@@ -1341,7 +1396,8 @@ double RSMSobolTSIAnalyzer::analyze3(aData &adata)
 // ------------------------------------------------------------------------
 RSMSobolTSIAnalyzer& RSMSobolTSIAnalyzer::operator=(const RSMSobolTSIAnalyzer &)
 {
-   printOutTS(PL_ERROR, "RSMSobolTSI operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,
+              "RSMSobolTSI operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -1404,7 +1460,8 @@ int RSMSobolTSIAnalyzer::printResults(int nInputs, double variance,
       fprintf(fp, "nn = %d;\n", nInputs);
       fprintf(fp, "var = %e;\n", variance);
       fprintf(fp, "Mids = [\n");
-      for (ii = 0; ii < nInputs; ii++) fprintf(fp,"%24.16e\n",tsi[ii]/variance);
+      for (ii = 0; ii < nInputs; ii++) 
+         fprintf(fp,"%24.16e\n",tsi[ii]/variance);
       fprintf(fp, "];\n");
       if (flag == 1)
       {
@@ -1431,8 +1488,9 @@ int RSMSobolTSIAnalyzer::printResults(int nInputs, double variance,
             if (iNames[ii] != NULL) fprintf(fp,"'%s',",iNames[ii]);
             else                    fprintf(fp,"'X%d',",ii+1);
          }
-         if (iNames[nInputs-1] != NULL) fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
-         else                           fprintf(fp,"'X%d'};\n",nInputs);
+         if (iNames[nInputs-1] != NULL) 
+              fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
+         else fprintf(fp,"'X%d'};\n",nInputs);
       }
       fwritePlotCLF(fp);
       fprintf(fp, "if (sortFlag == 1)\n");
@@ -1509,13 +1567,16 @@ int RSMSobolTSIAnalyzer::printResults(int nInputs, double variance,
       else fprintf(fp, "      hold off\n");
       fclose(fp);
       if (psPlotTool_ == 1)
-           printOutTS(PL_INFO, "RSMSobolTSI plot file = scilabrssoboltsi.sci\n");
-      else printOutTS(PL_INFO, "RSMSobolTSI plot file = matlabrssoboltsi.m\n");
+           printOutTS(PL_INFO, 
+                "RSMSobolTSI plot file = scilabrssoboltsi.sci\n");
+      else printOutTS(PL_INFO, 
+                "RSMSobolTSI plot file = matlabrssoboltsi.m\n");
       return 0;
    }
    else
    {
-      printOutTS(PL_ERROR,"RSMSobolTSI ERROR: cannot create rssoboltsi graphics.\n");
+      printOutTS(PL_ERROR,
+           "RSMSobolTSI ERROR: cannot create rssoboltsi graphics.\n");
       return 0;
    }
 }
@@ -1541,7 +1602,9 @@ double *RSMSobolTSIAnalyzer::get_totalSensitivity()
   if (totalSensitivity_)
   {
      retVal = new double[nInputs_];
-     std::copy(totalSensitivity_, totalSensitivity_+nInputs_, retVal);
+     for (int ii = 0; ii < nInputs_; ii++) 
+        retVal[ii] = totalSensitivity_[ii];
   }
   return retVal;
 }
+

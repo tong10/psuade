@@ -27,8 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <iostream>
-#include <algorithm>
 
 #include "PsuadeUtil.h"
 #include "sysdef.h"
@@ -69,7 +67,7 @@ double RSMSobol1Analyzer::analyze(aData &adata)
 {
    int    nInputs, nOutputs, nSamples, *S, *SS, nSteps, outputID, noPDF=1;
    int    ii, jj, kk, iL, iR, sCnt, status, currNLevels, method=1, corFlag;
-   int    nSubSamples=2000, nLevels=500, pdfFileFlag=0, *bins, *pdfFlags2;
+   int    nSubSamples=1000, nLevels=200, pdfFileFlag=0, *bins, *pdfFlags2;
    int    printLevel, nSamp, scatterFileFlag=0, totalCnt, *pdfFlags;
    double *X, *Y, *Y2, *XX, *YY, *ZZ, *oneSamplePt, dmean;
    double *xLower, *xUpper, *cLower, *cUpper, *means, variance, *vces;
@@ -220,12 +218,13 @@ double RSMSobol1Analyzer::analyze(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamples);
             if (nSubSamples < 1000)
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nSubSamples should be >= 1000.\n");
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nSubSamples should be >= 1000.\n");
                nSubSamples = 1000;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nSubSamples = %d (config).\n",nSubSamples);
+               printOutTS(PL_INFO, 
+                    "RSMSobol1 INFO: nSubSamples = %d (config).\n",nSubSamples);
             }
          }
          cString = psConfig_->getParameter("RSMSobol1_nlevels");
@@ -234,25 +233,26 @@ double RSMSobol1Analyzer::analyze(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nLevels);
             if (nLevels < 200)
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nLevels should be >= 200.\n");
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nLevels should be >= 200.\n");
                nLevels = 200;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nLevels = %d (config).\n",nLevels);
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nLevels = %d (config).\n",nLevels);
             }
          }
       }
 
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "* RSMSobol1 creates one sample of size M \n");
-      printOutTS(PL_INFO, "* for each of the K input levels. Therefore,\n");
-      printOutTS(PL_INFO, "* the total sample size is\n");
-      printOutTS(PL_INFO, "* N = M * K * nInputs.\n");
-      printOutTS(PL_INFO, "* nInputs m = %d \n", nInputs);
-      printOutTS(PL_INFO, "* default M = %d\n", nSubSamples);
-      printOutTS(PL_INFO, "* default K = %d\n", nLevels);
-      printOutTS(PL_INFO, "* To change these settings, turn on ana_expert mode and rerun.\n");
+      printOutTS(PL_INFO,"* RSMSobol1 creates one sample of size M \n");
+      printOutTS(PL_INFO,"* for each of the K input levels. Therefore,\n");
+      printOutTS(PL_INFO,"* the total sample size is\n");
+      printOutTS(PL_INFO,"* N = M * K * nInputs.\n");
+      printOutTS(PL_INFO,"* nInputs m = %d \n", nInputs);
+      printOutTS(PL_INFO,"* default M = %d\n", nSubSamples);
+      printOutTS(PL_INFO,"* default K = %d\n", nLevels);
+      printOutTS(PL_INFO,
+           "* To change these settings, turn on ana_expert mode and rerun.\n");
       printAsterisks(PL_INFO, 0);
 
    }
@@ -268,8 +268,8 @@ double RSMSobol1Analyzer::analyze(aData &adata)
    }
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO, "RSMSobol1 will create a sample for basic statistics. You\n");
-      printOutTS(PL_INFO, "have the option to plot the probability density function.\n");
+      printOutTS(PL_INFO,"RSMSobol1 will create a sample for basic statistics. You\n");
+      printOutTS(PL_INFO,"have the option to plot the probability density function.\n");
       sprintf(pString, "Create a pdf (probability) bar graph? (y or n) ");
       getString(pString, winput1);
       if (winput1[0] == 'y')
@@ -304,8 +304,8 @@ double RSMSobol1Analyzer::analyze(aData &adata)
    }
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO, "RSMSobol1 will create many samples for Sobol1 analysis. You\n");
-      printOutTS(PL_INFO, "have the option to plot these sample data.\n");
+      printOutTS(PL_INFO,"RSMSobol1 will create many samples for Sobol1 analysis.\n");
+      printOutTS(PL_INFO,"You have the option to plot these sample data.\n");
       sprintf(pString, "Create a scatter plot for RSMSobol1? (y or n) ");
       getString(pString, winput1);
       if (winput1[0] == 'y')
@@ -333,8 +333,8 @@ double RSMSobol1Analyzer::analyze(aData &adata)
    nSamp = 100000;
    if (printLevel > 1)
    {
-      printOutTS(PL_INFO, "RSMSobol1 INFO: creating a sample for basic statistics.\n");
-      printOutTS(PL_INFO, "                sample size = %d\n", nSamp);
+      printOutTS(PL_INFO,"RSMSobol1 INFO: creating a sample for basic statistics.\n");
+      printOutTS(PL_INFO,"                sample size = %d\n", nSamp);
    }
 
    XX = new double[nSamp*nInputs];
@@ -368,9 +368,9 @@ double RSMSobol1Analyzer::analyze(aData &adata)
       delete sampler;
    }
 
-   printOutTS(PL_INFO, "RSMSobol1: running the sample with response surface...\n");
+   printOutTS(PL_INFO,"RSMSobol1: running the sample with response surface...\n");
    faPtr->evaluatePoint(nSamp, XX, YY);
-   printOutTS(PL_INFO, "RSMSobol1: done running the sample with response surface.\n");
+   printOutTS(PL_INFO,"RSMSobol1: done running the sample with response surface.\n");
 
    for (ii = 0; ii < nSamp; ii++)
    {
@@ -603,7 +603,6 @@ double RSMSobol1Analyzer::analyze(aData &adata)
             {
                oneSamplePt = &(mSamplePts[jj*nInputs]);
                ddata = constrPtr->evaluate(oneSamplePt, YY[jj], status);
-
                if (status == 0) YY[jj] = PSUADE_UNDEFINED;
 
                if (scatterFileFlag == 1 && iR == 0 && ddata != PSUADE_UNDEFINED)
@@ -631,8 +630,9 @@ double RSMSobol1Analyzer::analyze(aData &adata)
             else           means[iL] = PSUADE_UNDEFINED;
             if (printLevel > 3)
             {
-               printOutTS(PL_INFO, "RSMSobol1: input %d :\n", ii+1);
-               printOutTS(PL_INFO, "  refinement %2d, level %3d, size %d), mean = %e\n",iR,
+               printOutTS(PL_INFO,"RSMSobol1: input %d :\n", ii+1);
+               printOutTS(PL_INFO,
+                      "  refinement %2d, level %3d, size %d), mean = %e\n",iR,
                       iL+1, nSubSamples, means[iL]);
             }
             vars[iL] = 0.0;
@@ -667,7 +667,7 @@ double RSMSobol1Analyzer::analyze(aData &adata)
                            bins[iL] / totalCnt;
          if (printLevel > 2 || iR == 3)
          {
-            printOutTS(PL_INFO, "VCE(%3d) (refinement=%3d) = %e, (normalized) = %e\n",
+            printOutTS(PL_INFO,"VCE(%3d) (refinement=%3d) = %e, (normalized) = %e\n",
                    ii+1, iR, vces[ii], vces[ii]/variance);
          }
          if (iR == 3) vces[ii] = vces[ii] / variance;
@@ -680,7 +680,7 @@ double RSMSobol1Analyzer::analyze(aData &adata)
          }
          if (printLevel > 2)
          {
-            printOutTS(PL_INFO, "ECV(%3d) (refinement=%3d) = %e, (normalized) = %e\n",
+            printOutTS(PL_INFO,"ECV(%3d) (refinement=%3d) = %e, (normalized) = %e\n",
                    ii+1, iR, ecvs[ii], ecvs[ii]/variance);
          }
          currNLevels *= 2;
@@ -690,12 +690,13 @@ double RSMSobol1Analyzer::analyze(aData &adata)
    {
       printAsterisks(PL_INFO, 0);
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "RSMSobol1: Normalized VCE for input %3d = %e\n",ii+1,vces[ii]);
+         printOutTS(PL_INFO, "RSMSobol1: Normalized VCE for input %3d = %e\n",
+                    ii+1,vces[ii]);
       for (ii = 0; ii < nInputs; ii++) means[ii] = (double) ii;
       printEquals(PL_INFO, 0);
       sortDbleList2(nInputs, vces, means);
       for (ii = nInputs-1; ii >= 0; ii--)
-         printOutTS(PL_INFO, "RSMSobol1: Normalized VCE (ordered) for input %3d = %e\n",
+         printOutTS(PL_INFO,"RSMSobol1: Normalized VCE (ordered) for input %3d = %e\n",
                 (int) means[ii]+1,vces[ii]);
       printAsterisks(PL_INFO, 0);
    }
@@ -1054,14 +1055,14 @@ double RSMSobol1Analyzer::analyze2(aData &adata)
          for (iL = 0; iL < currNLevels; iL++)
          {
             if (bins[iL] < nSubSamples/10 && printLevel >= 5)
-               printOutTS(PL_INFO, "RSMSobol1 WARNING: subsample size = %d\n",bins[iL]);
+               printOutTS(PL_INFO,"RSMSobol1 WARNING: subsample size = %d\n",bins[iL]);
             if (bins[iL] >= 1) means[iL] /= (double) bins[iL];
             else               means[iL] = PSUADE_UNDEFINED;
             if (printLevel > 3)
             {
-               printOutTS(PL_INFO, "RSMSobol1: input %d :\n", ii+1);
-               printOutTS(PL_INFO, "  refinement %2d, level %3d, size %d), mean = %e\n",iR,
-                      iL, nSubSamples, means[iL]);
+               printOutTS(PL_INFO,"RSMSobol1: input %d :\n", ii+1);
+               printOutTS(PL_INFO,"  refinement %2d, level %3d, size %d), mean = %e\n",
+                          iR, iL, nSubSamples, means[iL]);
             }
          }
          for (jj = 0; jj < nSamp; jj++)
@@ -1101,7 +1102,7 @@ double RSMSobol1Analyzer::analyze2(aData &adata)
                            bins[iL] / totalCnt;
          if (printLevel > 2 || iR == 3)
          {
-            printOutTS(PL_INFO, "VCE(%3d) (refinement=%3d) = %e, (normalized) = %e\n",
+            printOutTS(PL_INFO,"VCE(%3d) (refinement=%3d) = %e, (normalized) = %e\n",
                    ii+1, iR, vces[ii], vces[ii]/variance);
          }
          if (iR == 3) vces[ii] = vces[ii] / variance;
@@ -1120,7 +1121,8 @@ double RSMSobol1Analyzer::analyze2(aData &adata)
       }
    }
    for (ii = 0; ii < nInputs; ii++)
-      printOutTS(PL_INFO, "RSMSobol1: Normalized VCE for input %3d = %e\n",ii+1,vces[ii]);
+      printOutTS(PL_INFO,"RSMSobol1: Normalized VCE for input %3d = %e\n",
+                 ii+1,vces[ii]);
 
    delete faPtr;
    delete constrPtr;
@@ -1141,7 +1143,7 @@ double RSMSobol1Analyzer::analyze2(aData &adata)
 double RSMSobol1Analyzer::analyze3(aData &adata)
 {
    int    ii, jj, nn, count, status, *SS, nSamp;
-   int    nSubSamples=200, nLevels=20000, ntimes=1;
+   int    nSubSamples=1000, nLevels=200, ntimes=1, nConstr;
    double *Y, dmean, variance, ddata, ddata2;
    char   pString[500], *cString, winput1[500], winput2[500];
    FuncApprox    *faPtr;
@@ -1156,7 +1158,6 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
    printOutTS(PL_INFO,"*          RS-based First Order Sobol' Indices \n");
    printEquals(PL_INFO, 0);
    printOutTS(PL_INFO,"* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET\n");
-   printOutTS(PL_INFO,"*\n");
    printOutTS(PL_INFO,"* - ana_expert mode to finetune RSMSobol1 parameters\n");
    printOutTS(PL_INFO,"*   (e.g. to adjust sample size for integration).\n");
    printOutTS(PL_INFO,"* - rs_expert mode to finetune response surface\n");
@@ -1195,7 +1196,7 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
       printOutTS(PL_INFO,"* RSMSobol1 INFO: all uniform distributions.\n");
    else
    {
-      printOutTS(PL_INFO,"RSMSobol1 INFO: non-uniform distributions\n");
+      printOutTS(PL_INFO,"RSMSobol1 INFO: non-uniform distributions");
       printOutTS(PL_INFO," detected.\n");
    }
 
@@ -1231,7 +1232,7 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
       {
          if (corMatp->getEntry(ii,jj) != 0.0)
          {
-            printOutTS(PL_INFO, "RSMSobol1 INFO: Correlated inputs deteced.\n");
+            printOutTS(PL_INFO, "RSMSobol1 INFO: Correlated inputs detected.\n");
             printOutTS(PL_INFO, "   Alternative analyis is to be performed.\n");
             corFlag = 1;
          }
@@ -1253,6 +1254,7 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
 
    constrPtr = new RSConstraints();
    constrPtr->genConstraints(ioPtr);
+   nConstr = constrPtr->getNumConstraints();
 
    faPtr = genFAInteractive(ioPtr, 0);
    status = faPtr->initialize(X, Y);
@@ -1265,8 +1267,8 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
       printOutTS(PL_INFO,"* for each of the K levels of each input.\n");
       printOutTS(PL_INFO,"* Therefore, the total sample size is\n");
       printOutTS(PL_INFO,"* N = M * K * nInputs\n");
-      nSubSamples = 500;
-      nLevels = 2000;
+      nSubSamples = 1000;
+      nLevels = 200;
       printOutTS(PL_INFO,"* nInputs m = %d\n", nInputs);
       printOutTS(PL_INFO,"* default M = %d\n", nSubSamples);
       printOutTS(PL_INFO,"* default K = %d\n", nLevels);
@@ -1275,7 +1277,7 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
       printEquals(PL_INFO, 0);
       sprintf(pString,"Enter M (suggestion: 100 - 10000) : ");
       nSubSamples = getInt(100, 10000, pString);
-      sprintf(pString,"Enter K (suggestion: 1000 - 50000) : ");
+      sprintf(pString,"Enter K (suggestion: 100 - 10000) : ");
       nLevels = getInt(1000, 50000, pString);
       printOutTS(PL_INFO,"* To include response surface uncertainties in\n");
       printOutTS(PL_INFO,"* this analysis, the sensitivity calculation\n");
@@ -1289,8 +1291,8 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
    }
    else
    {
-      nSubSamples = 500;
-      nLevels = 2000;
+      nSubSamples = 1000;
+      nLevels = 200;
       if (psConfig_ != NULL)
       {
          cString = psConfig_->getParameter("RSMSobol1_nsubsamples");
@@ -1299,12 +1301,12 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamples);
             if (nSubSamples < 100)
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nSubSamples should be >= 100.\n");
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nSubSamples should be >= 100.\n");
                nSubSamples = 100;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nSubSamples = %d (config).\n",
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nSubSamples = %d (config).\n",
                           nSubSamples);
             }
          }
@@ -1314,12 +1316,12 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nLevels);
             if (nLevels < 1000)
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nLevels should be >= 1000.\n");
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nLevels should be >= 1000.\n");
                nLevels = 1000;
             }
             else
             {
-               printOutTS(PL_INFO, "RSMSobol1 INFO: nLevels = %d (config).\n",nLevels);
+               printOutTS(PL_INFO,"RSMSobol1 INFO: nLevels = %d (config).\n",nLevels);
             }
          }
       }
@@ -1462,8 +1464,11 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
    
    count  = 0;
    for (nn = 0; nn < ntimes; nn++) count += YYc[nn];
-   printOutTS(PL_INFO,"RSMSobol1 INFO: %6.2f percent passes the contraints.\n",
-          (double) count * 100.0 /((double) ntimes*nSamp));
+   if (nConstr > 0)
+   {
+      printOutTS(PL_INFO,"RSMSobol1 INFO: %6.2f percent passes the contraints.\n",
+                 (double) count * 100.0 /((double) ntimes*nSamp));
+   }
    for (nn = 0; nn < ntimes; nn++)
    {
       if (YYc[nn] > 0) YYs[nn] = sqrt(YYs[nn]/YYc[nn]);
@@ -1917,7 +1922,7 @@ double *RSMSobol1Analyzer::get_vces()
    if (vces_)
    {
       retVal = new double[nInputs_];
-      std::copy(vces_, vces_+nInputs_, retVal);
+      for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = vces_[ii];
    }
    return retVal;
 }

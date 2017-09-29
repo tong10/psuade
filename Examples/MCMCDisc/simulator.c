@@ -20,6 +20,7 @@ main(int argc, char **argv)
    X2 = X[1];
    fOut = fopen(argv[2], "w");
    Y  = 0.6 + X2;
+Y  = X[0] + X2;
    fprintf(fOut, " %24.16e\n", Y);
    fclose(fOut);
 }

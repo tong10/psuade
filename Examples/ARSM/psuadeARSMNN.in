@@ -24,6 +24,6 @@ ANALYSIS
    analyzer output_id  = 1
    analyzer threshold  = 1.0e-6
    analyzer rstype  = MARSBag
-   diagnostics 1
+   printlevel 1
 END
 END

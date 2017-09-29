@@ -102,7 +102,7 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       }
    }
 
-   if (psRSExpertMode_ == 1)
+   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
       printf("Mars: Current number of basis functions = %d\n", nBasisFcns_);
       if (nSamples > 10)
@@ -166,7 +166,7 @@ int Mars::initialize(double *XIn, double *YIn)
          response[0] = 'y';
       }
    }
-   if (psRSExpertMode_ == 1)
+   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
       sprintf(pString, "Mars: normalize output? (y or n) ");
       getString(pString, response);
@@ -1531,13 +1531,20 @@ double Mars::setParams(int targc, char **targv)
    }
    else if (targc == 3 && !strcmp(targv[0], "mars_params"))
    {
-      nBasisFcns_ = *(int *) targv[1];
-      if (nBasisFcns_ < 20) nBasisFcns_ = 20;
-      maxVarPerBasis_ = *(int *) targv[2];
-      if (maxVarPerBasis_ < 1) maxVarPerBasis_ = 1;
-      if (psRSExpertMode_ == 1)
+      ii = *(int *) targv[1];
+      if (ii > 0)
       {
-         printf("Mars: numBasis    set to = %d.\n", nBasisFcns_);
+         nBasisFcns_ = ii;
+         if (nBasisFcns_ < 20) nBasisFcns_ = 20;
+         if (outputLevel_ >= 2)
+            printf("Mars: numBasis    set to = %d.\n", nBasisFcns_);
+      }
+      jj = *(int *) targv[2];
+      if (jj > 0)
+      {
+         maxVarPerBasis_ = jj;
+         if (maxVarPerBasis_ < 1) maxVarPerBasis_ = 1;
+         if (outputLevel_ >= 2)
          printf("Mars: varPerBasis set to = %d.\n", maxVarPerBasis_);
       }
    }

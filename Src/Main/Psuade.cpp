@@ -33,6 +33,9 @@
 #endif
 #include <math.h>
 #include <stdio.h>
+#include <iostream>
+#include <string>
+using namespace std;
 #include "PsuadeBase.h"
 #include "CommManager.h"
 #include "PsuadeCmakeConfig.h"
@@ -68,7 +71,6 @@ int UserFunction(MPI_Comm mpiComm, int index, char *workdir)
 }
 #endif
 #endif
-
 
 //----------------------------------------------------------------------------
 //  Options
@@ -128,11 +130,9 @@ public:
       localParallelMode(0), inputFilename(""), outputFilename("psuadeData"), 
       programName("psuade")
   {
-
     programName = string(argv[0]);
     bool userSetOutputName = false;
     bool userSetInputName = false;
-
 
     const string HELP        = "--help";
     const string HELP_S      = "-h";
@@ -146,7 +146,6 @@ public:
     const string L_PARALLEL_S= "-mpp";
     const string OUTPUTFILE  = "--output_file=";
     const string OUTPUTFILE_S= "-o";
-
 
     int argp = 1;
     int argn = argc;
@@ -177,9 +176,10 @@ public:
 #ifdef HAVE_PARALLEL
           parallelMode = 1;
 #else
-          printf("WARNING: PARALLEL run requested with %s, but psuade was not built\n", 
-               argv[argp]);
-          printf("         with PARALLEL_BUILD. Option ignored.\n");
+          printf("ERROR: PARALLEL run requested with %s, but psuade was not built\n", 
+                 argv[argp]);
+          printf("        with PARALLEL_BUILD.\n");
+          exit(1);
 #endif /*HAVE_PARALLEL*/
        }
        else if (argv[argp] == L_PARALLEL || argv[argp] == L_PARALLEL_S)
@@ -187,9 +187,10 @@ public:
 #ifdef HAVE_PARALLEL
           localParallelMode = 1;
 #else
-          printf("WARNING: LOCAL PARALLEL run requested with %s, but psuade was not built\n", 
+          printf("ERROR: LOCAL PARALLEL run requested with %s, but psuade was\n", 
                  argv[argp]);
-          printf("         with PARALLEL_BUILD. Option ignored.\n");
+          printf("        not built with PARALLEL_BUILD.\n");
+          exit(1);
 #endif /*HAVE_PARALLEL*/
        }
        else if (OUTPUTFILE.find(argv[argp], 0, OUTPUTFILE.size()) == 0)
@@ -210,6 +211,7 @@ public:
           usage();
           exit(1);
        }
+       argp++;
     }
     //-----------------------------
     // Sanity checks
@@ -225,7 +227,6 @@ public:
     // Check for a inputfile to run.  If the options check consumed all of
     // the arguments, there are none left to run as a inputfile.
     //--------------------------------------------------------------------
-
     if (argp < argc)
     {
       inputFilename = argv[argp];
@@ -237,11 +238,9 @@ public:
     if (argp < argc)  
     {
        cerr << "ERROR: Too many positional command line arguments!" << endl;
-       cerr << "       PSUADE only takes one unnamed argument, an input file given as: " 
+       cerr << "       PSUADE only takes one argument, an input file given as: " 
             << psInputFilename_ << endl;
-       cerr << "       The following arguments are either unknown or need to be moved " 
-            << endl;
-       cerr << "       in front of the input filename: " << endl;
+       cerr << "       The following arguments are invalid " << endl;
        for(;argp < argc; argp++) 
        {
           cerr << "   " << argv[argp] << endl;
@@ -274,12 +273,11 @@ public:
     "  --local_parallel, -mpp : Run PSUADE in local parallel mode\n"
     "  --output_file=, -o : Output file to write to, defaults to psuadeData\n"
     "\n"
-    "  Normally PSUADE is run in the following ways: \n"  
-    "  Normal      mode: psuade <--output_file=...> inputFile \n"
-    "  Interactive mode: psuade\n"
-    "  MP          mode: mpirun/psub/srun -mp <--output_file=...> inputFile \n"
-    "  MPP         mode: psub/srun -mpp <--output_file=...> inputFile \n" <<
-
+    "  Normally PSUADE is run in the following modes: \n"  
+    "  Normal      : psuade <--output_file=...> inputFile \n"
+    "  Interactive : psuade\n"
+    "  MP          : mpirun -np x psuade <--output_file=...> inputFile\n"
+    "  MPP         : srun -N x -n y psuade <--output_file=...> inputFile\n" <<
     endl;
   }
 
@@ -353,9 +351,7 @@ int main(int argc, char** argv)
 {
    int        ind, status=0, mypid=0, nprocs=1, continueFlag=1, mode=0;
    int        one=1, root=0;
-   char       *inputString;
    PsuadeBase *psuade;
-   FILE       *fp;
 
    // --------------------------------------------------------------
    // if made for parallel processing, get machine parameters
@@ -367,6 +363,7 @@ int main(int argc, char** argv)
    initializePrintingTS(2, NULL, mypid);
 
    Options opts(argc, argv);
+   psConfig_ = new PsuadeConfig();
 
    // --------------------------------------------------------------
    // if in parallel mode (if -mp is specified), run parallel jobs
@@ -375,11 +372,10 @@ int main(int argc, char** argv)
    {
       if(opts.inputFilename == "") 
       {
-         cerr << "ERROR: parallel mode requires and input file" << endl;
-         opts.usage();
-         exit(1);
+         psuade = new PsuadeBase();
+         psuade->sessionInteractiveParallel();
       }
-      RunParallel(opts.inputFilename.c_str());
+      else RunParallel(opts.inputFilename.c_str());
    } 
    else if(opts.localParallelMode) 
    {
@@ -409,7 +405,7 @@ int main(int argc, char** argv)
             if (status != 0) exit(status);
             psuade->run();
          } else {
-            psuade->analyzeInteractive();
+            psuade->sessionInteractive();
          }
       }
       catch ( Psuade_Stop_Exception ) 
@@ -432,7 +428,7 @@ int RunParallel(const char *inFileName)
 {
    int  mypid=0, nprocs=1, root=0, one=1, sampleID, lineLeng=200;
    int  nSamples=0, strLeng, *statusArray=NULL, nActive, index;
-   int  procStep=1, hasArg=0, hasAux=0, hasExec=0, start=1;
+   int  procStep=1, hasArg=0, hasAux=0, hasExec=0, start=1, cch;
    const char *keywords[]={"workdir", "executable", "aux_exec", 
                            "num_samples", "proc_step", "argument", 
                            "PSUADE_PARALLEL","num_parallel","sample_start"}; 
@@ -459,7 +455,7 @@ int RunParallel(const char *inFileName)
          printf("RunParallel ERROR - keyword missing.\n");
          exit(1);
       }
-      while ((fgets(lineIn, lineLeng, inFile) != NULL) && (feof(inFile) == 0))
+      while ((fgets(lineIn,lineLeng,inFile) != NULL) && ((cch=fgetc(inFile)) != EOF))
       {
          strcpy(inString, "#");
          sscanf(lineIn,"%s", inString);
@@ -688,7 +684,8 @@ int RunParallel(const char *inFileName)
 }
 
 // ************************************************************************
-// run jobs in MPI parallel mode
+// run jobs in MPI parallel mode when the simulation code has been compiled
+// into psuade
 // ------------------------------------------------------------------------
 int RunParallelLocal(const char *inFileName)
 {

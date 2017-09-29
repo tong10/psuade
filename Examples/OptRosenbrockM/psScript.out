@@ -1,5 +1,5 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.1)
+*      Welcome to PSUADE (version 1.7.4)
 **********************************************************************
 INFO: Creating a sample assuming all uncertain parameters
       are uniformly distributed.
@@ -39,6 +39,52 @@ PSUADE : Search for local minima in sample space.
 				 Y =   4.00000000e+00
 **********************************************************************
 **********************************************************************
+*    BOBYQA Optimizer Usage Information
+======================================================================
+* - To run this optimizer, first make sure opt_driver has been
+*   initialized to point to your optimization objective function
+*   evalutor
+* - Set optimization tolerance in PSUADE file
+* - Set maximum number of iterations in PSUADE file
+* - Set num_local_minima to perform multistart optimization
+* - Set optimization print_level to give additonal outputs
+* - In Opt EXPERT mode, the optimization history log will be
+*   turned on automatically. Previous psuade_bobyqa_history
+*   file will also be reused.
+* - If your opt_driver is a response surface which has more inputs
+*   than the number of optimization inputs, you can fix some driver
+*   inputs by creating a (analyzer) rs_index_file.
+* - In Opt EXPERT mode, you can specialize the objective function
+*   creating a file called psuade_bobyqa_special in your current
+*   directory. This will allow you to create your own objective
+*   function is in the following form: 
+
+*        sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2
+*
+*   where
+*   m   - number of outputs to be used to form linear sum.
+*   n   - number of outputs to form the squared term.
+*   w_i - weight of output i.
+*   C_j - constraint for output j.
+
+* psuade_bobyqa_special should have the following format: 
+*
+	PSUADE_BEGIN
+	<m>         /* m in the above formula */
+	1  <value>  /* the value of w_1 */
+	3  <value>  /* the value of w_3 */
+	...
+	<n>         /* n in the above formula */
+	2  <value>  /* the value of C_2 */
+	...
+	PSUADE_END
+======================================================================
+To reuse the simulations (e.g. restart due to abrupt termination),
+turn on save_history and use_history optimization options in the
+ANALYSIS section (e.g. optimization save_history). You will see
+a file created called 'psuade_bobyqa_history' afterward.
+**********************************************************************
+**********************************************************************
 PSUADE OPTIMIZATION 1 (1) : 
 	 starting X(     1) =   0.00000000e+00
 	 starting X(     2) =   0.00000000e+00
@@ -46,11 +92,11 @@ PSUADE OPTIMIZATION 1 (1) :
 	 starting X(     4) =   0.00000000e+00
 	 starting X(     5) =   0.00000000e+00
 	 starting Y =   4.00000000e+00
+Bobyqa optimizer: selected output for optimization = 1
 Bobyla: setting optimization simulation driver.
 **********************************************************************
 Bobyqa optimizer: max fevals = 10000
 Bobyqa optimizer: tolerance  = 1.000000e-06
-Bobyqa optimizer: selected output = 1
 ======================================================================
 Bobyqa initial X   1 = 0.000000e+00
 Bobyqa initial X   2 = 0.000000e+00
@@ -58,7 +104,6 @@ Bobyqa initial X   3 = 0.000000e+00
 Bobyqa initial X   4 = 0.000000e+00
 Bobyqa initial X   5 = 0.000000e+00
 Bobyqa optimizer: total number of evaluations = 346
-Bobyla: setting back to original simulation driver.
 	 Bobyqa number of function evaluations = 346
 	 optimum  X(     1) =   9.99999974e-01
 	 optimum  X(     2) =   9.99999968e-01
@@ -89,37 +134,3 @@ PSUADE OPTIMIZATION : CURRENT GLOBAL MINIMUM -
 **********************************************************************
 PSUADE Optimization : desired minimum found.
 ======================================================================
-
-
-    New RHO = 2.0000D-01     Number of function values =    22
-    Least value of F =  4.000000000000000D+00         The corresponding X is:
-     0.000000D+00   0.000000D+00   0.000000D+00   0.000000D+00   0.000000D+00
-
-
-    New RHO = 2.0000D-02     Number of function values =    38
-    Least value of F =  4.000000000000000D+00         The corresponding X is:
-     0.000000D+00   0.000000D+00   0.000000D+00   0.000000D+00   0.000000D+00
-
-
-    New RHO = 2.0000D-03     Number of function values =   198
-    Least value of F =  3.118219463732393D-01         The corresponding X is:
-     9.298029D-01   8.669400D-01   7.472126D-01   5.455900D-01   2.967405D-01
-
-
-    New RHO = 2.0000D-04     Number of function values =   308
-    Least value of F =  8.038616298704618D-04         The corresponding X is:
-     9.979774D-01   9.957960D-01   9.905812D-01   9.829641D-01   9.661064D-01
-
-
-    New RHO = 2.0000D-05     Number of function values =   329
-    Least value of F =  1.377960812741790D-06         The corresponding X is:
-     1.000116D+00   1.000202D+00   1.000368D+00   1.000679D+00   1.001401D+00
-
-
-    New RHO = 2.0000D-06     Number of function values =   341
-    Least value of F =  6.054573248457813D-09         The corresponding X is:
-     9.999987D-01   9.999985D-01   9.999981D-01   9.999990D-01   1.000005D+00
-
-    At the return from BOBYQA     Number of function values =   346
-    Least value of F =  7.193194372101521D-14         The corresponding X is:
-     1.000000D+00   1.000000D+00   9.999999D-01   9.999999D-01   9.999998D-01

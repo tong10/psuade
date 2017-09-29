@@ -27,6 +27,6 @@ ANALYSIS
    optimization tolerance = 1.000000e-06
    optimization num_fmin = 1
    optimization print_level = 1
-   diagnostics 3
+   printlevel 3
 END
 END

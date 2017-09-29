@@ -53,7 +53,7 @@ public:
    /** set internal parameters
      @param sparam - string that contains the parameter information
      */
-   void setParam(string sparam);
+   void setParam(char *sparam);
 
    /** assign operator override */ 
    MMOptimizer& operator=(const MMOptimizer &);

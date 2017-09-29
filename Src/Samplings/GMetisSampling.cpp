@@ -835,15 +835,14 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
 // ************************************************************************
 // set internal scheme
 // ------------------------------------------------------------------------
-int GMetisSampling::setParam(string sparam)
+int GMetisSampling::setParam(char *sparam)
 {
-   int           pos, ii, curVol, count;
-   istringstream buffer;
-   string        substr;
+   int  ii, curVol, count;
+   char winput[501];
    FILE *fp;
 
-   pos = sparam.find("reset");
-   if (pos >= 0)
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "reset"))
    {
       fp = fopen("psuadeGMetisInfo", "r");
       if (fp != NULL)
@@ -859,30 +858,22 @@ int GMetisSampling::setParam(string sparam)
       }
       return 0;
    }
-
-   pos = sparam.find("changeInfoName");
-   if (pos >= 0)
+   else if (!strcmp(winput, "changeInfoName"))
    {
       changeInfoName_ = 1;
       return 0;
    }
-
-   pos = sparam.find("setUniformRefinement");
-   if (pos >= 0)
+   else if (!strcmp(winput, "setUniformRefinement"))
    {
       refineType_ = 0;
       return 0;
    }
-
-   pos = sparam.find("setAdaptiveRefinementBasedOnErrors");
-   if (pos >= 0)
+   else if (!strcmp(winput, "setAdaptiveRefinementBasedOnErrors"))
    {
       refineType_ = 1;
       return 0;
    }
-
-   pos = sparam.find("calVolumes");
-   if (pos >= 0)
+   else if (!strcmp(winput, "calVolumes"))
    {
       curVol = count = 0;
       for (ii = 0; ii < nAggrs_; ii++)
@@ -895,21 +886,15 @@ int GMetisSampling::setParam(string sparam)
       }
       return curVol;
    }
-
-   pos = sparam.find("totalVolumes");
-   if (pos >= 0)
+   else if (!strcmp(winput, "totalVolumes"))
    {
       curVol = 0;
       for (ii = 0; ii < nAggrs_; ii++) curVol += aggrCnts_[ii];
       return curVol;
    }
-
-   pos = sparam.find("setRefineSize");
-   if (pos >= 0)
+   else if (!strcmp(winput, "setRefineSize"))
    {
-      substr = sparam.substr(14);
-      buffer.str(substr);
-      buffer >> refineSize_;
+      sscanf(sparam, "%s %d", winput, &refineSize_);
       return 0;
    }
    printf("GMetisSampling ERROR:: setParam - invalid param.\n");

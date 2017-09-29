@@ -1,5 +1,5 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.1)
+*      Welcome to PSUADE (version 1.7.4)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
@@ -226,7 +226,7 @@ MomentAnalyzer INFO: non-uniform probability distributions
                they will not be used in this analysis.
 
 **********************************************************************
-*             Standard error of mean calculation
+*             Basic Output Statistics
 ======================================================================
 * nSamples =      10000
 * nGroups  =          1

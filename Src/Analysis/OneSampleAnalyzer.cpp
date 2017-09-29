@@ -345,6 +345,8 @@ double OneSampleAnalyzer::CSAnalyze(int length, double *Y, int pLevel)
       printOutTS(PL_ERROR, "       because the table for larger sample is not ready.\n");
       return PSUADE_UNDEFINED;
    }
+
+   computeMeanVariance(length, Y, &mean, &var);
    newStd = 0.0;
    while (newStd <= 0.0)
    {
@@ -353,8 +355,6 @@ double OneSampleAnalyzer::CSAnalyze(int length, double *Y, int pLevel)
       scanf("%lg", &newStd);
    }
    fgets(lineIn,500,stdin);
-
-   computeMeanVariance(length, Y, &mean, &var);
    dtemp = var / (newStd * newStd);
    tval = (length - 1.0) * dtemp;
    if (pLevel > 0)

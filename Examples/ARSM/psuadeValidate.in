@@ -20,6 +20,6 @@ ANALYSIS
    analyzer output_id  = 1
    analyzer rstype  = linear
    analyzer threshold  = 1.0e-3
-   diagnostics 1
+   printlevel 1
 END
 END

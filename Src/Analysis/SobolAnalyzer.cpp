@@ -27,8 +27,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
-#include <algorithm>
 
 #include "SobolAnalyzer.h"
 #include "Psuade.h"
@@ -441,7 +439,7 @@ double *SobolAnalyzer::get_modifiedMeans()
    if (modifiedMeans_)
    {
       retVal = new double[nInputs_];
-      std::copy(modifiedMeans_, modifiedMeans_+nInputs_, retVal);
+      for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = modifiedMeans_[ii];
    }
    return retVal;
 }
@@ -451,7 +449,7 @@ double *SobolAnalyzer::get_stds()
    if (stds_)
    {
       retVal = new double[nInputs_];
-      std::copy(stds_, stds_+nInputs_, retVal);
+      for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = stds_[ii];
    }
    return retVal;
 }
@@ -461,7 +459,7 @@ double *SobolAnalyzer::get_S()
    if (S_)
    {
       retVal = new double[nInputs_];
-      std::copy(S_, S_+nInputs_, retVal);
+      for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = S_[ii];
    }
    return retVal;
 }
@@ -470,8 +468,8 @@ double *SobolAnalyzer::get_ST()
    double* retVal = NULL;
    if (ST_)
    {
-     retVal = new double[nInputs_];
-      std::copy(ST_, ST_+nInputs_, retVal);
+      retVal = new double[nInputs_];
+      for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = ST_[ii];
    }
    return retVal;
 }
@@ -481,7 +479,7 @@ double *SobolAnalyzer::get_PE()
    if (PE_)
    {
       retVal = new double[nInputs_];
-      std::copy(PE_, PE_+nInputs_, retVal);
+      for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = PE_[ii];
    }
    return retVal;
 }

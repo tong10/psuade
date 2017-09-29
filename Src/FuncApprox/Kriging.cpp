@@ -52,7 +52,7 @@ extern "C" {
    void dpotrf_(char *, int *, double *, int *, int *);
    void dpotrs_(char *, int *, int *, double *, int *, double *,
                 int *, int *);
-   void bobyqa_(int *,int *, double *, double *, double *, double *,
+   void kbobyqa_(int *,int *, double *, double *, double *, double *,
                 double *, int *, int *, double*);
 }
 
@@ -77,6 +77,7 @@ double *KRI_Ytmp=NULL;
 double KRI_OptY=0.0;
 double *KRI_OptThetas=NULL;
 double *KRI_dataStdDevs=NULL;
+double KRI_Exponent=2.0;
 double KRI_YStd=1.0;
 double KRI_nugget=0.0;
 int    KRI_terminate=0;
@@ -131,14 +132,15 @@ extern "C"
 
          if (KRI_dataStdDevs != NULL) 
          {
-            ddata = pow(KRI_dataStdDevs[jj]/KRI_YStd,2.0);
+            ddata = pow(KRI_dataStdDevs[jj]/KRI_YStd,KRI_Exponent);
             KRI_SMatrix[jj*KRI_nSamples+jj] += ddata;
          }
          for (kk = jj+1; kk < KRI_nSamples; kk++)
          {
             dist = 0.0;
             for (ii = 0; ii < KRI_nInputs; ii++)
-               dist += pow(KRI_XDists[count*KRI_nInputs+ii]/XValues[ii], 2.0);
+               dist += pow(KRI_XDists[count*KRI_nInputs+ii]/XValues[ii],
+                           KRI_Exponent);
             dist = exp(-dist);
             if (dist < 1.0e-16) dist = 0;
             KRI_SMatrix[jj*KRI_nSamples+kk] = dist;
@@ -297,55 +299,58 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    noReuse_ = 0;
 
    // display banner and additonal information
-   printAsterisks(PL_INFO, 0);
-   printf("*                Kriging Analysis\n");
-   printf("* Set printlevel to 1-4 to see Kriging details.\n");
-   printf("* Turn on rs_expert mode to set slow or fast mode.\n");
-   printf("*  + Fast mode: no optimization of hyperparameters.\n");
-   printf("*      - turn on rs_expert to set hyperparameters.\n");
-   printf("*      - default values = 1.0\n");
-   printf("*  + Slow mode : hyperparameters are optimized.\n");
-   printf("*      - to change optimization parameters, turn\n");
-   printf("*        rs_expert mode.\n");
-   printf("*  + Snail mode (DEFAULT): use multi-start optimization.\n");
-   printf("*      - to change optimization parameters, turn\n");
-   printf("*        rs_expert mode.\n");
-   printf("* Create 'ps_terminate' file to gracefully terminate.\n");
-   printf("* Create 'ps_print' file to set print level on the fly.\n");
-   printEquals(PL_INFO, 0);
+   if (psInteractive_ == 1)
+   {
+      printAsterisks(PL_INFO, 0);
+      printf("*                Kriging Analysis\n");
+      printf("* Set printlevel to 1-4 to see Kriging details.\n");
+      printf("* Turn on rs_expert mode to set slow or fast mode.\n");
+      printf("*  + Fast mode: no optimization of hyperparameters.\n");
+      printf("*      - turn on rs_expert to set hyperparameters.\n");
+      printf("*      - default values = 1.0\n");
+      printf("*  + Slow mode : hyperparameters are optimized.\n");
+      printf("*      - to change optimization parameters, turn\n");
+      printf("*        rs_expert mode.\n");
+      printf("*  + Snail mode (DEFAULT): use multi-start optimization.\n");
+      printf("*      - to change optimization parameters, turn\n");
+      printf("*        rs_expert mode.\n");
+      printf("* Create 'ps_terminate' file to gracefully terminate.\n");
+      printf("* Create 'ps_print' file to set print level on the fly.\n");
+      printEquals(PL_INFO, 0);
+   }
 
    // read configure file, if any 
    if (psRSExpertMode_ == 0 && psConfig_ != NULL)
    {
-      strPtr = psConfig_->getParameter("KRI_MODE");
+      strPtr = psConfig_->getParameter("KRI_mode");
       if (strPtr != NULL)
       {
          sscanf(strPtr, "%s %s %d", winput, winput2, &ii);
          if (ii < 1 || ii > 3)
          {
-            printf("Kriging INFO: mode from config file not valid.\n");
+            printf("Kriging INFO: mode from config not valid.\n");
             printf("              mode kept at %d.\n", fastMode_);
          }
          else
          {
             fastMode_ = ii;
-            printf("Kriging INFO: mode from config file = %d.\n",
+            printf("Kriging INFO: mode from config = %d.\n",
                    fastMode_);
          }
       }
-      strPtr = psConfig_->getParameter("KRI_TOL");
+      strPtr = psConfig_->getParameter("KRI_tol");
       if (strPtr != NULL)
       {
          sscanf(strPtr, "%s %s %lg", winput, winput2, &optTolerance_);
          if (optTolerance_ < 0.0 || optTolerance_ >= 1.0)
          {
             optTolerance_ = 1.0e-4;
-            printf("Kriging INFO: tolerance from config file not valid.\n");
+            printf("Kriging INFO: tolerance from config not valid.\n");
             printf("              tolerance kept at %e.\n", optTolerance_);
          }
          else
          {
-            printf("Kriging INFO: tolerance from config file = %e.\n",
+            printf("Kriging INFO: tolerance from config = %e.\n",
                    optTolerance_);
          }
       }
@@ -355,7 +360,6 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          sscanf(strPtr, "%s %d %s %lg", winput, &ii, winput2, &ddata);
          if (ii < 1 || ii > nInputs_)
          {
-            optTolerance_ = 1.0e-6;
             printf("Kriging INFO: invalid input number for length scale.\n");
             printf("              Input number read = %d.\n", ii);
          }
@@ -409,10 +413,24 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          }
       }
    }
+   if (psInteractive_ == 1)
+   {
+      fp = fopen("psuade_kriging_optdata","r");
+      if (fp != NULL)
+      {
+         printf("Kriging: psuade_kriging_optdata file found.\n");
+         sprintf(pString,"Use Kriging length scales from the file? (y or n) ");
+         getString(pString, winput);
+         if (winput[0] == 'y')
+            for (ii = 0; ii < nInputs_; ii++) fscanf(fp,"%lg",&Thetas_[ii]); 
+         fclose(fp);
+         fastMode_ = 1;
+      }
+   }
    
    // if configure file is not used, ask for parameters if
    // response surface expert mode is on 
-   if (psRSExpertMode_ == 1)
+   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
       printf("There are three modes available: \n");
       printf("(1) fast mode with pre-specified thetas\n");
@@ -426,7 +444,7 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          printf("         in the random parameter space.\n");
          printf("Current initial length scales are:\n");
          for (ii = 0; ii < nInputs_; ii++)
-            printf("Input %d: %e\n", ii+1, Thetas_[ii]);
+            printf("    Input %d: %e\n", ii+1, Thetas_[ii]);
          sprintf(pString, "Change length scales (thetas)? (y or n) ");
          getString(pString, winput);
          if (winput[0] == 'y')
@@ -468,7 +486,7 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          {
             printf("Kriging: Current initial length scales (thetas) are:\n");
             for (ii = 0; ii < nInputs_; ii++)
-               printf("Input %d: %e\n", ii+1, Thetas_[ii]);
+               printf("     Input %d: %e\n", ii+1, Thetas_[ii]);
             printf("If some knowledge is available about the relative\n");
             printf("importance of some parameters, different initial\n");
             printf("thetas can be entered to reflect this knowledge \n");
@@ -836,19 +854,28 @@ double Kriging::train(double *X, double *Y)
 
    // compute distances between all pairs of inputs (nDists, XDists)
    computeDistances(&XDists, &nDists);
-   if (KRI_nugget != 0.0) printf("Kriging INFO: nugget = %e\n",KRI_nugget);
+   if (KRI_nugget != 0.0 && outputLevel_ > 0) 
+      printf("Kriging INFO: nugget = %e\n",KRI_nugget);
 
    // fast mode: nothing needs to be done
    if (fastMode_ == 1)
    {
-      printf("Kriging training (1) begins.... (order = %d)\n",pOrder_);
-      printf("Current length scales are:\n");
-      for (ii = 0; ii < nInputs_; ii++)
-         printf("Input %d : %e\n", ii+1, Thetas_[ii]);
+      if (outputLevel_ > 0)
+      {
+         printEquals(PL_INFO,0);
+         printf("Kriging training (1) begins.... (order = %d)\n",pOrder_);
+         printf("Current length scales are:\n");
+         for (ii = 0; ii < nInputs_; ii++)
+            printf("     Input %d : %e\n", ii+1, Thetas_[ii]);
+      }
       if (nSamples_ <= nInputs_ + 1) pOrder_ = 0;
       if (pOrder_ == 1) nBasis = nInputs_ + 1;
       else              nBasis = 1;
-      printf("Kriging training (1) ends.\n");
+      if (outputLevel_ > 0) 
+      {
+         printf("Kriging training (1) ends.\n");
+         printEquals(PL_INFO,0);
+      }
    }
    else
    // slow mode: optimize
@@ -882,17 +909,17 @@ double Kriging::train(double *X, double *Y)
       {
          if (XMeans_[ii] == 0 && XStds_[ii] == 1.0)
          {
-            TUppers[ii] = 20.0 * (upperBounds_[ii]-lowerBounds_[ii]);;
+            TUppers[ii] = 30.0 * (upperBounds_[ii]-lowerBounds_[ii]);;
             TLowers[ii] = 0.1 * (upperBounds_[ii]-lowerBounds_[ii]);;
          }
          else
          {
-            TUppers[ii] = 20.0;
+            TUppers[ii] = 30.0;
             TLowers[ii] = 0.1;
          }
-         if (psMasterMode_ == 1)
+         if (psMasterMode_ == 1 && psInteractive_ == 1)
          {
-            printf("Kriging: current optimization lower bound for input %d = %e",
+            printf("Kriging: current optimization lower bound for input %d = %e\n",
                    ii+1,TLowers[ii]);
             sprintf(pString,
                "Kriging: Enter optimization lower bound for input %d : ",ii+1);
@@ -902,7 +929,7 @@ double Kriging::train(double *X, double *Y)
                printf("Kriging ERROR: lower bound <= 0\n");
                exit(1);
             }
-            printf("Kriging: current optimization upper bound for input %d = %e",
+            printf("Kriging: current optimization upper bound for input %d = %e\n",
                    ii+1,TUppers[ii]);
             sprintf(pString,
                "Kriging: Enter optimization upper bound for input %d : ",ii+1);
@@ -925,22 +952,27 @@ double Kriging::train(double *X, double *Y)
       TValues = new double[nInputs_+1];
       nPts = (nInputs_ + 1) * (nInputs_ + 2) / 2;
       work = new double[(nPts+5)*(nPts+nInputs_)+3*nInputs_*(nInputs_+5)/2+1];
-      printEquals(PL_INFO, 0);
-      printf("* Kriging optimization tolerance = %e\n", rhoend);
+      if (outputLevel_ > 0)
+      {
+         printEquals(PL_INFO, 0);
+         printf("* Kriging optimization tolerance = %e\n", rhoend);
+      }
 
       if (fastMode_ == 2)
       {
-         printf("Kriging training (2) begins.... (order = %d)\n",pOrder_);
+         if (outputLevel_ >= 1) 
+            printf("Kriging training (2) begins.... (order = %d)\n",pOrder_);
          nSamOpt = 1;
          samInputs  = new double[nSamOpt * nInputs_];
          for (ii = 0; ii < nInputs_; ii++) samInputs[ii] = Thetas_[ii];
       }
       else
       {
-         printf("Kriging training (3) begins.... (order = %d)\n",pOrder_);
+         if (outputLevel_ >= 1) 
+            printf("Kriging training (3) begins.... (order = %d)\n",pOrder_);
          mode = 1;
          nSamOpt = 10;
-         if (psGMMode_ == 1)
+         if (psGMMode_ == 1 && psInteractive_ == 1)
          {
             printf("Kriging: slow mode with multi-start optimization.\n");
             printf("Choose sampling method to generate multi-start.\n");
@@ -1007,7 +1039,7 @@ double Kriging::train(double *X, double *Y)
             fscanf(fp, "%d", &outputLevel_);
             fclose(fp);
             fp = NULL;
-            if (outputLevel_ >= 0 && outputLevel_ <= 5)
+            if (outputLevel_ > 0 && outputLevel_ <= 5)
                printf("Kriging: output level set to %d.\n", outputLevel_);
             else
             {
@@ -1031,8 +1063,8 @@ double Kriging::train(double *X, double *Y)
          }
 #ifdef HAVE_BOBYQA
          KRI_noProgressCnt = 0;
-         bobyqa_(&nInputs_,&nPts,TValues,TLowers,TUppers,&rhobeg,&rhoend,
-                 &pLevel, &maxfun, work);
+         kbobyqa_(&nInputs_,&nPts,TValues,TLowers,TUppers,&rhobeg,&rhoend,
+                  &pLevel, &maxfun, work);
          if (outputLevel_ >= 1) 
          {
             printf("Kriging multi-start optimization: iteration = %d (%d)\n",
@@ -1084,7 +1116,8 @@ double Kriging::train(double *X, double *Y)
             if (stopFlag == nInputs_) 
             {
                if (outputLevel_ >= 1) 
-                  printf("Kriging INFO: same optimum after %d iterations, stop.\n",kk+1);
+                  printf("Kriging INFO: same optimum after %d iterations, stop.\n",
+                         kk+1);
                break;
             }  
          }  
@@ -1122,9 +1155,12 @@ double Kriging::train(double *X, double *Y)
       KRI_FMatrix = NULL;
       KRI_FMatTmp = NULL;
       KRI_MMatrix = NULL;
-      if (fastMode_ == 2)
-           printf("Kriging training (2) ends.\n");
-      else printf("Kriging training (3) ends.\n");
+      if (outputLevel_ > 0)
+      {
+         if (fastMode_ == 2)
+              printf("Kriging training (2) ends.\n");
+         else printf("Kriging training (3) ends.\n");
+      }
    }
 
    char uplo='L';
@@ -1141,17 +1177,27 @@ double Kriging::train(double *X, double *Y)
            Rmatrix_[jj*nSamples_+jj] += 0.01;
 
       if (dataStdDevs_ != NULL) 
-         Rmatrix_[jj*nSamples_+jj] += pow(dataStdDevs_[jj]/YStd_, 2.0);
+         Rmatrix_[jj*nSamples_+jj] += pow(dataStdDevs_[jj]/YStd_,KRI_Exponent);
       for (kk = jj+1; kk < nSamples_; kk++)
       {
          dist = 0.0;
          for (ii = 0; ii < nInputs_; ii++)
-            dist += pow(XDists[count*nInputs_+ii]/Thetas_[ii], 2.0);
+            dist += pow(XDists[count*nInputs_+ii]/Thetas_[ii],KRI_Exponent);
          dist = exp(-dist);
          if (dist < 1.0e-16) dist = 0.0;
          Rmatrix_[jj*nSamples_+kk] = dist;
          Rmatrix_[kk*nSamples_+jj] = dist;
          count++;
+      }
+   }
+   if (outputLevel_ > 4)
+   {
+      printf("Kriging: covariance matrix for Cholesky decompositon.\n");
+      for (jj = 0; jj < nSamples_; jj++)
+      {
+         for (kk = 0; kk < nSamples_; kk++)
+            printf("%e ", Rmatrix_[jj*nSamples_+kk]);
+         printf("\n");
       }
    }
    dpotrf_(&uplo, &nSamples_, Rmatrix_, &nSamples_, &status);
@@ -1224,7 +1270,7 @@ double Kriging::train(double *X, double *Y)
    for (jj = 0; jj < nSamples_; jj++) KrigingVariance_ += CY[jj] * CY[jj];
    KrigingVariance_ /= (double) nSamples_;
    KrigingVariance_ *= YStd_ * YStd_;
-   printf("Kriging variance = %e\n", KrigingVariance_);
+   if (outputLevel_ > 0) printf("Kriging variance = %e\n",KrigingVariance_);
    V2_ = new double[nSamples_];
    for (ii = 0; ii < nSamples_; ii++) V2_[ii] = CY[ii];
    trans = 'T';

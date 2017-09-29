@@ -139,7 +139,8 @@ double GowerAnalyzer::analyze(aData &adata)
    fp = fopen(dataFile,"r");
    if (fp == NULL)
    {
-      printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: cannot open file %s.\n", dataFile);
+      printOutTS(PL_ERROR,"GowerAnalyzer ERROR: cannot open file %s.\n", 
+                 dataFile);
       delete [] vvm;
       return PSUADE_UNDEFINED;
    }
@@ -149,10 +150,9 @@ double GowerAnalyzer::analyze(aData &adata)
    pIO = new PsuadeData();
    pIO->setOutputLevel(0);
    status = pIO->readPsuadeFile(dataFile);
-   if (status < 0) exit(1);
-   if (status > 0)
+   if (status != 0)
    {
-      printf("ERROR: cannot read file %d in PSUADE format.\n",dataFile);
+      printf("ERROR: cannot read file %s in PSUADE format.\n",dataFile);
       exit(1);
    }
    pIO->getParameter("input_ninputs", pPtr);
@@ -163,8 +163,9 @@ double GowerAnalyzer::analyze(aData &adata)
    X2 = pPtr.dbleArray_;
    if (nInputs != nInputs2)
    {
-      printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: different input dimensions %d %d\n",
-             nInputs, nInputs2);
+      printOutTS(PL_ERROR,
+                 "GowerAnalyzer ERROR: different input dimensions %d %d\n",
+                 nInputs, nInputs2);
       delete [] vvm;
       delete pIO;
       return PSUADE_UNDEFINED;
@@ -182,8 +183,8 @@ double GowerAnalyzer::analyze(aData &adata)
       ranges[ii] = dmax - dmin;
       if (ranges[ii] == 0.0)
       {
-         printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: some input range = 0 (%d).\n",
-                ii+1);
+         printOutTS(PL_ERROR,"GowerAnalyzer ERROR: some input range = 0 (%d).\n",
+                    ii+1);
          delete [] ranges;
          delete [] vvm;
          delete pIO;
@@ -203,7 +204,8 @@ double GowerAnalyzer::analyze(aData &adata)
    }
    if (fp == NULL)
    {
-      printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: cannot write to file psuade_gower_data.m\n");
+      printOutTS(PL_ERROR,  
+           "GowerAnalyzer ERROR: cannot write to file psuade_gower_data.m\n");
       delete [] vvm;
       delete [] ranges;
       delete pIO; 
@@ -343,9 +345,9 @@ double GowerAnalyzer::analyze(aData &adata)
    fwritePlotYLabel(fp, "Mahalanobis distance");
    fclose(fp);
    if (psPlotTool_ == 1)
-      printOutTS(PL_INFO,  "GowerAnalyzer: psuade_gower_data.sci file created.\n");
+      printOutTS(PL_INFO,"GowerAnalyzer: psuade_gower_data.sci file created.\n");
    else
-      printOutTS(PL_INFO,  "GowerAnalyzer: psuade_gower_data.m file created.\n");
+      printOutTS(PL_INFO,"GowerAnalyzer: psuade_gower_data.m file created.\n");
 
    delete [] ranges; 
    delete [] vvm;
@@ -360,7 +362,8 @@ double GowerAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 GowerAnalyzer& GowerAnalyzer::operator=(const GowerAnalyzer &)
 {
-   printOutTS(PL_ERROR,  "GowerAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,
+              "GowerAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

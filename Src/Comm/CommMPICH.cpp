@@ -28,7 +28,7 @@
 //
 // Point to Point 
 // Communication : send         - send message
-//                 recv         - recieve message
+//                 recv         - receive message
 //                 iRecv        - nonblocking receive
 //                 disableIrecv - disable processor
 //                 iProbe       - probe the processor for a message

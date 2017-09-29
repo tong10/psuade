@@ -89,8 +89,10 @@ double EtaAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printOutTS(PL_WARN, "EtaTest INFO: some inputs have non-uniform PDFs, but\n");
-         printOutTS(PL_WARN, "              they are not relevant in this analysis.\n");
+         printOutTS(PL_WARN, 
+              "EtaTest INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_WARN, 
+              "              they are not relevant in this analysis.\n");
       }
    }
 
@@ -141,7 +143,8 @@ double EtaAnalyzer::analyze(aData &adata)
    if (psAnaExpertMode_ == 1)
    {
       printOutTS(PL_INFO, "EtaTest Option: to use k > 1 neighbors.\n");
-      printOutTS(PL_INFO, "The larger k is, the larger the distinguishing power is.\n");
+      printOutTS(PL_INFO, 
+           "The larger k is, the larger the distinguishing power is.\n");
       sprintf(pString, "k neighbors analysis. What is k (>= 1, <= 20)? ");
       nNeighs = getInt(1, 20, pString);
    }
@@ -151,7 +154,7 @@ double EtaAnalyzer::analyze(aData &adata)
       printOutTS(PL_INFO, "EtaTest INFO: number of neighbors reset to be %d.\n",
              nNeighs);
    }  
-   printOutTS(PL_INFO, "EtaTest INFO: number of neighbors = %d.\n", nNeighs);
+   printOutTS(PL_INFO,"EtaTest INFO: number of neighbors = %d.\n",nNeighs);
    printEquals(PL_INFO, 0);
 
    inputBins = new int[nInputs];
@@ -242,7 +245,8 @@ double EtaAnalyzer::analyze(aData &adata)
          if (jj != nNeighs)
          {
             printOutTS(PL_ERROR, "EtaTest ERROR: cannot find neighbor.\n");
-            printOutTS(PL_ERROR, "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
+            printOutTS(PL_ERROR, 
+                 "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
             exit(1);
          }
          for (jj = 0; jj < nNeighs; jj++)
@@ -271,8 +275,9 @@ double EtaAnalyzer::analyze(aData &adata)
             if (ddata < 1) inputViolations[ii3]++;
             if (printLevel > 3)
             {
-               printOutTS(PL_INFO, "EtaTest: sample %5d, input %3d (%3d), dist = %e\n",
-                      ss+1, ii3+1, ii+1, ddata);
+               printOutTS(PL_INFO, 
+                    "EtaTest: sample %5d, input %3d (%3d), dist = %e\n",
+                    ss+1, ii3+1, ii+1, ddata);
             }
          }
          inputBins[ii] = 1;
@@ -290,7 +295,6 @@ double EtaAnalyzer::analyze(aData &adata)
          for (ss = 0; ss < nSamples; ss++) 
             stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
          stdev = sqrt(stdev / nSamples);
-         //printOutTS(PL_WARN, "Input %4d: mean, std dev = %e %e\n", ii+1, mean, stdev);
          means[ii] = mean;
       }
       for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
@@ -307,7 +311,8 @@ double EtaAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
    sortDbleList2(nInputs, dRanks, dOrder);
-   printOutTS(PL_INFO, "Order of importance based on %d nearest neighbors single effect:\n",
+   printOutTS(PL_INFO, 
+        "Order of importance based on %d nearest neighbors single effect:\n",
           nNeighs);
    for (ii = 0; ii < nInputs; ii++)
       printOutTS(PL_INFO, "(E1)Rank %4d: input %4d (score = %d)\n", ii+1, (int)
@@ -393,7 +398,8 @@ double EtaAnalyzer::analyze(aData &adata)
                if (jj != nNeighs)
                {
                   printOutTS(PL_ERROR, "EtaTest ERROR: cannot find neighbor.\n");
-                  printOutTS(PL_ERROR, "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
+                  printOutTS(PL_ERROR, 
+                       "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
                   exit(1);
                }
                for (jj = 0; jj < nNeighs; jj++)
@@ -421,7 +427,6 @@ double EtaAnalyzer::analyze(aData &adata)
             for (ss = 0; ss < nSamples; ss++) 
                stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
             stdev = sqrt(stdev / nSamples);
-            //printOutTS(PL_WARN, "Input %4d: mean, std dev = %e %e\n", ii+1, mean, stdev);
             means[ii] = mean;
          }
          for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
@@ -438,7 +443,8 @@ double EtaAnalyzer::analyze(aData &adata)
          for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
       for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
       sortDbleList2(nInputs, dRanks, dOrder);
-      printOutTS(PL_INFO, "Order of importance based on %d nearest neighbors twin effect:\n",
+      printOutTS(PL_INFO, 
+           "Order of importance based on %d nearest neighbors twin effect:\n",
              nNeighs);
       for (ii = 0; ii < nInputs; ii++)
          printOutTS(PL_INFO, "(E2)Rank %4d: input %4d (score = %d)\n", ii+1, (int)
@@ -509,8 +515,10 @@ double EtaAnalyzer::analyze(aData &adata)
                   for (jj = 0; jj < nNeighs; jj++) if (indices[jj] == -1) break;
                   if (jj != nNeighs)
                   {
-                     printOutTS(PL_ERROR, "EtaTest ERROR: cannot find neighbor.\n");
-                     printOutTS(PL_ERROR, "   Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
+                     printOutTS(PL_ERROR, 
+                          "EtaTest ERROR: cannot find neighbor.\n");
+                     printOutTS(PL_ERROR, 
+                          "   Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
                      exit(1);
                   }
                   for (jj = 0; jj < nNeighs; jj++)
@@ -542,7 +550,6 @@ double EtaAnalyzer::analyze(aData &adata)
             for (ss = 0; ss < nSamples; ss++) 
                stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
             stdev = sqrt(stdev / nSamples);
-            //printOutTS(PL_WARN, "Input %4d: mean, std dev = %e %e\n", ii+1, mean, stdev);
             means[ii] = mean;
          }
          for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
@@ -559,7 +566,8 @@ double EtaAnalyzer::analyze(aData &adata)
          for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
       for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
       sortDbleList2(nInputs, dRanks, dOrder);
-      printOutTS(PL_INFO, "Order of importance based on %d nearest neighbors 3-way effect:\n",
+      printOutTS(PL_INFO, 
+           "Order of importance based on %d nearest neighbors 3-way effect:\n",
              nNeighs);
       for (ii = 0; ii < nInputs; ii++)
          printOutTS(PL_INFO, "(E3)Rank %4d: input %4d (score = %d)\n", ii+1, (int)
@@ -599,7 +607,8 @@ double EtaAnalyzer::analyze(aData &adata)
             fprintf(fp, "pause\n");
          }
          fclose(fp);
-         printOutTS(PL_INFO, "Use the psEtaData.m file to examine the distributions.\n");
+         printOutTS(PL_INFO, 
+              "Use the psEtaData.m file to examine the distributions.\n");
       }
    }
    printAsterisks(PL_INFO, 0);

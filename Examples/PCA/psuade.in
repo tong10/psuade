@@ -23,6 +23,6 @@ ANALYSIS
    analyzer rstype = MARS
    analyzer output_id  = 1
    config_file = autoconfigure
-   diagnostics 4
+   printlevel 4
 END
 END

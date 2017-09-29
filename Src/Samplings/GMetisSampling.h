@@ -27,7 +27,6 @@
 #ifndef __GMETISSAMPLINGH__
 #define __GMETISSAMPLINGH__
 
-#include <iostream>
 #include <string.h>
 #include "Sampling.h"
 
@@ -87,7 +86,7 @@ public:
    /** This function overloads the assignment operator
        @param sparam : specify which parameter to set
     */
-   int setParam(string sparam);
+   int setParam(char *sparam);
 };
 
 #endif // __GMETISSAMPLINGH__

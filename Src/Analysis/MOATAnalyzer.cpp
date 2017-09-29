@@ -32,6 +32,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+using namespace std;
 
 #include "MOATConstraints.h"
 #include "PsuadeUtil.h"
@@ -43,8 +44,6 @@
 #include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
-
-using namespace std;
 
 // ************************************************************************
 // constructor 
@@ -83,12 +82,10 @@ double MOATAnalyzer::analyze(aData &adata)
    int    *S, ii, jj, diffIndex;
    int    iD, *indexTrack, index, n1, n2, flag, actualPaths, sigFlag;
    int    diffCnt, *counts, itemp, iaCnt, iD2, nPaths, ip, printLevel;
-   double *X, *Y, *YY, *YG, *XG, *Xbase;
-   double xtemp1, xtemp2;
+   double *X, *Y, *YY, *YG, *XG, *Xbase, xtemp1, xtemp2;
    double ytemp1, ytemp2, scale, *xLower, *xUpper, dtemp, dtemp2, thresh;
    double *XSort, *YSort, dsum, dstdev, *YB, binMax=-1.0e35, binMin=1.0e35;
-   char   winput[500];
-   char   pString[499];
+   char   winput[500], pString[499];
    PsuadeData *ioPtr;
    BinomialAnalyzer  binAnalyzer;
    BootstrapAnalyzer bsAnalyzer;
@@ -97,7 +94,21 @@ double MOATAnalyzer::analyze(aData &adata)
    MOATConstraints   *constrPtr;
 
    // ---------------------------------------------------------------
-   // clean up first 
+   // display header 
+   // ---------------------------------------------------------------
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO,"*                Morris Screening \n");
+   printEquals(PL_INFO, 0);
+   if (printLevel > 0)
+   {
+      printOutTS(PL_INFO,"* use printlevel to show more analysis information.\n");
+      printOutTS(PL_INFO,"* ana_expert to turn on other plot options: \n");
+      printOutTS(PL_INFO,"*   - e.g. scatter plots gives gradient details\n");
+      printOutTS(PL_INFO,"*   - e.g. screen plots gives gradients vs std devs.\n");
+   }
+ 
+   // ---------------------------------------------------------------
+   // clean up 
    // ---------------------------------------------------------------
    if (means_) delete [] means_;
    if (modifiedMeans_) delete [] modifiedMeans_;
@@ -140,7 +151,7 @@ double MOATAnalyzer::analyze(aData &adata)
          printOutTS(PL_INFO, 
             "             (the sample should have been generated\n");
          printOutTS(PL_INFO, 
-            "              with the desired distributions.)\n");
+            "              with the desired distributions earlier.)\n");
       }
    }
    if (ioPtr != NULL) ioPtr->getParameter("input_names", qData);
@@ -159,7 +170,10 @@ double MOATAnalyzer::analyze(aData &adata)
    for (iD = 0; iD < nSamples_; iD++)
       if (S[iD] != 1 || Y[iD*nOutputs_+outputID_] == PSUADE_UNDEFINED) n1++; 
    if (n1 > 0)
-      printOutTS(PL_INFO, "MOATAnalysis INFO: %d invalid data points.\n",n1);
+   {
+      printOutTS(PL_INFO,"MOATAnalysis INFO: %d invalid data points.\n",n1);
+      printOutTS(PL_INFO,"    These invalid points will not be analyzed.\n");
+   }
 
    XSort = new double[nSamples_];
    for (ii = 0; ii < nInputs_; ii++)
@@ -172,23 +186,18 @@ double MOATAnalyzer::analyze(aData &adata)
       if (PABS(dtemp-dtemp2) > 1.0e-6)
       {
          printOutTS(PL_WARN, 
-             "MOATAnalyzer WARNING: input and data range mismatch.\n");
+             "MOATAnalyzer WARNING: input and data range mismatch but\n");
          printOutTS(PL_WARN, 
-             "    (This can be the result of applying constraints.)\n");
-         printOutTS(PL_WARN, "    diagnostics: \n");
+             "             there is no need to be alarmed, as this may\n");
+         printOutTS(PL_WARN, 
+             "             be the result of applying MOAT constraints.\n");
+         printOutTS(PL_WARN, "    Diagnostics: \n");
          printOutTS(PL_WARN, 
              "    Input %3d: original vs new ranges = %e %e\n", ii+1,
              dtemp2, dtemp);
       }
    }
    delete [] XSort;
-
-   printAsterisks(PL_INFO, 0);
-   for (ii = 0; ii < 23; ii++) printOutTS(PL_INFO, "*");
-   printOutTS(PL_INFO, " MOAT Analysis ");
-   for (ii = 0; ii < 23; ii++) printOutTS(PL_INFO, "*");
-   printOutTS(PL_INFO, "\n");
-   printDashes(PL_INFO, 0);
 
    constrPtr = new MOATConstraints();
    if(ioPtr != NULL) constrPtr->initialize(ioPtr);
@@ -286,8 +295,8 @@ double MOATAnalyzer::analyze(aData &adata)
       }
       else 
       {
-         printOutTS(PL_INFO, "MOATAnalysis analyze: zero data points for input %d\n",
-                ii+1);
+         printOutTS(PL_INFO,
+              "MOATAnalysis analyze: no data point for input %d\n",ii+1);
          means_[ii] = 0.0;
          modifiedMeans_[ii] = 0.0;
       }
@@ -340,16 +349,15 @@ double MOATAnalyzer::analyze(aData &adata)
       return 1;
    }
 
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO,"* MOAT Analysis using unmodified gradients\n");
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs_; ii++)
       printOutTS(PL_INFO, "Input %3d (unmod. mean & std) = %12.4e %12.4e \n",
              ii+1, means_[ii], stds_[ii]);
 
-   printAsterisks(PL_INFO, 0);
-   for (ii = 0; ii < 23; ii++) printOutTS(PL_INFO, "*");
-   printOutTS(PL_INFO, " MOAT Analysis ");
-   for (ii = 0; ii < 23; ii++) printOutTS(PL_INFO, "*");
-   printOutTS(PL_INFO, "\n");
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO,"* MOAT Analysis using modified gradients\n");
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs_; ii++)
       printOutTS(PL_INFO, "Input %3d (mod. mean & std) = %12.4e %12.4e \n",
@@ -359,6 +367,7 @@ double MOATAnalyzer::analyze(aData &adata)
    pPtr->dbleArray_ = new double[nInputs_];
    for (ii = 0; ii < nInputs_; ii++)
       pPtr->dbleArray_[ii] = modifiedMeans_[ii];
+   printAsterisks(PL_INFO, 0);
 
    // ---------------------------------------------------------------
    // create matlab files
@@ -378,26 +387,24 @@ double MOATAnalyzer::analyze(aData &adata)
    // ---------------------------------------------------------------
    double indexes[nInputs_];
    double sortedModifiedMeans[nInputs_];
-   std::copy(modifiedMeans_, modifiedMeans_+nInputs_, sortedModifiedMeans);
+   for (ii = 0; ii < nInputs_; ii++) 
+      sortedModifiedMeans[ii] = modifiedMeans_[ii];
    for (ii = 0; ii < nInputs_; ii++) indexes[ii] = ii;
    sortDbleList2(nInputs_, sortedModifiedMeans, indexes);
    for (ii = 0; ii < nInputs_; ii++) 
       indexesSortedByModifiedMeans_[ii] = (int) indexes[ii];
-   printAsterisks(PL_INFO, 0);
-   for (ii = 0; ii < 18; ii++) printOutTS(PL_INFO, "*");
-   printOutTS(PL_INFO, " MOAT Analysis (ordered) ");
-   for (ii = 0; ii < 18; ii++) printOutTS(PL_INFO, "*");
-   printOutTS(PL_INFO, "\n");
+   printOutTS(PL_INFO,
+        "* MOAT Analysis (ordered based on modified means of gradients)\n");
    printDashes(PL_INFO, 0);
    for (ii = nInputs_-1; ii >= 0; ii--)
    {
-     iD =  indexesSortedByModifiedMeans_[ii];
+      iD = indexesSortedByModifiedMeans_[ii];
       itemp = counts[iD] - 1;
       printOutTS(PL_INFO, 
            "%6d: Input %3d (mu*, sigma, dof) = %12.4e %12.4e %d\n",
            nInputs_-ii,iD+1, sortedModifiedMeans[ii], stds_[iD], itemp);
    }
-   printAsterisks(PL_INFO, 0);
+   printEquals(PL_INFO, 0);
 
    if (printLevel > 1)
    {
@@ -430,14 +437,11 @@ double MOATAnalyzer::analyze(aData &adata)
                   iD+1, iD2+1);
          }
       }
-      printAsterisks(PL_INFO, 0);
+      printEquals(PL_INFO, 0);
       sigma2LowerBounds_ = new double[nInputs_];
       sigma2UpperBounds_ = new double[nInputs_];
 
-      for (ii = 0; ii < 11; ii++) printOutTS(PL_INFO, "-");
-      printOutTS(PL_INFO, " MOAT Analysis (ordered) : +- 2 sigma  ");
-      for (ii = 0; ii < 11; ii++) printOutTS(PL_INFO, "-");
-      printOutTS(PL_INFO, "\n");
+      printOutTS(PL_INFO,"* MOAT Analysis (ordered) : +- 2 sigma\n");
       printDashes(PL_INFO, 0);
       for (ii = nInputs_-1; ii >= 0; ii--)
       {
@@ -467,8 +471,13 @@ double MOATAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printAsterisks(PL_INFO, 0);
-      sprintf(pString, "Perform MOAT interaction study ? (y or n) ");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO,"Interaction analysis computes the std dev. of ");
+      printOutTS(PL_INFO,"the gradients at fixed\n");
+      printOutTS(PL_INFO,"fixed values of the inputs. This will yield ");
+      printOutTS(PL_INFO,"interaction information of\n");
+      printOutTS(PL_INFO,"this parameters with the others.\n");
+      sprintf(pString,"Perform MOAT interaction study ? (y or n) ");
       getString(pString, winput);
       if (winput[0] == 'y')
       {
@@ -479,10 +488,16 @@ double MOATAnalyzer::analyze(aData &adata)
          printOutTS(PL_INFO, "\n");
          printDashes(PL_INFO, 0);
          printOutTS(PL_INFO, 
-              "** No data for an input means no interaction info.\n");
+              "** No data for an input means there will be no interaction info.\n");
          printOutTS(PL_INFO, 
-              "** Small stdev means (crudely) little interaction.\n");
+              "** Small stdev means (crudely) there is little interaction.\n");
          nPaths = nSamples_ / (nInputs_ + 1);
+         for (ii = 0; ii < nInputs_; ii++)
+         {
+            n1 = 0;
+            for (iD = 0; iD < nSamples_; iD++) if (indexTrack[iD] == ii) n1++;
+            if (n1 > nPaths) nPaths = n1;
+         }
          XSort = new double[nPaths];
          YSort = new double[nPaths];
          for (ii = 0; ii < nInputs_; ii++)
@@ -542,16 +557,17 @@ double MOATAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printAsterisks(PL_INFO, 0);
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO,"Hypothesis tests may be used for testing whether ");
+      printOutTS(PL_INFO,"an input is likely a\n");
+      printOutTS(PL_INFO,"significant input given a gradient threshold to");
+      printOutTS(PL_INFO,"indicate significance.\n");
       sprintf(pString, "Perform hypothesis tests ? (y or n) ");
       getString(pString, winput);
       if (winput[0] == 'y')
       {
          printAsterisks(PL_INFO, 0);
-         for (ii = 0; ii < 19; ii++) printOutTS(PL_INFO, "*");
-         printOutTS(PL_INFO, "MOAT Hypothesis Tests");
-         for (ii = 0; ii < 19; ii++) printOutTS(PL_INFO, "*");
-         printOutTS(PL_INFO, "\n");
+         printOutTS(PL_INFO,"* MOAT Hypothesis Tests\n");
          printDashes(PL_INFO, 0);
          printOutTS(PL_INFO, "* This consists of 2 tests: \n");
          printOutTS(PL_INFO, 
@@ -633,15 +649,16 @@ double MOATAnalyzer::analyze(aData &adata)
                       100.0*dtemp);
             if (sigFlag > 0) 
                  printOutTS(PL_INFO, 
-                      "<<<<<< INPUT %3d IS SIGNIFICANT (%d) *****\n",
+                      "<<<<<< INPUT %3d IS SIGNIFICANT (%d) **************\n",
                       ii+1,sigFlag); 
             else printOutTS(PL_INFO, 
-                      "<<<<<< INPUT %3d IS NOT SIGNIFICANT\n", ii+1);
+                      "<<<<<< INPUT %3d IS NOT significant\n", ii+1);
             
          }
          bData.sampleOutputs_ = NULL;
       }
    }
+   printAsterisks(PL_INFO,0);
 
    delete [] counts;
    delete constrPtr;
@@ -772,7 +789,9 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
    char winput[500], moatFile[500], pString[500];
    FILE *fp;
 
-   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO,"Screening diagram plots the std devs. of the gradients\n");
+   printOutTS(PL_INFO,"against the modified means. Thus, it provides another\n");
+   printOutTS(PL_INFO,"perspective of viewing the parameter importance.\n");
    sprintf(pString,"Create screening diagram? (y or n) ");
    getString(pString, winput);
    if (winput[0] != 'y') return 0;
@@ -1135,7 +1154,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
    fprintf(fp, "end;\n");
    printOutTS(PL_INFO, "MOAT screening diagram file = %s\n", moatFile);
    fclose(fp); 
-   printAsterisks(PL_INFO, 0);
+   printEquals(PL_INFO, 0);
    return 0;
 }
 
@@ -1149,8 +1168,26 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    char winput[500], scatterFile[500], pString[500];
    FILE *fp;
 
-   printAsterisks(PL_INFO, 0);
-   sprintf(pString, "Create scatter plot ? (y or n) ");
+   printOutTS(PL_INFO,"Scatter plot gives yet another way of examining\n");
+   printOutTS(PL_INFO,"parameter importance. It gives you details on the\n");
+   printOutTS(PL_INFO,"individual gradients used to compute the means.\n");
+   printOutTS(PL_INFO,"It can help detect outliers, trends, and interactions.\n");
+   printOutTS(PL_INFO,"E.g. if a gradient for one of the inputs is way off,\n");
+   printOutTS(PL_INFO,"     then it may be an outlier.\n");
+   printOutTS(PL_INFO,"E.g. if the red and green points are clustered\n");
+   printOutTS(PL_INFO,"     tightly together, then this input is linear.\n");
+   printOutTS(PL_INFO,"E.g. if the red and green points are clustered\n");
+   printOutTS(PL_INFO,"     tightly but the red and green clusters are\n");
+   printOutTS(PL_INFO,"     clearly separated, then there is likely to be\n");
+   printOutTS(PL_INFO,"     self-nonlinearity in this input, but this input\n");
+   printOutTS(PL_INFO,"     has little interaction with other inputs.\n");
+   printOutTS(PL_INFO,"E.g. if the red and green points are widely spread\n");
+   printOutTS(PL_INFO,"     and are not clearly separated, no conclusion\n");
+   printOutTS(PL_INFO,"     can be made.\n");
+   printOutTS(PL_INFO,"Color to level mapping :\n");
+   printOutTS(PL_INFO,"low to high: red, green, blue, magenta, cyan dots\n");
+   printOutTS(PL_INFO,"low to high: red, green, blue, magenta, cyan 'x'\n");
+   sprintf(pString,"Create scatter plot ? (y or n) ");
    getString(pString, winput);
    if (winput[0] != 'y') return 0;
 
@@ -1279,8 +1316,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "       xx = A(inds(II(1)),1);\n");
    fprintf(fp, "    end;\n");
    fprintf(fp, "    yy = A(inds(II(1)),2);\n");
-   fprintf(fp, "    plot(xx,yy,'ro','MarkerSize',11,'MarkerFaceColor','r',");
-   fprintf(fp, "'MarkerEdgeColor','k')\n");
+   fprintf(fp, "    plot(xx,yy,'r.','MarkerSize',24)\n");
    fprintf(fp, "    for jj = 2 : leng\n");
    fprintf(fp, "      x1 = A(inds(II(jj)),3);\n");
    fprintf(fp, "      x2 = A(inds(II(jj-1)),3);\n");
@@ -1293,8 +1329,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "           xx = A(inds(II(jj)),1);\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "        yy = A(inds(II(jj)),2);\n");
-   fprintf(fp, "        plot(xx,yy,'ro','MarkerSize',11,'MarkerFaceColor','r',");
-   fprintf(fp, "'MarkerEdgeColor','k')\n");
+   fprintf(fp, "        plot(xx,yy,'r.','MarkerSize',24)\n");
    fprintf(fp, "        if (jj == leng)\n");
    fprintf(fp, "          jj = jj + 1;\n");
    fprintf(fp, "        end;\n");
@@ -1307,8 +1342,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
-   fprintf(fp,"      plot(xx+0.1,yy,'go','MarkerSize',11,'MarkerFaceColor',");
-   fprintf(fp, "'g','MarkerEdgeColor','k')\n");
+   fprintf(fp, "      plot(xx+0.1,yy,'g.','MarkerSize',24)\n");
    fprintf(fp, "    end;\n");
    fprintf(fp, "    for kk = jj+1 : leng\n");
    fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
@@ -1322,13 +1356,13 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
-   fprintf(fp, "        plot(xx+0.1,yy,'go','MarkerSize',11,'MarkerFaceColor'");
-   fprintf(fp, ",'g','MarkerEdgeColor','k')\n");
+   fprintf(fp, "        plot(xx+0.1,yy,'g.','MarkerSize',24)\n");
    fprintf(fp, "        if (kk == leng)\n");
    fprintf(fp, "          kk = kk + 1;\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "    end;\n");
+
    fprintf(fp, "    if (kk <= leng)\n");
    fprintf(fp, "      if (sortFlag == 1)\n");
    fprintf(fp, "         xx = ii2;\n");
@@ -1336,8 +1370,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "         xx = A(inds(II(kk)),1);\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "      yy = A(inds(II(kk)),2);\n");
-   fprintf(fp, "      plot(xx+0.2,yy,'bo','MarkerSize',11,'MarkerFaceColor'");
-   fprintf(fp, ",'b','MarkerEdgeColor','k')\n");
+   fprintf(fp, "      plot(xx+0.2,yy,'b.','MarkerSize',24)\n");
    fprintf(fp, "    end;\n");
    fprintf(fp, "    for jj = kk+1 : leng\n");
    fprintf(fp, "      x1 = A(inds(II(jj)),3);\n");
@@ -1351,13 +1384,13 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "           xx = A(inds(II(jj)),1);\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "        yy = A(inds(II(jj)),2);\n");
-   fprintf(fp, "        plot(xx+0.2,yy,'bo','MarkerSize',11,'MarkerFaceColor'");
-   fprintf(fp, ",'b','MarkerEdgeColor','k')\n");
+   fprintf(fp, "        plot(xx+0.2,yy,'b.','MarkerSize',24)\n");
    fprintf(fp, "        if (jj == leng)\n");
    fprintf(fp, "          jj = jj + 1;\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "    end;\n");
+
    fprintf(fp, "    if (jj <= leng)\n");
    fprintf(fp, "      xx = A(inds(II(jj)),1);\n");
    fprintf(fp, "      if (sortFlag == 1)\n");
@@ -1366,8 +1399,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
-   fprintf(fp, "      plot(xx+0.3,yy,'mo','MarkerSize',11,'MarkerFaceColor',");
-   fprintf(fp, "'m','MarkerEdgeColor','k')\n");
+   fprintf(fp, "      plot(xx+0.3,yy,'m.','MarkerSize',24)\n");
    fprintf(fp, "    end;\n");
    fprintf(fp, "    for kk = jj+1 : leng\n");
    fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
@@ -1381,13 +1413,158 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
-   fprintf(fp, "        plot(xx+0.3,yy,'mo','MarkerSize',11,'MarkerFaceColor'");
-   fprintf(fp, ",'m','MarkerEdgeColor','k')\n");
+   fprintf(fp, "        plot(xx+0.3,yy,'m.','MarkerSize',24)\n");
    fprintf(fp, "        if (kk == leng)\n");
    fprintf(fp, "          kk = kk + 1;\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "    end;\n");
+
+   fprintf(fp, "    if (jj <= leng)\n");
+   fprintf(fp, "      xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      if (sortFlag == 1)\n");
+   fprintf(fp, "         xx = ii2;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
+   fprintf(fp, "      plot(xx+0.4,yy,'rx','MarkerSize',16)\n");
+   fprintf(fp, "    end;\n");
+   fprintf(fp, "    for kk = jj+1 : leng\n");
+   fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
+   fprintf(fp, "      x2 = A(inds(II(kk-1)),3);\n");
+   fprintf(fp, "      if x1 ~= x2\n");
+   fprintf(fp, "        break;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "        if (sortFlag == 1)\n");
+   fprintf(fp, "           xx = ii2;\n");
+   fprintf(fp, "        else\n");
+   fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
+   fprintf(fp, "        plot(xx+0.4,yy,'rx','MarkerSize',16)\n");
+   fprintf(fp, "        if (kk == leng)\n");
+   fprintf(fp, "          kk = kk + 1;\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "    end;\n");
+
+   fprintf(fp, "    if (jj <= leng)\n");
+   fprintf(fp, "      xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      if (sortFlag == 1)\n");
+   fprintf(fp, "         xx = ii2;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
+   fprintf(fp, "      plot(xx+0.4,yy,'gx','MarkerSize',16)\n");
+   fprintf(fp, "    end;\n");
+   fprintf(fp, "    for kk = jj+1 : leng\n");
+   fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
+   fprintf(fp, "      x2 = A(inds(II(kk-1)),3);\n");
+   fprintf(fp, "      if x1 ~= x2\n");
+   fprintf(fp, "        break;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "        if (sortFlag == 1)\n");
+   fprintf(fp, "           xx = ii2;\n");
+   fprintf(fp, "        else\n");
+   fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
+   fprintf(fp, "        plot(xx+0.4,yy,'gx','MarkerSize',16)\n");
+   fprintf(fp, "        if (kk == leng)\n");
+   fprintf(fp, "          kk = kk + 1;\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "    end;\n");
+
+   fprintf(fp, "    if (jj <= leng)\n");
+   fprintf(fp, "      xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      if (sortFlag == 1)\n");
+   fprintf(fp, "         xx = ii2;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
+   fprintf(fp, "      plot(xx+0.5,yy,'bx','MarkerSize',16)\n");
+   fprintf(fp, "    end;\n");
+   fprintf(fp, "    for kk = jj+1 : leng\n");
+   fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
+   fprintf(fp, "      x2 = A(inds(II(kk-1)),3);\n");
+   fprintf(fp, "      if x1 ~= x2\n");
+   fprintf(fp, "        break;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "        if (sortFlag == 1)\n");
+   fprintf(fp, "           xx = ii2;\n");
+   fprintf(fp, "        else\n");
+   fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
+   fprintf(fp, "        plot(xx+0.5,yy,'bx','MarkerSize',16)\n");
+   fprintf(fp, "        if (kk == leng)\n");
+   fprintf(fp, "          kk = kk + 1;\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "    end;\n");
+
+   fprintf(fp, "    if (jj <= leng)\n");
+   fprintf(fp, "      xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      if (sortFlag == 1)\n");
+   fprintf(fp, "         xx = ii2;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
+   fprintf(fp, "      plot(xx+0.6,yy,'mx','MarkerSize',16)\n");
+   fprintf(fp, "    end;\n");
+   fprintf(fp, "    for kk = jj+1 : leng\n");
+   fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
+   fprintf(fp, "      x2 = A(inds(II(kk-1)),3);\n");
+   fprintf(fp, "      if x1 ~= x2\n");
+   fprintf(fp, "        break;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "        if (sortFlag == 1)\n");
+   fprintf(fp, "           xx = ii2;\n");
+   fprintf(fp, "        else\n");
+   fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
+   fprintf(fp, "        plot(xx+0.6,yy,'mx','MarkerSize',16)\n");
+   fprintf(fp, "        if (kk == leng)\n");
+   fprintf(fp, "          kk = kk + 1;\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "    end;\n");
+
+   fprintf(fp, "    if (jj <= leng)\n");
+   fprintf(fp, "      xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      if (sortFlag == 1)\n");
+   fprintf(fp, "         xx = ii2;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "         xx = A(inds(II(jj)),1);\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "      yy = A(inds(II(jj)),2);\n");
+   fprintf(fp, "      plot(xx+0.7,yy,'cx','MarkerSize',16)\n");
+   fprintf(fp, "    end;\n");
+   fprintf(fp, "    for kk = jj+1 : leng\n");
+   fprintf(fp, "      x1 = A(inds(II(kk)),3);\n");
+   fprintf(fp, "      x2 = A(inds(II(kk-1)),3);\n");
+   fprintf(fp, "      if x1 ~= x2\n");
+   fprintf(fp, "        break;\n");
+   fprintf(fp, "      else\n");
+   fprintf(fp, "        if (sortFlag == 1)\n");
+   fprintf(fp, "           xx = ii2;\n");
+   fprintf(fp, "        else\n");
+   fprintf(fp, "           xx = A(inds(II(kk)),1);\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "        yy = A(inds(II(kk)),2);\n");
+   fprintf(fp, "        plot(xx+0.7,yy,'cx','MarkerSize',16)\n");
+   fprintf(fp, "        if (kk == leng)\n");
+   fprintf(fp, "          kk = kk + 1;\n");
+   fprintf(fp, "        end;\n");
+   fprintf(fp, "      end;\n");
+   fprintf(fp, "    end;\n");
+
    fprintf(fp, "    if (kk <= leng)\n");
    fprintf(fp, "      for jj = kk : leng\n");
    fprintf(fp, "        if (sortFlag == 1)\n");
@@ -1396,8 +1573,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "           xx = A(inds(II(jj)),1);\n");
    fprintf(fp, "        end;\n");
    fprintf(fp, "        yy = A(inds(II(jj)),2);\n");
-   fprintf(fp, "        plot(xx+0.4,yy,'co','MarkerSize',11,'MarkerFaceColor'");
-   fprintf(fp, ",'c','MarkerEdgeColor','k')\n");
+   fprintf(fp, "        plot(xx+0.8,yy,'k.','MarkerSize',24)\n");
    fprintf(fp, "      end;\n");
    fprintf(fp, "    end;\n");
    fprintf(fp, "  end;\n");
@@ -1410,23 +1586,23 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
    fprintf(fp, "   end;\n");
    fprintf(fp, "   inds = find(A(:,1)==ii);\n");
    fprintf(fp, "   if length(inds) > 0\n");
-   fprintf(fp, "      asum = sum(abs(A(inds,2)))/length(inds);\n");
+   fprintf(fp, "      asum = sum(A(inds,2))/length(inds);\n");
    if (psPlotTool_ == 1)
-        fprintf(fp, "      plot(ii2,asum,'kp','MarkerSize',14);\n");
-   else fprintf(fp, "      plot(ii2,asum,'kh','MarkerSize',14);\n");
+        fprintf(fp, "      plot(ii2,asum,'kp','MarkerSize',15);\n");
+   else fprintf(fp, "      plot(ii2,asum,'kh','MarkerSize',15);\n");
    fprintf(fp, "   end;\n");
    fprintf(fp, "end;\n");
    fwritePlotAxes(fp);
    fwritePlotYLabel(fp, "Individual Gradients");
-   fwritePlotTitle(fp, "Scatter Plots for the Gradients (colored)");
-   fprintf(fp, "disp('from lo to hi : red,green,blue,magenta,cyan')\n");
-   fprintf(fp, "disp('hexagrams: means of the absolute gradients')\n");
+   fwritePlotTitle(fp, "Scatter Plots of Gradients (lo to hi: r,g,b,m,c)");
+   fprintf(fp, "disp('from lo to hi : red,green,blue,magenta,cyan (. then x)')\n");
+   fprintf(fp, "disp('hexagrams: means of the gradients')\n");
    if (psPlotTool_ == 1)
         fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
    else fprintf(fp, "hold off\n");
    fclose(fp);
    printOutTS(PL_INFO, "MOAT scatter plot file = %s.\n", scatterFile);
-   printAsterisks(PL_INFO, 0);
+   printEquals(PL_INFO, 0);
    return 0;
 }
 
@@ -1449,8 +1625,7 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
       return -1;
    }
 
-   printAsterisks(PL_INFO, 0);
-   printf("MOATAnalyzer: Creating modified mean plot \n");
+   printf("MOATAnalyzer: Creating modified mean plot ... \n");
    if (psPlotTool_ == 1) strcpy(bootstrapFile, "scilabmoatbs.sci");
    else                  strcpy(bootstrapFile, "matlabmoatbs.m");
    fp = fopen(bootstrapFile, "w");
@@ -1516,9 +1691,11 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
       }
       else
       {
-         printOutTS(PL_WARN,"MOATAnalysis WARNING: input %d needs > 5 replications\n",
-                    ii+1);
-         printOutTS(PL_WARN,"                      to perform bootstrapping.\n");
+         printOutTS(PL_WARN,
+              "MOATAnalysis WARNING: input %d needs > 5 replications\n",
+              ii+1);
+         printOutTS(PL_WARN,
+              "                      to perform bootstrapping.\n");
          stds[ii] = 0.0;
          means[ii] = 0.0;
          for (jj = 0; jj < validCnts[ii]; jj++) means[ii] += YGs[ii][jj];
@@ -1615,7 +1792,7 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
    else fprintf(fp, "   hold off\n");
    fclose(fp);
    printOutTS(PL_INFO, "MOAT bootstrap plot file = %s.\n", bootstrapFile);
-   printAsterisks(PL_INFO, 0);
+   printEquals(PL_INFO, 0);
 
    for (ii = 0; ii < nInputs; ii++) if (YGs[ii] != NULL) delete [] YGs[ii];
    delete [] YGs;
@@ -1631,7 +1808,7 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
 // ------------------------------------------------------------------------
 MOATAnalyzer& MOATAnalyzer::operator=(const MOATAnalyzer &)
 {
-   printOutTS(PL_ERROR, "MOATAnalysis operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"MOATAnalysis operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

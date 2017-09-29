@@ -308,8 +308,8 @@ int UserMetisSampling::initialize(int initLevel)
                                lowerBounds_[inputID];
       }
       if (ii % 100 == 0) 
-         cout << "UserMetisSampling::initialize - running " << ii + 1 
-              << " out of " << graphN << endl;
+         printf("UserMetisSampling::initialize - running %d out of %d.\n",
+                ii+1, graphN);
       if (haveExec == 1)
          funcIO->evaluate(1,nInputs_,tempSample,nOutputs_,tempOutput,0);
       else
@@ -481,13 +481,13 @@ int UserMetisSampling::refine(int,int,double, int, double *)
 // ************************************************************************
 // set internal scheme
 // ------------------------------------------------------------------------
-int UserMetisSampling::setParam(string sparam)
+int UserMetisSampling::setParam(char *sparam)
 {
-   int  pos;
+   char winput[1001];
    FILE *fp;
-                                                                                
-   pos = sparam.find("reset");
-   if (pos >= 0)
+
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "reset"))
    {
       fp = fopen("psuadeMetisInfo", "r");
       if (fp != NULL)

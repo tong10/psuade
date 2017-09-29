@@ -28,8 +28,8 @@
 #define __OPTIMIZER__
 
 #include <string.h>
-#include <iostream>
-using namespace std;
+//#include <iostream>
+//using namespace std;
 
 #include "Optimizer.h"
 #include "oData.h"
@@ -57,7 +57,7 @@ public:
    /** set internal parameters
      @param sparam - string that contains the parameter information
      */
-   void setParam(string sparam);
+   void setParam(char *sparam);
 
    /** assign operator override */
    Optimizer& operator=(const Optimizer &);

@@ -29,6 +29,7 @@
 
 #include "Analyzer.h"
 #include "pData.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition
@@ -37,6 +38,7 @@ class MCMCAnalyzer : public Analyzer
 {
 private:
    int    mode_;
+   int    bfmode_;
    int    nInputs_;
    int    nOutputs_;
    double *means_;           //length is nInputs_
@@ -52,15 +54,34 @@ public:
 
    double analyze(aData &adata);
 
+   double analyze_bf(aData &adata);
+
    MCMCAnalyzer& operator=(const MCMCAnalyzer &analyzer);
 
    double genMatlabFile(int nInputs, double *lower, double *upper,
                         double *ranges, int nPlots, int *plotIndices,
                         int nbins, int **bins, int ****bins2, 
                         pData &pData, int nChains, int chainCnt,
-                        double ***XChains, int *chainStatus);
+                        double ***XChains, int *chainStatus, 
+                        double *Xmax, double Ymin);
+
+   int    genPostLikelihood(int nInputs, double *lower,
+                 double *upper, double *XRange, int numChains,
+                 int chainCnt, double ***XChains, int *chainStatus,
+                 int chainLimit, int *rsIndices, double *rsValues,
+                 int *designParams, int dnInputs, int dnSample, 
+                 double *dSamInputs, FuncApprox **faPtrs, 
+                 FuncApprox **faPtrs1, int nOutputs, double *discOutputs,
+                 double *discFuncConstantMeans, double *dSamMeans,
+                 double *dSamStdevs);
+
+   double readSpecFile(int nInputs, int nOutputs, int *dnSamp,
+                       int *dnInps, int **dParams, double **dSamIns,
+                       double **dMeans, double **dStds, int printLevel);
 
    int setParams(int nParams, char **params);
+
+   int checkConvergence(int num, double *means, double *stds, int leng);
 
    /** Getters for analysis results */
    int    get_nInputs();

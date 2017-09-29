@@ -86,7 +86,7 @@ int PlackettBurmanSampling::initialize(int initLevel)
    int ii, jj, kk, ipower, whichPlan, checkN;
    int **patternMatrix, **tempMatrix, rowCnt, *genVec;
 
-   if (nSamples_ = 0)
+   if (nSamples_ == 0)
    {
       printf("PlackettBurmanSampling::initialize ERROR - nSamples = 0.\n");
       exit(1);

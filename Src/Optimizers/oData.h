@@ -28,6 +28,7 @@
 #define __ODATAH__
 
 #include "FunctionInterface.h"
+#include "PsuadeData.h"
 
 // ************************************************************************
 // class definition
@@ -54,6 +55,7 @@ public:
    int    maxFEval_;
    FunctionInterface *funcIO_;
    char targetFile_[200];
+   PsuadeData *psIO_;
 
    /** constructor */
    oData();

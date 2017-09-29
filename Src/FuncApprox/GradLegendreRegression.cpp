@@ -1164,6 +1164,7 @@ int GradLegendreRegression::computeSS(int N, double *XX, double *Y,
    printf("* GradLegendreRegression: SSreg = %e\n", SSreg);
    printf("* GradLegendreRegression: SSres = %e\n", SSresid);
    printf("* GradLegendreRegression: SSres = %e (true)\n", SSresidCheck);
+   SSresid = SSresidCheck;
    return 0;
 }
 

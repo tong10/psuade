@@ -63,6 +63,10 @@ public:
     */
    int initialize(int flag);
 
+   /** get number of constraints 
+    */
+   int getNumConstraints();
+
    /** This function refines an incoming sample
        @param ratio: refinement ratio
        @param randomize: generate randomized sample

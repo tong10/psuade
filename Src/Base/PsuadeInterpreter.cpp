@@ -57,17 +57,14 @@
 #include "AnalysisManager.h"
 #include "TSIAnalyzer.h"
 #include "SobolAnalyzer.h"
-#include "PDFBase.h"
 #include "PDFManager.h"
-#include "PDFNormal.h"
-#include "Matrix.h"
-#include "Vector.h"
 #include "Sampling.h"
 #include "FunctionInterface.h"
 #include "PsuadeData.h"
 #include "Optimizer.h"
 #include "PsuadeSession.h"
 #include "PrintingTS.h"
+#include "PDFHistogram.h"
 
 // ------------------------------------------------------------------------
 // local defines 
@@ -79,36 +76,33 @@
 // ------------------------------------------------------------------------
 int PsuadeBase::interpretInteractive()
 {
-   int    nInputs=0, nSamples, nOutputs, status, *sampleStates=NULL, nReps;
-   int    iInd, outputID, ind, ind2, iInd1, iInd2, count;
+   int    status, nReps, iInd, outputID, ind, ind2, iInd1, iInd2, count;
    int    it, nPtsPerDim=64, iplot1, iplot2, jplot=-1, faLeng, sInd, flag;
    int    ss, ii, jj, kk, ll, iplot3, *states, rsiNOutputs, *rsiSet, count2;
    int    **rsiMatrix, analysisMethod, samplingMethod, faType, setCompare;
    int    otrans, *xsforms, nOut2, oInd, *tags, faFlag, iOne=1;
    int    nPaths, nTrials=100, trial, *indSet, nSmooth, currP, faLimit;
    int    nParts, nPlots, *plotIndices=NULL, faID, nFiles, iplot4;
-   int    inputID, oplot1, oplot2, scriptMode=0, *tempI, *tagArray=NULL;
+   int    inputID, oplot1, oplot2, scriptMode=0, *tempI;
    int    method, saveDiag, saveMode1, saveMode2, saveMethod, usePDFs=0;
-   int    nParams, *inputPDFs=NULL, nInputs2, nSamples2, commandCnt, iSave;
+   int    nParams, commandCnt, iSave;
    int    *SPDFIndices;
    long   nSamplesLong;
-   double *sampleInputs=NULL, *sampleOutputs=NULL, *tempX, *tempY, *tempW;
-   double *iLowerB=NULL, *iUpperB=NULL, Ymax, Ymin, Xmin, Xmax, width;
+   double *tempX, *tempY, *tempW, Ymax, Ymin, Xmin, Xmax, width;
    double *tempInds=NULL, *tempT=NULL, *inputSettings=NULL, *faYIn=NULL;
    double *faXOut=NULL, *faYOut=NULL;
    double thresh, threshL, threshU, GYmax, GYmin, dtemp;
    double *tempV, **moatSample=NULL, currX1, currX2, currY1, gamma;
-   double currY2, ddata, filterRange, sLo, sHi, *dataReg=NULL;
+   double currY2, ddata, filterRange, sLo, sHi;
 #ifdef HAVE_SVM
    double sumErr, maxErr, tolerance;
 #endif
    double *threshLs, *threshUs, diagMax, diagMin, currX1F, currX2F;
-   double ***rsi3Matrix,aVal,bVal,minDist,*inputMeans=NULL,*inputStds=NULL;
-   string sparam;
-   char   command[101],dataFile[101],**inputNames=NULL,**names,**inputPDFFiles;
-   char   **outputNames=NULL, winput[501], lineIn[501], pString[501];
-   char   dirName[501],errFile[101],*targv[8],scriptName[501], cString[501];
-   char   subdirName[501], **strptr;
+   double ***rsi3Matrix,aVal,bVal,minDist;
+   char   command[5001],dataFile[5001],**names,**inputPDFFiles;
+   char   winput[50001], lineIn[50001], pString[50001];
+   char   dirName[5001],errFile[5001],*targv[8],scriptName[5001], cString[5001];
+   char   subdirName[5001], **strptr;
    FILE   *fp, *fpOut, *fErr, *scriptFp=NULL;
    FuncApprox *faPtr=NULL, **faPtrs=NULL, **faPtrsRsEval=NULL;
    pData  pPtr, pINames, pLower, pUpper, pONames, pInputs, pOutputs, pStates;
@@ -119,7 +113,7 @@ int PsuadeBase::interpretInteractive()
    FunctionInterface *funcIO=NULL;
    AnalysisManager   *anaManager=NULL;
    PDFManager *pdfman=NULL;
-   Matrix     corMat, *inputCMat=NULL;
+   Matrix     corMat;
    Vector     vecIn, vecOut, vecUpper, vecLower;
    PsuadeSession *currSession=NULL, *newSession=NULL;
 
@@ -135,7 +129,7 @@ int PsuadeBase::interpretInteractive()
    {
       if (scriptMode == 1 && scriptFp != NULL)
       {
-         fgets(lineIn, 500, scriptFp);
+         fgets(lineIn, 5000, scriptFp);
          if (feof(scriptFp) != 0)
          {
             fclose(scriptFp);
@@ -149,7 +143,7 @@ int PsuadeBase::interpretInteractive()
       {
          printf("psuade> ");
          for (ii = 0; ii < 500; ii++) lineIn[ii] = '\0';
-         fgets(lineIn,500,stdin); 
+         fgets(lineIn,5000,stdin); 
          winput[0] = '\0';
          pString[0] = '\0';
          command[0] = '\0';
@@ -189,9 +183,9 @@ int PsuadeBase::interpretInteractive()
             printf("\t\t 4. Sampling: LH, MC\n");
             printf("\t\t    Analyzer: sot_sa (sum-of-trees screening)\n");
             printf("\t\t 5. Sampling: FF4, FF5\n");
-            printf("\t\t    Analyzer: ff (Fractional Factorial, for linear interactions )\n");
+            printf("\t\t    Analyzer: ff (Fractional Factorial for 2-way analysis)\n");
             printf("\t\t 6. Sampling: LSA\n");
-            printf("\t\t    Analyzer: lsa (local sensitivity analysis - for linear)\n");
+            printf("\t\t    Analyzer: lsa (local sensitivity analysis - linear)\n");
             printf("\tIII.  Classical regression/sensitivity analysis: \n");
             printf("\t\t 1. Sampling: MC, LPTAU, METIS, LH, OA, or OALH\n");
             printf("\t\t    Regression-based correlation analysis (use ca)\n");
@@ -204,7 +198,7 @@ int PsuadeBase::interpretInteractive()
             printf("\t\t    (b) test it on the training set (use rstest_ts)\n");
             printf("\t\t    (c) test it on another hold-out set (use rstest_ts)\n");
             printf("\t\t    (d) perform cross validation (use rstest_cv)\n");
-            printf("\t\t    (e) perform generalization test (rstest_gt, most rigorous)\n");
+            printf("\t\t    (e) perform generalization test (rstest_gt)\n");
             printf("\tV.   Global sensitivity analysis (first order): \n");
             printf("\t\t 1. Sampling: replicated Latin hypercube\n");
             printf("\t\t    Analyzer: use 'me'\n");
@@ -215,17 +209,17 @@ int PsuadeBase::interpretInteractive()
             printf("\t\t 4. Sampling: any space-filling sample\n");
             printf("\t\t    Analyzer: use rscheck with Legendre and select scaling\n");
             printf("\t\t 5. Sampling: first construct response surface\n");
-            printf("\t\t    Analyzer: use rssobol1b or rsmeb (faster) in command line mode\n");
+            printf("\t\t    Analyzer: use rssobol1b or rsmeb (faster)\n");
             printf("\tVI.  Global sensitivity analysis (second order): \n");
             printf("\t\t 1. Sampling: replicated OA\n");
             printf("\t\t    Analyzer: use 'ie' in command line mode\n");
             printf("\t\t 2. Sampling: any space-filling (large enough) sample\n");
             printf("\t\t    Analyzer: use 'ie'\n");
             printf("\t\t 3. Sampling: first construct response surface\n");
-            printf("\t\t    Analyzer: use rssobol2b or rsieb (less robust) in command line mode\n");
+            printf("\t\t    Analyzer: use rssobol2b or rsieb (less robust)\n");
             printf("\tVII.  Global sensitivity analysis (total order): \n");
             printf("\t\t 1. Sampling: use any space-filling (very large) sample\n");
-            printf("\t\t    Analyzer: use tsi command (approximate analysis, low dimensions)\n");
+            printf("\t\t    Analyzer: use tsi (coarse analysis for low dimensions)\n");
             printf("\t\t 2. Sampling: Sobol' sampling method (large)\n");
             printf("\t\t    Analyzer: use 'sobol'\n");
             printf("\t\t 3. Sampling: first construct response surface\n");
@@ -242,19 +236,19 @@ int PsuadeBase::interpretInteractive()
             printf("\t\t 1. Sampling: any of your choice \n");
             printf("\t\t    Analyzer: pca in command line mode\n");
             printf("\tXI.   Bayesian inverse UQ: (response surface-based)\n");
-            printf("\t\t 1. Sampling: LPTAU, LH, OA, METIS to create response surface\n");
+            printf("\t\t 1. Sampling: LPTAU, LH, OA, METIS for response surface\n");
             printf("\t\t    Analyzer: rsmcmc (in command line mode), or\n");
-            printf("\t\t 2. Sampling: LPTAU, LH, OA, METIS to create response surface\n");
-            printf("\t\t    Analyzer: mcmc (need special re-compilation for efficiency)\n");
+            printf("\t\t 2. Sampling: LPTAU, LH, OA, METIS for response surface\n");
+            printf("\t\t    Analyzer: mcmc (need re-compilation for efficiency)\n");
             printf("\tXII.  Advanced features: \n");
-            printf("\t\t 1. Impose constraints in sampling and analysis (e.g. moatgen)\n");
-            printf("\t\t 2. Plot PDF of std dev. (error) of response surfaces (rssd_ua)\n");
+            printf("\t\t 1. Impose constraints in sampling/analysis (e.g. moatgen)\n");
+            printf("\t\t 2. Plot PDF of std dev. of response surfaces (rssd_ua)\n");
             printf("\t\t 3. Intersection or Bayes-like rules (e.g. rsi2, rsvol)\n");
             printf("\t\t 4. Multi-objective optimization (mo_opt)\n");
             printf("\t\t 5. Mixed aleatoric-epistemic uncertainty analysis (aeua)\n");
-            printf("\t\t 6. Second order analysis (soua) - uncertainty in distribution\n");
+            printf("\t\t 6. 2nd order analysis (soua) - uncertainty in input PDFs\n");
             printf("\t\t 7. Tools for setting up user application with PSUADE\n");
-            printf("\t\t 8. Sampling refinements (uniform/adaptive: refine, a_refine)\n");
+            printf("\t\t 8. Sample refinement (uniform/adaptive: refine, a_refine)\n");
          }
          else if (!strcmp(winput, "io"))
          {
@@ -269,18 +263,19 @@ int PsuadeBase::interpretInteractive()
             printf("\towrite       <file> (write to file with only outputs)\n");
             printf("\tread_std     <file> (read data in standard format)\n");
             printf("\twrite_std    <file> (write to file in standard format)\n");
+            printf("\tread_csv     <file> (read data in special CSV format)\n");
             printf("\twrite_matlab <file> (write to file in matlab format)\n");
             printf("\twrite_ultra  <file> (write to file in ultra format)\n");
             printf("\tread_xls     <file> (read data in Excel format)\n");
             printf("\twrite_xls    <file> (write to file in Excel format)\n");
-            printf("\tupdate       <file> (update sample OUTPUTS from a PSUADE file)\n");
-            printf("\tiadd         <file> (add more inputs from a PSUADE file)\n");
-            printf("\toadd         <file> (add more outputs from a PSUADE file)\n");
-            printf("\tiadd1        <file> (add one input with random values in [0,1])\n");
-            printf("\toadd1        <file> (add one output with random values in [0,1])\n");
+            printf("\tupdate       <file> (update sample OUTPUTS from a data file)\n");
+            printf("\tiadd         <file> (add more inputs from a data file)\n");
+            printf("\toadd         <file> (add more outputs from a data file)\n");
+            printf("\tiadd1        <file> (add 1 input with random data in [0,1])\n");
+            printf("\toadd1        <file> (add 1 output with random data in [0,1])\n");
             printf("\tireplace     <file> (replace one input from <file>)\n");
             printf("\toreplace     <file> (replace all outputs from <file>)\n");
-            printf("\tsplitsample         (split sample into 2 files in PSUADE format)\n");
+            printf("\tsplitsample         (split sample into 2 files)\n");
          }
          else if (!strcmp(winput, "stat"))
          {
@@ -296,10 +291,11 @@ int PsuadeBase::interpretInteractive()
             printf("\tanova      (analyis of variation with MARS response surface)\n");
             printf("\t1stest     (1-sample test (Chi-squared, dist fit))\n");
             printf("\t2stest     (2-sample test (T-test,K-S,Mann-Whitney))\n");
-            printf("\tgendist    (create a sample given an PDF (for 1 input))\n");
+            printf("\tgendist    (create a sample given an PDF (for single input))\n");
             printf("\tpdfconvert (convert a sample using selected distribution)\n");
-            printf("\trand_draw  (draw a bootstrapped sample from the loaded sample)\n");
-            printf("\trand_draw2 (draw a sample from 2 samples with 2 set of inputs)\n");
+            printf("\trand_draw  (draw a bootstrap from the loaded sample)\n");
+            printf("\trand_draw2 (draw a bootstrap from 2 samples of 2 input sets)\n");
+            printf("\tgensample  (create a sample using PDF info from the loaded file)\n");
             printf("\tcdf_lookup (look up cumulative probability given a value)\n");
          }
          else if (!strcmp(winput, "screen"))
@@ -309,12 +305,12 @@ int PsuadeBase::interpretInteractive()
             printf("\tlsa        (parameter screening with local SA method)\n");
             printf("\tmoat       (parameter screening with the Morris method)\n");
             printf("\tmoatmo     (Morris screening for multiple outputs)\n");
-            printf("\tff         (parameter screening with fractional factorial design)\n");
+            printf("\tff         (parameter screening with fractional factorial)\n");
             printf("\tmars_sa    (parameter screening with MARS)\n");
             printf("\tgp_sa      (parameter screening with Gaussian process)\n");
             printf("\tdelta_test (parameter screening with Delta test)\n");
             printf("\tsot_sa     (parameter screening with sum-of-trees method)\n");
-            printf("\tpca        (principal component analysis: output dimension reduction)\n");
+            printf("\tpca        (principal component analysis: on outputs)\n");
          }
          else if (!strcmp(winput, "rs"))
          { 
@@ -327,32 +323,32 @@ int PsuadeBase::interpretInteractive()
             printf("\trstest_cv   (check quality of RS with cross validation)\n");
             printf("\trstest_gt   (check quality of RS with generalization test)\n");
             printf("\trscreate    (create response surface to be used by rseval)\n");
-            printf("\tivec_create (create random input vector in local memory)\n");
-            printf("\tivec_modify (modify 1 entry of input vector in local memory)\n");
-            printf("\tivec_show   (display the input vector in local memory)\n");
-            printf("\trseval      (evaluate RS at given points)\n");
+            printf("\tivec_create (create an input vector in local memory)\n");
+            printf("\tivec_modify (modify an entry of local input vector)\n");
+            printf("\tivec_show   (display values of the local input vector)\n");
+            printf("\trseval      (evaluate RS with local vector or from file)\n");
             printf("\trseval_m    (use PSUADE as response surface server)\n");
             printf("\trs_splot    (create scatter plots on response surface)\n");
             printf("\trstgen      (generate a sample (FF/FACT) for rstest_hs)\n");
-            printf("\trsvol       (compute percentage volume of constrained region)\n");
-            printf("\tint         (integration: find volume under response surface)\n");
+            printf("\trsvol       (compute volume in constrained region)\n");
+            printf("\trsint       (compute volume under response surface)\n");
          }
          else if (!strcmp(winput, "qsa") && !strcmp(pString, "long"))
          {
             printf("Commands for RS-based uncertainty/sensitivity analysis:\n");
             printf("(to see details of each command, use '-h' option)\n");
             printf("\trsua       (RS-based UA on fuzzy response surface)\n");
-            printf("\trsuab      (RS-based UA on response surface with bootstrapping)\n");
-            printf("\trsmeb      (RS-based McKay main effect with bootstrapping)\n");
-            printf("\trsieb      (RS-based McKay interaction effect with bootstrapping)\n");
+            printf("\trsuab      (RS-based UA on response surface with bootstrap)\n");
+            printf("\trsmeb      (RS-based McKay main effect with bootstrap)\n");
+            printf("\trsieb      (RS-based McKay pairwise effect with bootstrap)\n");
             printf("\trssobol1   (RS-based Sobol' main effect)\n");
             printf("\trssobol2   (RS-based Sobol' interaction effect)\n");
             printf("\trssobolg   (RS-based Sobol' group main effect)\n");
             printf("\trssoboltsi (RS-based Sobol' total effect)\n");
-            printf("\trssobol1b  (RS-based Sobol' main effect with bootstrapping)\n");
-            printf("\trssobol2b  (RS-based Sobol' interaction effect with bootstrapping)\n");
-            printf("\trssoboltsib(RS-based Sobol' total effect with bootstrapping)\n");
-            printf("\tsoua       (RS-based 2nd order analysis - uncertainty in PDFs)\n");
+            printf("\trssobol1b  (RS-based Sobol' main effect with bootstrap)\n");
+            printf("\trssobol2b  (RS-based Sobol' 2-way analysis with bootstrap)\n");
+            printf("\trssoboltsib(RS-based Sobol' total effect with bootstrap)\n");
+            printf("\tsoua       (RS-based 2nd order analysis: uncertainty in PDF)\n");
             printf("\taeua       (RS-based mixed aleatoric-epistemic analysis)\n");
          }
          else if (!strcmp(winput, "qsa"))
@@ -361,13 +357,13 @@ int PsuadeBase::interpretInteractive()
             printf("(to see more qsa commands, use 'help qsa long')\n");
             printf("(to see details of each command, use '-h' option)\n");
             printf("\trsua       (RS-based UA on fuzzy response surface)\n");
-            printf("\trsuab      (RS-based UA on response surface with bootstrapping)\n");
+            printf("\trsuab      (RS-based UA on response surface with bootstrap)\n");
             printf("\trsmeb      (RS-based McKay main effect with bootstrapping)\n");
-            printf("\trsieb      (RS-based McKay interaction effect with bootstrapping)\n");
-            printf("\trssobol1b  (RS-based Sobol' main effect with bootstrapping)\n");
-            printf("\trssobol2b  (RS-based Sobol' interaction effect with bootstrapping)\n");
-            printf("\trssoboltsib(RS-based Sobol' total effect with bootstrapping)\n");
-            printf("\tsoua       (RS-based 2nd order analysis - uncertainty in PDFs)\n");
+            printf("\trsieb      (RS-based McKay pairwise effect with bootstrap)\n");
+            printf("\trssobol1b  (RS-based Sobol' main effect with bootstrap)\n");
+            printf("\trssobol2b  (RS-based Sobol' pairwise effect with bootstrap)\n");
+            printf("\trssoboltsib(RS-based Sobol' total effect with bootstrap)\n");
+            printf("\tsoua       (RS-based 2nd order analysis: uncertainty in PDF)\n");
             printf("\taeua       (RS-based mixed aleatoric-epistemic analysis)\n");
          }
          else if (!strcmp(winput, "calibration"))
@@ -384,6 +380,7 @@ int PsuadeBase::interpretInteractive()
             printf("(to see details of each command, use '-h' option)\n");
             printf("\tsplot      (scatter plot in matlab/scilab)\n");
             printf("\tsplot2     (2-input/1 output scatter plot in matlab/scilab)\n");
+            printf("\tsplot3     (3-input/1 output scatter plot in matlab/scilab)\n");
             printf("\trs1        (1-input response surface in matlab/scilab)\n");
             printf("\trs2        (2-input response surface in matlab/scilab)\n");
             printf("\trs3        (3-input response surface in matlab)\n");
@@ -420,6 +417,7 @@ int PsuadeBase::interpretInteractive()
             printf("(to see more plot commands, use 'help plot long')\n");
             printf("\tsplot      (sample scatter plot versus each input in matlab)\n");
             printf("\tsplot2     (2-input/1 output scatter plot in matlab/scilab)\n");
+            printf("\tsplot3     (3-input/1 output scatter plot in matlab/scilab)\n");
             printf("\trs1        (1-input response surface in matlab/scilab)\n");
             printf("\trs2        (2-input response surface in matlab/scilab)\n");
             printf("\trs3        (3-input response surface in matlab)\n");
@@ -463,9 +461,10 @@ int PsuadeBase::interpretInteractive()
             printf("\tidelete       (delete one input from data)\n");
             printf("\todelete       (delete one output from data)\n");
             printf("\tsdelete       (delete one sample point)\n");
+            printf("\tspurge        (take out invalid sample points)\n");
             printf("\tishuffle      (re-order inputs)\n");
-            printf("\tiselect_index (select and re-order inputs based on input number)\n");
-            printf("\tiselect_name  (select and re-order inputs based on input names)\n");
+            printf("\tiselect_index (select/re-order inputs based on input number)\n");
+            printf("\tiselect_name  (select/re-order inputs based on input names)\n");
             printf("\tsshow         (display one sample point)\n");
             printf("\tsinfo         (display information on the loaded sample)\n");
             printf("\tlist1         (list 1 input/1 output data pair)\n");
@@ -483,7 +482,6 @@ int PsuadeBase::interpretInteractive()
             printf("\totran         (transform certain output (log or power))\n");
             printf("\titag          (tag sample points based on input values)\n");
             printf("\totag          (tag sample points based on output values)\n");
-            printf("\tpurge         (take out invalid sample points)\n");
             printf("\trm_dup        (take out duplicate sample points)\n");
             printf("\toop           (replace output1 = a * out2 + b * out3)\n");
             printf("\tsetdriver <s> (set the driver field to <s>)\n");
@@ -492,18 +490,19 @@ int PsuadeBase::interpretInteractive()
          {
             printf("Miscellaneous commands:\n");
             printf("\trename <file> <file2> (rename a file) \n");
-            printf("\trun <file>      (run a psuade input script) \n");
-            printf("\tquit (exit)     (terminate command line session)\n");
-            printf("\trsmax <d>       (set maximum number of data points for RS)\n");
-            printf("\tsys <command>   (execute a system command)\n");
-            printf("\tprintlevel <d>  (set print level)\n");
-            printf("\tinteractive     (turn on/off advanced interactive mode: obsolete)\n");
-            printf("\toutput_file     (set the default output file name\n");
-            printf("\tsqc             (sample quality check: distance metric)\n");
-            printf("\tnna             (nearest neighbor analysis: for outliers\n");
-            printf("\tshow_format     (display file formats for RS/MOAT constraints)\n");
-            printf("\tscilab          (turn on/off scilab (limited support))\n");
-            printf("\tstart_matlab    (start matlab in PSUADE interactive mode)\n");
+            printf("\trun <file>     (run a psuade input script) \n");
+            printf("\tquit (exit)    (terminate command line session)\n");
+            printf("\trsmax <d>      (set maximum number of data points for RS)\n");
+            printf("\tsys <command>  (execute a system command)\n");
+            printf("\tprintlevel <d> (set print level)\n");
+            printf("\tinteractive    (turn on/off interactive mode: obsolete)\n");
+            printf("\toutput_file    (set the default output file name\n");
+            printf("\tsqc            (sample quality check: distance metric)\n");
+            printf("\tnna            (nearest neighbor analysis: for outliers\n");
+            printf("\tshowformat     (show file formats for RS/MOAT constraints)\n");
+            printf("\tscilab         (turn on/off scilab (limited support))\n");
+            printf("\tstart_matlab   (start matlab in PSUADE interactive mode)\n");
+            printf("\tcheckformat    (check format of various files used by PSUADE)\n");
          }
          else if (!strcmp(winput, "advanced"))
          {
@@ -514,23 +513,25 @@ int PsuadeBase::interpretInteractive()
             printf("\tana_expert      (turn on/off analysis expert mode)\n");
             printf("\tsam_expert      (turn on/off sampling expert mode)\n");
             printf("\topt_expert      (turn on/off optimization expert mode)\n");
+            printf("\tgenhistogram    (create a histogram from the loaded sample)\n");
+            printf("\tgenhistogram2   (similar to genhistogram with a target nbins)\n");
             printf("\tgenconfigfile   (create a template PSUADE config file)\n");
             printf("\tuse_configfile <file> (use config file to select parameters)\n");
             printf("\trefine          (refine a sample: higher mesh resolution)\n");
-            printf("\ta_refine        (adaptively refine a sample based on MarsBag)\n");
+            printf("\ta_refine        (adaptively refine a sample)\n");
             printf("\ta_refine_metis  (a_refine but with initial sample = METIS)\n");
             printf("\tinterface_track (track the interface separating Y=0 vs Y=1.)\n");
-            printf("\tmoat_adjust  <file>  (modify MOAT sample from <file>)\n");
-            printf("\tgmoat_adjust <file>  (modify GMOAT sample from <file>)\n");
-            printf("\tmoatgen              (create MOAT adjust file: 1 constr)\n");
-            printf("\tmoatgen2             (moatgen with multiple constraints)\n");
-            printf("\tmoat_concat  <file>  (concatenate 2 MOAT samples (2 INPUT SETS))\n");
+            printf("\tmoat_adjust  <file> (modify MOAT sample from <file>)\n");
+            printf("\tgmoat_adjust <file> (modify GMOAT sample from <file>)\n");
+            printf("\tmoatgen             (create MOAT adjust file: 1 constr)\n");
+            printf("\tmoatgen2            (moatgen with multiple constraints)\n");
+            printf("\tmoat_concat  <file> (combine 2 MOAT samples (2 INPUT SETS))\n");
          }
          else if (!strcmp(winput, "future"))
          {
             printf("\tgen_discrete (generate a sample of discrete variables)\n");
-            printf("\tgp_sa2       (parameter screening with layered GP, not ready)\n");
-            printf("\tsot_sa2      (parameter screening with sum-of-trees+boosting)\n");
+            printf("\tgp_sa2       (parameter screening via layered GP, not ready)\n");
+            printf("\tsot_sa2      (parameter screening via sum-of-trees+boosting)\n");
             printf("\tgd_test      (Gower/Mahalanobis extrapolation analysis)\n");
             printf("\tpdfcheck     (internal self-check for accuracy of PDFs)\n");
          }
@@ -561,6 +562,8 @@ int PsuadeBase::interpretInteractive()
          {
             printf("syntax: rename <file1> <file2>\n");
             printf("where <file1> and <file2> are source and destination files.\n");
+            printf("\nThis command allows you to change file name without\n");
+            printf("     leaving the PSUADE command line mode.\n");
             continue;
          }
          fp = fopen(winput,"r");
@@ -582,6 +585,8 @@ int PsuadeBase::interpretInteractive()
          {
             printf("syntax: run <file>\n");
             printf("where <file> is a PSUADE input file.\n");
+            printf("\nThis command allows you to run PSUADE batch file in\n");
+            printf("     command line mode.\n");
             continue;
          }
          strcpy(dataFile, "\0");
@@ -598,7 +603,7 @@ int PsuadeBase::interpretInteractive()
          if (status == 0) run();
          else
          {
-            printf("ERROR: run file not valid : check file format.\n");
+            printf("ERROR: batch file not valid : check file format.\n");
          }
       }
 
@@ -633,142 +638,102 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          else fclose(fp);
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates  != NULL) delete [] sampleStates;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (inputPDFs     != NULL) delete [] inputPDFs;
-         if (inputMeans    != NULL) delete [] inputMeans;
-         if (inputStds     != NULL) delete [] inputStds;
-         if (inputCMat     != NULL) delete inputCMat;
-         sampleInputs  = NULL;
-         sampleOutputs = NULL;
-         sampleStates  = NULL;
-         iLowerB       = NULL;
-         iUpperB       = NULL;
-         inputPDFs     = NULL;
-         inputMeans    = NULL;
-         inputStds     = NULL;
-         inputCMat     = NULL;
-         if (inputNames != NULL)
-         {
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL) delete [] inputNames[ii];
-            delete [] inputNames;
-         }
-         inputNames = NULL;
-         if (outputNames != NULL)
-         {
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL) delete [] outputNames[ii];
-            delete [] outputNames;
-         }
-         outputNames = NULL;
-         nInputs = nSamples = nOutputs = 0;
          cleanUp();
-         if (tagArray != NULL) delete [] tagArray;
-         tagArray = NULL;
-         if (psuadeIO_ != NULL) delete psuadeIO_;
+         if (psConfig_ != NULL) delete psConfig_;
+         psConfig_ = new PsuadeConfig();
          psuadeIO_ = new PsuadeData();
          psuadeIO_->setOutputLevel(0);
          status = psuadeIO_->readPsuadeFile(dataFile);
          if (status == 0)
          {
             psuadeIO_->getParameter("input_ninputs", pPtr);
-            nInputs = pPtr.intData_;
+            nInputs_ = pPtr.intData_;
             pINames.clean();
             psuadeIO_->getParameter("input_names", pINames);
             names = pINames.strArray_;
             pLower.clean();
             psuadeIO_->getParameter("input_lbounds", pLower);
-            iLowerB = pLower.dbleArray_;
+            iLowerB_ = pLower.dbleArray_;
             pLower.dbleArray_ = NULL;
             pUpper.clean();
             psuadeIO_->getParameter("input_ubounds", pUpper);
-            iUpperB = pUpper.dbleArray_;
+            iUpperB_ = pUpper.dbleArray_;
             pUpper.dbleArray_ = NULL;
-            inputNames = new char*[nInputs+1];
-            for (ii = 0; ii < nInputs; ii++)
+            inputNames_ = new char*[nInputs_+1];
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               inputNames[ii] = new char[200]; 
-               strcpy(inputNames[ii], names[ii]);
+               inputNames_[ii] = new char[200]; 
+               strcpy(inputNames_[ii], names[ii]);
             }
             psuadeIO_->getParameter("input_pdfs", pPDFs);
             psuadeIO_->getParameter("input_means", pMeans);
             psuadeIO_->getParameter("input_stdevs", pStds);
-            inputPDFs  = pPDFs.intArray_;
+            inputPDFs_  = pPDFs.intArray_;
             pPDFs.intArray_ = NULL;
-            inputMeans = pMeans.dbleArray_;
+            inputMeans_ = pMeans.dbleArray_;
             pMeans.dbleArray_ = NULL;
-            inputStds  = pStds.dbleArray_;
+            inputStds_  = pStds.dbleArray_;
             pStds.dbleArray_ = NULL;
             psuadeIO_->getParameter("input_sample_files", pPDFs);
             inputPDFFiles = pPDFs.strArray_;
             psuadeIO_->getParameter("input_sample_indices", pPDFSIndices);
             SPDFIndices = pPDFSIndices.intArray_;
             psuadeIO_->getParameter("input_cor_matrix", pPtr);
-            if (inputCMat != NULL) delete inputCMat;
-            inputCMat = new Matrix();
+            inputCMat_ = new Matrix();
             Matrix *tmpMat = (Matrix *) pPtr.psObject_;
-            inputCMat->load(*tmpMat);
+            inputCMat_->load(*tmpMat);
 
             psuadeIO_->getParameter("output_noutputs", pPtr);
-            nOutputs = pPtr.intData_;
+            nOutputs_ = pPtr.intData_;
             pONames.clean();
             psuadeIO_->getParameter("output_names", pONames);
             names = pONames.strArray_;
-            outputNames = new char*[nOutputs+1];
-            for (ii = 0; ii < nOutputs; ii++)
+            outputNames_ = new char*[nOutputs_+1];
+            for (ii = 0; ii < nOutputs_; ii++)
             {
-               outputNames[ii] = new char[200]; 
-               strcpy(outputNames[ii], names[ii]);
+               outputNames_[ii] = new char[200]; 
+               strcpy(outputNames_[ii], names[ii]);
             }
             psuadeIO_->getParameter("method_sampling", pPtr);
             samplingMethod = pPtr.intData_;
             psuadeIO_->getParameter("method_nsamples", pPtr);
-            nSamples = pPtr.intData_;
+            nSamples_ = pPtr.intData_;
             psuadeIO_->getParameter("method_nreplications",pPtr);
             nReps = pPtr.intData_;
             psuadeIO_->getParameter("input_sample", pPtr);
-            if (sampleInputs != NULL) delete [] sampleInputs;
-            sampleInputs = pPtr.dbleArray_;
+            sampleInputs_ = pPtr.dbleArray_;
             pPtr.dbleArray_ = NULL;
             psuadeIO_->getParameter("output_sample", pPtr);
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
-            sampleOutputs  = pPtr.dbleArray_;
+            sampleOutputs_  = pPtr.dbleArray_;
             pPtr.dbleArray_ = NULL;
             psuadeIO_->getParameter("output_states", pPtr);
-            if (sampleStates != NULL) delete [] sampleStates;
-            sampleStates  = pPtr.intArray_;
+            sampleStates_  = pPtr.intArray_;
             pPtr.intArray_ = NULL;
             pINames.clean();
             pONames.clean();
-            if (sampleInputs == NULL || sampleOutputs == NULL)
+            if (sampleInputs_ == NULL || sampleOutputs_ == NULL)
             {
-               printf("WARNING: no sample matrix nor output found.\n");
-               nInputs = nSamples = nOutputs = 0;
+               printf("WARNING: no sample matrix or output found.\n");
+               nSamples_ = 0;
             }
             else
             {
-               printf("load complete : nSamples = %d\n", nSamples);
-               printf("                nInputs  = %d\n", nInputs);
-               printf("                nOutputs = %d\n", nOutputs);
+               printf("load complete : nSamples = %d\n", nSamples_);
+               printf("                nInputs  = %d\n", nInputs_);
+               printf("                nOutputs = %d\n", nOutputs_);
+               if (currSession != NULL) delete currSession;
+               currSession = new PsuadeSession();
+               psuadeIO_->getSession(currSession);
             }
-            psuadeIO_->getSession(currSession);
             currSession->psuadeIO_ = psuadeIO_;
          }
          else
          {
+            printf("ERROR: file %s either not found or in wrong format.\n",
+                   dataFile);
             cleanUp();
-            if (psuadeIO_ != NULL) delete psuadeIO_;
-            if (sampler_ != NULL) SamplingDestroy(sampler_);
-            sampler_ = NULL;
-            psuadeIO_ = NULL;
          }
          fflush(stdout);
-         if (dataReg != NULL) delete [] dataReg;
-         dataReg = NULL;
       }
 
       // +++ loadmore 
@@ -778,6 +743,7 @@ int PsuadeBase::interpretInteractive()
          if (!strcmp(winput, "-h"))
          { 
             printf("loadmore: add another PSUADE sample to the loaded sample\n");
+            printf("          so it is equivalent to sample concatenation.\n");
             printf("syntax: loadmore <filename>.\n");
             printf("where <filename> is a PSUADE data file.\n");
             continue;
@@ -792,10 +758,6 @@ int PsuadeBase::interpretInteractive()
             printf("You can change the default output filename with\n");
             printf("the 'output_file' command.\n");
          }
-         cleanUp();
-         if (psuadeIO_ != NULL) delete psuadeIO_;
-         if (sampler_ != NULL) SamplingDestroy(sampler_);
-         sampler_ = NULL;
          if ((fp=fopen(dataFile,"r")) == NULL)
          {
             printf("file %s not found.\n", dataFile);
@@ -809,7 +771,7 @@ int PsuadeBase::interpretInteractive()
          if (status == 0)
          {
             flag = 0;
-            if (sampleInputs != NULL)
+            if (sampleInputs_ != NULL)
             {
                psuadeIO_->getParameter("input_ninputs", pPtr);
                ind = pPtr.intData_;
@@ -823,11 +785,11 @@ int PsuadeBase::interpretInteractive()
                psuadeIO_->getParameter("input_ubounds", pUpper);
                tempY = pUpper.dbleArray_;
                flag = 1;
-               if (ind != nInputs)
+               if (ind != nInputs_)
                {
                   printf("ERROR: nInputs are different.\n");
                   printf("       incoming nInputs = %d\n", ind);
-                  printf("       expected nInputs = %d\n", nInputs);
+                  printf("       expected nInputs = %d\n", nInputs_);
                   flag = 0;
                }
                if (flag == 1)
@@ -837,11 +799,11 @@ int PsuadeBase::interpretInteractive()
                   pONames.clean();
                   psuadeIO_->getParameter("output_names",pONames);
                   names = pONames.strArray_;
-                  if (ind != nOutputs)
+                  if (ind != nOutputs_)
                   {
                      printf("ERROR: nOutputs are different.\n");
                      printf("       incoming nOutputs = %d\n", ind);
-                     printf("       expected nOutputs = %d\n", nOutputs);
+                     printf("       expected nOutputs = %d\n", nOutputs_);
                      printf("INFO: local data set not changed.\n");
                      flag = 0;
                   }
@@ -850,7 +812,7 @@ int PsuadeBase::interpretInteractive()
                {
                   for (ii = 0; ii < ind; ii++)
                   {
-                     if (strcmp(outputNames[ii],names[ii]))
+                     if (strcmp(outputNames_[ii],names[ii]))
                      {
                         sprintf(pString,
                                 "Output names are different. Override? (y/n) ");
@@ -864,6 +826,14 @@ int PsuadeBase::interpretInteractive()
                      }
                   }
                }
+               if (flag == 1)
+               {
+                  for (ii = 0; ii < nInputs_; ii++)
+                  {
+                     if (tempX[ii] < iLowerB_[ii]) iLowerB_[ii] = tempX[ii];
+                     if (tempY[ii] > iUpperB_[ii]) iUpperB_[ii] = tempY[ii];
+                  }
+               }
                tempX = NULL;
                tempY = NULL;
                names = NULL;
@@ -874,83 +844,77 @@ int PsuadeBase::interpretInteractive()
             }
             else
             {
-               if (inputNames != NULL)
-               {
-                  for (ii = 0; ii < nInputs; ii++)
-                     if (inputNames[ii] != NULL) delete [] inputNames[ii];
-                  delete [] inputNames;
-               }
-               if (outputNames != NULL)
-               {
-                  for (ii = 0; ii < nOutputs; ii++)
-                     if (outputNames[ii] != NULL) delete [] outputNames[ii];
-                  delete [] outputNames;
-               }
                psuadeIO_->getParameter("input_ninputs", pPtr);
-               nInputs = pPtr.intData_;
+               nInputs_ = pPtr.intData_;
                pINames.clean();
                psuadeIO_->getParameter("input_names", pINames);
                names = pINames.strArray_;
                pLower.clean();
                psuadeIO_->getParameter("input_lbounds", pLower);
-               iLowerB = pLower.dbleArray_;
+               iLowerB_ = pLower.dbleArray_;
                pLower.dbleArray_ = NULL;
                pUpper.clean();
                psuadeIO_->getParameter("input_ubounds", pUpper);
-               iUpperB = pUpper.dbleArray_;
+               iUpperB_ = pUpper.dbleArray_;
                pUpper.dbleArray_ = NULL;
-               inputNames = new char*[nInputs+1];
-               for (ii = 0; ii < nInputs; ii++)
+               inputNames_ = new char*[nInputs_+1];
+               for (ii = 0; ii < nInputs_; ii++)
                {
-                  inputNames[ii] = new char[200]; 
-                  strcpy(inputNames[ii], names[ii]);
+                  inputNames_[ii] = new char[200]; 
+                  strcpy(inputNames_[ii], names[ii]);
                }
+               pINames.clean();
                psuadeIO_->getParameter("output_noutputs", pPtr);
-               nOutputs = pPtr.intData_;
+               nOutputs_ = pPtr.intData_;
                pONames.clean();
                psuadeIO_->getParameter("output_names", pONames);
                names = pONames.strArray_;
-               outputNames = new char*[nOutputs+1];
-               for (ii = 0; ii < nOutputs; ii++)
+               outputNames_ = new char*[nOutputs_+1];
+               for (ii = 0; ii < nOutputs_; ii++)
                {
-                  outputNames[ii] = new char[200]; 
-                  strcpy(outputNames[ii], names[ii]);
+                  outputNames_[ii] = new char[200]; 
+                  strcpy(outputNames_[ii], names[ii]);
                }
+               pONames.clean();
                psuadeIO_->getParameter("method_sampling", pPtr);
                samplingMethod = pPtr.intData_;
                psuadeIO_->getParameter("method_nsamples", pPtr);
-               nSamples = pPtr.intData_;
+               nSamples_ = pPtr.intData_;
                psuadeIO_->getParameter("method_nreplications",pPtr);
                nReps = pPtr.intData_;
                psuadeIO_->getParameter("input_sample", pPtr);
-               sampleInputs  = pPtr.dbleArray_;
+               sampleInputs_  = pPtr.dbleArray_;
                pPtr.dbleArray_ = NULL;
                psuadeIO_->getParameter("output_sample", pPtr);
-               sampleOutputs  = pPtr.dbleArray_;
+               sampleOutputs_  = pPtr.dbleArray_;
                pPtr.dbleArray_ = NULL;
                psuadeIO_->getParameter("output_states", pPtr);
-               sampleStates  = pPtr.intArray_;
+               sampleStates_  = pPtr.intArray_;
                pPtr.intArray_ = NULL;
-               pINames.clean();
-               pONames.clean();
-               printf("loadmore completed: nSamples = %d\n", nSamples);
+               if (sampleOutputs_ == NULL) nSamples_ = 0;
+               if (currSession != NULL) delete currSession;
+               currSession = new PsuadeSession();
+               psuadeIO_->getSession(currSession);
+               printf("loadmore complete : nSamples = %d\n", nSamples_);
+               printf("                    nInputs  = %d\n", nInputs_);
+               printf("                    nOutputs = %d\n", nOutputs_);
             }
             if (flag == 1)
             {
                psuadeIO_->getParameter("method_nsamples", pPtr);
                ind = pPtr.intData_;
-               tempX  = sampleInputs;
-               tempY  = sampleOutputs;
-               states = sampleStates;
-               sampleInputs  = new double[(nSamples+ind)*nInputs];
-               sampleOutputs = new double[(nSamples+ind)*nOutputs];
-               sampleStates  = new int[nSamples+ind];
-               for (ii = 0; ii < nSamples*nInputs; ii++)
-                  sampleInputs[ii] = tempX[ii];
-               for (ii = 0; ii < nSamples*nOutputs; ii++)
-                  sampleOutputs[ii] = tempY[ii];
-               for (ii = 0; ii < nSamples; ii++)
-                  sampleStates[ii] = states[ii];
+               tempX  = sampleInputs_;
+               tempY  = sampleOutputs_;
+               states = sampleStates_;
+               sampleInputs_  = new double[(nSamples_+ind)*nInputs_];
+               sampleOutputs_ = new double[(nSamples_+ind)*nOutputs_];
+               sampleStates_  = new int[nSamples_+ind];
+               for (ii = 0; ii < nSamples_*nInputs_; ii++)
+                  sampleInputs_[ii] = tempX[ii];
+               for (ii = 0; ii < nSamples_*nOutputs_; ii++)
+                  sampleOutputs_[ii] = tempY[ii];
+               for (ii = 0; ii < nSamples_; ii++)
+                  sampleStates_[ii] = states[ii];
                delete [] tempX;
                delete [] tempY;
                delete [] states;
@@ -963,24 +927,34 @@ int PsuadeBase::interpretInteractive()
                states  = pPtr.intArray_;
                pPtr.intArray_ = NULL;
                pPtr.dbleArray_ = NULL;
-               for (ii = 0; ii < ind*nInputs; ii++)
-                  sampleInputs[nSamples*nInputs+ii] = tempX[ii];
-               for (ii = 0; ii < ind*nOutputs; ii++)
-                  sampleOutputs[nSamples*nOutputs+ii] = tempY[ii];
+               for (ii = 0; ii < ind*nInputs_; ii++)
+                  sampleInputs_[nSamples_*nInputs_+ii] = tempX[ii];
+               for (ii = 0; ii < ind*nOutputs_; ii++)
+                  sampleOutputs_[nSamples_*nOutputs_+ii] = tempY[ii];
                for (ii = 0; ii < ind; ii++)
-                  sampleStates[nSamples+ii] = states[ii];
-               nSamples += ind;
-               psuadeIO_->updateInputSection(nSamples,nInputs,NULL,
-                              NULL,NULL,sampleInputs,NULL,NULL,
+                  sampleStates_[nSamples_+ii] = states[ii];
+               nSamples_ += ind;
+               psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,
+                              NULL,NULL,sampleInputs_,NULL,NULL,
                               NULL,NULL,NULL); 
-               psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                                sampleOutputs, sampleStates, NULL); 
-               printf("loadmore completed: nSamples = %d\n", nSamples);
+               psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                                sampleOutputs_, sampleStates_, NULL); 
+               if (currSession != NULL) delete currSession;
+               currSession = new PsuadeSession();
+               psuadeIO_->getSession(currSession);
+               printf("loadmore complete : nSamples = %d\n", nSamples_);
+               printf("                    nInputs  = %d\n", nInputs_);
+               printf("                    nOutputs = %d\n", nOutputs_);
             }
          }
+         else
+         {
+            printf("ERROR: file %s either not found or in wrong format.\n",
+                   dataFile);
+         }
          fflush(stdout);
-         if (dataReg != NULL) delete [] dataReg;
-         dataReg = NULL;
+         if (dataReg_ != NULL) delete [] dataReg_;
+         dataReg_ = NULL;
       }
 
       // +++ write 
@@ -989,13 +963,14 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          { 
-            printf("write: save the current sample to a PSUADE data file\n");
+            printf("write: save the resident sample to another PSUADE data\n");
+            printf("       file.\n");
             printf("syntax: write <filename>.\n");
             printf("where <filename> is a PSUADE data file.\n");
             continue;
          }
          strcpy(dataFile, "\0");
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded - nothing to write\n");
             continue;
@@ -1016,7 +991,7 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (nOutputs > 1)
+            if (nOutputs_ > 1)
             {
                sprintf(pString,
                        "Save one output only (all otherwise)? (y or n) "); 
@@ -1029,27 +1004,27 @@ int PsuadeBase::interpretInteractive()
             }
             if (winput[0] == 'y')
             {
-               sprintf(pString,"Enter output number (1 - %d) : ",nOutputs);
-               outputID = getInt(1, nOutputs, pString);
+               sprintf(pString,"Enter output number (1 - %d) : ",nOutputs_);
+               outputID = getInt(1, nOutputs_, pString);
                outputID--;
-               for (sInd = 0; sInd < nSamples; sInd++)
-                  sampleOutputs[sInd] = 
-                        sampleOutputs[sInd*nOutputs+outputID];
+               for (sInd = 0; sInd < nSamples_; sInd++)
+                  sampleOutputs_[sInd] = 
+                        sampleOutputs_[sInd*nOutputs_+outputID];
                pONames.clean();
                psuadeIO_->getParameter("output_names", pONames);
                names = pONames.strArray_;
                strcpy(names[0], names[outputID]);
-               nOutputs = 1;
+               nOutputs_ = 1;
                psuadeIO_->updateAnalysisSection(0, 0, 0, 0, 0, 0);
             }
             else names = NULL;
-            psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                              iUpperB,sampleInputs,inputNames,inputPDFs,
-                              inputMeans,inputStds,inputCMat); 
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                             sampleOutputs, sampleStates, names); 
+            psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                              iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                              inputMeans_,inputStds_,inputCMat_); 
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                             sampleOutputs_, sampleStates_, names); 
             if (winput[0] == 'y') pONames.clean();
-            psuadeIO_->updateMethodSection(samplingMethod,nSamples,nReps,
+            psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,
                                            -1,-1);
             psuadeIO_->writePsuadeFile(dataFile,0);
          }
@@ -1061,13 +1036,15 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("nwrite: save the unevaluated points to a PSUADE file\n");
+            printf("nwrite: save the unevaluated points to a PSUADE data file\n");
+            printf("  Note: sample points with undefined outputs or status=0\n");
+            printf("        are considered unevaluated points.\n");
             printf("syntax: nwrite <filename>.\n");
             printf("where <filename> is a PSUADE data file.\n");
             continue;
          }
 
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded - nothing to write\n");
             continue;
@@ -1087,24 +1064,24 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            tempX  = new double[nInputs*nSamples];
-            tempY  = new double[nOutputs*nSamples];
-            states = new int[nSamples];
+            tempX  = new double[nInputs_*nSamples_];
+            tempY  = new double[nOutputs_*nSamples_];
+            states = new int[nSamples_];
             count = 0;
-            for (ii = 0; ii < nSamples; ii++)
+            for (ii = 0; ii < nSamples_; ii++)
             {
-               for (jj = 0; jj < nOutputs; jj++)
-                  if (sampleOutputs[ii*nOutputs+jj] == PSUADE_UNDEFINED)
-                     sampleStates[ii] = 0;
-               if (sampleStates[ii] == 0)
+               for (jj = 0; jj < nOutputs_; jj++)
+                  if (sampleOutputs_[ii*nOutputs_+jj] == PSUADE_UNDEFINED)
+                     sampleStates_[ii] = 0;
+               if (sampleStates_[ii] == 0)
                {
-                  for (jj = 0; jj < nInputs; jj++)
-                     tempX[count*nInputs+jj] = 
-                        sampleInputs[ii*nInputs+jj];
-                  for (jj = 0; jj < nOutputs; jj++)
-                     tempY[count*nOutputs+jj] = 
-                        sampleOutputs[ii*nOutputs+jj]; 
-                  states[count++] = sampleStates[ii]; 
+                  for (jj = 0; jj < nInputs_; jj++)
+                     tempX[count*nInputs_+jj] = 
+                        sampleInputs_[ii*nInputs_+jj];
+                  for (jj = 0; jj < nOutputs_; jj++)
+                     tempY[count*nOutputs_+jj] = 
+                        sampleOutputs_[ii*nOutputs_+jj]; 
+                  states[count++] = sampleStates_[ii]; 
                }
             }
             if (count == 0)
@@ -1115,11 +1092,11 @@ int PsuadeBase::interpretInteractive()
             else
             {
                ioPtr = new PsuadeData();
-               ioPtr->updateInputSection(count, nInputs, NULL, iLowerB,
-                                   iUpperB, tempX, inputNames,
+               ioPtr->updateInputSection(count, nInputs_, NULL, iLowerB_,
+                                   iUpperB_, tempX, inputNames_,
                                    NULL, NULL,NULL,NULL); 
-               ioPtr->updateOutputSection(count, nOutputs, tempY, states,
-                                          outputNames);
+               ioPtr->updateOutputSection(count, nOutputs_, tempY, states,
+                                          outputNames_);
                ioPtr->updateMethodSection(PSUADE_SAMP_MC, count, 1, -1, -1);
                ioPtr->writePsuadeFile(dataFile, 0);
                delete ioPtr;
@@ -1139,16 +1116,18 @@ int PsuadeBase::interpretInteractive()
          if (!strcmp(winput, "-h"))
          {
             printf("iread: read sample inputs from a file written using\n");
-            printf("       iwrite or a posterior sample from rsmcmc.\n");
-            printf("syntax: iread <filename>.\n");
-            printf("where <filename> is the name of the data file:\n");
-            printf("line 1: PSUADE_BEGIN 1\n");
-            printf("line 2: nSamples nInputs\n");
+            printf("       iwrite or a file with the following format:\n");
+            printf("line 1: PSUADE_BEGIN\n");
+            printf("line 2: <nSamples> <nInputs>\n");
             printf("line 3: (optional) '#' as first character, then input names\n");
             printf("line 4: 1 <sample point 1 inputs> \n");
             printf("line 5: 2 <sample point 2 inputs> \n");
             printf(".......\n");
-            printf("line n: PSUADE_END\n");
+            printf("line n: PSUADE_END\n\n");
+            printf("syntax: iread <filename>.\n");
+            printf("where <filename> is the name of the data file:\n");
+            printf("\n Note: iread can be used to read a posterior sample\n");
+            printf("         generated by rsmcmc.\n");
             continue;
          }
          strcpy(dataFile, "\0");
@@ -1161,38 +1140,6 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          fclose(fp);
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates  != NULL) delete [] sampleStates;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (inputPDFs     != NULL) delete [] inputPDFs;
-         if (inputMeans    != NULL) delete [] inputMeans;
-         if (inputStds     != NULL) delete [] inputStds;
-         if (inputCMat     != NULL) delete inputCMat;
-         sampleInputs  = NULL;
-         sampleOutputs = NULL;
-         sampleStates  = NULL;
-         iLowerB       = NULL;
-         iUpperB       = NULL;
-         inputPDFs     = NULL;
-         inputMeans    = NULL;
-         inputStds     = NULL;
-         inputCMat     = NULL;
-         if (inputNames != NULL)
-         {
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL) delete [] inputNames[ii];
-            delete [] inputNames;
-         }
-         inputNames = NULL;
-         if (outputNames != NULL)
-         {
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL) delete [] outputNames[ii];
-            delete [] outputNames;
-         }
-         outputNames = NULL;
          cleanUp();
          psuadeIO_ = new PsuadeData();
          psuadeIO_->setOutputLevel(0);
@@ -1200,19 +1147,17 @@ int PsuadeBase::interpretInteractive()
          fscanf(fp, "%s", winput);
          if (strcmp(winput, "PSUADE_BEGIN"))
          {
-            printf("ERROR: file must begin with PSUADE_BEGIN (%s)\n",winput);
             fclose(fp);
-            delete psuadeIO_;
-            psuadeIO_ = NULL;
-            continue;
+            fp = fopen(dataFile,"r");
          }
-         fscanf(fp, "%d %d", &nSamples, &nInputs);
-         nOutputs = 1;
-         if (nSamples <= 0 || nInputs <= 0 || nOutputs < 0)
+         else fgets(lineIn, 5000, fp);
+         fscanf(fp, "%d %d", &nSamples_, &nInputs_);
+         nOutputs_ = 1;
+         if (nSamples_ <= 0 || nInputs_ <= 0)
          {
             printf("iread ERROR: some sample parameters <= 0.\n");
-            printf("      nSamples read = %d\n", nSamples);
-            printf("      nInputs  read = %d\n", nInputs);
+            printf("      nSamples read = %d\n", nSamples_);
+            printf("      nInputs  read = %d\n", nInputs_);
             printf("Note: the format for the second line should be: \n");
             printf("  <nSamples> <nInputs> \n");
             delete psuadeIO_;
@@ -1220,20 +1165,19 @@ int PsuadeBase::interpretInteractive()
             fclose(fp);
             continue;
          }
-         fgets(pString, 500, fp);
+         fgets(pString, 5000, fp);
          while (1)
          {
             kk = getc(fp);
             if (kk == '#')
             {
-               inputNames = new char*[nInputs];
-               for (ii = 0; ii < nInputs; ii++)
+               inputNames_ = new char*[nInputs_];
+               for (ii = 0; ii < nInputs_; ii++)
                {
-                  inputNames[ii] = new char[1001];
-                  fscanf(fp,"%s", inputNames[ii]);
+                  inputNames_[ii] = new char[1001];
+                  fscanf(fp,"%s", inputNames_[ii]);
                }
-               fgets(pString, 500, fp);
-               break;
+               fgets(pString, 5000, fp);
             }
             else
             {
@@ -1241,11 +1185,11 @@ int PsuadeBase::interpretInteractive()
                break;
             }
          }
-         sampleInputs = new double[nSamples*nInputs];
-         sampleOutputs = new double[nSamples*nOutputs];
-         sampleStates = new int[nSamples];
-         for (ii = 0; ii < nSamples; ii++) sampleStates[ii] = 1;
-         for (ii = 0; ii < nSamples; ii++)
+         sampleInputs_  = new double[nSamples_*nInputs_];
+         sampleOutputs_ = new double[nSamples_*nOutputs_];
+         sampleStates_  = new int[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++) sampleStates_[ii] = 1;
+         for (ii = 0; ii < nSamples_; ii++)
          {
             fscanf(fp, "%d", &jj);
             if ((ii+1) != jj)
@@ -1254,110 +1198,80 @@ int PsuadeBase::interpretInteractive()
                printf("         sample number read     = %d\n", jj);
                printf("         sample number expected = %d\n", ii+1);
                printf("INFO: the first field must be the sample number.\n");
-               delete [] sampleInputs;
-               delete [] sampleOutputs;
-               delete [] sampleStates;
-               sampleInputs  = NULL;
-               sampleOutputs = NULL;
-               sampleStates  = NULL;
-               if (inputNames != NULL)
-               {
-                  for (ii = 0; ii < nInputs; ii++)
-                     if (inputNames[ii] != NULL) delete [] inputNames[ii];
-                  delete [] inputNames;
-                  inputNames = NULL;
-               }
+               cleanUp();
                break;
             }
-            for (jj = 0; jj < nInputs; jj++)
-               fscanf(fp,"%lg", &sampleInputs[ii*nInputs+jj]);
-            sampleOutputs[ii] = PSUADE_UNDEFINED;
-            sampleStates[ii] = 0;
+            for (jj = 0; jj < nInputs_; jj++)
+               fscanf(fp,"%lg", &sampleInputs_[ii*nInputs_+jj]);
+            sampleOutputs_[ii] = PSUADE_UNDEFINED;
+            sampleStates_[ii] = 0;
          }
          fscanf(fp, "%s", winput);
          fclose(fp);
-         if (ii != nSamples) continue;
-         if (ii != nSamples || strcmp(winput, "PSUADE_END"))
+         if (ii != nSamples_) continue;
+         if (inputNames_ == NULL)
          {
-            if (ii == nSamples)
-               printf("ERROR: file must end with PSUADE_END\n");
-            cleanUp();
-            if (sampleInputs  != NULL) delete [] sampleInputs;
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
-            if (sampleStates  != NULL) delete [] sampleStates;
-            sampleInputs  = NULL;
-            sampleOutputs = NULL;
-            sampleStates  = NULL;
-            nInputs = nSamples = nOutputs = 0;
-            if (inputNames != NULL)
+            inputNames_ = new char*[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               for (ii = 0; ii < nInputs; ii++)
-                  if (inputNames[ii] != NULL) delete [] inputNames[ii];
-               delete [] inputNames;
-               inputNames = NULL;
-            }
-            continue;
-         }
-         if (inputNames == NULL)
-         {
-            inputNames = new char*[nInputs];
-            for (ii = 0; ii < nInputs; ii++)
-            {
-               inputNames[ii] = new char[100];
-               sprintf(inputNames[ii], "X%d", ii+1);
+               inputNames_[ii] = new char[100];
+               sprintf(inputNames_[ii], "X%d", ii+1);
             }
          }
-         iLowerB = new double[nInputs];
-         iUpperB = new double[nInputs];
-         tempW = new double[nSamples];
+         iLowerB_ = new double[nInputs_];
+         iUpperB_ = new double[nInputs_];
+         tempW = new double[nSamples_];
          double ireadMax, ireadMin;
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            for (jj = 0; jj < nSamples; jj++)
-               tempW[jj] = sampleInputs[jj*nInputs+ii];
+            for (jj = 0; jj < nSamples_; jj++)
+               tempW[jj] = sampleInputs_[jj*nInputs_+ii];
             ireadMax = ireadMin = tempW[0];
-            for (jj = 1; jj < nSamples; jj++)
+            for (jj = 1; jj < nSamples_; jj++)
             {
                if (tempW[jj] > ireadMax) ireadMax = tempW[jj];
                if (tempW[jj] < ireadMin) ireadMin = tempW[jj];
             } 
-            iLowerB[ii] = ireadMin;
-            iUpperB[ii] = ireadMax;
-            if (iLowerB[ii] == iUpperB[ii]) iUpperB[ii] += 1.0e-12;
+            iLowerB_[ii] = ireadMin;
+            iUpperB_[ii] = ireadMax;
+            if (iLowerB_[ii] == iUpperB_[ii]) iUpperB_[ii] += 1.0e-12;
          }
          delete [] tempW;
          tempW = NULL;
-         inputPDFs = new int[nInputs];
-         inputMeans = new double[nInputs];
-         inputStds = new double[nInputs];
-         inputCMat = new Matrix();
-         inputCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         inputPDFs_  = new int[nInputs_];
+         inputMeans_ = new double[nInputs_];
+         inputStds_  = new double[nInputs_];
+         inputCMat_  = new Matrix();
+         inputCMat_->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            inputPDFs[ii] = 0;
-            inputMeans[ii] = 0;
-            inputStds[ii] = 0;
-            inputCMat->setEntry(ii,ii,1.0);
+            inputPDFs_[ii] = 0;
+            inputMeans_[ii] = 0;
+            inputStds_[ii] = 0;
+            inputCMat_->setEntry(ii,ii,1.0);
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,iUpperB,
-                                   sampleInputs,inputNames,inputPDFs,inputMeans,
-                                   inputStds,inputCMat); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,iUpperB_,
+                                   sampleInputs_,inputNames_,inputPDFs_,inputMeans_,
+                                   inputStds_,inputCMat_); 
 
-         outputNames = new char*[nOutputs];
-         for (ii = 0; ii < nOutputs; ii++)
+         outputNames_ = new char*[nOutputs_];
+         for (ii = 0; ii < nOutputs_; ii++)
          {
-            outputNames[ii] = new char[100];
-            sprintf(outputNames[ii], "Y%d", ii+1);
+            outputNames_[ii] = new char[100];
+            sprintf(outputNames_[ii], "Y%d", ii+1);
          }
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs,
-                                        sampleStates, outputNames);
-         psuadeIO_->updateMethodSection(PSUADE_SAMP_MC, nSamples, 1, 0, 0);
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_,
+                                        sampleStates_, outputNames_);
+         psuadeIO_->updateMethodSection(PSUADE_SAMP_MC, nSamples_, 1, 0, 0);
          psuadeIO_->updateAnalysisSection(0, 0, 0, 0, 0, 0);
          nReps = 1;
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("iread: data have been read.\n");
-         printf("nSamples = %d\n", nSamples);
-         printf("nInputs  = %d\n", nInputs);
-         printf("nOutputs = %d (set to 1)\n", nOutputs);
+         printf("nSamples = %d\n", nSamples_);
+         printf("nInputs  = %d\n", nInputs_);
+         printf("nOutputs = %d (set to 1)\n", nOutputs_);
       }
 
       // +++ iwrite 
@@ -1369,11 +1283,19 @@ int PsuadeBase::interpretInteractive()
             printf("iwrite: save only the sample inputs to an ASCII file\n");
             printf("syntax: iwrite <filename>.\n");
             printf("where <filename> is the name of the target data file.\n");
+            printf("\nThe target file will have the following format: \n");
+            printf("line 1: PSUADE_BEGIN\n");
+            printf("line 2: <nSamples> <nInputs>\n");
+            printf("line 3: # input parameter names\n");
+            printf("line 4: 1 <sample point 1 inputs> \n");
+            printf("line 5: 2 <sample point 2 inputs> \n");
+            printf(".......\n");
+            printf("line n: PSUADE_END\n\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data.\n");
+            printf("ERROR: no sample output data.\n");
             printf("       Use load first to put data into local memory.\n");
             continue;
          }
@@ -1392,7 +1314,7 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (sampleInputs == NULL)
+            if (sampleInputs_ == NULL)
                printf("ERROR: no input to write.\n");
             else
             {
@@ -1403,16 +1325,16 @@ int PsuadeBase::interpretInteractive()
                   continue;
                }
                fprintf(fp, "PSUADE_BEGIN\n");
-               fprintf(fp, "%d %d\n", nSamples, nInputs);
+               fprintf(fp, "%d %d\n", nSamples_, nInputs_);
                fprintf(fp, "# ");
-               for (ii = 0; ii < nInputs; ii++)
-                  fprintf(fp, "%s ", inputNames[ii]);
+               for (ii = 0; ii < nInputs_; ii++)
+                  fprintf(fp, "%s ", inputNames_[ii]);
                fprintf(fp, "\n");
-               for (ii = 0; ii < nSamples; ii++)
+               for (ii = 0; ii < nSamples_; ii++)
                {
                   fprintf(fp, "%d ", ii+1);
-                  for (jj = 0; jj < nInputs; jj++)
-                     fprintf(fp,"%24.16e ",sampleInputs[ii*nInputs+jj]); 
+                  for (jj = 0; jj < nInputs_; jj++)
+                     fprintf(fp,"%24.16e ",sampleInputs_[ii*nInputs_+jj]); 
                   fprintf(fp, "\n");
                }
                fprintf(fp, "PSUADE_END\n");
@@ -1431,11 +1353,18 @@ int PsuadeBase::interpretInteractive()
             printf("owrite: save only the sample outputs to an ASCII file\n");
             printf("syntax: owrite <filename>.\n");
             printf("where <filename> is the name of the target data file.\n");
+            printf("\nThe target file will have the following format: \n");
+            printf("line 1: PSUADE_BEGIN\n");
+            printf("line 2: <nSamples> <nOutputs>\n");
+            printf("line 3: 1 <sample point 1 outputs> \n");
+            printf("line 4: 2 <sample point 2 outputs> \n");
+            printf(".......\n");
+            printf("line n: PSUADE_END\n\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data.\n");
+            printf("ERROR: no sample output data.\n");
             printf("       Use load first to put data into local memory.\n");
             continue;
          }
@@ -1456,16 +1385,16 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (sampleOutputs == NULL)
+            if (sampleOutputs_ == NULL)
                printf("ERROR: no output to write.\n");
             else
             {
-               if (nOutputs == 1) outputID = 0;
+               if (nOutputs_ == 1) outputID = 0;
                else
                {
                   sprintf(pString, "Output number (1 - %d, %d for all): ",
-                          nOutputs, nOutputs+1);
-                  outputID = getInt(1, nOutputs+1, pString);
+                          nOutputs_, nOutputs_+1);
+                  outputID = getInt(1, nOutputs_+1, pString);
                   outputID--;
                }
                fp = fopen(dataFile, "w");
@@ -1475,21 +1404,21 @@ int PsuadeBase::interpretInteractive()
                   continue;
                }
                fprintf(fp, "PSUADE_BEGIN\n");
-               if (outputID == nOutputs)
-                    fprintf(fp, "%d %d\n", nSamples, nOutputs);
-               else fprintf(fp, "%d 1\n", nSamples);
-               for (ii = 0; ii < nSamples; ii++)
+               if (outputID == nOutputs_)
+                    fprintf(fp, "%d %d\n", nSamples_, nOutputs_);
+               else fprintf(fp, "%d 1\n", nSamples_);
+               for (ii = 0; ii < nSamples_; ii++)
                {
                   fprintf(fp, "%d ", ii+1);
-                  if (outputID == nOutputs)
+                  if (outputID == nOutputs_)
                   {
-                     for (jj = 0; jj < nOutputs; jj++)
-                        fprintf(fp,"%24.16e ",sampleOutputs[ii*nOutputs+jj]); 
+                     for (jj = 0; jj < nOutputs_; jj++)
+                        fprintf(fp,"%24.16e ",sampleOutputs_[ii*nOutputs_+jj]); 
                      fprintf(fp, "\n");
                   }
                   else
                      fprintf(fp,"%24.16e\n",
-                             sampleOutputs[ii*nOutputs+outputID]);
+                             sampleOutputs_[ii*nOutputs_+outputID]);
                }
                fprintf(fp, "PSUADE_END\n");
                fclose(fp);
@@ -1504,16 +1433,15 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("read_std: read a data file in the standard format.\n");
-            printf("line 1: nSamples nInputs nOutputs\n");
+            printf("read_std: read a data file in the following format:\n");
+            printf("line 1: <nSamples> <nInputs> <nOutputs>\n");
             printf("line 2: <sample 1 inputs> < sample 1 outputs>\n");
             printf("line 3: <sample 2 inputs> < sample 2 outputs>\n");
-            printf(".......\n");
+            printf(".......\n\n");
             printf("syntax: read_std <filename>.\n");
             printf("where <filename> is a data file in standard format.\n");
             continue;
          }
-
          strcpy(dataFile, "\0");
          sscanf(lineIn, "%s %s", command, dataFile);
          if (!strcmp(dataFile, "\0"))
@@ -1531,130 +1459,99 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          cleanUp();
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates  != NULL) delete [] sampleStates;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (inputPDFs     != NULL) delete [] inputPDFs;
-         if (inputMeans    != NULL) delete [] inputMeans;
-         if (inputStds     != NULL) delete [] inputStds;
-         if (inputCMat     != NULL) delete inputCMat;
-         sampleInputs  = NULL;
-         sampleOutputs = NULL;
-         sampleStates  = NULL;
-         iLowerB       = NULL;
-         iUpperB       = NULL;
-         inputPDFs     = NULL;
-         inputMeans    = NULL;
-         inputStds     = NULL;
-         inputCMat     = NULL;
-         if (inputNames != NULL)
+         fscanf(fp, "%d %d %d", &nSamples_, &nInputs_, &nOutputs_);
+         if (nSamples_ <= 0) 
          {
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL) delete [] inputNames[ii];
-            delete [] inputNames;
-         }
-         inputNames = NULL;
-         if (outputNames != NULL)
-         {
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL) delete [] outputNames[ii];
-            delete [] outputNames;
-         }
-         outputNames = NULL;
-         nInputs = nSamples = nOutputs = 0;
-
-         fscanf(fp, "%d %d %d", &nSamples, &nInputs, &nOutputs);
-         if (nSamples <= 0) 
-         {
-            printf("ERROR: nSamples <= 0 (%d)\n", nSamples);
+            printf("ERROR: nSamples <= 0 (%d)\n", nSamples_);
             continue;
          }
-         if (nInputs <= 0) 
+         if (nInputs_ <= 0) 
          {
-            printf("ERROR: nInputs <= 0 (%d)\n", nInputs);
+            printf("ERROR: nInputs <= 0 (%d)\n", nInputs_);
             continue;
          }
          flag = 0;
-         if (nOutputs <= 0) 
+         if (nOutputs_ <= 0) 
          {
-            printf("INFP: nOutputs = 0 ==> create a dummy output\n");
-            nOutputs = 1;
+            printf("INFO: nOutputs = 0 ==> create a dummy output\n");
+            nOutputs_ = 1;
             flag = 1;
          }
-         printf("nSamples = %d\n", nSamples);
-         printf("nInputs  = %d\n", nInputs);
-         printf("nOutputs = %d\n", nOutputs);
-         sampleInputs = new double[nSamples*nInputs];
-         sampleOutputs = new double[nSamples*nOutputs];
-         sampleStates = new int[nSamples];
-         for (ii = 0; ii < nSamples; ii++)
+         printf("nSamples = %d\n", nSamples_);
+         printf("nInputs  = %d\n", nInputs_);
+         printf("nOutputs = %d\n", nOutputs_);
+         sampleInputs_  = new double[nSamples_*nInputs_];
+         sampleOutputs_ = new double[nSamples_*nOutputs_];
+         sampleStates_  = new int[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++)
          {
-            for (jj = 0; jj < nInputs; jj++)
-               fscanf(fp, "%lg", &sampleInputs[ii*nInputs+jj]); 
+            for (jj = 0; jj < nInputs_; jj++)
+               fscanf(fp, "%lg", &sampleInputs_[ii*nInputs_+jj]); 
             if (flag == 0)
             {
-               for (jj = 0; jj < nOutputs; jj++)
-                  fscanf(fp,"%lg", &sampleOutputs[ii*nOutputs+jj]);
+               for (jj = 0; jj < nOutputs_; jj++)
+                  fscanf(fp,"%lg", &sampleOutputs_[ii*nOutputs_+jj]);
             }
-            else sampleOutputs[ii] = PSUADE_UNDEFINED;
-            sampleStates[ii] = 1;
-            for (jj = 0; jj < nOutputs; jj++)
-               if (sampleOutputs[ii*nOutputs+jj] > 0.5*PSUADE_UNDEFINED)
-                  sampleStates[ii] = 0;
+            else sampleOutputs_[ii] = PSUADE_UNDEFINED;
+            sampleStates_[ii] = 1;
+            for (jj = 0; jj < nOutputs_; jj++)
+               if (sampleOutputs_[ii*nOutputs_+jj] > 0.5*PSUADE_UNDEFINED)
+                  sampleStates_[ii] = 0;
          }
          fclose(fp);
-         inputNames = new char*[nInputs+1];
-         for (ii = 0; ii < nInputs; ii++)
+         inputNames_ = new char*[nInputs_+1];
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            inputNames[ii] = new char[200]; 
-            sprintf(inputNames[ii], "X%d", ii+1);
+            inputNames_[ii] = new char[200]; 
+            sprintf(inputNames_[ii], "X%d", ii+1);
          }
-         outputNames = new char*[nOutputs+1];
-         for (ii = 0; ii < nOutputs; ii++)
+         outputNames_ = new char*[nOutputs_+1];
+         for (ii = 0; ii < nOutputs_; ii++)
          {
-            outputNames[ii] = new char[200]; 
-            sprintf(outputNames[ii], "Y%d", ii+1);
+            outputNames_[ii] = new char[200]; 
+            sprintf(outputNames_[ii], "Y%d", ii+1);
          }
-         if (iLowerB != NULL) delete [] iLowerB;
-         iLowerB = new double[nInputs];
-         if (iUpperB != NULL) delete [] iUpperB;
-         iUpperB = new double[nInputs];
-         for (jj = 0; jj < nInputs; jj++)
+         if (iLowerB_ != NULL) delete [] iLowerB_;
+         iLowerB_ = new double[nInputs_];
+         if (iUpperB_ != NULL) delete [] iUpperB_;
+         iUpperB_ = new double[nInputs_];
+         for (jj = 0; jj < nInputs_; jj++)
          {
-            iLowerB[jj] = sampleInputs[jj];
-            iUpperB[jj] = sampleInputs[jj];
-            for (ii = 1; ii < nSamples; ii++)
+            iLowerB_[jj] = sampleInputs_[jj];
+            iUpperB_[jj] = sampleInputs_[jj];
+            for (ii = 1; ii < nSamples_; ii++)
             {
-               if (sampleInputs[ii*nInputs+jj] < iLowerB[jj])
-                  iLowerB[jj] = sampleInputs[ii*nInputs+jj];
-               if (sampleInputs[ii*nInputs+jj] > iUpperB[jj])
-                  iUpperB[jj] = sampleInputs[ii*nInputs+jj];
+               if (sampleInputs_[ii*nInputs_+jj] < iLowerB_[jj])
+                  iLowerB_[jj] = sampleInputs_[ii*nInputs_+jj];
+               if (sampleInputs_[ii*nInputs_+jj] > iUpperB_[jj])
+                  iUpperB_[jj] = sampleInputs_[ii*nInputs_+jj];
             }
          }
          samplingMethod = PSUADE_SAMP_MC;
-         inputPDFs = new int[nInputs];
-         inputMeans = new double[nInputs];
-         inputStds = new double[nInputs];
-         inputCMat = new Matrix();
-         inputCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         inputPDFs_  = new int[nInputs_];
+         inputMeans_ = new double[nInputs_];
+         inputStds_  = new double[nInputs_];
+         inputCMat_  = new Matrix();
+         inputCMat_->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            inputPDFs[ii] = 0;
-            inputMeans[ii] = 0;
-            inputStds[ii] = 0;
-            inputCMat->setEntry(ii,ii,1.0);
+            inputPDFs_[ii] = 0;
+            inputMeans_[ii] = 0;
+            inputStds_[ii] = 0;
+            inputCMat_->setEntry(ii,ii,1.0);
          }
          psuadeIO_ = new PsuadeData();
          psuadeIO_->setOutputLevel(0);
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                               iUpperB,sampleInputs,inputNames,inputPDFs,
-                               inputMeans,inputStds,inputCMat); 
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                        sampleStates, outputNames); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                               iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                               inputMeans_,inputStds_,inputCMat_); 
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                        sampleStates_, outputNames_); 
          nReps = 1;
-         psuadeIO_->updateMethodSection(samplingMethod,nSamples,nReps,0,0);
+         psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,0,0);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
       }
 
       // +++ write_std 
@@ -1670,9 +1567,9 @@ int PsuadeBase::interpretInteractive()
             printf("where <filename> is the name of the target data file.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data.\n");
+            printf("ERROR: no sample output data.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -1691,18 +1588,18 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (sampleInputs == NULL) printf("ERROR: no inputs to write.\n");
+            if (sampleInputs_ == NULL) printf("ERROR: no inputs to write.\n");
             else
             {
-               if (sampleOutputs == NULL) outputID = -9;
+               if (sampleOutputs_ == NULL) outputID = -9;
                else
                {
-                  if (nOutputs == 1) outputID = 0;
+                  if (nOutputs_ == 1) outputID = 0;
                   else
                   {
                      sprintf(pString,"Enter output ID (1 - %d, 0 for all) : ",
-                             nOutputs);
-                     outputID = getInt(0, nOutputs, pString);
+                             nOutputs_);
+                     outputID = getInt(0, nOutputs_, pString);
                      outputID--;
                   }
                }
@@ -1713,27 +1610,207 @@ int PsuadeBase::interpretInteractive()
                   continue;
                }
                if (outputID == -9) 
-                    fprintf(fp, "%d %d\n", nSamples, nInputs);
+                    fprintf(fp, "%d %d\n", nSamples_, nInputs_);
                else if (outputID == -1) 
-                    fprintf(fp, "%d %d %d\n", nSamples, nInputs, nOutputs);
-               else fprintf(fp, "%d %d 1\n", nSamples, nInputs);
-               for (ii = 0; ii < nSamples; ii++)
+                    fprintf(fp, "%d %d %d\n", nSamples_, nInputs_, nOutputs_);
+               else fprintf(fp, "%d %d 1\n", nSamples_, nInputs_);
+               for (ii = 0; ii < nSamples_; ii++)
                {
-                  for (jj = 0; jj < nInputs; jj++)
-                     fprintf(fp, "%24.16e ", sampleInputs[ii*nInputs+jj]); 
+                  for (jj = 0; jj < nInputs_; jj++)
+                     fprintf(fp, "%24.16e ", sampleInputs_[ii*nInputs_+jj]); 
                   if (outputID == -9) fprintf(fp, "\n");
                   else if (outputID == -1)
                   {
-                     for (jj = 0; jj < nOutputs; jj++)
-                        fprintf(fp,"%24.16e ",sampleOutputs[ii*nOutputs+jj]);
+                     for (jj = 0; jj < nOutputs_; jj++)
+                        fprintf(fp,"%24.16e ",sampleOutputs_[ii*nOutputs_+jj]);
                      fprintf(fp,"\n");
                   }
                   else fprintf(fp,"%24.16e\n",
-                               sampleOutputs[ii*nOutputs+outputID]);
+                               sampleOutputs_[ii*nOutputs_+outputID]);
                }
                fclose(fp);
             }
          }
+      }
+
+      // +++ read_csv 
+      else if (!strcmp(command, "read_csv"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("read_csv: read a data file in CSV format.\n");
+            printf("syntax: read_csv <filename>.\n");
+            printf("where <filename> is in the following CSV format.\n");
+            printf("line 1 : (optional) INPUT,INPUT,...,OUTPUT, ...)\n");
+            printf("line 2 : (optional) variable name list)\n");
+            printf("line 3 : val1, val2, ... valn\n");
+            printf(".....\n");
+            printf("line m : val1, val2, ... valn\n\n");
+            printf("That is, line 1 uses 'INPUT' and 'OUTPUT' to indicate\n");
+            printf("    which columns are inputs and which are outputs.\n");
+            printf("    Line 2 specifies input and output variable names.\n");
+            printf("    Line 3 has the input/output values of sample point 1.\n");
+            printf("    Line 4 has the input/output values of sample point 2...\n");
+            continue;
+         }
+         strcpy(dataFile, "\0");
+         sscanf(lineIn, "%s %s", command, dataFile);
+         if (!strcmp(dataFile, "\0"))
+         {
+            printf("ERROR: please specify a file to read from.\n");
+            printf("syntax: read_csv <filename>.\n");
+            printf("where <filename> is in the following CSV format.\n");
+            printf("line 1 : (optional) INPUT,INPUT,...,OUTPUT, ...)\n");
+            printf("line 2 : (optional) variable name list)\n");
+            printf("line 3 : val1, val2, ... valn\n");
+            printf(".....\n");
+            printf("line m : val1, val2, ... valn\n\n");
+            printf("That is, line 1 uses 'INPUT' and 'OUTPUT' to indicate\n");
+            printf("    which columns are inputs and which are outputs.\n");
+            printf("    Line 2 specifies input and output variable names.\n");
+            printf("    Line 3 has the input/output values of sample point 1.\n");
+            printf("    Line 4 has the input/output values of sample point 2...\n");
+            continue;
+         }
+         if ((fp=fopen(dataFile,"r")) == NULL)
+         {
+            printf("file %s not found.\n", dataFile);
+            printf("syntax: read_csv <filename>.\n");
+            printf("where <filename> is in the following CSV format.\n");
+            printf("line 1 : (optional) INPUT,INPUT,...,OUTPUT, ...)\n");
+            printf("line 2 : (optional) variable name list)\n");
+            printf("line 3 : val1, val2, ... valn\n");
+            printf(".....\n");
+            printf("line m : val1, val2, ... valn\n\n");
+            printf("That is, line 1 uses 'INPUT' and 'OUTPUT' to indicate\n");
+            printf("    which columns are inputs and which are outputs.\n");
+            printf("    Line 2 specifies input and output variable names.\n");
+            printf("    Line 3 has the input/output values of sample point 1.\n");
+            printf("    Line 4 has the input/output values of sample point 2...\n");
+            continue;
+         }
+         cleanUp();
+
+         int  nInOuts;
+         char **inames, **onames;
+         status = read_csv(dataFile, &nSamples_, &nInputs_, &tempX, &nOutputs_, 
+                           &inames, &onames);
+         if (status < 0 || nSamples_ <= 0 || nInputs_ <= 0) 
+         {
+            printf("ERROR: not a valid csv file (%d,%d,%d).\n",status,
+                   nSamples_,nInputs_);
+            continue;
+         }
+         nInOuts = nInputs_ + nOutputs_;
+         flag = 0;
+         if (nOutputs_ == 0)
+         {
+            sprintf(pString,"Enter number of input variables (1 - %d) : ",nInputs_);
+            kk = getInt(1, nInputs_, pString);
+            if (nInputs_ == kk)
+            {
+               printf("INFO: nOutputs = 0 ==> create a dummy output\n");
+               nOutputs_ = 1;
+               flag = 1;
+               nInOuts = nInputs_;
+            } 
+            else
+            {
+               nInOuts = nInputs_;
+               nOutputs_ = nInputs_ - kk;
+               nInputs_  = kk;
+            }
+         } 
+         printf("nSamples = %d\n", nSamples_);
+         printf("nInputs  = %d\n", nInputs_);
+         printf("nOutputs = %d\n", nOutputs_);
+         sampleInputs_  = new double[nSamples_*nInputs_];
+         sampleOutputs_ = new double[nSamples_*nOutputs_];
+         sampleStates_  = new int[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++)
+         {
+            for (jj = 0; jj < nInputs_; jj++)
+               sampleInputs_[ii*nInputs_+jj] = tempX[ii*nInOuts+jj]; 
+            if (flag == 0)
+            {
+               for (jj = 0; jj < nOutputs_; jj++)
+                  sampleOutputs_[ii*nOutputs_+jj] = tempX[ii*nInOuts+nInputs_+jj];
+            }
+            else sampleOutputs_[ii] = PSUADE_UNDEFINED;
+            sampleStates_[ii] = 1;
+            for (jj = 0; jj < nOutputs_; jj++)
+               if (sampleOutputs_[ii*nOutputs_+jj] > 0.5*PSUADE_UNDEFINED)
+                  sampleStates_[ii] = 0;
+         }
+         free(tempX);
+         inputNames_ = new char*[nInputs_+1];
+         for (ii = 0; ii < nInputs_; ii++)
+         {
+            inputNames_[ii] = new char[1000]; 
+            if      (inames == NULL) sprintf(inputNames_[ii], "X%d", ii+1);
+            else if (inames[ii] == NULL) sprintf(inputNames_[ii], "X%d", ii+1);
+            else
+            {
+               strcpy(inputNames_[ii], inames[ii]);
+               free(inames[ii]);
+            }
+         }
+         outputNames_ = new char*[nOutputs_+1];
+         for (ii = 0; ii < nOutputs_; ii++)
+         {
+            outputNames_[ii] = new char[200]; 
+            if      (onames == NULL) sprintf(outputNames_[ii], "Y%d", ii+1);
+            else if (onames[ii] == NULL) sprintf(outputNames_[ii], "Y%d", ii+1);
+            else
+            {
+               strcpy(outputNames_[ii], onames[ii]);
+               free(onames[ii]);
+            }
+         }
+         if (inames != NULL) free(inames);
+         if (onames != NULL) free(onames);
+         if (iLowerB_ != NULL) delete [] iLowerB_;
+         iLowerB_ = new double[nInputs_];
+         if (iUpperB_ != NULL) delete [] iUpperB_;
+         iUpperB_ = new double[nInputs_];
+         for (jj = 0; jj < nInputs_; jj++)
+         {
+            iLowerB_[jj] = sampleInputs_[jj];
+            iUpperB_[jj] = sampleInputs_[jj];
+            for (ii = 1; ii < nSamples_; ii++)
+            {
+               if (sampleInputs_[ii*nInputs_+jj] < iLowerB_[jj])
+                  iLowerB_[jj] = sampleInputs_[ii*nInputs_+jj];
+               if (sampleInputs_[ii*nInputs_+jj] > iUpperB_[jj])
+                  iUpperB_[jj] = sampleInputs_[ii*nInputs_+jj];
+            }
+         }
+         samplingMethod = PSUADE_SAMP_MC;
+         inputPDFs_  = new int[nInputs_];
+         inputMeans_ = new double[nInputs_];
+         inputStds_  = new double[nInputs_];
+         inputCMat_  = new Matrix();
+         inputCMat_->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
+         {
+            inputPDFs_[ii] = 0;
+            inputMeans_[ii] = 0;
+            inputStds_[ii] = 0;
+            inputCMat_->setEntry(ii,ii,1.0);
+         }
+         psuadeIO_ = new PsuadeData();
+         psuadeIO_->setOutputLevel(0);
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                               iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                               inputMeans_,inputStds_,inputCMat_); 
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                        sampleStates_, outputNames_); 
+         nReps = 1;
+         psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,0,0);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
       }
 
       // +++ write_matlab 
@@ -1744,12 +1821,14 @@ int PsuadeBase::interpretInteractive()
          {
             printf("write_matlab: write a data file in the matlab format.\n");
             printf("syntax: write_matlab <filename>.\n");
-            printf("where <filename> is the name of the target data file.\n");
+            printf("where <filename> is the name of the target data file.\n\n");
+            printf("Info: the target file will have 2 matrices. Matrix X has\n");
+            printf("      the sample inputs and Y has the sample outputs.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data.\n");
+            printf("ERROR: no sample output data.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -1768,10 +1847,10 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (sampleInputs == NULL) printf("ERROR: no inputs to write.\n");
+            if (sampleInputs_ == NULL) printf("ERROR: no inputs to write.\n");
             else
             {
-               if (sampleOutputs == NULL)
+               if (sampleOutputs_ == NULL)
                   printf("INFO: no outputs to write (only inputs).\n");
                fp = fopen(dataFile, "w");
                if (fp == NULL)
@@ -1782,20 +1861,20 @@ int PsuadeBase::interpretInteractive()
                fprintf(fp, "%% X - input matrix\n");
                fprintf(fp, "%% Y - output matrix\n");
                fprintf(fp, "X = [\n");
-               for (ii = 0; ii < nSamples; ii++)
+               for (ii = 0; ii < nSamples_; ii++)
                {
-                  for (jj = 0; jj < nInputs; jj++)
-                     fprintf(fp, "%24.16e ", sampleInputs[ii*nInputs+jj]); 
+                  for (jj = 0; jj < nInputs_; jj++)
+                     fprintf(fp, "%24.16e ", sampleInputs_[ii*nInputs_+jj]); 
                   fprintf(fp,"\n");
                }
                fprintf(fp,"];\n");
-               if (sampleOutputs != NULL)
+               if (sampleOutputs_ != NULL)
                {
                   fprintf(fp, "Y = [\n");
-                  for (ii = 0; ii < nSamples; ii++)
+                  for (ii = 0; ii < nSamples_; ii++)
                   {
-                     for (jj = 0; jj < nOutputs; jj++)
-                        fprintf(fp,"%24.16e ",sampleOutputs[ii*nOutputs+jj]);
+                     for (jj = 0; jj < nOutputs_; jj++)
+                        fprintf(fp,"%24.16e ",sampleOutputs_[ii*nOutputs_+jj]);
                      fprintf(fp,"\n");
                   }
                   fprintf(fp,"];\n");
@@ -1814,7 +1893,7 @@ int PsuadeBase::interpretInteractive()
             printf("read_xls: read a data file in Excel format.\n");
             printf("syntax: read_xls <filename>.\n");
             printf("where <filename> is a data file in xls format:\n");
-            printf("line 1: nSamples nInputs nOutputs\n");
+            printf("line 1: <nSamples> <nInputs> <nOutputs>\n");
             printf("line 2: (optional) input and output names\n");
             printf("line 3: 1 <sample 1 inputs> < sample 1 outputs>\n");
             printf("line 4: 2 <sample 2 inputs> < sample 2 outputs>\n");
@@ -1832,101 +1911,76 @@ int PsuadeBase::interpretInteractive()
          }
          else fclose(fp);
          cleanUp();
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates  != NULL) delete [] sampleStates;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (inputPDFs     != NULL) delete [] inputPDFs;
-         if (inputMeans    != NULL) delete [] inputMeans;
-         if (inputStds     != NULL) delete [] inputStds;
-         if (inputCMat     != NULL) delete inputCMat;
-         sampleInputs  = NULL;
-         sampleOutputs = NULL;
-         sampleStates  = NULL;
-         iLowerB       = NULL;
-         iUpperB       = NULL;
-         inputPDFs     = NULL;
-         inputMeans    = NULL;
-         inputStds     = NULL;
-         inputCMat     = NULL;
-         if (inputNames != NULL)
-         {
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL) delete [] inputNames[ii];
-            delete [] inputNames;
-         }
-         inputNames = NULL;
-         if (outputNames != NULL)
-         {
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL) delete [] outputNames[ii];
-            delete [] outputNames;
-         }
-         outputNames = NULL;
 
          psuadeIO_ = new PsuadeData();
          psuadeIO_->setOutputLevel(0);
          fp = fopen(dataFile,"r");
-         fscanf(fp, "%d %d %d", &nSamples, &nInputs, &nOutputs);
-         printf("nSamples = %d\n", nSamples);
-         printf("nInputs  = %d\n", nInputs);
-         printf("nOutputs = %d\n", nOutputs);
-         if (nSamples <= 0 || nInputs <= 0 || nOutputs < 0)
+         fscanf(fp, "%d %d %d", &nSamples_, &nInputs_, &nOutputs_);
+         printf("nSamples = %d\n", nSamples_);
+         printf("nInputs  = %d\n", nInputs_);
+         printf("nOutputs = %d\n", nOutputs_);
+         if (nSamples_ <= 0 || nInputs_ <= 0 || nOutputs_ < 0)
          {
             printf("read_xls ERROR: some sample parameters <= 0.\n");
             printf("Note: the first line should be: \n");
             printf("  <nSamples> <nInputs> <nOutputs>\n");
             fclose(fp);
-            nSamples = nInputs = nOutputs = 0;
+            nSamples_ = nInputs_ = nOutputs_ = 0;
             continue;
          }
          flag = 0;
-         if (nOutputs == 0)
+         if (nOutputs_ == 0)
          {
             flag = 1;
-            nOutputs = 1;
+            nOutputs_ = 1;
          }
-         sampleInputs = new double[nSamples*nInputs];
-         sampleOutputs = new double[nSamples*nOutputs];
-         sampleStates = new int[nSamples];
-         for (ii = 0; ii < nSamples; ii++) sampleStates[ii] = 1;
-         if (iLowerB != NULL) delete [] iLowerB;
-         iLowerB = new double[nInputs];
-         if (iUpperB != NULL) delete [] iUpperB;
-         iUpperB = new double[nInputs];
-         fgets(pString, 500, fp);
-         while (1)
+         sampleInputs_  = new double[nSamples_*nInputs_];
+         sampleOutputs_ = new double[nSamples_*nOutputs_];
+         sampleStates_  = new int[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++) sampleStates_[ii] = 1;
+         iLowerB_ = new double[nInputs_];
+         iUpperB_ = new double[nInputs_];
+         fgets(pString, 50000, fp);
+         fgets(pString, 50000, fp);
+         int hasComment = 0;
+         if (pString[0] == '#') hasComment = 1;
+         else
          {
-            kk = getc(fp);
-            if (kk == '#')
+            ii = 0;
+            while ((pString[ii] == ' '  || pString[ii] == '\t') && 
+                    pString[ii] != '\r' && pString[ii] != '\n' && 
+                   ii < 5000) ii++;
+            if (pString[ii] == '-') ii++;
+            kk = (int) pString[ii] - '0';
+            if (kk != 1) hasComment = 1;
+            if (kk == 1 && (pString[ii+1] == ' ' || pString[ii+1] == '\t'))
+                 hasComment = 0;
+            else hasComment = 1;
+         }
+         fclose(fp);
+         fp = fopen(dataFile,"r");
+         fscanf(fp, "%d %d %d", &nSamples_, &nInputs_, &nOutputs_);
+         if (hasComment == 1)
+         {
+            inputNames_ = new char*[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               inputNames = new char*[nInputs];
-               for (ii = 0; ii < nInputs; ii++)
-               {
-                  inputNames[ii] = new char[1001];
-                  fscanf(fp,"%s", inputNames[ii]);
-               }
-               outputNames = new char*[nOutputs];
-               if (flag == 1) strcpy(outputNames[0], "Y");
-               else
-               {
-                  for (ii = 0; ii < nOutputs; ii++)
-                  {
-                     outputNames[ii] = new char[1001];
-                     fscanf(fp,"%s", outputNames[ii]);
-                  }
-               }
-               fgets(pString, 500, fp);
-               break;
+               inputNames_[ii] = new char[1001];
+               fscanf(fp,"%s", inputNames_[ii]);
             }
+            outputNames_ = new char*[nOutputs_];
+            if (flag == 1) strcpy(outputNames_[0], "Y");
             else
             {
-               ungetc(kk, fp);
-               break;
+               for (ii = 0; ii < nOutputs_; ii++)
+               {
+                  outputNames_[ii] = new char[1001];
+                  fscanf(fp,"%s", outputNames_[ii]);
+               }
             }
+            fgets(pString, 5000, fp);
          }
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
             fscanf(fp, "%d", &jj);
             if ((ii+1) != jj)
@@ -1937,72 +1991,105 @@ int PsuadeBase::interpretInteractive()
                printf("INFO: the first field must be the sample number.\n");
                break;
             }
-            for (jj = 0; jj < nInputs; jj++)
-               fscanf(fp,"%lg", &sampleInputs[ii*nInputs+jj]); 
+            for (jj = 0; jj < nInputs_; jj++)
+               fscanf(fp,"%lg", &sampleInputs_[ii*nInputs_+jj]); 
             if (flag == 0)
             {
-               for (jj = 0; jj < nOutputs; jj++)
-                  fscanf(fp,"%lg", &sampleOutputs[ii*nOutputs+jj]); 
+               for (jj = 0; jj < nOutputs_; jj++)
+                  fscanf(fp,"%lg", &sampleOutputs_[ii*nOutputs_+jj]); 
             }
             else
             {
-               sampleOutputs[ii] = PSUADE_UNDEFINED;
-               sampleStates[ii] = 0;
+               sampleOutputs_[ii] = PSUADE_UNDEFINED;
+               sampleStates_[ii] = 0;
             }
          }
          fclose(fp);
-         if (ii != nSamples)
+         if (ii != nSamples_)
          {
-            delete [] sampleInputs;
-            delete [] sampleOutputs;
-            delete [] sampleStates;
-            delete [] iLowerB;
-            delete [] iUpperB;
-            sampleInputs = NULL;
-            sampleOutputs = NULL;
-            sampleStates = NULL;
-            iLowerB = NULL;
-            iUpperB = NULL;
-            nInputs = nSamples = nOutputs = 0;
+            delete [] sampleInputs_;
+            delete [] sampleOutputs_;
+            delete [] sampleStates_;
+            delete [] iLowerB_;
+            delete [] iUpperB_;
+            sampleInputs_ = NULL;
+            sampleOutputs_ = NULL;
+            sampleStates_ = NULL;
+            iLowerB_ = NULL;
+            iUpperB_ = NULL;
+            if (inputNames_ != NULL)
+            {
+               for (ii = 0; ii < nInputs_; ii++) 
+                  if (inputNames_[ii] != NULL) delete [] inputNames_[ii];
+               inputNames_ = NULL;
+            }
+            if (outputNames_ != NULL)
+            {
+               for (ii = 0; ii < nOutputs_; ii++) 
+                  if (outputNames_[ii] != NULL) delete [] outputNames_[ii];
+               outputNames_ = NULL;
+            }
+            nInputs_ = nSamples_ = nOutputs_ = 0;
             continue;
          }
-         tempW = new double[nSamples];
+         tempW = new double[nSamples_];
          double xlsMin, xlsMax;
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            for (jj = 0; jj < nSamples; jj++) 
-               tempW[jj] = sampleInputs[jj*nInputs+ii];
+            for (jj = 0; jj < nSamples_; jj++) 
+               tempW[jj] = sampleInputs_[jj*nInputs_+ii];
             xlsMin = xlsMax = tempW[0];
-            for (jj = 1; jj < nSamples; jj++) 
+            for (jj = 1; jj < nSamples_; jj++) 
             {
                if (tempW[jj] > xlsMax) xlsMax = tempW[jj];
                if (tempW[jj] < xlsMin) xlsMin = tempW[jj];
             }
-            iLowerB[ii] = xlsMin;
-            iUpperB[ii] = xlsMax;
-            if (iLowerB[ii] == iUpperB[ii]) iUpperB[ii] += 1.0e-12;
+            iLowerB_[ii] = xlsMin;
+            iUpperB_[ii] = xlsMax;
+            if (iLowerB_[ii] == iUpperB_[ii]) iUpperB_[ii] += 1.0e-12;
          }
          delete [] tempW;
-         inputPDFs = new int[nInputs];
-         inputMeans = new double[nInputs];
-         inputStds = new double[nInputs];
-         inputCMat = new Matrix();
-         inputCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         inputPDFs_  = new int[nInputs_];
+         inputMeans_ = new double[nInputs_];
+         inputStds_  = new double[nInputs_];
+         inputCMat_  = new Matrix();
+         inputCMat_->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            inputPDFs[ii] = 0;
-            inputMeans[ii] = 0;
-            inputStds[ii] = 0;
-            inputCMat->setEntry(ii,ii,1.0);
+            inputPDFs_[ii] = 0;
+            inputMeans_[ii] = 0;
+            inputStds_[ii] = 0;
+            inputCMat_->setEntry(ii,ii,1.0);
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,iUpperB,
-                               sampleInputs,inputNames,inputPDFs,inputMeans,
-                               inputStds,inputCMat); 
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                        sampleStates, outputNames);
-         psuadeIO_->updateMethodSection(PSUADE_SAMP_MC, nSamples, 1, 0, 0);
+         if (inputNames_ == NULL)
+         {
+            inputNames_ = new char*[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++)
+            {
+               inputNames_[ii] = new char[100];
+               sprintf(inputNames_[ii], "X%d", ii+1);
+            }
+         } 
+         if (outputNames_ == NULL)
+         {
+            outputNames_ = new char*[nOutputs_];
+            for (ii = 0; ii < nOutputs_; ii++)
+            {
+               outputNames_[ii] = new char[100];
+               sprintf(outputNames_[ii], "Y%d", ii+1);
+            }
+         } 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,iUpperB_,
+                               sampleInputs_,inputNames_,inputPDFs_,inputMeans_,
+                               inputStds_,inputCMat_); 
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                        sampleStates_, outputNames_);
+         psuadeIO_->updateMethodSection(PSUADE_SAMP_MC, nSamples_, 1, 0, 0);
          psuadeIO_->updateAnalysisSection(0, 0, 0, 0, 0, 0);
          nReps = 1;
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("Excel data have been read.\n");
          printf("Use 'write' to store the data in PSUADE format.\n");
       }
@@ -2018,11 +2105,17 @@ int PsuadeBase::interpretInteractive()
             printf("           format.\n");
             printf("syntax: write_xls <filename>.\n");
             printf("where <filename> is the name of the target data file.\n");
+            printf("\nThe target file will have the following format:\n");
+            printf("line 1: <nSamples> <nInputs> <nOutputs>\n");
+            printf("line 2: # input and output names\n");
+            printf("line 3: 1 <sample 1 inputs> < sample 1 outputs>\n");
+            printf("line 4: 2 <sample 2 inputs> < sample 2 outputs>\n");
+            printf(".......\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data to write.\n");
+            printf("ERROR: no sample output data to write.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -2041,7 +2134,7 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (sampleInputs == NULL || sampleOutputs == NULL)
+            if (sampleInputs_ == NULL || sampleOutputs_ == NULL)
                printf("ERROR: no inputs or outputs to write.\n");
             else
             {
@@ -2051,20 +2144,20 @@ int PsuadeBase::interpretInteractive()
                   printf("ERROR: cannot open file %s.\n", dataFile);
                   continue;
                }
-               fprintf(fp, "%d \t %d \t %d\n", nSamples, nInputs, nOutputs);
-               fprintf(fp, "# \t ");
-               for (ii = 0; ii < nInputs; ii++)
-                  fprintf(fp, "%s \t ", inputNames[ii]);
-               for (ii = 0; ii < nOutputs-1; ii++)
-                  fprintf(fp, "%s \t ", outputNames[ii]);
-               fprintf(fp, "%s \n", outputNames[nOutputs-1]);
-               for (ii = 0; ii < nSamples; ii++)
+               fprintf(fp, "%d \t %d \t %d\n", nSamples_, nInputs_, nOutputs_);
+               fprintf(fp, "#Sample \t ");
+               for (ii = 0; ii < nInputs_; ii++)
+                  fprintf(fp, "%s \t ", inputNames_[ii]);
+               for (ii = 0; ii < nOutputs_-1; ii++)
+                  fprintf(fp, "%s \t ", outputNames_[ii]);
+               fprintf(fp, "%s \n", outputNames_[nOutputs_-1]);
+               for (ii = 0; ii < nSamples_; ii++)
                {
                   fprintf(fp, "%d", ii+1);
-                  for (jj = 0; jj < nInputs; jj++)
-                     fprintf(fp,"\t%24.16e", sampleInputs[ii*nInputs+jj]); 
-                  for (jj = 0; jj < nOutputs; jj++)
-                     fprintf(fp,"\t%24.16e", sampleOutputs[ii*nOutputs+jj]);
+                  for (jj = 0; jj < nInputs_; jj++)
+                     fprintf(fp,"\t%24.16e", sampleInputs_[ii*nInputs_+jj]); 
+                  for (jj = 0; jj < nOutputs_; jj++)
+                     fprintf(fp,"\t%24.16e", sampleOutputs_[ii*nOutputs_+jj]);
                   fprintf(fp, "\n");
                }
                fclose(fp);
@@ -2084,9 +2177,9 @@ int PsuadeBase::interpretInteractive()
             printf("where <filename> is the name of the target data file.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data.\n");
+            printf("ERROR: no sample output data.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -2107,47 +2200,47 @@ int PsuadeBase::interpretInteractive()
          }
          else
          {
-            if (sampleInputs == NULL || sampleOutputs == NULL)
+            if (sampleInputs_ == NULL || sampleOutputs_ == NULL)
                printf("ERROR: no inputs or outputs to save.\n");
-            else if (nInputs != 2)
+            else if (nInputs_ != 2)
                printf("ERROR: command available only for nInputs=2.\n");
             else
             {
-               if (nOutputs == 1) outputID = 0;
+               if (nOutputs_ == 1) outputID = 0;
                else
                {
                   sprintf(pString, "Enter output number (1 - %d) : ",
-                          nOutputs);
-                  outputID = getInt(1, nOutputs, pString);
+                          nOutputs_);
+                  outputID = getInt(1, nOutputs_, pString);
                   outputID--;
                }
-               tempX = new double[nSamples];
-               tempW = new double[nSamples];
-               tempY = new double[nSamples];
-               tempT = new double[nSamples];
-               tempInds = new double[nSamples];
-               for (ii = 0; ii < nSamples; ii++)
+               tempX = new double[nSamples_];
+               tempW = new double[nSamples_];
+               tempY = new double[nSamples_];
+               tempT = new double[nSamples_];
+               tempInds = new double[nSamples_];
+               for (ii = 0; ii < nSamples_; ii++)
                {
-                  tempX[ii] = sampleInputs[ii*nInputs]; 
-                  tempW[ii] = sampleInputs[ii*nInputs+1]; 
-                  tempY[ii] = sampleOutputs[ii*nOutputs+outputID];
+                  tempX[ii] = sampleInputs_[ii*nInputs_]; 
+                  tempW[ii] = sampleInputs_[ii*nInputs_+1]; 
+                  tempY[ii] = sampleOutputs_[ii*nOutputs_+outputID];
                   tempInds[ii] = (double) ii;
                }
-               sortDbleList2(nSamples, tempW, tempInds);
-               for (ii = 0; ii < nSamples; ii++) tempT[ii] = tempX[ii];
-               for (ii = 0; ii < nSamples; ii++)
+               sortDbleList2(nSamples_, tempW, tempInds);
+               for (ii = 0; ii < nSamples_; ii++) tempT[ii] = tempX[ii];
+               for (ii = 0; ii < nSamples_; ii++)
                {
                   ind2 = (int) tempInds[ii];
                   tempX[ii] = tempT[ind2];
                }
-               for (ii = 0; ii < nSamples; ii++) tempT[ii] = tempY[ii];
-               for (ii = 0; ii < nSamples; ii++)
+               for (ii = 0; ii < nSamples_; ii++) tempT[ii] = tempY[ii];
+               for (ii = 0; ii < nSamples_; ii++)
                {
                   ind2 = (int) tempInds[ii];
                   tempY[ii] = tempT[ind2];
                }
                ind = 0;
-               for (ii = 1; ii < nSamples; ii++)
+               for (ii = 1; ii < nSamples_; ii++)
                {
                   if (tempW[ii] != tempW[ii-1])
                   {
@@ -2155,7 +2248,7 @@ int PsuadeBase::interpretInteractive()
                      ind = ii;
                   }
                } 
-               sortDbleList2(nSamples-ind, &tempX[ind], &tempY[ind]);
+               sortDbleList2(nSamples_-ind, &tempX[ind], &tempY[ind]);
                fp = fopen(dataFile, "w");
                if (fp == NULL)
                {
@@ -2164,7 +2257,7 @@ int PsuadeBase::interpretInteractive()
                }
                ind = 0;
                ind2 = 1;
-               for (ii = 1; ii < nSamples; ii++)
+               for (ii = 1; ii < nSamples_; ii++)
                {
                   if (tempW[ii] != tempW[ii-1])
                   {
@@ -2176,7 +2269,7 @@ int PsuadeBase::interpretInteractive()
                   }
                } 
                fprintf(fp, "#var2_%d\n", ind2);
-               for (jj = ind; jj < nSamples; jj++)
+               for (jj = ind; jj < nSamples_; jj++)
                   fprintf(fp, "%14.6e %24.16e\n",tempX[jj],tempY[jj]);
                fclose(fp);
                delete [] tempInds;
@@ -2197,16 +2290,16 @@ int PsuadeBase::interpretInteractive()
          {
             printf("update: update the current sample outputs from another\n");
             printf("        PSUADE data file (i.e. the current unevaluated\n");
-            printf("        sample points will be replaced with evalauted\n");
+            printf("        sample points will be replaced with evaluated\n");
             printf("        outputs from the provided data file.) New points\n");
-            printf("        in the PSUADE data file will be ignored.\n");
+            printf("        in the data file will be ignored.\n");
             printf("syntax: update <filename> (merge from <filename>).\n");
             printf("where <filename> is a data file in PSUADE data format.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data to update.\n");
+            printf("ERROR: no sample output data to update.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -2227,13 +2320,16 @@ int PsuadeBase::interpretInteractive()
          {
             ioPtr = new PsuadeData();
             status = ioPtr->readPsuadeFile(dataFile);
+            if (status != 0)
+               printf("ERROR: file %s either not found or in wrong format.\n",
+                      dataFile);
          }
          if (status == 0)
          {
             ioPtr->getParameter("input_ninputs", pPtr);
             ind = pPtr.intData_;
             flag = 1;
-            if (ind != nInputs) flag = 0;
+            if (ind != nInputs_) flag = 0;
             if (flag == 1)
             {
                pINames.clean();
@@ -2256,7 +2352,7 @@ int PsuadeBase::interpretInteractive()
             {
                ioPtr->getParameter("output_noutputs", pPtr);
                ind = pPtr.intData_;
-               if (ind != nOutputs) flag = 0;
+               if (ind != nOutputs_) flag = 0;
             }
             if (flag == 1)
             {
@@ -2264,7 +2360,7 @@ int PsuadeBase::interpretInteractive()
                ioPtr->getParameter("output_names", pONames);
                names = pONames.strArray_;
                for (ii = 0; ii < ind; ii++)
-                  if (strcmp(outputNames[ii],names[ii])) flag = 0;
+                  if (strcmp(outputNames_[ii],names[ii])) flag = 0;
                pONames.clean();
             }
             if (flag == 0) printf("ERROR: invalid data file.\n");
@@ -2282,24 +2378,24 @@ int PsuadeBase::interpretInteractive()
                ioPtr->getParameter("method_nsamples", pPtr);
                ind = pPtr.intData_;
                count = 0;
-               for (sInd = 0; sInd < nSamples; sInd++)
+               for (sInd = 0; sInd < nSamples_; sInd++)
                {
-                  if (sampleStates[sInd] == 1) continue;
-                  kk = sInd * nInputs;
+                  if (sampleStates_[sInd] == 1) continue;
+                  kk = sInd * nInputs_;
                   for (ii = 0; ii < ind; ii++)
                   {
                      if (states[ii] != 1) continue;
-                     jj = ii * nInputs;
-                     for (iInd = 0; iInd < nInputs; iInd++)
-                        if (sampleInputs[kk+iInd] != tempX[jj+iInd])
+                     jj = ii * nInputs_;
+                     for (iInd = 0; iInd < nInputs_; iInd++)
+                        if (sampleInputs_[kk+iInd] != tempX[jj+iInd])
                            break;
-                     if (iInd == nInputs)
+                     if (iInd == nInputs_)
                      {
-                        kk = sInd * nOutputs;
-                        jj = ii * nOutputs;
-                        for (oInd = 0; oInd < nOutputs; oInd++)
-                           sampleOutputs[kk+oInd] = tempY[jj+oInd];
-                        sampleStates[sInd] = 1;
+                        kk = sInd * nOutputs_;
+                        jj = ii * nOutputs_;
+                        for (oInd = 0; oInd < nOutputs_; oInd++)
+                           sampleOutputs_[kk+oInd] = tempY[jj+oInd];
+                        sampleStates_[sInd] = 1;
                         printf("   Matched: sample %d <-- sample %d (%d)\n",
                                sInd+1,ii+1,ind);
                         count++;
@@ -2316,6 +2412,11 @@ int PsuadeBase::interpretInteractive()
                pStates.clean();
             }
          }
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_,
+                                        sampleStates_, NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          fflush(stdout);
          if (ioPtr != NULL) delete ioPtr;
          ioPtr = NULL;
@@ -2332,7 +2433,7 @@ int PsuadeBase::interpretInteractive()
             printf("where <filename> is a MOAT adjust file (created by moatgen)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no Morris sample to adjust.\n");
             printf("       Use load to put data into local memory first.\n");
@@ -2360,15 +2461,15 @@ int PsuadeBase::interpretInteractive()
          {
             sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_MOAT);
             sampPtr->setPrintLevel(PL_INTERACTIVE);
-            sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-            sampPtr->setOutputParams(nOutputs);
-            sampPtr->setSamplingParams(nSamples,nSamples/(nInputs+1),0);
+            sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+            sampPtr->setOutputParams(nOutputs_);
+            sampPtr->setSamplingParams(nSamples_,nSamples_/(nInputs_+1),0);
             sampPtr->initialize(1);
-            sampPtr->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                 sampleOutputs, sampleStates);
+            sampPtr->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                 sampleOutputs_, sampleStates_);
             sampPtr->repair(dataFile, 0);
-            sampPtr->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                sampleOutputs, sampleStates);
+            sampPtr->getSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                sampleOutputs_, sampleStates_);
             delete sampPtr;
             sampPtr = NULL;
          }
@@ -2389,7 +2490,7 @@ int PsuadeBase::interpretInteractive()
             printf("where <filename> is a MOAT adjust file (created by moatgen)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no Morris sample to adjust.\n");
             printf("       Use load to put data into local memory first.\n");
@@ -2417,15 +2518,15 @@ int PsuadeBase::interpretInteractive()
          {
             sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_GMOAT);
             sampPtr->setPrintLevel(PL_INTERACTIVE);
-            sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-            sampPtr->setOutputParams(nOutputs);
-            sampPtr->setSamplingParams(nSamples,nSamples/(nInputs+1),0);
+            sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+            sampPtr->setOutputParams(nOutputs_);
+            sampPtr->setSamplingParams(nSamples_,nSamples_/(nInputs_+1),0);
             sampPtr->initialize(1);
-            sampPtr->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                 sampleOutputs, sampleStates);
+            sampPtr->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                 sampleOutputs_, sampleStates_);
             sampPtr->repair(dataFile, 0);
-            sampPtr->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                sampleOutputs, sampleStates);
+            sampPtr->getSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                sampleOutputs_, sampleStates_);
             delete sampPtr;
             sampPtr = NULL;
          }
@@ -2443,11 +2544,13 @@ int PsuadeBase::interpretInteractive()
             printf("       syntax: iadd <filename>\n");
             printf("       where <filename> should be a PSUADE data file\n");
             printf("                        containing additional inputs.\n");
+            printf("Note: the sample size in the data file should be the\n");
+            printf("      same as that in the resident memory.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data to add to.\n");
+            printf("ERROR: no sample output data.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -2468,15 +2571,18 @@ int PsuadeBase::interpretInteractive()
          {
             ioPtr = new PsuadeData();
             status = ioPtr->readPsuadeFile(dataFile);
+            if (status != 0)
+               printf("ERROR: file %s either not found or in wrong format.\n",
+                      dataFile);
          }
          if (status == 0)
          {
             ioPtr->getParameter("method_nsamples", pPtr);
             ind = pPtr.intData_;
-            if (ind != nSamples)
+            if (ind != nSamples_)
             {
                printf("ERROR: nSamples not the same in both sets of data.\n");
-               printf("       nSamples in local memory = %d\n", nSamples);
+               printf("       nSamples in local memory = %d\n", nSamples_);
                printf("       nSamples from file       = %d\n", ind);
             }
             else
@@ -2484,110 +2590,112 @@ int PsuadeBase::interpretInteractive()
                ioPtr->getParameter("input_ninputs", pPtr);
                ind = pPtr.intData_;
 
-               tempW = iLowerB;
+               tempW = iLowerB_;
                ioPtr->getParameter("input_lbounds", pLower);
                tempT = pLower.dbleArray_;
-               iLowerB = new double[nInputs+ind];
-               for (ii = 0; ii < nInputs; ii++) iLowerB[ii] = tempW[ii];
-               for (ii = 0; ii < ind; ii++) iLowerB[nInputs+ii] = tempT[ii];
+               iLowerB_ = new double[nInputs_+ind];
+               for (ii = 0; ii < nInputs_; ii++) iLowerB_[ii] = tempW[ii];
+               for (ii = 0; ii < ind; ii++) iLowerB_[nInputs_+ii] = tempT[ii];
                pLower.clean();
                delete [] tempW;
                
-               tempW = iUpperB;
+               tempW = iUpperB_;
                ioPtr->getParameter("input_ubounds", pUpper);
                tempT = pUpper.dbleArray_;
-               iUpperB = new double[nInputs+ind];
-               for (ii = 0; ii < nInputs; ii++) iUpperB[ii] = tempW[ii];
-               for (ii = 0; ii < ind; ii++) iUpperB[nInputs+ii] = tempT[ii];
+               iUpperB_ = new double[nInputs_+ind];
+               for (ii = 0; ii < nInputs_; ii++) iUpperB_[ii] = tempW[ii];
+               for (ii = 0; ii < ind; ii++) iUpperB_[nInputs_+ii] = tempT[ii];
                pUpper.clean();
                delete [] tempW;
 
+               tempI = inputPDFs_;
                ioPtr->getParameter("input_pdfs", pPDFs);
-               tempI = inputPDFs;
-               inputPDFs = new int[nInputs+ind];
-               for (jj = 0; jj < nInputs; jj++) inputPDFs[jj] = tempI[jj];
+               inputPDFs_ = new int[nInputs_+ind];
+               for (jj = 0; jj < nInputs_; jj++) inputPDFs_[jj] = tempI[jj];
                delete [] tempI;
                tempI = pPDFs.intArray_;
-               for (jj = nInputs; jj < nInputs+ind; jj++)
-                  inputPDFs[jj] = tempI[jj-nInputs];
+               for (jj = nInputs_; jj < nInputs_+ind; jj++)
+                  inputPDFs_[jj] = tempI[jj-nInputs_];
                pPDFs.clean();
 
                ioPtr->getParameter("input_means", pMeans);
-               tempW = inputMeans;
-               inputMeans = new double[nInputs+ind];
-               for (jj = 0; jj < nInputs; jj++) inputMeans[jj] = tempW[jj];
+               tempW = inputMeans_;
+               inputMeans_ = new double[nInputs_+ind];
+               for (jj = 0; jj < nInputs_; jj++) inputMeans_[jj] = tempW[jj];
                delete [] tempW;
                tempW = pMeans.dbleArray_;
-               for (jj = nInputs; jj < nInputs+ind; jj++)
-                  inputMeans[jj] = tempW[jj-nInputs];
+               for (jj = nInputs_; jj < nInputs_+ind; jj++)
+                  inputMeans_[jj] = tempW[jj-nInputs_];
                pMeans.clean();
 
                ioPtr->getParameter("input_stdevs", pStds);
-               tempW = inputStds;
-               inputStds = new double[nInputs+ind];;
-               for (jj = 0; jj < nInputs; jj++) inputStds[jj] = tempW[jj];
+               tempW = inputStds_;
+               inputStds_ = new double[nInputs_+ind];
+               for (jj = 0; jj < nInputs_; jj++) inputStds_[jj] = tempW[jj];
                delete [] tempW;
                tempW = pStds.dbleArray_;
-               for (jj = nInputs; jj < nInputs+ind; jj++)
-                  inputStds[jj] = tempW[jj-nInputs];
+               for (jj = nInputs_; jj < nInputs_+ind; jj++)
+                  inputStds_[jj] = tempW[jj-nInputs_];
                pStds.clean();
 
-#if 1
                ioPtr->getParameter("input_cor_matrix", pPtr);
                Matrix *tmpMat1 = (Matrix *) pPtr.psObject_;
                Matrix *tmpMat2 = new Matrix();
-               tmpMat2->setDim(nInputs+ind,nInputs+ind);
-               for (ii = 0; ii < nInputs; ii++)
+               tmpMat2->setDim(nInputs_+ind,nInputs_+ind);
+               for (ii = 0; ii < nInputs_; ii++)
                {
-                  for (jj = 0; jj < nInputs; jj++)
+                  for (jj = 0; jj < nInputs_; jj++)
                   {
-                     ddata = inputCMat->getEntry(ii,jj);
+                     ddata = inputCMat_->getEntry(ii,jj);
                      tmpMat2->setEntry(ii,jj,ddata);
                   }
                }
-               for (ii = nInputs; ii < nInputs+ind; ii++)
+               for (ii = nInputs_; ii < nInputs_+ind; ii++)
                {
-                  for (jj = nInputs; jj < nInputs+ind; jj++)
+                  for (jj = nInputs_; jj < nInputs_+ind; jj++)
                   {
-                     ddata = tmpMat1->getEntry(ii-nInputs,jj-nInputs);
+                     ddata = tmpMat1->getEntry(ii-nInputs_,jj-nInputs_);
                      tmpMat2->setEntry(ii,jj,ddata);
                   }
                }
-               delete inputCMat;
-               inputCMat = tmpMat2;
-#endif
-               names = inputNames;
-               inputNames = new char*[nInputs+ind];
-               for (ii = 0; ii < nInputs; ii++) inputNames[ii] = names[ii];
+               delete inputCMat_;
+               inputCMat_ = tmpMat2;
+
+               names = inputNames_;
+               inputNames_ = new char*[nInputs_+ind];
+               for (ii = 0; ii < nInputs_; ii++) inputNames_[ii] = names[ii];
                if (names != NULL) delete [] names;
                pINames.clean();
                ioPtr->getParameter("input_names", pINames);
                names = pINames.strArray_;
                for (ii = 0; ii < ind; ii++)
                {
-                  inputNames[nInputs+ii] = names[ii];
-                  names[ii] = NULL;
+                  inputNames_[nInputs_+ii] = names[ii];
+                  pINames.strArray_[ii] = NULL;
                }
                pINames.clean();
                ioPtr->getParameter("input_sample", pInputs);
                tempW = pInputs.dbleArray_;
-               tempX = sampleInputs;
-               sampleInputs = new double[nSamples*(nInputs+ind)];
+               tempX = sampleInputs_;
+               sampleInputs_ = new double[nSamples_*(nInputs_+ind)];
                kk = 0;
-               for (ii = 0; ii < nSamples; ii++)
+               for (ii = 0; ii < nSamples_; ii++)
                {
-                  for (jj = 0; jj < nInputs; jj++)
-                     sampleInputs[kk++] = tempX[ii*nInputs+jj];
+                  for (jj = 0; jj < nInputs_; jj++)
+                     sampleInputs_[kk++] = tempX[ii*nInputs_+jj];
                   for (jj = 0; jj < ind; jj++)
-                     sampleInputs[kk++] = tempW[ii*ind+jj];
+                     sampleInputs_[kk++] = tempW[ii*ind+jj];
                }
                delete [] tempX;
-               nInputs += ind;
+               nInputs_ += ind;
                pInputs.clean();
-               psuadeIO_->updateInputSection(nSamples,nInputs,NULL,
-                              iLowerB,iUpperB,sampleInputs,inputNames, 
-                              inputPDFs, inputMeans,inputStds,inputCMat); 
+               psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,
+                              iLowerB_,iUpperB_,sampleInputs_,inputNames_, 
+                              inputPDFs_, inputMeans_,inputStds_,inputCMat_); 
             }
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
          }
          fflush(stdout);
          if (ioPtr != NULL) delete ioPtr;
@@ -2604,10 +2712,12 @@ int PsuadeBase::interpretInteractive()
             printf("      another PSUADE data file\n");
             printf("      syntax: oadd <filename>\n");
             printf("      where <filename> should be a PSUADE data file\n");
-            printf("                       containing additional outputs.\n");
+            printf("                       containing additional outputs.\n\n");
+            printf("Note: the sample size in the data file should be the\n");
+            printf("      same as that in the resident memory.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to add to.\n");
             printf("       Use load to put data into local memory first.\n");
@@ -2630,53 +2740,59 @@ int PsuadeBase::interpretInteractive()
          {
             ioPtr = new PsuadeData();
             status = ioPtr->readPsuadeFile(dataFile);
+            if (status != 0)
+               printf("ERROR: file %s either not found or in wrong format.\n",
+                      dataFile);
          }
          if (status == 0)
          {
             ioPtr->getParameter("method_nsamples", pPtr);
             ind = pPtr.intData_;
-            if (ind != nSamples)
+            if (ind != nSamples_)
             {
                printf("ERROR: nSamples not the same in both sets of data.\n");
-               printf("       nSamples in local memory = %d\n", nSamples);
+               printf("       nSamples in local memory = %d\n", nSamples_);
                printf("       nSamples from file       = %d\n", ind);
             }
             else
             {
-               printf("INFO: no checking for whether both sets of inputs match.\n");
+               printf("INFO: no check to see if both sets of inputs match.\n");
                ioPtr->getParameter("output_noutputs", pPtr);
                ind = pPtr.intData_;
 
-               names = outputNames;
-               outputNames = new char*[nOutputs+ind];
-               for (ii = 0; ii < nOutputs; ii++) outputNames[ii] = names[ii];
+               names = outputNames_;
+               outputNames_ = new char*[nOutputs_+ind];
+               for (ii = 0; ii < nOutputs_; ii++) outputNames_[ii] = names[ii];
                if (names != NULL) delete [] names;
                pONames.clean();
                ioPtr->getParameter("output_names", pONames);
                names = pONames.strArray_;
                for (ii = 0; ii < ind; ii++)
                {
-                  outputNames[nOutputs+ii] = names[ii];
+                  outputNames_[nOutputs_+ii] = names[ii];
                   names[ii] = NULL;
                }
                pONames.clean();
                ioPtr->getParameter("output_sample", pOutputs);
                tempW = pOutputs.dbleArray_;
-               tempX = sampleOutputs;
-               sampleOutputs = new double[nSamples*(nOutputs+ind)];
+               tempX = sampleOutputs_;
+               sampleOutputs_ = new double[nSamples_*(nOutputs_+ind)];
                kk = 0;
-               for (ii = 0; ii < nSamples; ii++)
+               for (ii = 0; ii < nSamples_; ii++)
                {
-                  for (jj = 0; jj < nOutputs; jj++)
-                     sampleOutputs[kk++] = tempX[ii*nOutputs+jj];
+                  for (jj = 0; jj < nOutputs_; jj++)
+                     sampleOutputs_[kk++] = tempX[ii*nOutputs_+jj];
                   for (jj = 0; jj < ind; jj++)
-                     sampleOutputs[kk++] = tempW[ii*ind+jj];
+                     sampleOutputs_[kk++] = tempW[ii*ind+jj];
                }
                delete [] tempX;
-               nOutputs += ind;
+               nOutputs_ += ind;
                pOutputs.clean();
-               psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                                sampleOutputs, sampleStates, outputNames); 
+               psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                                sampleOutputs_, sampleStates_, outputNames_); 
+               if (currSession != NULL) delete currSession;
+               currSession = new PsuadeSession();
+               psuadeIO_->getSession(currSession);
             }
          }
          fflush(stdout);
@@ -2690,8 +2806,10 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("iadd: add one input to the existing sample \n");
-            printf("       syntax: iadd1 \n");
+            printf("iadd: add one input to the existing sample (at the end).\n");
+            printf("      The values of the new input are drawn randomly\n");
+            printf("      between 0 and 1.\n");
+            printf("syntax: iadd1 \n");
             continue;
          }
          if (psuadeIO_ == NULL)
@@ -2700,79 +2818,82 @@ int PsuadeBase::interpretInteractive()
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
-         tempW = iLowerB;
-         iLowerB = new double[nInputs+1];
-         for (ii = 0; ii < nInputs; ii++) iLowerB[ii] = tempW[ii];
-         iLowerB[nInputs] = 0;
+         tempW = iLowerB_;
+         iLowerB_ = new double[nInputs_+1];
+         for (ii = 0; ii < nInputs_; ii++) iLowerB_[ii] = tempW[ii];
+         iLowerB_[nInputs_] = 0;
          delete [] tempW;
-         tempW = iUpperB;
-         iUpperB = new double[nInputs+1];
-         for (ii = 0; ii < nInputs; ii++) iUpperB[ii] = tempW[ii];
-         iUpperB[nInputs] = 1;
+         tempW = iUpperB_;
+         iUpperB_ = new double[nInputs_+1];
+         for (ii = 0; ii < nInputs_; ii++) iUpperB_[ii] = tempW[ii];
+         iUpperB_[nInputs_] = 1;
          delete [] tempW;
 
-         if (inputPDFs != NULL)
+         if (inputPDFs_ != NULL)
          {
-            tempI = inputPDFs;
-            inputPDFs = new int[nInputs+1];
-            for (jj = 0; jj < nInputs; jj++) inputPDFs[jj] = tempI[jj];
-            inputPDFs[nInputs] = 0;
+            tempI = inputPDFs_;
+            inputPDFs_ = new int[nInputs_+1];
+            for (jj = 0; jj < nInputs_; jj++) inputPDFs_[jj] = tempI[jj];
+            inputPDFs_[nInputs_] = 0;
             delete [] tempI;
          }
-         if (inputMeans != NULL)
+         if (inputMeans_ != NULL)
          {
-            tempW = inputMeans;
-            inputMeans = new double[nInputs+1];
-            for (jj = 0; jj < nInputs; jj++) inputMeans[jj] = tempW[jj];
-            inputMeans[nInputs] = 0.0;
+            tempW = inputMeans_;
+            inputMeans_ = new double[nInputs_+1];
+            for (jj = 0; jj < nInputs_; jj++) inputMeans_[jj] = tempW[jj];
+            inputMeans_[nInputs_] = 0.0;
             delete [] tempW;
          }
-         if (inputStds != NULL)
+         if (inputStds_ != NULL)
          {
-            tempW = inputStds;
-            inputStds = new double[nInputs+1];
-            for (jj = 0; jj < nInputs; jj++) inputStds[jj] = tempW[jj];
-            inputStds[nInputs] = 0.0;
+            tempW = inputStds_;
+            inputStds_ = new double[nInputs_+1];
+            for (jj = 0; jj < nInputs_; jj++) inputStds_[jj] = tempW[jj];
+            inputStds_[nInputs_] = 0.0;
             delete [] tempW;
          }
-         if (inputCMat != NULL)
+         if (inputCMat_ != NULL)
          {
             Matrix *tmpMat2 = new Matrix();
-            tmpMat2->setDim(nInputs+1,nInputs+1);
-            for (ii = 0; ii < nInputs; ii++)
+            tmpMat2->setDim(nInputs_+1,nInputs_+1);
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
-                  ddata = inputCMat->getEntry(ii,jj);
+                  ddata = inputCMat_->getEntry(ii,jj);
                   tmpMat2->setEntry(ii,jj,ddata);
                }
             }
             ddata = 1.0;
-            tmpMat2->setEntry(nInputs,nInputs,ddata);
-            delete inputCMat;
-            inputCMat = tmpMat2;
+            tmpMat2->setEntry(nInputs_,nInputs_,ddata);
+            delete inputCMat_;
+            inputCMat_ = tmpMat2;
          }
-         if (inputNames != NULL)
+         if (inputNames_ != NULL)
          {
-            names = inputNames;
-            inputNames = new char*[nInputs+1];
-            for (ii = 0; ii < nInputs; ii++) inputNames[ii] = names[ii];
+            names = inputNames_;
+            inputNames_ = new char*[nInputs_+1];
+            for (ii = 0; ii < nInputs_; ii++) inputNames_[ii] = names[ii];
             delete [] names;
-            inputNames[nInputs] = new char[100];
-            sprintf(inputNames[nInputs], "X%d", nInputs+1);
+            inputNames_[nInputs_] = new char[100];
+            sprintf(inputNames_[nInputs_], "X%d", nInputs_+1);
          }
-         tempX = sampleInputs;
-         sampleInputs = new double[nSamples*(nInputs+1)];
-         for (ii = 0; ii < nSamples; ii++)
+         tempX = sampleInputs_;
+         sampleInputs_ = new double[nSamples_*(nInputs_+1)];
+         for (ii = 0; ii < nSamples_; ii++)
          {
-            for (jj = 0; jj < nInputs; jj++)
-               sampleInputs[ii*(nInputs+1)+jj] = tempX[ii*nInputs+jj];
-            sampleInputs[ii*(nInputs+1)+nInputs] = PSUADE_drand();
+            for (jj = 0; jj < nInputs_; jj++)
+               sampleInputs_[ii*(nInputs_+1)+jj] = tempX[ii*nInputs_+jj];
+            sampleInputs_[ii*(nInputs_+1)+nInputs_] = PSUADE_drand();
          }
-         nInputs++;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                          iUpperB,sampleInputs,inputNames,inputPDFs, 
-                          inputMeans,inputStds,inputCMat); 
+         nInputs_++;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                          iUpperB_,sampleInputs_,inputNames_,inputPDFs_, 
+                          inputMeans_,inputStds_,inputCMat_); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          fflush(stdout);
          printf("iadd1 : one input added (use sinfo to see updated sample).\n");
       }
@@ -2783,8 +2904,10 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("iadd: add one output to the existing sample \n");
-            printf("       syntax: oadd1 \n");
+            printf("iadd: add one output to the existing sample.\n");
+            printf("      The values of the new output are drawn randomly\n");
+            printf("      between 0 and 1.\n");
+            printf("syntax: oadd1 \n");
             continue;
          }
          if (psuadeIO_ == NULL)
@@ -2793,29 +2916,32 @@ int PsuadeBase::interpretInteractive()
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
-         if (sampleOutputs != NULL)
+         if (sampleOutputs_ != NULL)
          {
-            if (outputNames != NULL)
+            if (outputNames_ != NULL)
             {
-               names = outputNames;
-               outputNames = new char*[nOutputs+1];
-               for (ii = 0; ii < nOutputs; ii++) outputNames[ii] = names[ii];
+               names = outputNames_;
+               outputNames_ = new char*[nOutputs_+1];
+               for (ii = 0; ii < nOutputs_; ii++) outputNames_[ii] = names[ii];
                delete [] names;
-               outputNames[nOutputs] = new char[100];
-               sprintf(outputNames[nOutputs], "Y%d", nOutputs+1);
+               outputNames_[nOutputs_] = new char[100];
+               sprintf(outputNames_[nOutputs_], "Y%d", nOutputs_+1);
             }
-            tempX = sampleOutputs;
-            sampleOutputs = new double[nSamples*(nOutputs+1)];
-            for (ii = 0; ii < nSamples; ii++)
+            tempX = sampleOutputs_;
+            sampleOutputs_ = new double[nSamples_*(nOutputs_+1)];
+            for (ii = 0; ii < nSamples_; ii++)
             {
-               for (jj = 0; jj < nOutputs; jj++)
-                  sampleOutputs[ii*(nOutputs+1)+jj] = tempX[ii*nOutputs+jj];
-               sampleOutputs[ii*(nOutputs+1)+nOutputs] = PSUADE_drand();
+               for (jj = 0; jj < nOutputs_; jj++)
+                  sampleOutputs_[ii*(nOutputs_+1)+jj] = tempX[ii*nOutputs_+jj];
+               sampleOutputs_[ii*(nOutputs_+1)+nOutputs_] = PSUADE_drand();
             }
-            nOutputs++;
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                             sampleStates, outputNames); 
+            nOutputs_++;
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                             sampleStates_, outputNames_); 
          }
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("oadd1 : one output added (use sinfo to see updated sample).\n");
          fflush(stdout);
       }
@@ -2831,7 +2957,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ireplace <filename>\n");
             printf("where <filename> should be in the format given below: \n");
             printf("line 1: PSUADE_BEGIN\n");
-            printf("line 2: nSamples\n");
+            printf("line 2: <nSamples>\n");
             printf("line 3: input value for sample point 1\n");
             printf("line 4: input value for sample point 2\n");
             printf(".......\n");
@@ -2866,11 +2992,11 @@ int PsuadeBase::interpretInteractive()
                continue;
             }
             fscanf(fp, "%d", &kk);
-            if (kk != nSamples)
+            if (kk != nSamples_)
             {
                fclose(fp);
                printf("ERROR: File and local data do not match.\n");
-               printf("     size of sample in local memory = %d\n",nSamples);
+               printf("     size of sample in local memory = %d\n",nSamples_);
                printf("     nSamples from external file    = %d\n",kk);
                status = 1;
             }
@@ -2878,42 +3004,45 @@ int PsuadeBase::interpretInteractive()
          if (status == 0)
          {
             inputID = 0;
-            if (nInputs > 1)
+            if (nInputs_ > 1)
             {
                sprintf(pString,"Enter input number to replace (1 - %d) : ",
-                       nInputs);
-               inputID = getInt(1, nInputs, pString);
+                       nInputs_);
+               inputID = getInt(1, nInputs_, pString);
                inputID--;
             }
-            for (ii = 0; ii < nSamples; ii++)
-               fscanf(fp, "%lg", &(sampleInputs[ii*nInputs+inputID]));
+            for (ii = 0; ii < nSamples_; ii++)
+               fscanf(fp, "%lg", &(sampleInputs_[ii*nInputs_+inputID]));
             Xmin = PSUADE_UNDEFINED;
             Xmax = - Xmin;
-            for (ii = 0; ii < nSamples; ii++)
+            for (ii = 0; ii < nSamples_; ii++)
             {
-               if (sampleInputs[ii*nInputs+inputID] < Xmin)
-                  Xmin = sampleInputs[ii*nInputs+inputID];
-               else if (sampleInputs[ii*nInputs+inputID] > Xmax)
-                  Xmax = sampleInputs[ii*nInputs+inputID];
+               if (sampleInputs_[ii*nInputs_+inputID] < Xmin)
+                  Xmin = sampleInputs_[ii*nInputs_+inputID];
+               else if (sampleInputs_[ii*nInputs_+inputID] > Xmax)
+                  Xmax = sampleInputs_[ii*nInputs_+inputID];
             }
-            iLowerB[inputID] = Xmin; 
-            iUpperB[inputID] = Xmax; 
-            inputPDFs[inputID] = 0;
-            inputMeans[inputID] = 0;
-            inputStds[inputID] = 0;
-            for (ii = 0; ii < nInputs; ii++)
-               inputCMat->setEntry(inputID,ii,0);
-            for (ii = 0; ii < nInputs; ii++)
-               inputCMat->setEntry(ii,inputID,0);
-            inputCMat->setEntry(inputID,inputID,1);
-            sprintf(inputNames[inputID], "X%d", inputID+1);
-            psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                          iUpperB,sampleInputs,inputNames, 
-                          inputPDFs, inputMeans,inputStds,inputCMat); 
+            iLowerB_[inputID] = Xmin; 
+            iUpperB_[inputID] = Xmax; 
+            inputPDFs_[inputID] = 0;
+            inputMeans_[inputID] = 0;
+            inputStds_[inputID] = 0;
+            for (ii = 0; ii < nInputs_; ii++)
+               inputCMat_->setEntry(inputID,ii,0);
+            for (ii = 0; ii < nInputs_; ii++)
+               inputCMat_->setEntry(ii,inputID,0);
+            inputCMat_->setEntry(inputID,inputID,1);
+            sprintf(inputNames_[inputID], "X%d", inputID+1);
+            psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                          iUpperB_,sampleInputs_,inputNames_, 
+                          inputPDFs_, inputMeans_,inputStds_,inputCMat_); 
             fscanf(fp, "%s", winput);
             if (strcmp(winput, "PSUADE_END"))
                printf("WARNING: file should end with PSUADE_END\n");
             fclose(fp);
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
          }
          fflush(stdout);
       }
@@ -2929,14 +3058,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: oreplace <file>\n");
             printf("where <file> should be in the format given below: \n");
             printf("line 1: PSUADE_BEGIN\n");
-            printf("line 2: nSamples nOutputs\n");
+            printf("line 2: <nSamples> <nOutputs>\n");
             printf("line 3: output value for sample point 1\n");
             printf("line 4: output value for sample point 2\n");
             printf(".......\n");
             printf("last line: PSUADE_END\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to oreplace.\n");
             printf("       Use load to put data into local memory first.\n");
@@ -2964,10 +3093,10 @@ int PsuadeBase::interpretInteractive()
                continue;
             }
             fscanf(fp, "%d %d", &kk, &nOut2);
-            if (kk != nSamples || nOut2 <= 0)
+            if (kk != nSamples_ || nOut2 <= 0)
             {
                printf("ERROR: File and local parameters do not match.\n");
-               printf("       nSamples (local) = %d\n", nSamples);
+               printf("       nSamples (local) = %d\n", nSamples_);
                printf("       nSamples (file)  = %d\n", kk);
                printf("       nOutputs (file)  = %d\n", nOut2);
                fclose(fp);
@@ -2978,36 +3107,39 @@ int PsuadeBase::interpretInteractive()
          {
             printf("This command only checks that nSamples match.\n");
             printf("So make sure the data are correctly ordered.\n");
-            printf("       nSamples (local) = %d\n", nSamples);
+            printf("       nSamples (local) = %d\n", nSamples_);
             printf("       nOutputs (file)  = %d\n", nOut2);
-            if (nOutputs != nOut2)
+            if (nOutputs_ != nOut2)
             {
-               if (outputNames != NULL) 
+               if (outputNames_ != NULL) 
                {
-                  for (ii = 0; ii < nOutputs; ii++)
-                     delete [] outputNames[ii];
-                  delete [] outputNames;
+                  for (ii = 0; ii < nOutputs_; ii++)
+                     delete [] outputNames_[ii];
+                  delete [] outputNames_;
                }
-               nOutputs = nOut2;
-               outputNames = new char*[nOutputs];
-               for (ii = 0; ii < nOutputs; ii++)
+               nOutputs_ = nOut2;
+               outputNames_ = new char*[nOutputs_];
+               for (ii = 0; ii < nOutputs_; ii++)
                {
-                  outputNames[ii] = new char[200];
-                  sprintf(outputNames[ii], "Y%d", ii+1);
+                  outputNames_[ii] = new char[200];
+                  sprintf(outputNames_[ii], "Y%d", ii+1);
                }
-               if (sampleOutputs != NULL) delete [] sampleOutputs;
-               sampleOutputs = NULL;
+               if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+               sampleOutputs_ = NULL;
             }
-            if (sampleOutputs == NULL)
-               sampleOutputs = new double[nSamples*nOutputs]; 
-            for (ii = 0; ii < nSamples*nOutputs; ii++)
-               fscanf(fp, "%lg", &(sampleOutputs[ii]));
-            for (ii = 0; ii < nSamples; ii++) sampleStates[ii] = 1;
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                          sampleOutputs,sampleStates,outputNames); 
+            if (sampleOutputs_ == NULL)
+               sampleOutputs_ = new double[nSamples_*nOutputs_]; 
+            for (ii = 0; ii < nSamples_*nOutputs_; ii++)
+               fscanf(fp, "%lg", &(sampleOutputs_[ii]));
+            for (ii = 0; ii < nSamples_; ii++) sampleStates_[ii] = 1;
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                          sampleOutputs_,sampleStates_,outputNames_); 
             fscanf(fp, "%s", winput);
             if (strcmp(winput, "PSUADE_END"))
                printf("WARNING: file should end with PSUADE_END\n");
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
          }
          fflush(stdout);
       }
@@ -3024,11 +3156,15 @@ int PsuadeBase::interpretInteractive()
             printf("      using this command. The data will be used as\n");
             printf("      response surface to find feasible region in\n");
             printf("      creating a MOAT adjust sample.\n");
+            printf("Info: when the parameter space is not a hyper-rectangle,\n");
+            printf("      the standard MOAT method will have difficulties.\n");
+            printf("      This command circumvents the difficulties by creating\n");
+            printf("      MOAT sample points that live inside the parameter boundary.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
-            printf("ERROR: no data to oreplace.\n");
+            printf("ERROR: no data to moatgen.\n");
             printf("       Use load to put data into local memory first.\n");
             continue;
          }
@@ -3040,12 +3176,12 @@ int PsuadeBase::interpretInteractive()
          outputID = pPtr.intData_;
          Ymax = - 1.0e35;
          Ymin =   1.0e35;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
          }
          sprintf(pString,
                  "Enter the lower bound constraint (Ymin=%e) : ",Ymin);
@@ -3063,11 +3199,11 @@ int PsuadeBase::interpretInteractive()
          currP = getInt(4, 10, pString);
          sprintf(pString, "Enter the number of trials (> 100) : ");
          nTrials = getInt(101, 10000000, pString);
-         moatSample = new double*[nPaths*(nInputs+1)];
-         for (ii = 0; ii < nPaths*(nInputs+1); ii++)
-            moatSample[ii] = new double[nInputs];
-         tempW = new double[nInputs];
-         indSet = new int[nInputs];
+         moatSample = new double*[nPaths*(nInputs_+1)];
+         for (ii = 0; ii < nPaths*(nInputs_+1); ii++)
+            moatSample[ii] = new double[nInputs_];
+         tempW = new double[nInputs_];
+         indSet = new int[nInputs_];
          count = 0;
          filterRange = threshU - threshL;
          for (ii = 0; ii < nPaths; ii++)
@@ -3077,32 +3213,32 @@ int PsuadeBase::interpretInteractive()
             {
                iInd = count;
                trial++;
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
                   ind = PSUADE_rand() % currP;
-                  dtemp = ind * (iUpperB[jj] - iLowerB[jj]) / (currP - 1.0);
-                  moatSample[iInd][jj] = iLowerB[jj] + dtemp;
+                  dtemp = ind * (iUpperB_[jj] - iLowerB_[jj]) / (currP - 1.0);
+                  moatSample[iInd][jj] = iLowerB_[jj] + dtemp;
                }
                dtemp = faPtr->evaluatePoint(moatSample[iInd]);
                if (dtemp < threshL || dtemp > threshU) continue;
 
-               generateRandomIvector(nInputs, indSet);
+               generateRandomIvector(nInputs_, indSet);
 
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
                   iInd++;
-                  for (kk = 0; kk < nInputs; kk++)
+                  for (kk = 0; kk < nInputs_; kk++)
                      moatSample[iInd][kk] = moatSample[iInd-1][kk];
 
                   ind2 = indSet[jj];
 
                   ddata = moatSample[iInd][ind2]; 
-                  moatSample[iInd][ind2] = iLowerB[ind2];
+                  moatSample[iInd][ind2] = iLowerB_[ind2];
                   currY1 = faPtr->evaluatePoint(moatSample[iInd]);
-                  moatSample[iInd][ind2] = iUpperB[ind2];
+                  moatSample[iInd][ind2] = iUpperB_[ind2];
                   currY2 = faPtr->evaluatePoint(moatSample[iInd]);
-                  currX1 = iLowerB[ind2];
-                  currX2 = iUpperB[ind2];
+                  currX1 = iLowerB_[ind2];
+                  currX2 = iUpperB_[ind2];
                   moatSample[iInd][ind2] = ddata;
 
                   if (currY2 >= threshU && currY1 >= threshU)
@@ -3111,11 +3247,11 @@ int PsuadeBase::interpretInteractive()
                      currX1 = currX2 = 0.0;
                   else if (currY2 > currY1)
                   {
-                     if (currY2 <= threshU) currX2 = iUpperB[ind2];
+                     if (currY2 <= threshU) currX2 = iUpperB_[ind2];
                      else
                      {
-                        sLo = iLowerB[ind2];
-                        sHi = iUpperB[ind2];
+                        sLo = iLowerB_[ind2];
+                        sHi = iUpperB_[ind2];
                         while (PABS((currY2-threshU)/filterRange)>0.0001)
                         {
                            moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3125,11 +3261,11 @@ int PsuadeBase::interpretInteractive()
                         }
                         currX2 = moatSample[iInd][ind2];
                      }
-                     if (currY1 >= threshL) currX1 = iLowerB[ind2];
+                     if (currY1 >= threshL) currX1 = iLowerB_[ind2];
                      else
                      {
-                        sLo = iLowerB[ind2];
-                        sHi = iUpperB[ind2];
+                        sLo = iLowerB_[ind2];
+                        sHi = iUpperB_[ind2];
                         while (PABS((currY1-threshL)/filterRange)>0.0001)
                         {
                            moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3142,11 +3278,11 @@ int PsuadeBase::interpretInteractive()
                   }
                   else
                   {
-                     if (currY1 <= threshU) currX1 = iLowerB[ind2];
+                     if (currY1 <= threshU) currX1 = iLowerB_[ind2];
                      else
                      {
-                        sLo = iLowerB[ind2];
-                        sHi = iUpperB[ind2];
+                        sLo = iLowerB_[ind2];
+                        sHi = iUpperB_[ind2];
                         while (PABS((currY1-threshU)/filterRange)>0.0001)
                         {
                            moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3156,11 +3292,11 @@ int PsuadeBase::interpretInteractive()
                         }
                         currX1 = moatSample[iInd][ind2];
                      }
-                     if (currY2 >= threshL) currX2 = iUpperB[ind2];
+                     if (currY2 >= threshL) currX2 = iUpperB_[ind2];
                      else
                      {
-                        sLo = iLowerB[ind2];
-                        sHi = iUpperB[ind2];
+                        sLo = iLowerB_[ind2];
+                        sHi = iUpperB_[ind2];
                         while (PABS((currY2-threshL)/filterRange)>0.0001)
                         {
                            moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3171,27 +3307,27 @@ int PsuadeBase::interpretInteractive()
                         currX2 = moatSample[iInd][ind2];
                      }
                   }
-                  if (PABS(currX2-currX1)<0.1*(iUpperB[ind2]-iLowerB[ind2])) 
+                  if (PABS(currX2-currX1)<0.1*(iUpperB_[ind2]-iLowerB_[ind2])) 
                      break;
                   moatSample[iInd][ind2] = ddata;
                   tempW[ind2] = PABS(currX2 - currX1) / (currP-1.0);
                   moatSample[iInd][ind2] += tempW[ind2];
-                  if (moatSample[iInd][ind2] > iUpperB[ind2])
+                  if (moatSample[iInd][ind2] > iUpperB_[ind2])
                        dtemp = threshL - 1.0;
                   else dtemp = faPtr->evaluatePoint(moatSample[iInd]);
                   if (dtemp < threshL || dtemp > threshU) 
                   {
                      moatSample[iInd][ind2] -= 2.0 * tempW[ind2];
-                     if (moatSample[iInd][ind2] < iLowerB[ind2])
+                     if (moatSample[iInd][ind2] < iLowerB_[ind2])
                         break;
                      dtemp = faPtr->evaluatePoint(moatSample[iInd]);
                      if (dtemp < threshL || dtemp > threshU) 
                         break;
                   }
                }
-               if (jj == nInputs) 
+               if (jj == nInputs_) 
                {
-                  count += (nInputs + 1);
+                  count += (nInputs_ + 1);
                   if (outputLevel_ > 2)
                      printf("moatgen: path %d (out of %d) found.\n", ii+1,
                             nPaths);
@@ -3222,7 +3358,7 @@ int PsuadeBase::interpretInteractive()
          delete [] indSet;
          if (trial >= nTrials)
          {
-            for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+            for (ii = 0; ii < nPaths*(nInputs_+1); ii++)
                delete [] moatSample[ii];
             delete [] moatSample;
             continue;
@@ -3234,29 +3370,29 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          fprintf(fp, "BEGIN\n");
-         fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         fprintf(fp, "%d %d\n", nPaths*(nInputs_+1), nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
             fprintf(fp, "%d ", ii+1);
          fprintf(fp, "\n");
-         for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+         for (ii = 0; ii < nPaths*(nInputs_+1); ii++)
          {
-            for (jj = 0; jj < nInputs; jj++)
+            for (jj = 0; jj < nInputs_; jj++)
                fprintf(fp, "%e ", moatSample[ii][jj]);
             fprintf(fp, "\n");
          }
          fprintf(fp, "END\n");
          fclose(fp);
-         count = nPaths * (nInputs + 1); 
-         tempW = new double[count*nInputs];
+         count = nPaths * (nInputs_ + 1); 
+         tempW = new double[count*nInputs_];
          states = new int[count];
          for (ii = 0; ii < count; ii++) states[ii] = 1;
          for (ii = 0; ii < count; ii++)
-            for (jj = 0; jj < nInputs; jj++)
-               tempW[ii*nInputs+jj] = moatSample[ii][jj];
+            for (jj = 0; jj < nInputs_; jj++)
+               tempW[ii*nInputs_+jj] = moatSample[ii][jj];
          printf("moatgen: check for repeated sample points.\n");
          for (ii = 0; ii < count; ii++)
          {
-            status = compareSamples(ii,count,nInputs, tempW, states);
+            status = compareSamples(ii,count,nInputs_, tempW, states);
             if (status >= 0)
                printf("moatgen check: sample %d and %d are identical.\n",
                       ii+1,status+1);
@@ -3265,7 +3401,7 @@ int PsuadeBase::interpretInteractive()
          printf("         Make sure to change the input indices to match\n");
          printf("         the indices in the original MOAT file when used\n");
          printf("         with gmoat_adjust.\n");
-         for (ii = 0; ii < nPaths*(nInputs+1); ii++) delete [] moatSample[ii];
+         for (ii = 0; ii < nPaths*(nInputs_+1); ii++) delete [] moatSample[ii];
          delete [] moatSample;
          delete [] tempW;
          delete [] states;
@@ -3287,7 +3423,7 @@ int PsuadeBase::interpretInteractive()
             printf("      creating a MOAT adjust sample.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: no input file loaded.\n");
             continue;
@@ -3310,22 +3446,22 @@ int PsuadeBase::interpretInteractive()
             if (status != 0)
             {
                printf("moatgen2 FILE READ ERROR: file = %s\n", winput);
-               exit(1);
+               continue;
             }
             ioPtr->getParameter("input_ninputs", pPtr);
             jj = pPtr.intData_;
-            if (jj != nInputs)
+            if (jj != nInputs_)
             {
                printf("moatgen2 ERROR: nInputs mismatch.\n");
-               printf("         local nInputs = %d.\n", nInputs);
+               printf("         local nInputs = %d.\n", nInputs_);
                printf("         file  nInputs = %d.\n", jj);
                exit(1);
             }
             pLower.clean();
             ioPtr->getParameter("input_lbounds", pLower);
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               if (iLowerB[ii] != pLower.dbleArray_[ii])
+               if (iLowerB_[ii] != pLower.dbleArray_[ii])
                {
                   printf("moatgen2 ERROR: lower bound mismatch (input %d)\n", 
                          ii+1);
@@ -3334,9 +3470,9 @@ int PsuadeBase::interpretInteractive()
             }
             pUpper.clean();
             ioPtr->getParameter("input_ubounds", pUpper);
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               if (iUpperB[ii] != pUpper.dbleArray_[ii])
+               if (iUpperB_[ii] != pUpper.dbleArray_[ii])
                {
                   printf("moatgen2 ERROR: upper bound mismatch (input %d)\n",
                          ii+1);
@@ -3357,16 +3493,17 @@ int PsuadeBase::interpretInteractive()
             }
             delete ioPtr;
          }
+         if (status != 0) continue;
          nPaths = 5000;
          sprintf(pString, "Enter P (resolution: try 4-10) : ");
          currP = getInt(4, 10, pString);
          sprintf(pString, "Enter the number of trials (> 100) : ");
          nTrials = getInt(101, 10000000, pString);
-         moatSample = new double*[nPaths*(nInputs+1)];
-         for (ii = 0; ii < nPaths*(nInputs+1); ii++)
-            moatSample[ii] = new double[nInputs];
-         tempW = new double[nInputs];
-         indSet = new int[nInputs];
+         moatSample = new double*[nPaths*(nInputs_+1)];
+         for (ii = 0; ii < nPaths*(nInputs_+1); ii++)
+            moatSample[ii] = new double[nInputs_];
+         tempW = new double[nInputs_];
+         indSet = new int[nInputs_];
          count = 0;
          for (ii = 0; ii < nPaths; ii++)
          {
@@ -3375,11 +3512,11 @@ int PsuadeBase::interpretInteractive()
             {
                iInd = count;
                trial++;
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
                   ind = PSUADE_rand() % currP;
-                  dtemp = ind * (iUpperB[jj] - iLowerB[jj]) / (currP - 1.0);
-                  moatSample[iInd][jj] = iLowerB[jj] + dtemp;
+                  dtemp = ind * (iUpperB_[jj] - iLowerB_[jj]) / (currP - 1.0);
+                  moatSample[iInd][jj] = iLowerB_[jj] + dtemp;
                }
                for (kk = 0; kk < nFiles; kk++)
                {
@@ -3388,12 +3525,12 @@ int PsuadeBase::interpretInteractive()
                }
                if (kk != nFiles) continue;
 
-               generateRandomIvector(nInputs, indSet);
+               generateRandomIvector(nInputs_, indSet);
 
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
                   iInd++;
-                  for (kk = 0; kk < nInputs; kk++)
+                  for (kk = 0; kk < nInputs_; kk++)
                      moatSample[iInd][kk] = moatSample[iInd-1][kk];
 
                   ind2 = indSet[jj];
@@ -3404,12 +3541,12 @@ int PsuadeBase::interpretInteractive()
                   for (kk = 0; kk < nFiles; kk++)
                   {
                      filterRange = threshUs[kk] - threshLs[kk];
-                     moatSample[iInd][ind2] = iLowerB[ind2];
+                     moatSample[iInd][ind2] = iLowerB_[ind2];
                      currY1 = faPtrs[kk]->evaluatePoint(moatSample[iInd]);
-                     moatSample[iInd][ind2] = iUpperB[ind2];
+                     moatSample[iInd][ind2] = iUpperB_[ind2];
                      currY2 = faPtrs[kk]->evaluatePoint(moatSample[iInd]);
-                     currX1 = iLowerB[ind2];
-                     currX2 = iUpperB[ind2];
+                     currX1 = iLowerB_[ind2];
+                     currX2 = iUpperB_[ind2];
 
                      if (currY2 >= threshUs[kk] && currY1 >= threshUs[kk])
                         currX1 = currX2 = 0.0;
@@ -3417,11 +3554,11 @@ int PsuadeBase::interpretInteractive()
                         currX1 = currX2 = 0.0;
                      else if (currY2 > currY1)
                      {
-                        if (currY2 <= threshUs[kk]) currX2 = iUpperB[ind2];
+                        if (currY2 <= threshUs[kk]) currX2 = iUpperB_[ind2];
                         else
                         {
-                           sLo = iLowerB[ind2];
-                           sHi = iUpperB[ind2];
+                           sLo = iLowerB_[ind2];
+                           sHi = iUpperB_[ind2];
                            while (PABS((currY2-threshUs[kk])/filterRange)>1e-4)
                            {
                               moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3431,11 +3568,11 @@ int PsuadeBase::interpretInteractive()
                            }
                            currX2 = moatSample[iInd][ind2];
                         }
-                        if (currY1 >= threshLs[kk]) currX1 = iLowerB[ind2];
+                        if (currY1 >= threshLs[kk]) currX1 = iLowerB_[ind2];
                         else
                         {
-                           sLo = iLowerB[ind2];
-                           sHi = iUpperB[ind2];
+                           sLo = iLowerB_[ind2];
+                           sHi = iUpperB_[ind2];
                            while (PABS((currY1-threshLs[kk])/filterRange)>1e-4)
                            {
                               moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3448,11 +3585,11 @@ int PsuadeBase::interpretInteractive()
                      }
                      else
                      {
-                        if (currY1 <= threshUs[kk]) currX1 = iLowerB[ind2];
+                        if (currY1 <= threshUs[kk]) currX1 = iLowerB_[ind2];
                         else
                         {
-                           sLo = iLowerB[ind2];
-                           sHi = iUpperB[ind2];
+                           sLo = iLowerB_[ind2];
+                           sHi = iUpperB_[ind2];
                            while (PABS((currY1-threshUs[kk])/filterRange)>1e-4)
                            {
                               moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3462,11 +3599,11 @@ int PsuadeBase::interpretInteractive()
                            }
                            currX1 = moatSample[iInd][ind2];
                         }
-                        if (currY2 >= threshLs[kk]) currX2 = iUpperB[ind2];
+                        if (currY2 >= threshLs[kk]) currX2 = iUpperB_[ind2];
                         else
                         {
-                           sLo = iLowerB[ind2];
-                           sHi = iUpperB[ind2];
+                           sLo = iLowerB_[ind2];
+                           sHi = iUpperB_[ind2];
                            while (PABS((currY2-threshLs[kk])/filterRange)>1e-4)
                            {
                               moatSample[iInd][ind2] = 0.5 * (sLo + sHi);
@@ -3477,7 +3614,7 @@ int PsuadeBase::interpretInteractive()
                            currX2 = moatSample[iInd][ind2];
                         }
                      }
-                     if (PABS(currX2-currX1)<0.1*(iUpperB[ind2]-iLowerB[ind2])) 
+                     if (PABS(currX2-currX1)<0.1*(iUpperB_[ind2]-iLowerB_[ind2])) 
                         break;
                      if (currX1 > currX1F) currX1F = currX1;
                      if (currX2 < currX2F) currX2F = currX2;
@@ -3486,7 +3623,7 @@ int PsuadeBase::interpretInteractive()
                   if (kk != nFiles) break;
                   tempW[ind2] = PABS(currX2F - currX1F) / (currP-1.0);
                   moatSample[iInd][ind2] += tempW[ind2];
-                  if (moatSample[iInd][ind2] > iUpperB[ind2])
+                  if (moatSample[iInd][ind2] > iUpperB_[ind2])
                        dtemp = threshLs[kk] - 1.0;
                   else
                   {
@@ -3498,7 +3635,7 @@ int PsuadeBase::interpretInteractive()
                         if (dtemp < threshLs[kk] || dtemp > threshUs[kk]) 
                         {
                            moatSample[iInd][ind2] -= 2.0 * tempW[ind2];
-                           if (moatSample[iInd][ind2] < iLowerB[ind2])
+                           if (moatSample[iInd][ind2] < iLowerB_[ind2])
                               break;
                            dtemp = faPtrs[kk]->evaluatePoint(moatSample[iInd]);
                            if (dtemp < threshLs[kk] || dtemp > threshUs[kk]) 
@@ -3509,9 +3646,9 @@ int PsuadeBase::interpretInteractive()
                      if (kk != nFiles) break;
                   }
                }
-               if (jj == nInputs) 
+               if (jj == nInputs_) 
                {
-                  count += (nInputs + 1);
+                  count += (nInputs_ + 1);
                   if (outputLevel_ > 2)
                      printf("moatgen2: path %d (out of %d) found.\n", ii+1,
                             nPaths);
@@ -3550,7 +3687,7 @@ int PsuadeBase::interpretInteractive()
          faPtrs = NULL;
          if (trial >= nTrials)
          {
-            for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+            for (ii = 0; ii < nPaths*(nInputs_+1); ii++)
                delete [] moatSample[ii];
             delete [] moatSample;
             continue;
@@ -3562,29 +3699,29 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          fprintf(fp, "BEGIN\n");
-         fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         fprintf(fp, "%d %d\n", nPaths*(nInputs_+1), nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
             fprintf(fp, "%d ", ii+1);
          fprintf(fp, "\n");
-         for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+         for (ii = 0; ii < nPaths*(nInputs_+1); ii++)
          {
-            for (jj = 0; jj < nInputs; jj++)
+            for (jj = 0; jj < nInputs_; jj++)
                fprintf(fp, "%e ", moatSample[ii][jj]);
             fprintf(fp, "\n");
          }
          fprintf(fp, "END\n");
          fclose(fp);
-         count = nPaths * (nInputs + 1); 
-         tempW = new double[count*nInputs];
+         count = nPaths * (nInputs_ + 1); 
+         tempW = new double[count*nInputs_];
          states = new int[count];
          for (ii = 0; ii < count; ii++) states[ii] = 1;
          for (ii = 0; ii < count; ii++)
-            for (jj = 0; jj < nInputs; jj++)
-               tempW[ii*nInputs+jj] = moatSample[ii][jj];
+            for (jj = 0; jj < nInputs_; jj++)
+               tempW[ii*nInputs_+jj] = moatSample[ii][jj];
          printf("moatgen2: check for repeated sample points.\n");
          for (ii = 0; ii < count; ii++)
          {
-            status = compareSamples(ii,count,nInputs, tempW, states);
+            status = compareSamples(ii,count,nInputs_, tempW, states);
             if (status >= 0)
                printf("moatgen2 check: sample %d and %d are identical.\n",
                       ii+1,status+1);
@@ -3593,7 +3730,7 @@ int PsuadeBase::interpretInteractive()
          printf("          Make sure to change the input indices to match\n");
          printf("          the indices in the original MOAT file when used\n");
          printf("          with gmoat_adjust.\n");
-         for (ii = 0; ii < nPaths*(nInputs+1); ii++) delete [] moatSample[ii];
+         for (ii = 0; ii < nPaths*(nInputs_+1); ii++) delete [] moatSample[ii];
          delete [] moatSample;
          delete [] tempW;
          delete [] states;
@@ -3610,7 +3747,7 @@ int PsuadeBase::interpretInteractive()
             printf("Note: a PSUADE MOAT datafile should have been loaded\n");
             printf("      before using this command. \n");
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: no input file loaded.\n");
             continue;
@@ -3641,7 +3778,7 @@ int PsuadeBase::interpretInteractive()
                printf("ERROR: second sample is not MOAT. \n");
                continue;
             }
-            nReps = nSamples / (nInputs + 1);
+            nReps = nSamples_ / (nInputs_ + 1);
             ioPtr->getParameter("input_ninputs", pPtr);
             ind = pPtr.intData_;
             ioPtr->getParameter("method_nsamples", pPtr);
@@ -3654,46 +3791,46 @@ int PsuadeBase::interpretInteractive()
                printf("       num_replcations for sample 2 = %d\n",ll);
                continue;
             }
-            names = inputNames;
-            inputNames = new char*[nInputs+ind];
-            for (ii = 0; ii < nInputs; ii++) inputNames[ii] = names[ii];
+            names = inputNames_;
+            inputNames_ = new char*[nInputs_+ind];
+            for (ii = 0; ii < nInputs_; ii++) inputNames_[ii] = names[ii];
             pINames.clean();
             psuadeIO_->getParameter("input_names", pINames);
             names = pINames.strArray_;
-            for (ii = nInputs; ii < nInputs+ind; ii++)
+            for (ii = nInputs_; ii < nInputs_+ind; ii++)
             {
-               inputNames[ii] = new char[200];
-               strcpy(inputNames[ii], names[ii-nInputs]);
+               inputNames_[ii] = new char[200];
+               strcpy(inputNames_[ii], names[ii-nInputs_]);
             }
-            tempX = sampleInputs;
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
-            if (sampleStates  != NULL) delete [] sampleStates;
-            kk = nReps * (nInputs + ind + 1) * (nInputs + ind);
-            sampleInputs = new double[kk];
-            kk = nReps * (nInputs + ind + 1) * nOutputs;
-            sampleOutputs = new double[kk];
-            for (ii = 0; ii < kk; ii++) sampleOutputs[ii] = PSUADE_UNDEFINED;
-            kk = nReps * (nInputs + ind + 1);
-            sampleStates = new int[kk];
-            for (ii = 0; ii < kk; ii++) sampleStates[ii] = 0;
+            tempX = sampleInputs_;
+            if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+            if (sampleStates_  != NULL) delete [] sampleStates_;
+            kk = nReps * (nInputs_ + ind + 1) * (nInputs_ + ind);
+            sampleInputs_ = new double[kk];
+            kk = nReps * (nInputs_ + ind + 1) * nOutputs_;
+            sampleOutputs_ = new double[kk];
+            for (ii = 0; ii < kk; ii++) sampleOutputs_[ii] = PSUADE_UNDEFINED;
+            kk = nReps * (nInputs_ + ind + 1);
+            sampleStates_ = new int[kk];
+            for (ii = 0; ii < kk; ii++) sampleStates_[ii] = 0;
             for (ii = 0; ii < nReps; ii++)
             {
-               for (jj = 0; jj <= nInputs; jj++)
+               for (jj = 0; jj <= nInputs_; jj++)
                {
-                  for (kk = 0; kk < nInputs; kk++)
+                  for (kk = 0; kk < nInputs_; kk++)
                   {
-                     ind2 = ii * (nInputs + ind + 1) * (nInputs + ind);
-                     sampleInputs[ind2+jj*(nInputs+ind)+kk] = 
-                            tempX[ii*(nInputs+1)*nInputs+jj*nInputs+kk];
+                     ind2 = ii * (nInputs_ + ind + 1) * (nInputs_ + ind);
+                     sampleInputs_[ind2+jj*(nInputs_+ind)+kk] = 
+                            tempX[ii*(nInputs_+1)*nInputs_+jj*nInputs_+kk];
                   }
                }
-               for (jj = nInputs+1; jj < nInputs+ind+1; jj++)
+               for (jj = nInputs_+1; jj < nInputs_+ind+1; jj++)
                {
-                  for (kk = 0; kk < nInputs; kk++)
+                  for (kk = 0; kk < nInputs_; kk++)
                   {
-                     ind2 = ii * (nInputs + ind + 1) * (nInputs + ind);
-                     sampleInputs[ind2+jj*(nInputs+ind)+kk] = 
-                           sampleInputs[ind2+nInputs*(nInputs+ind)+kk]; 
+                     ind2 = ii * (nInputs_ + ind + 1) * (nInputs_ + ind);
+                     sampleInputs_[ind2+jj*(nInputs_+ind)+kk] = 
+                           sampleInputs_[ind2+nInputs_*(nInputs_+ind)+kk]; 
                   }
                }
             }
@@ -3703,22 +3840,22 @@ int PsuadeBase::interpretInteractive()
             pPtr.dbleArray_ = NULL;
             for (ii = 0; ii < nReps; ii++)
             {
-               for (jj = 0; jj <= nInputs; jj++)
+               for (jj = 0; jj <= nInputs_; jj++)
                {
-                  for (kk = nInputs; kk < nInputs+ind; kk++)
+                  for (kk = nInputs_; kk < nInputs_+ind; kk++)
                   {
-                     ind2 = ii * (nInputs + ind + 1) * (nInputs + ind);
-                     sampleInputs[ind2+jj*(nInputs+ind)+kk] = 
-                            tempX[ii*(ind+1)*ind+kk-nInputs];
+                     ind2 = ii * (nInputs_ + ind + 1) * (nInputs_ + ind);
+                     sampleInputs_[ind2+jj*(nInputs_+ind)+kk] = 
+                            tempX[ii*(ind+1)*ind+kk-nInputs_];
                   }
                }
-               for (jj = nInputs+1; jj < nInputs+ind+1; jj++)
+               for (jj = nInputs_+1; jj < nInputs_+ind+1; jj++)
                {
-                  for (kk = nInputs; kk < nInputs+ind; kk++)
+                  for (kk = nInputs_; kk < nInputs_+ind; kk++)
                   {
-                     ind2 = ii * (nInputs + ind + 1) * (nInputs + ind);
-                     sampleInputs[ind2+jj*(nInputs+ind)+kk] = 
-                            tempX[ii*(ind+1)*ind+(jj-nInputs)*ind+kk-nInputs];
+                     ind2 = ii * (nInputs_ + ind + 1) * (nInputs_ + ind);
+                     sampleInputs_[ind2+jj*(nInputs_+ind)+kk] = 
+                            tempX[ii*(ind+1)*ind+(jj-nInputs_)*ind+kk-nInputs_];
                   }
                }
             }
@@ -3726,63 +3863,66 @@ int PsuadeBase::interpretInteractive()
             pLower.clean();
             ioPtr->getParameter("input_lbounds", pLower);
             tempW = pLower.dbleArray_;
-            tempV = iLowerB;
-            iLowerB = new double[nInputs+ind];
-            for (ii = 0; ii < nInputs; ii++) iLowerB[ii] = tempV[ii];
-            for (ii = nInputs; ii < nInputs+ind; ii++)
-               iLowerB[ii] = tempW[ii-nInputs];
+            tempV = iLowerB_;
+            iLowerB_ = new double[nInputs_+ind];
+            for (ii = 0; ii < nInputs_; ii++) iLowerB_[ii] = tempV[ii];
+            for (ii = nInputs_; ii < nInputs_+ind; ii++)
+               iLowerB_[ii] = tempW[ii-nInputs_];
             if (tempV != NULL) delete [] tempV;
             pLower.clean();
             pUpper.clean();
             ioPtr->getParameter("input_ubounds", pUpper);
             tempW = pUpper.dbleArray_;
-            tempV = iUpperB;
-            iUpperB = new double[nInputs+ind];
-            for (ii = 0; ii < nInputs; ii++) iUpperB[ii] = tempV[ii];
-            for (ii = nInputs; ii < nInputs+ind; ii++)
-               iUpperB[ii] = tempW[ii-nInputs];
+            tempV = iUpperB_;
+            iUpperB_ = new double[nInputs_+ind];
+            for (ii = 0; ii < nInputs_; ii++) iUpperB_[ii] = tempV[ii];
+            for (ii = nInputs_; ii < nInputs_+ind; ii++)
+               iUpperB_[ii] = tempW[ii-nInputs_];
             if (tempV != NULL) delete [] tempV;
             pUpper.clean();
             delete ioPtr;
-            nSamples = (nInputs + ind + 1) * nReps;;
-            tempI = inputPDFs;
-            inputPDFs = new int[nInputs];
-            for (ii = 0; ii < nInputs; ii++) inputPDFs[ii] = tempI[ii];
-            for (ii = nInputs; ii < nInputs+ind; ii++) inputPDFs[ii] = 0;
-            tempW = inputMeans;
-            inputMeans = new double[nInputs];
-            for (ii = 0; ii < nInputs; ii++) inputMeans[ii] = tempW[ii];
-            for (ii = nInputs; ii < nInputs+ind; ii++) inputMeans[ii] = 0;
-            tempW = inputStds;
-            inputStds = new double[nInputs];
-            for (ii = 0; ii < nInputs; ii++) inputStds[ii] = tempW[ii];
-            for (ii = nInputs; ii < nInputs+ind; ii++) inputStds[ii] = 0;
+            nSamples_ = (nInputs_ + ind + 1) * nReps;;
+            tempI = inputPDFs_;
+            inputPDFs_ = new int[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++) inputPDFs_[ii] = tempI[ii];
+            for (ii = nInputs_; ii < nInputs_+ind; ii++) inputPDFs_[ii] = 0;
+            tempW = inputMeans_;
+            inputMeans_ = new double[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++) inputMeans_[ii] = tempW[ii];
+            for (ii = nInputs_; ii < nInputs_+ind; ii++) inputMeans_[ii] = 0;
+            tempW = inputStds_;
+            inputStds_ = new double[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++) inputStds_[ii] = tempW[ii];
+            for (ii = nInputs_; ii < nInputs_+ind; ii++) inputStds_[ii] = 0;
             Matrix *tmpMat = new Matrix();
-            tmpMat->setDim(nInputs+ind,nInputs+ind);
-            for (ii = 0; ii < nInputs; ii++)
+            tmpMat->setDim(nInputs_+ind,nInputs_+ind);
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
-                  ddata = inputCMat->getEntry(ii,jj);
+                  ddata = inputCMat_->getEntry(ii,jj);
                   tmpMat->setEntry(ii,jj,ddata);
                }
             }
-            for (ii = nInputs; ii < nInputs+ind; ii++)
+            for (ii = nInputs_; ii < nInputs_+ind; ii++)
                tmpMat->setEntry(ii,ii,1.0);
-            delete inputCMat;
-            inputCMat = tmpMat;
-            nInputs += ind;
+            delete inputCMat_;
+            inputCMat_ = tmpMat;
+            nInputs_ += ind;
 
-            psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                            iUpperB,sampleInputs,inputNames, 
-                            inputPDFs, inputMeans,inputStds,inputCMat); 
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                                sampleOutputs, sampleStates, NULL); 
-            psuadeIO_->updateMethodSection(-1, nSamples, 1, -1, -1);
+            psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                            iUpperB_,sampleInputs_,inputNames_, 
+                            inputPDFs_, inputMeans_,inputStds_,inputCMat_); 
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                                sampleOutputs_, sampleStates_, NULL); 
+            psuadeIO_->updateMethodSection(-1, nSamples_, 1, -1, -1);
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
             printf("The two samples have been concatenated.\n");
-            printf("The new sample has nInputs = %d\n", nInputs);
-            printf("                  nSamples = %d\n", nSamples);
-            printf("                  nOutputs = %d\n", nOutputs);
+            printf("The new sample has nInputs = %d\n", nInputs_);
+            printf("                  nSamples = %d\n", nSamples_);
+            printf("                  nOutputs = %d\n", nOutputs_);
             printf("Use 'write' to write the expanded sample to a file.\n");
          }
          else
@@ -3802,38 +3942,38 @@ int PsuadeBase::interpretInteractive()
             printf("      and psuadeSplit2.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
-            printf("ERROR: no data to split.\n");
+            printf("ERROR: no sample output data to split.\n");
             printf("       Use load to put data into local memory first.\n");
          }
-         else if (nSamples <= 0) printf("Reload data file.\n");
+         else if (nSamples_ <= 0) printf("Reload data file.\n");
          else
          {
-            printf("The current sample size is %d.\n", nSamples);
+            printf("The current sample size is %d.\n", nSamples_);
             sprintf(pString,
-                    "Sample size of the first set? (1 - %d) ",nSamples-1);
-            kk = getInt(1, nSamples, pString);
+                    "Sample size of the first set? (1 - %d) ",nSamples_-1);
+            kk = getInt(1, nSamples_, pString);
             sprintf(pString, "Random draw from original sample ? (y or n) ");
             getString(pString, winput);
-            tempX  = new double[kk*nInputs];
-            tempY  = new double[kk*nOutputs];
+            tempX  = new double[kk*nInputs_];
+            tempY  = new double[kk*nOutputs_];
             states = new int[kk];
-            tags   = new int[nSamples];
-            for (ii = 0; ii < nSamples; ii++) tags[ii] = 0;
+            tags   = new int[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++) tags[ii] = 0;
             for (ii = 0; ii < kk; ii++)
             {
                if (winput[0] == 'y')
                {
-                  ind = PSUADE_rand() % nSamples;
+                  ind = PSUADE_rand() % nSamples_;
                   ind2 = 0;
                   while (tags[ind2] == 1 && ind2 < 1000)
                   {
-                     ind = PSUADE_rand() % nSamples;
+                     ind = PSUADE_rand() % nSamples_;
                      ind2++;
                   }
                   if (tags[ind] == 1)
-                     for (ind = 0; ind < nSamples; ind++)
+                     for (ind = 0; ind < nSamples_; ind++)
                         if (tags[ind] == 0) break;
                   if (tags[ind] == 1)
                   {
@@ -3841,41 +3981,43 @@ int PsuadeBase::interpretInteractive()
                      continue;
                   }
                } else ind = ii;
-               for (jj = 0; jj < nInputs; jj++)
-                  tempX[ii*nInputs+jj] = sampleInputs[ind*nInputs+jj];
-               for (jj = 0; jj < nOutputs; jj++)
-                  tempY[ii*nOutputs+jj] = sampleOutputs[ind*nOutputs+jj];
+               for (jj = 0; jj < nInputs_; jj++)
+                  tempX[ii*nInputs_+jj] = sampleInputs_[ind*nInputs_+jj];
+               for (jj = 0; jj < nOutputs_; jj++)
+                  tempY[ii*nOutputs_+jj] = sampleOutputs_[ind*nOutputs_+jj];
                tags[ind] = 1;
-               states[ii] = sampleStates[ind];
+               states[ii] = sampleStates_[ind];
             }
             ind = 0;
-            for (ii = 0; ii < nSamples; ii++)
+            for (ii = 0; ii < nSamples_; ii++)
             {
                if (tags[ii] == 0)
                {
-                  for (jj = 0; jj < nInputs; jj++)
-                     sampleInputs[ind*nInputs+jj]=sampleInputs[ii*nInputs+jj];
-                  for (jj = 0; jj < nOutputs; jj++)
-                     sampleOutputs[ind*nOutputs+jj] = 
-                                   sampleOutputs[ii*nOutputs+jj];
-                  sampleStates[ind] = sampleStates[ii]; 
+                  for (jj = 0; jj < nInputs_; jj++)
+                     sampleInputs_[ind*nInputs_+jj]=sampleInputs_[ii*nInputs_+jj];
+                  for (jj = 0; jj < nOutputs_; jj++)
+                     sampleOutputs_[ind*nOutputs_+jj] = 
+                                   sampleOutputs_[ii*nOutputs_+jj];
+                  sampleStates_[ind] = sampleStates_[ii]; 
                   ind++;
                }
             }
-            psuadeIO_->updateInputSection(kk,nInputs,NULL,NULL,NULL,
+            psuadeIO_->updateInputSection(kk,nInputs_,NULL,NULL,NULL,
                                     tempX,NULL, NULL, NULL, NULL, NULL);
-            psuadeIO_->updateOutputSection(kk,nOutputs,
-                                           tempY,states,outputNames); 
+            psuadeIO_->updateOutputSection(kk,nOutputs_,
+                                           tempY,states,outputNames_); 
             psuadeIO_->updateMethodSection(-1,kk,-1,-1,-1);
             psuadeIO_->writePsuadeFile("psuadeSplit1",0);
 
-            psuadeIO_->updateInputSection(nSamples-kk,nInputs,NULL,NULL,
-                                      NULL,sampleInputs,NULL, 
+            psuadeIO_->updateInputSection(nSamples_-kk,nInputs_,NULL,NULL,
+                                      NULL,sampleInputs_,NULL, 
                                       NULL, NULL, NULL, NULL);
-            psuadeIO_->updateOutputSection(nSamples-kk,nOutputs,
-                             sampleOutputs,sampleStates,outputNames); 
-            psuadeIO_->updateMethodSection(-1,nSamples-kk,-1,-1,-1);
+            psuadeIO_->updateOutputSection(nSamples_-kk,nOutputs_,
+                             sampleOutputs_,sampleStates_,outputNames_); 
+            psuadeIO_->updateMethodSection(-1,nSamples_-kk,-1,-1,-1);
             psuadeIO_->writePsuadeFile("psuadeSplit2",0);
+            if (currSession != NULL) delete currSession;
+            currSession = NULL;
 
             printf("The 2 data files are in psuadeSplit1 and psuadeSplit2.\n");
             printf("The loaded data in local memory have been destroyed.\n");
@@ -3883,37 +4025,37 @@ int PsuadeBase::interpretInteractive()
             delete [] tempX;
             delete [] tempY;
             delete [] states;
-            if (inputNames != NULL)
+            if (inputNames_ != NULL)
             {
-               for (ii = 0; ii < nInputs; ii++) delete [] inputNames[ii];
-               delete [] inputNames;
+               for (ii = 0; ii < nInputs_; ii++) delete [] inputNames_[ii];
+               delete [] inputNames_;
             }
-            if (outputNames != NULL)
+            if (outputNames_ != NULL)
             {
-               for (ii = 0; ii < nOutputs; ii++) delete [] outputNames[ii];
-               delete [] outputNames;
+               for (ii = 0; ii < nOutputs_; ii++) delete [] outputNames_[ii];
+               delete [] outputNames_;
             }
-            inputNames  = NULL;
-            outputNames = NULL;
-            if (sampleInputs  != NULL) delete [] sampleInputs;
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
-            if (sampleStates  != NULL) delete [] sampleStates;
-            if (iLowerB       != NULL) delete [] iLowerB;
-            if (iUpperB       != NULL) delete [] iUpperB;
-            if (inputPDFs     != NULL) delete [] inputPDFs;
-            if (inputMeans    != NULL) delete [] inputMeans;
-            if (inputStds     != NULL) delete [] inputStds;
-            sampleInputs  = NULL;
-            sampleOutputs = NULL;
-            sampleStates  = NULL;
-            iLowerB       = NULL;
-            iUpperB       = NULL;
-            inputPDFs     = NULL;
-            inputMeans    = NULL;
-            inputStds     = NULL;
-            nSamples = 0;
-            nInputs = 0;
-            nOutputs = 0;
+            inputNames_  = NULL;
+            outputNames_ = NULL;
+            if (sampleInputs_  != NULL) delete [] sampleInputs_;
+            if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+            if (sampleStates_  != NULL) delete [] sampleStates_;
+            if (iLowerB_       != NULL) delete [] iLowerB_;
+            if (iUpperB_       != NULL) delete [] iUpperB_;
+            if (inputPDFs_     != NULL) delete [] inputPDFs_;
+            if (inputMeans_    != NULL) delete [] inputMeans_;
+            if (inputStds_     != NULL) delete [] inputStds_;
+            sampleInputs_  = NULL;
+            sampleOutputs_ = NULL;
+            sampleStates_  = NULL;
+            iLowerB_       = NULL;
+            iUpperB_       = NULL;
+            inputPDFs_     = NULL;
+            inputMeans_    = NULL;
+            inputStds_     = NULL;
+            nSamples_ = 0;
+            nInputs_ = 0;
+            nOutputs_ = 0;
          }
       }
 
@@ -3928,14 +4070,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ua (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(0, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(0, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_MOMENT;
          anaManager = new AnalysisManager();
@@ -3958,14 +4100,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ca (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_CORRELATION;
          anaManager = new AnalysisManager();
@@ -3988,14 +4130,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: anova (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_ANOVA;
          anaManager = new AnalysisManager();
@@ -4018,14 +4160,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: moat (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_MOAT;
          anaManager = new AnalysisManager();
@@ -4044,39 +4186,51 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("moatmo: Morris screening analysis for multiple outputs\n");
+            printf("moatmo: Morris screening analysis for multiple\n");
+            printf("        outputs simultaneously\n");
             printf("syntax: moatmo (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || sampleOutputs_ == NULL)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nOutputs <= 1)
+         if (nOutputs_ <= 1)
          {
             printf("INFO: only one output -> use moat instead.\n");
             continue;
          } 
          psuadeIO_->getParameter("ana_diagnostics",pPtr);
-         ii = pPtr.intData_;
+         int diagSave = pPtr.intData_;
          psuadeIO_->updateAnalysisSection(-1,-1,-1,outputLevel_,-1, -1);
          analysisMethod = PSUADE_ANA_MOAT;
          anaManager = new AnalysisManager();
          anaManager->setup(analysisMethod, 0);
-         double *tempW = new double[nInputs*nOutputs];
-         for (ii = 0; ii < nOutputs; ii++)
+         double *tempW = new double[nInputs_*nOutputs_];
+         int anaExpertSave = psAnaExpertMode_;
+         if (psAnaExpertMode_ == 1)
+         {
+            printf("INFO: Analysis expert mode will be turned off.\n");
+            printf("      This command will only create modified means\n");
+            printf("      plots. If you want to create screen and scatter\n");
+            printf("      plots, you will have to use 'moat' for each\n");
+            printf("      output.\n");
+            psAnaExpertMode_ = 0;
+         }
+         for (ii = 0; ii < nOutputs_; ii++)
          {
             anaManager->analyze(psuadeIO_, 0, NULL, ii);
             pdata = psuadeIO_->getAuxData();
-            if (pdata->nDbles_ == nInputs)
+            if (pdata->nDbles_ == nInputs_)
             {
-               for (jj = 0; jj < nInputs; jj++) 
-                  tempW[ii*nInputs+jj] = pdata->dbleArray_[jj];
+               for (jj = 0; jj < nInputs_; jj++) 
+                  tempW[ii*nInputs_+jj] = pdata->dbleArray_[jj];
                pdata->clean();
             }
          }
-         psuadeIO_->updateAnalysisSection(-1,-1,-1,ii,-1, -1);
+         psuadeIO_->updateAnalysisSection(-1,-1,-1,diagSave,-1, -1);
+         psAnaExpertMode_ = anaExpertSave;
          delete anaManager;
          fp = NULL;
          if (psPlotTool_ == 0) fp = fopen("matlabmoatmo.m", "w");
@@ -4085,41 +4239,42 @@ int PsuadeBase::interpretInteractive()
             sprintf(pString,"This file contains Morris modified Means");
             fwriteComment(fp, pString);
             fprintf(fp, "A = [\n");
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               for (jj = 0; jj < nOutputs; jj++)
-                  fprintf(fp,"%16.8e ", tempW[jj*nInputs+ii]);
+               for (jj = 0; jj < nOutputs_; jj++)
+                  fprintf(fp,"%16.8e ", tempW[jj*nInputs_+ii]);
                fprintf(fp, "\n");
             }
             fprintf(fp, "];\n");
-            if (inputNames == NULL)
+            fprintf(fp, "A2 = A * inv(diag(max(A)));\n");
+            if (inputNames_ == NULL)
             {
                fprintf(fp, "  Str = {");
-               for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
-               fprintf(fp,"'X%d'};\n",nInputs);
+               for (ii = 0; ii < nInputs_-1; ii++) fprintf(fp,"'X%d',",ii+1);
+               fprintf(fp,"'X%d'};\n",nInputs_);
             }
             else
             {
                fprintf(fp, "  XStr = {");
-               for (ii = 0; ii < nInputs-1; ii++)
+               for (ii = 0; ii < nInputs_-1; ii++)
                {
-                  if (inputNames[ii] != NULL)
-                       fprintf(fp,"'%s',",inputNames[ii]);
+                  if (inputNames_[ii] != NULL)
+                       fprintf(fp,"'%s',",inputNames_[ii]);
                   else fprintf(fp,"'X%d',",ii+1);
                }
-               if (inputNames[nInputs-1] != NULL)
-                    fprintf(fp,"'%s'};\n",inputNames[nInputs-1]);
-               else fprintf(fp,"'X%d'};\n",nInputs);
+               if (inputNames_[nInputs_-1] != NULL)
+                    fprintf(fp,"'%s'};\n",inputNames_[nInputs_-1]);
+               else fprintf(fp,"'X%d'};\n",nInputs_);
             }
             fprintf(fp, "  YStr = {");
-            for (ii = 0; ii < nOutputs-1; ii++) fprintf(fp,"'%d',",ii+1);
-            fprintf(fp,"'%d'};\n",nOutputs);
+            for (ii = 0; ii < nOutputs_-1; ii++) fprintf(fp,"'%d',",ii+1);
+            fprintf(fp,"'%d'};\n",nOutputs_);
             fwriteHold(fp, 0);
-            fprintf(fp,"nn = %d;\n", nInputs);
-            fprintf(fp,"mm = %d;\n", nOutputs);
+            fprintf(fp,"nn = %d;\n", nInputs_);
+            fprintf(fp,"mm = %d;\n", nOutputs_);
             fprintf(fp,"X = 0.5 : 1 : nn-0.5;\n");
             fprintf(fp,"Y = 0.5 : 1 : mm-0.5;\n");
-            fprintf(fp, "imagesc(X,Y,A');\n");
+            fprintf(fp, "imagesc(X,Y,A2');\n");
             fprintf(fp, "axis([0 nn 0 mm])\n");
             fwriteHold(fp, 1);
             fprintf(fp,"XX = 0 : nn;\n");
@@ -4136,7 +4291,7 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
             fprintf(fp,"set(th, 'fontsize', 12)\n");
             fprintf(fp,"set(th, 'fontweight', 'bold')\n");
-            fprintf(fp,"th=text(repmat(nn+0.05*nn,mm,1),(1:mm)-0.5,YStr,");
+            fprintf(fp,"th=text(repmat(-0.05,mm,1),(1:mm)-0.5,YStr,");
             fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
             fprintf(fp,"set(th, 'fontsize', 12)\n");
             fprintf(fp,"set(th, 'fontweight', 'bold')\n");
@@ -4144,9 +4299,11 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp,"set(gca, 'fontweight', 'bold')\n");
             fprintf(fp,"set(gca, 'linewidth',2)\n");
             fprintf(fp,"box on\n");
-            fwritePlotTitle(fp,"Morris Importance Measure");
+            fprintf(fp,"colorbar\n");
+            fwritePlotTitle(fp,"Morris Relative Importance Measure");
             fwritePlotXLabel(fp, "Inputs");
             fwritePlotYLabel(fp, "Outputs");
+            fprintf(fp,"disp('The colors denote relative magnitudes')\n");
             fwriteHold(fp, 0);
             fclose(fp);
             printf("Morris plot file = matlabmoatmo.m\n");
@@ -4164,14 +4321,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ff (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_FF;
          anaManager = new AnalysisManager();
@@ -4194,14 +4351,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: lsa (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_LSA;
          anaManager = new AnalysisManager();
@@ -4224,29 +4381,29 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: mars_sa (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          sprintf(pString,"MARS (0) or MARS with bagging (1) ? ");
          kk = getInt(0, 1, pString);
          if (kk == 0) faType = PSUADE_RS_MARS;
          else         faType = PSUADE_RS_MARSB;
-         faPtr = genFA(faType, nInputs, iOne, nSamples);
+         faPtr = genFA(faType, nInputs_, iOne, nSamples_);
          if (faPtr != NULL)
          {
-            faPtr->setBounds(iLowerB, iUpperB);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(outputLevel_);
             if (faType == PSUADE_RS_MARSB) faPtr->setOutputLevel(4);
-            tempY = new double[nSamples];
-            for (ii = 0; ii < nSamples; ii++)
-               tempY[ii] = sampleOutputs[ii*nOutputs+outputID];
-            status = faPtr->initialize(sampleInputs,tempY);
+            tempY = new double[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++)
+               tempY[ii] = sampleOutputs_[ii*nOutputs_+outputID];
+            status = faPtr->initialize(sampleInputs_,tempY);
             if (faType == PSUADE_RS_MARS)
             {
                strcpy(pString, "rank");
@@ -4270,14 +4427,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: gp_sa (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          faType = -1;
          printf("Which Gaussian process ? \n");
@@ -4297,17 +4454,17 @@ int PsuadeBase::interpretInteractive()
          if (faType == 2) faType = PSUADE_RS_GP2;
 #endif
          if (faType == 3) faType = PSUADE_RS_KR;
-         faPtr = genFA(faType, nInputs, iOne, nSamples);
+         faPtr = genFA(faType, nInputs_, iOne, nSamples_);
          if (faPtr != NULL)
          {
-            faPtr->setBounds(iLowerB, iUpperB);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(outputLevel_);
             int rsKeep = psRSExpertMode_;
             psRSExpertMode_ = 0;
-            tempY = new double[nSamples];
-            for (ii = 0; ii < nSamples; ii++)
-               tempY[ii] = sampleOutputs[ii*nOutputs+outputID];
-            status = faPtr->initialize(sampleInputs,tempY);
+            tempY = new double[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++)
+               tempY[ii] = sampleOutputs_[ii*nOutputs_+outputID];
+            status = faPtr->initialize(sampleInputs_,tempY);
             strcpy(pString, "rank");
             targv[0] = (char *) pString;
             faPtr->setParams(1, targv);
@@ -4329,28 +4486,28 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: sot_sa (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          faType = PSUADE_RS_SOTS;
-         faPtr  = genFA(faType, nInputs, iOne, nSamples);
+         faPtr  = genFA(faType, nInputs_, iOne, nSamples_);
          if (faPtr == NULL)
          {
             printf("ERROR: cannot create response surface.\n");
             continue;
          }
-         faPtr->setBounds(iLowerB, iUpperB);
+         faPtr->setBounds(iLowerB_, iUpperB_);
          faPtr->setOutputLevel(outputLevel_);
-         tempY = new double[nSamples];
-         for (ii = 0; ii < nSamples; ii++)
-            tempY[ii] = sampleOutputs[ii*nOutputs+outputID];
-         status = faPtr->initialize(sampleInputs,tempY);
+         tempY = new double[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++)
+            tempY[ii] = sampleOutputs_[ii*nOutputs_+outputID];
+         status = faPtr->initialize(sampleInputs_,tempY);
          strcpy(pString, "mode0");
          targv[0] = (char *) pString;
          faPtr->setParams(1, targv);
@@ -4374,7 +4531,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: me (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -4384,8 +4541,8 @@ int PsuadeBase::interpretInteractive()
          printf("      large sample size (thousands to tens of thousands).\n");
          printf("      The alternative is to use rssobol1 or rssobol1b.\n");
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_ME;
          anaManager = new AnalysisManager();
@@ -4410,12 +4567,12 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ie (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs <= 2)
+         if (nInputs_ <= 2)
          {
             printf("INFO: there is no point doing this for nInputs <= 2\n");
             printf("      For nInputs=2, interaction effect = total variance.\n");
@@ -4426,8 +4583,8 @@ int PsuadeBase::interpretInteractive()
          printf("      It is intended for few parameters (<<10) with a\n");
          printf("      large sample size (thousands to tens of thousands).\n");
          printf("      The alternative is to use rssobol2 or rssobol2b.\n");
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_IE;
          anaManager = new AnalysisManager();
@@ -4439,67 +4596,73 @@ int PsuadeBase::interpretInteractive()
          psuadeIO_->updateAnalysisSection(-1,-1,-1,ii,-1,-1);
          delete anaManager;
          pdata = psuadeIO_->getAuxData();
-         if (pdata->nDbles_ >= nInputs)
+         if (pdata->nDbles_ >= nInputs_)
          {
             printEquals(PL_INFO, 0);
-            printf("Two-way Interaction Effect Statistics: \n");
+            printf("Pairwise Interaction (+Main) Effect Statistics: \n");
             if (pdata->dbleData_ > 0)
             {
-               for (ii = 0; ii < nInputs; ii++)
-                  for (jj = ii+1; jj < nInputs; jj++)
-                     printf("Inputs %4d %4d: Second-order sensitivity = %11.4e (normalized=%11.4e)\n",
-                            ii+1,jj+1,pdata->dbleArray_[ii*nInputs+jj],
-                            pdata->dbleArray_[ii*nInputs+jj]/pdata->dbleData_);
+               for (ii = 0; ii < nInputs_; ii++)
+                  for (jj = ii+1; jj < nInputs_; jj++)
+                     printf("Inputs %4d %4d: sensitivity index = %11.4e ",
+                            ii+1,jj+1,pdata->dbleArray_[ii*nInputs_+jj]);
+                     printf("(normalized=%11.4e)\n",
+                            pdata->dbleArray_[ii*nInputs_+jj]/pdata->dbleData_);
                if (psPlotTool_ == 1) fp = fopen("scilabaie.sci", "w");
                else                  fp = fopen("matlabaie.m", "w");
                if (fp != NULL)
                {
-                  sprintf(pString," This file contains Sobol' second order indices");
+                  sprintf(pString,
+                          " This file contains Sobol' second order indices");
                   fwriteComment(fp, pString);
-                  sprintf(pString," set sortFlag = 1 and set nn to be the number");
+                  sprintf(pString,
+                          " set sortFlag = 1 and set nn to be the number");
                   fwriteComment(fp, pString);
                   sprintf(pString," of inputs to display.");
                   fwriteComment(fp, pString);
                   fprintf(fp, "sortFlag = 0;\n");
-                  fprintf(fp, "nn = %d;\n", nInputs);
+                  fprintf(fp, "nn = %d;\n", nInputs_);
                   fprintf(fp, "Mids = [\n");
-                  for (ii = 0; ii < nInputs*nInputs; ii++) 
+                  for (ii = 0; ii < nInputs_*nInputs_; ii++) 
                      fprintf(fp,"%24.16e\n", pdata->dbleArray_[ii]);
                   fprintf(fp, "];\n");
-                  if (inputNames == NULL)
+                  if (inputNames_ == NULL)
                   {
                      fprintf(fp, "  Str = {");
-                     for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
-                     fprintf(fp,"'X%d'};\n",nInputs);
+                     for (ii = 0; ii < nInputs_-1; ii++) 
+                        fprintf(fp,"'X%d',",ii+1);
+                     fprintf(fp,"'X%d'};\n",nInputs_);
                   }
                   else
                   {
                      fprintf(fp, "  Str = {");
-                     for (ii = 0; ii < nInputs-1; ii++)
+                     for (ii = 0; ii < nInputs_-1; ii++)
                      {
-                        if (inputNames[ii] != NULL) 
-                             fprintf(fp,"'%s',",inputNames[ii]);
+                        if (inputNames_[ii] != NULL) 
+                             fprintf(fp,"'%s',",inputNames_[ii]);
                         else fprintf(fp,"'X%d',",ii+1);
                      }
-                     if (inputNames[nInputs-1] != NULL)
-                          fprintf(fp,"'%s'};\n",inputNames[nInputs-1]);
-                     else fprintf(fp,"'X%d'};\n",nInputs);
+                     if (inputNames_[nInputs_-1] != NULL)
+                          fprintf(fp,"'%s'};\n",inputNames_[nInputs_-1]);
+                     else fprintf(fp,"'X%d'};\n",nInputs_);
                   }
                   fwritePlotCLF(fp);
                   fprintf(fp, "ymin = min(Mids);\n");
                   fprintf(fp, "ymax = max(Mids);\n");
                   fprintf(fp, "h2 = 0.05 * (ymax - ymin);\n");
                   if (psPlotTool_ == 1)
-                       fprintf(fp, "Mids = matrix(Mids, %d, %d);\n",nInputs,nInputs);
-                  else fprintf(fp, "Mids = reshape(Mids, %d, %d);\n",nInputs,nInputs);
+                       fprintf(fp, "Mids = matrix(Mids, %d, %d);\n",
+                               nInputs_,nInputs_);
+                  else fprintf(fp, "Mids = reshape(Mids, %d, %d);\n",
+                               nInputs_,nInputs_);
                   fprintf(fp, "Mids = Mids';\n");
                   if (psPlotTool_ == 1)
                   {
                      fprintf(fp, "drawlater\n");
                      fprintf(fp, "hist3d(Mids);\n");
                      fprintf(fp, "a=gca();\n");
-                     fprintf(fp, "a.data_bounds=[0, 0, 0; %d+1, %d+1, ymax];\n",nInputs,
-                             nInputs);
+                     fprintf(fp, "a.data_bounds=[0, 0, 0; %d+1, %d+1, ymax];\n",
+                             nInputs_, nInputs_);
                      fprintf(fp, "newtick = a.x_ticks;\n");
                      fprintf(fp, "newtick(2) = [1:nn]';\n");
                      fprintf(fp, "newtick(3) = Str';\n");
@@ -4514,14 +4677,15 @@ int PsuadeBase::interpretInteractive()
                   else
                   {
                      fprintf(fp, "bar3(Mids,0.8);\n");
-                     fprintf(fp, "axis([0 %d+1 0 %d+1 0 ymax])\n", nInputs, nInputs);
+                     fprintf(fp, "axis([0 %d+1 0 %d+1 0 ymax])\n", 
+                             nInputs_, nInputs_);
                      fprintf(fp, "set(gca,'XTickLabel',Str);\n");
                      fprintf(fp, "set(gca,'YTickLabel',Str);\n");
                      fprintf(fp, "set(gca, 'fontsize', 12)\n");
                      fprintf(fp, "set(gca, 'fontweight', 'bold')\n");
                   }
                   fwritePlotAxes(fp);
-                  fwritePlotTitle(fp,"Sobol Second Order Indices (+ first order)");
+                  fwritePlotTitle(fp,"Sobol 2nd Order Indices (+ 1st order)");
                   fwritePlotZLabel(fp, "Sobol Indices");
                   fwritePlotXLabel(fp, "Inputs");
                   fwritePlotYLabel(fp, "Inputs");
@@ -4533,7 +4697,7 @@ int PsuadeBase::interpretInteractive()
             }
             else
             {
-               printf("Total variance = 0. Hence, no interaction effect plot.\n");
+               printf("Total variance = 0 ==> no interaction effect plot.\n");
             }
             pdata->clean();
          }
@@ -4550,34 +4714,34 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: tsi (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs >= 20 || nSamples < 50*nInputs) 
+         if (nInputs_ >= 20 || nSamples_ < 50*nInputs_) 
          {
             printf("This command is not recommended for small sample or\n");
             printf("large number of inputs.\n");
             printf("Use at most 20 inputs.\n");
-            printf("Need at least %d sample points.\n",50*nInputs);
+            printf("Need at least %d sample points.\n",50*nInputs_);
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          TSIAnalyzer *tsiAnalyzer = new TSIAnalyzer();
          aPtr.printLevel_ = outputLevel_;
-         aPtr.nSamples_ = nSamples;
-         aPtr.nInputs_ = nInputs;
-         aPtr.nOutputs_ = nOutputs;
-         aPtr.sampleInputs_ = sampleInputs;
-         aPtr.sampleOutputs_ = sampleOutputs;
-         aPtr.iLowerB_ = iLowerB;
-         aPtr.iUpperB_ = iUpperB;
+         aPtr.nSamples_ = nSamples_;
+         aPtr.nInputs_ = nInputs_;
+         aPtr.nOutputs_ = nOutputs_;
+         aPtr.sampleInputs_ = sampleInputs_;
+         aPtr.sampleOutputs_ = sampleOutputs_;
+         aPtr.iLowerB_ = iLowerB_;
+         aPtr.iUpperB_ = iUpperB_;
          aPtr.outputID_ = outputID;
-         aPtr.sampleStates_ = sampleStates;
+         aPtr.sampleStates_ = sampleStates_;
          aPtr.ioPtr_ = psuadeIO_;
          tsiAnalyzer->analyze(aPtr);
          delete tsiAnalyzer;
@@ -4594,32 +4758,32 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: sobol (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nSamples < 50*nInputs) 
+         if (nSamples_ < 50*nInputs_) 
          {
             printf("This command is not recommended for small sample\n");
-            printf("Need at least %d sample points.\n",50*nInputs);
+            printf("Need at least %d sample points.\n",50*nInputs_);
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          SobolAnalyzer *sobolAnalyzer = new SobolAnalyzer();
          aPtr.printLevel_ = outputLevel_;
-         aPtr.nSamples_ = nSamples;
-         aPtr.nInputs_ = nInputs;
-         aPtr.nOutputs_ = nOutputs;
-         aPtr.sampleInputs_ = sampleInputs;
-         aPtr.sampleOutputs_ = sampleOutputs;
-         aPtr.iLowerB_ = iLowerB;
-         aPtr.iUpperB_ = iUpperB;
+         aPtr.nSamples_ = nSamples_;
+         aPtr.nInputs_ = nInputs_;
+         aPtr.nOutputs_ = nOutputs_;
+         aPtr.sampleInputs_ = sampleInputs_;
+         aPtr.sampleOutputs_ = sampleOutputs_;
+         aPtr.iLowerB_ = iLowerB_;
+         aPtr.iUpperB_ = iUpperB_;
          aPtr.outputID_ = outputID;
-         aPtr.sampleStates_ = sampleStates;
+         aPtr.sampleStates_ = sampleStates_;
          aPtr.ioPtr_ = psuadeIO_;
          sobolAnalyzer->analyze(aPtr);
          delete sobolAnalyzer;
@@ -4636,14 +4800,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: fast (after data have been loaded)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_FAST;
          anaManager = new AnalysisManager();
@@ -4665,32 +4829,32 @@ int PsuadeBase::interpretInteractive()
             printf("meplot: main effect plot using Pgplot (obsolete)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          iInd = 0;
-         if (nInputs > 1)
+         if (nInputs_ > 1)
          {
-            sprintf(pString, "Enter input number (1 - %d) : ", nInputs);
-            iInd = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter input number (1 - %d) : ", nInputs_);
+            iInd = getInt(1, nInputs_, pString);
             iInd--;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         Xmin = iLowerB[iInd];
-         Xmax = iUpperB[iInd];
+         Xmin = iLowerB_[iInd];
+         Xmax = iUpperB_[iInd];
          Ymin =   1.0e35;
          Ymax = - 1.0e35;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
          }
          width = Xmax - Xmin;
          if (width == 0.0) Xmax = Xmin = 1.0e-3;
@@ -4701,15 +4865,15 @@ int PsuadeBase::interpretInteractive()
          Ymax = Ymax + width * 0.01;
          Ymin = Ymin - width * 0.01;
          Plotbegin(Xmin, Xmax, Ymin, Ymax);
-         nSamplesLong = (long) nSamples;
-         tempX = new double[nSamples];
-         tempY = new double[nSamples];
-         for (sInd = 0; sInd < nSamples; sInd++)
+         nSamplesLong = (long) nSamples_;
+         tempX = new double[nSamples_];
+         tempY = new double[nSamples_];
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            tempX[sInd] = sampleInputs[sInd*nInputs+iInd];
-            tempY[sInd] = sampleOutputs[sInd*nOutputs+outputID];
+            tempX[sInd] = sampleInputs_[sInd*nInputs_+iInd];
+            tempY[sInd] = sampleOutputs_[sInd*nOutputs_+outputID];
          }
-         sortDbleList2(nSamples, tempX, tempY);
+         sortDbleList2(nSamples_, tempX, tempY);
          PlotScatter2D(nSamplesLong, tempX, tempY);
          printf("Enter any character and return to continue\n");
          scanf("%s", command);
@@ -4717,7 +4881,7 @@ int PsuadeBase::interpretInteractive()
          fflush(stdout);
          printf("\n");
          fflush(stdout);
-         fgets(lineIn,500,stdin); 
+         fgets(lineIn,5000,stdin); 
          delete [] tempX;
          delete [] tempY;
       }
@@ -4728,15 +4892,15 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("meplot2: two-way interaction plot using Pgplot (obsolete)\n");
+            printf("meplot2: 2-way interaction plot using Pgplot (obsolete)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: meplot2 requires 2 or more inputs.\n");
             continue;
@@ -4744,39 +4908,39 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("meplot2: two-way interaction plot using Pgplot (obsolete)\n");
+            printf("meplot2: wo-way interaction plot using Pgplot (obsolete)\n");
             continue;
          }
          iInd1 = iInd2 = -1;
-         if (nInputs == 2)
+         if (nInputs_ == 2)
          {
             iInd1 = 0;
             iInd2 = 1;
          }
          else
          {
-            sprintf(pString, "Enter first input number (1 - %d) : ",nInputs);
-            iInd1 = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter first input number (1 - %d) : ",nInputs_);
+            iInd1 = getInt(1, nInputs_, pString);
             iInd1--;
-            sprintf(pString, "Enter second input number (1 - %d) : ",nInputs);
-            iInd2 = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter second input number (1 - %d) : ",nInputs_);
+            iInd2 = getInt(1, nInputs_, pString);
             iInd2--;
          }
 
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         Xmin = iLowerB[iInd1];
-         Xmax = iUpperB[iInd1];
+         Xmin = iLowerB_[iInd1];
+         Xmax = iUpperB_[iInd1];
          Ymin =   1.0e35;
          Ymax = - 1.0e35;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
          }
          width = Xmax - Xmin;
          if (width == 0.0) Xmax = Xmin = 1.0e-3;
@@ -4787,37 +4951,37 @@ int PsuadeBase::interpretInteractive()
          Ymax = Ymax + width * 0.01;
          Ymin = Ymin - width * 0.01;
          Plotbegin(Xmin, Xmax, Ymin, Ymax);
-         nSamplesLong = (long) nSamples;
-         tempInds = new double[nSamples];
-         tempX = new double[nSamples];
-         tempW = new double[nSamples];
-         tempY = new double[nSamples];
-         tempT = new double[nSamples];
-         for (sInd = 0; sInd < nSamples; sInd++)
+         nSamplesLong = (long) nSamples_;
+         tempInds = new double[nSamples_];
+         tempX = new double[nSamples_];
+         tempW = new double[nSamples_];
+         tempY = new double[nSamples_];
+         tempT = new double[nSamples_];
+         for (sInd = 0; sInd < nSamples_; sInd++)
             tempInds[sInd] = (double) sInd;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            tempX[sInd] = sampleInputs[sInd*nInputs+iInd1];
-            tempW[sInd] = sampleInputs[sInd*nInputs+iInd2];
-            tempY[sInd] = sampleOutputs[sInd*nOutputs+outputID];
+            tempX[sInd] = sampleInputs_[sInd*nInputs_+iInd1];
+            tempW[sInd] = sampleInputs_[sInd*nInputs_+iInd2];
+            tempY[sInd] = sampleOutputs_[sInd*nOutputs_+outputID];
          }
-         sortDbleList2(nSamples, tempX, tempInds);
-         for (sInd = 0; sInd < nSamples; sInd++)
+         sortDbleList2(nSamples_, tempX, tempInds);
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
             ind2 = (int) tempInds[sInd];
             tempT[sInd] = tempW[ind2];
          }
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
             tempW[sInd] = tempT[sInd];
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
             ind2 = (int) tempInds[sInd];
             tempT[sInd] = tempY[ind2];
          }
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
             tempY[sInd] = tempT[sInd];
          ind2 = 0;
-         for (sInd = 1; sInd < nSamples; sInd++)
+         for (sInd = 1; sInd < nSamples_; sInd++)
          {
             if (PABS(tempX[sInd]-tempX[sInd-1]) > 1.0e-12)
             {
@@ -4832,7 +4996,7 @@ int PsuadeBase::interpretInteractive()
          fflush(stdout);
          printf("\n");
          fflush(stdout);
-         fgets(lineIn,500,stdin); 
+         fgets(lineIn,5000,stdin); 
          delete [] tempX;
          delete [] tempW;
          delete [] tempY;
@@ -4850,15 +5014,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: splot (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: rsplot requires 2 or more inputs.\n");
-            printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          pgPlotResponseSurface();
@@ -4874,14 +5037,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: splot (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
 
          if (psPlotTool_ == 1)
@@ -4908,37 +5071,37 @@ int PsuadeBase::interpretInteractive()
          fwriteComment(fp, pString);
          fprintf(fp, "plotMode=0;\n");
          fprintf(fp, "Y = [\n");
-         for (sInd = 0; sInd < nSamples; sInd++)
-            fprintf(fp, "%24.16e\n",sampleOutputs[sInd*nOutputs+outputID]);
+         for (sInd = 0; sInd < nSamples_; sInd++)
+            fprintf(fp, "%24.16e\n",sampleOutputs_[sInd*nOutputs_+outputID]);
          fprintf(fp, "];\n");
-         for (iInd = 0; iInd < nInputs; iInd++)
+         for (iInd = 0; iInd < nInputs_; iInd++)
          {
             fprintf(fp, "X%d = [\n", iInd+1);
-            for (sInd = 0; sInd < nSamples; sInd++)
-               fprintf(fp, "%24.16e\n",sampleInputs[sInd*nInputs+iInd]);
+            for (sInd = 0; sInd < nSamples_; sInd++)
+               fprintf(fp, "%24.16e\n",sampleInputs_[sInd*nInputs_+iInd]);
             fprintf(fp, "];\n");
          }
          fprintf(fp, "S = [\n");
-         for (sInd = 0; sInd < nSamples; sInd++)
-            fprintf(fp, "%d\n",sampleStates[sInd]);
+         for (sInd = 0; sInd < nSamples_; sInd++)
+            fprintf(fp, "%d\n",sampleStates_[sInd]);
          fprintf(fp, "];\n");
          if (psPlotTool_ == 1)
          {
-            for (iInd = 0; iInd < nInputs; iInd++)
+            for (iInd = 0; iInd < nInputs_; iInd++)
             {
                fwritePlotCLF(fp);
                fprintf(fp, "drawlater\n");
                fprintf(fp, "plot(X%d,Y,'.','markersize',10)\n",iInd+1);
                fprintf(fp, "a = gca();\n");
                fprintf(fp, "a.children.children.mark_foreground = 5;\n");
-               sprintf(winput, "%s vs %s", outputNames[outputID],
-                       inputNames[iInd]);
+               sprintf(winput, "%s vs %s", outputNames_[outputID],
+                       inputNames_[iInd]);
                fwritePlotTitle(fp, winput);
                fwritePlotAxes(fp);
-               fwritePlotXLabel(fp, inputNames[iInd]);
-               fwritePlotYLabel(fp, outputNames[outputID]);
+               fwritePlotXLabel(fp, inputNames_[iInd]);
+               fwritePlotYLabel(fp, outputNames_[outputID]);
                fprintf(fp, "drawnow\n");
-               if (iInd < nInputs-1) 
+               if (iInd < nInputs_-1) 
                {
                   fprintf(fp, "disp(\'Press enter to advance,\')\n");
                   fprintf(fp, "halt;\n");
@@ -4950,10 +5113,10 @@ int PsuadeBase::interpretInteractive()
          {
             fprintf(fp, "fs=6;\n");
             fwritePlotCLF(fp);
-            kk = ((int) pow(1.0*nInputs-0.1, 0.5)) + 1;
+            kk = ((int) pow(1.0*nInputs_-0.1, 0.5)) + 1;
             ll = kk;
-            while ((ll - 1) * kk >= nInputs) ll--; 
-            for (iInd = 0; iInd < nInputs; iInd++)
+            while ((ll - 1) * kk >= nInputs_) ll--; 
+            for (iInd = 0; iInd < nInputs_; iInd++)
             {
                fprintf(fp,"if plotMode == 0\n");
                fprintf(fp,"subplot(%d,%d,%d)\n",kk,ll,iInd+1);
@@ -4966,19 +5129,21 @@ int PsuadeBase::interpretInteractive()
                fwritePlotCLF(fp);
                fprintf(fp,"end;\n");
                fprintf(fp,"iset = find(S == 0);\n");
-               fprintf(fp,"plot(X%d(iset),Y(iset),'rX','markersize',fs)\n",iInd+1);
+               fprintf(fp,"plot(X%d(iset),Y(iset),'rX','markersize',fs)\n",
+                       iInd+1);
                fprintf(fp,"hold on\n");
                fprintf(fp,"iset = find(S == 1);\n");
-               fprintf(fp,"plot(X%d(iset),Y(iset),'b*','markersize',fs)\n",iInd+1);
+               fprintf(fp,"plot(X%d(iset),Y(iset),'b*','markersize',fs)\n",
+                       iInd+1);
                fprintf(fp,"hold off\n");
-               fprintf(fp,"axis([%24.16e %24.16e min(Y) max(Y)])\n",iLowerB[iInd],
-                       iUpperB[iInd]);
-               sprintf(winput, "%s vs %s", outputNames[outputID],
-                       inputNames[iInd]);
+               fprintf(fp,"axis([%24.16e %24.16e min(Y) max(Y)])\n",
+                       iLowerB_[iInd], iUpperB_[iInd]);
+               sprintf(winput, "%s vs %s", outputNames_[outputID],
+                       inputNames_[iInd]);
                fwritePlotTitle(fp, winput);
                fwritePlotAxes(fp);
-               fwritePlotXLabel(fp, inputNames[iInd]);
-               fwritePlotYLabel(fp, outputNames[outputID]);
+               fwritePlotXLabel(fp, inputNames_[iInd]);
+               fwritePlotYLabel(fp, outputNames_[outputID]);
             }
             printf("matlabsp.m is now available for scatter plots.\n");
          }
@@ -4995,17 +5160,17 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rawi2 (no argument needed).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: rawi2 requires 2 inputs.\n");
             continue;
          }
-         if (nOutputs < 2)
+         if (nOutputs_ < 2)
          {
             printf("ERROR: rawi2 requires 2 or more outputs.\n");
             continue;
@@ -5015,20 +5180,20 @@ int PsuadeBase::interpretInteractive()
             printf("INFO: rawi2 is currently not available for scilab.\n");
             continue;
          }
-         dtemp = pow(1.0*nSamples, 0.5) + 1.0e-12;
+         dtemp = pow(1.0*nSamples_, 0.5) + 1.0e-12;
          nPtsPerDim = (int) dtemp;
-         if (nPtsPerDim * nPtsPerDim != nSamples)
+         if (nPtsPerDim * nPtsPerDim != nSamples_)
          {
             printf("rawi2 error: nSamples must be a square.\n");
          }
          else
          { 
             rsiNOutputs = 2;
-            sprintf(pString,"How many outputs to use ? (2 - %d) ",nOutputs);
-            rsiNOutputs = getInt(2, nOutputs, pString);
+            sprintf(pString,"How many outputs to use ? (2 - %d) ",nOutputs_);
+            rsiNOutputs = getInt(2, nOutputs_, pString);
 
             rsiSet = new int[rsiNOutputs];
-            if (rsiNOutputs == nOutputs)
+            if (rsiNOutputs == nOutputs_)
             {
                for (ii = 0; ii < rsiNOutputs; ii++) rsiSet[ii] = ii;
             }
@@ -5037,8 +5202,8 @@ int PsuadeBase::interpretInteractive()
                for (ii = 0; ii < rsiNOutputs; ii++)
                {
                   sprintf(pString,"Enter the %d-th output index (1 - %d) : ",
-                          ii+1, nOutputs);
-                  rsiSet[ii] = getInt(1, nOutputs, pString);
+                          ii+1, nOutputs_);
+                  rsiSet[ii] = getInt(1, nOutputs_, pString);
                   rsiSet[ii]--;
                }
             }
@@ -5056,19 +5221,19 @@ int PsuadeBase::interpretInteractive()
                continue;
             }
             fwritePlotCLF(fp);
-            faYOut = new double[nSamples];
+            faYOut = new double[nSamples_];
 
             for (ii = 0; ii < rsiNOutputs; ii++)
             {
                jplot = rsiSet[ii];
-               for (sInd = 0; sInd < nSamples; sInd++)
-                  faYOut[sInd] = sampleOutputs[sInd*nOutputs+jplot];
+               for (sInd = 0; sInd < nSamples_; sInd++)
+                  faYOut[sInd] = sampleOutputs_[sInd*nOutputs_+jplot];
 
                Ymin = faYOut[0];
-               for (sInd = 1; sInd < nSamples; sInd++)
+               for (sInd = 1; sInd < nSamples_; sInd++)
                   if (faYOut[sInd] < Ymin) Ymin = faYOut[sInd];
                Ymax = faYOut[0];
-               for (sInd = 1; sInd < nSamples; sInd++)
+               for (sInd = 1; sInd < nSamples_; sInd++)
                   if (faYOut[sInd] > Ymax) Ymax = faYOut[sInd];
 
                printf("Ymin and Ymax = %e %e\n", Ymin, Ymax);
@@ -5081,7 +5246,7 @@ int PsuadeBase::interpretInteractive()
                     jplot, Ymax);
                threshU = getDouble(pString);
 
-               for (sInd = 0; sInd < nSamples; sInd++)
+               for (sInd = 0; sInd < nSamples_; sInd++)
                {
                   ind  = sInd % nPtsPerDim;
                   ind2 = sInd / nPtsPerDim;
@@ -5092,12 +5257,12 @@ int PsuadeBase::interpretInteractive()
             delete [] faYOut;
 
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd+=nPtsPerDim)
-               fprintf(fp, "%e\n", sampleInputs[sInd*2]);
+            for (sInd = 0; sInd < nSamples_; sInd+=nPtsPerDim)
+               fprintf(fp, "%e\n", sampleInputs_[sInd*2]);
             fprintf(fp, "];\n");
             fprintf(fp, "Y = [\n");
             for (sInd = 0; sInd < nPtsPerDim; sInd++)
-               fprintf(fp, "%e\n", sampleInputs[sInd*2+1]);
+               fprintf(fp, "%e\n", sampleInputs_[sInd*2+1]);
             fprintf(fp, "];\n");
             fprintf(fp, "A = [\n");
             count = 0;
@@ -5123,11 +5288,11 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "A(%d,%d) = %e;\n", nPtsPerDim, nPtsPerDim, 
                     (double) rsiNOutputs);
             fprintf(fp, "contourf(X,Y,A)\n");
-            fprintf(fp, "axis([%e %e %e %e])\n",iLowerB[0],
-                    iUpperB[0],iLowerB[1],iUpperB[1]);
+            fprintf(fp, "axis([%e %e %e %e])\n",iLowerB_[0],
+                    iUpperB_[0],iLowerB_[1],iUpperB_[1]);
             fwritePlotAxes(fp);
-            fwritePlotXLabel(fp, inputNames[0]);
-            fwritePlotYLabel(fp, inputNames[1]);
+            fwritePlotXLabel(fp, inputNames_[0]);
+            fwritePlotYLabel(fp, inputNames_[1]);
             fwritePlotTitle(fp, "Intersection Contour");
             fprintf(fp, "colorbar\n");
             fprintf(fp, "colormap(cool)\n");
@@ -5150,17 +5315,17 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rawi3 (no argument needed).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs < 3)
+         if (nInputs_ < 3)
          {
             printf("ERROR: rawi3 requires 3 or more inputs.\n");
             continue;
          }
-         if (nOutputs < 2)
+         if (nOutputs_ < 2)
          {
             printf("ERROR: rawi3 requires 2 or more outputs.\n");
             continue;
@@ -5170,19 +5335,19 @@ int PsuadeBase::interpretInteractive()
             printf("INFO: rawi3 is currently not available for scilab.\n");
             continue;
          }
-         dtemp = pow(1.0*nSamples, 0.333333) + 0.1;
-         if (nPtsPerDim*nPtsPerDim*nPtsPerDim != nSamples)
+         dtemp = pow(1.0*nSamples_, 0.333333) + 0.1;
+         if (nPtsPerDim*nPtsPerDim*nPtsPerDim != nSamples_)
          {
             printf("rawi3 error: nSamples must be an integer 3rd power.\n");
          }
          iplot1 = 0; iplot2 = 1; iplot3 = 2;
 
          rsiNOutputs = 2;
-         sprintf(pString,"How many outputs to use ? (2 - %d) ",nOutputs);
-         rsiNOutputs = getInt(2, nOutputs, pString);
+         sprintf(pString,"How many outputs to use ? (2 - %d) ",nOutputs_);
+         rsiNOutputs = getInt(2, nOutputs_, pString);
 
          rsiSet = new int[rsiNOutputs];
-         if (rsiNOutputs == nOutputs)
+         if (rsiNOutputs == nOutputs_)
          {
             for (ii = 0; ii < rsiNOutputs; ii++) rsiSet[ii] = ii;
          }
@@ -5191,8 +5356,8 @@ int PsuadeBase::interpretInteractive()
             for (ii = 0; ii < rsiNOutputs; ii++)
             {
                sprintf(pString,"Enter the %d-th output index (1 - %d) : ",
-                       ii+1, nOutputs);
-               rsiSet[ii] = getInt(1, nOutputs, pString);
+                       ii+1, nOutputs_);
+               rsiSet[ii] = getInt(1, nOutputs_, pString);
                rsiSet[ii]--;
             }
          }
@@ -5209,19 +5374,19 @@ int PsuadeBase::interpretInteractive()
             }
          }
 
-         faXOut = sampleInputs;
-         faYOut = new double[nSamples];
+         faXOut = sampleInputs_;
+         faYOut = new double[nSamples_];
          for (ii = 0; ii < rsiNOutputs; ii++)
          {
             jplot = rsiSet[ii];
-            for (sInd = 0; sInd < nSamples; sInd++)
-               faYOut[sInd] = sampleOutputs[sInd*nOutputs+jplot];
+            for (sInd = 0; sInd < nSamples_; sInd++)
+               faYOut[sInd] = sampleOutputs_[sInd*nOutputs_+jplot];
 
             Ymax = faYOut[0];
             Ymin = faYOut[0];
-            for (sInd = 1; sInd < nSamples; sInd++)
+            for (sInd = 1; sInd < nSamples_; sInd++)
                if (faYOut[sInd] < Ymin) Ymin = faYOut[sInd];
-            for (sInd = 1; sInd < nSamples; sInd++)
+            for (sInd = 1; sInd < nSamples_; sInd++)
                if (faYOut[sInd] > Ymax) Ymax = faYOut[sInd];
 
             printf("\nOutput %d : Ymin and Ymax found = %e %e.\n", jplot,
@@ -5231,7 +5396,7 @@ int PsuadeBase::interpretInteractive()
             sprintf(pString,"Enter the upper threshold (max = %e) : ", Ymax);
             threshU = getDouble(pString);
 
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
                ind  = (sInd % (nPtsPerDim * nPtsPerDim)) % nPtsPerDim;
                ind2 = (sInd % (nPtsPerDim * nPtsPerDim)) / nPtsPerDim;
@@ -5257,12 +5422,12 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          fwritePlotCLF(fp);
-         fprintf(fp, "xlo = %e; \n", iLowerB[1]);
-         fprintf(fp, "xhi = %e; \n", iUpperB[1]);
-         fprintf(fp, "ylo = %e; \n", iLowerB[0]);
-         fprintf(fp, "yhi = %e; \n", iUpperB[0]);
-         fprintf(fp, "zlo = %e; \n", iLowerB[2]);
-         fprintf(fp, "zhi = %e; \n", iUpperB[2]);
+         fprintf(fp, "xlo = %e; \n", iLowerB_[1]);
+         fprintf(fp, "xhi = %e; \n", iUpperB_[1]);
+         fprintf(fp, "ylo = %e; \n", iLowerB_[0]);
+         fprintf(fp, "yhi = %e; \n", iUpperB_[0]);
+         fprintf(fp, "zlo = %e; \n", iLowerB_[2]);
+         fprintf(fp, "zhi = %e; \n", iUpperB_[2]);
          fprintf(fp, "X=zeros(%d,%d,%d);\n",nPtsPerDim,nPtsPerDim,nPtsPerDim);
          fprintf(fp, "Y=zeros(%d,%d,%d);\n",nPtsPerDim,nPtsPerDim,nPtsPerDim);
          fprintf(fp, "Z=zeros(%d,%d,%d);\n",nPtsPerDim,nPtsPerDim,nPtsPerDim);
@@ -5325,12 +5490,12 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "V(%d,%d,%d)=1;\n",nPtsPerDim,nPtsPerDim,nPtsPerDim);
          }
 
-         fprintf(fp, "xt = [%e:%e:%e];\n", iLowerB[1],
-                 (iUpperB[1]-iLowerB[1])*0.01, iUpperB[1]);
-         fprintf(fp, "yt = [%e:%e:%e];\n", iLowerB[iplot1],
-                 (iUpperB[0]-iLowerB[0])*0.01, iUpperB[0]);
-         fprintf(fp, "zt = [%e:%e:%e];\n", iLowerB[2],
-                 (iUpperB[2]-iLowerB[2])*0.01, iUpperB[2]);
+         fprintf(fp, "xt = [%e:%e:%e];\n", iLowerB_[1],
+                 (iUpperB_[1]-iLowerB_[1])*0.01, iUpperB_[1]);
+         fprintf(fp, "yt = [%e:%e:%e];\n", iLowerB_[iplot1],
+                 (iUpperB_[0]-iLowerB_[0])*0.01, iUpperB_[0]);
+         fprintf(fp, "zt = [%e:%e:%e];\n", iLowerB_[2],
+                 (iUpperB_[2]-iLowerB_[2])*0.01, iUpperB_[2]);
          fwritePlotCLF(fp);
          fprintf(fp, "isoval = 0.5;\n");
          fprintf(fp, "h = patch(isosurface(X,Y,Z,V,isoval),... \n");
@@ -5344,8 +5509,8 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp, "      'FaceColor', 'interp', ... \n");
          fprintf(fp, "      'EdgeColor', 'none'); \n");
          fprintf(fp, "axis([xlo xhi ylo yhi zlo zhi])\n");
-         fprintf(fp, "daspect([%e,%e,%e])\n",iUpperB[1]-iLowerB[1],
-                 iUpperB[0]-iLowerB[0], iUpperB[2]-iLowerB[2]);
+         fprintf(fp, "daspect([%e,%e,%e])\n",iUpperB_[1]-iLowerB_[1],
+                 iUpperB_[0]-iLowerB_[0], iUpperB_[2]-iLowerB_[2]);
          fprintf(fp, "colormap('default'); colorbar\n");
          fprintf(fp, "%%axis tight\n");
          fprintf(fp, "view(3) \n");
@@ -5355,11 +5520,11 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp, "lighting phong\n");
          fwritePlotAxes(fp);
          fprintf(fp, "xlabel('%s','FontSize',12,'FontWeight','bold')\n",
-                 inputNames[1]);
+                 inputNames_[1]);
          fprintf(fp, "ylabel('%s','Fontsize',12,'FontWeight','bold')\n",
-                 inputNames[0]);
+                 inputNames_[0]);
          fprintf(fp, "zlabel('%s','Fontsize',12,'FontWeight','bold')\n",
-                 inputNames[2]);
+                 inputNames_[2]);
          fprintf(fp, "title('Intersection Contour','FontWeight',");
          fprintf(fp, "'bold','FontSize',12)\n");
          fprintf(fp, "colorbar\n");
@@ -5386,12 +5551,12 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rspairs (no argument needed).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: rspairs requires 2 or more inputs.\n");
             continue;
@@ -5408,27 +5573,27 @@ int PsuadeBase::interpretInteractive()
          faPtr = genFAInteractive(psuadeIO_, faFlag);
          if (faPtr == NULL) {printf("ERROR detected.\n"); continue;}
          faPtr->setNPtsPerDim(nPtsPerDim);
-         faPtr->setBounds(iLowerB, iUpperB);
+         faPtr->setBounds(iLowerB_, iUpperB_);
          faPtr->setOutputLevel(outputLevel_);
 
          nPlots = 0;
          sprintf(pString, "Enter the number of inputs to plot (1 - %d) : ",
-                nInputs);
-         nPlots = getInt(1, nInputs, pString);
-         plotIndices = new int[nInputs];
-         for (ii = 0; ii < nInputs; ii++) plotIndices[ii] = ii;
-         if (nPlots < nInputs)
+                 nInputs_);
+         nPlots = getInt(1, nInputs_, pString);
+         plotIndices = new int[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++) plotIndices[ii] = ii;
+         if (nPlots < nInputs_)
          {
             for (ii = 0; ii < nPlots; ii++)
             {
                sprintf(pString, "Enter the %d-th input (1 - %d) : ", ii+1,
-                       nInputs);
-               plotIndices[ii] = getInt(1, nInputs, pString);
+                       nInputs_);
+               plotIndices[ii] = getInt(1, nInputs_, pString);
                plotIndices[ii]--;
             }
          }
-         inputSettings = new double[nInputs];
-         if (nInputs > 2)
+         inputSettings = new double[nInputs_];
+         if (nInputs_ > 2)
          {
             sprintf(pString,
                     "Set other nominal values at mid point ? (y or n) ");
@@ -5436,8 +5601,8 @@ int PsuadeBase::interpretInteractive()
          }
          if (command[0] == 'y')
          {
-            for (iInd1 = 0; iInd1 < nInputs; iInd1++)
-               inputSettings[iInd1] = 0.5*(iLowerB[iInd1]+iUpperB[iInd1]);
+            for (iInd1 = 0; iInd1 < nInputs_; iInd1++)
+               inputSettings[iInd1] = 0.5*(iLowerB_[iInd1]+iUpperB_[iInd1]);
          }
          else
          {
@@ -5450,7 +5615,7 @@ int PsuadeBase::interpretInteractive()
             printf("PSUADE_END\n");
             printf("Data file name : ");
             scanf("%s", dataFile);
-            fgets(lineIn,500,stdin); 
+            fgets(lineIn,5000,stdin); 
             fp = fopen(dataFile, "r");
             if (fp == NULL)
             {
@@ -5471,14 +5636,14 @@ int PsuadeBase::interpretInteractive()
                else
                {
                   fscanf(fp, "%d", &kk);
-                  if (kk != nInputs)
+                  if (kk != nInputs_)
                   {
                      printf("ERROR: input size does not match nInputs.\n");
                      fclose(fp);
                      delete [] inputSettings;
                      continue;
                   }
-                  for (ii = 0; ii < nInputs; ii++)
+                  for (ii = 0; ii < nInputs_; ii++)
                   {
                      fscanf(fp, "%d", &ind);
                      if (ind != (ii+1))
@@ -5489,7 +5654,7 @@ int PsuadeBase::interpretInteractive()
                      }
                      fscanf(fp, "%lg", &inputSettings[ii]);
                   }
-                  if (ii != nInputs)
+                  if (ii != nInputs_)
                   {
                      delete [] inputSettings;
                      fclose(fp);
@@ -5517,16 +5682,16 @@ int PsuadeBase::interpretInteractive()
          fwritePlotCLF(fp);
 
          jplot = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         jplot = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         jplot = getInt(1, nOutputs_, pString);
          jplot--;
-         Ymax = Ymin = sampleOutputs[0*nOutputs+jplot];
-         for (sInd = 1; sInd < nSamples; sInd++)
+         Ymax = Ymin = sampleOutputs_[0*nOutputs_+jplot];
+         for (sInd = 1; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+jplot] > Ymax) 
-               Ymax = sampleOutputs[sInd*nOutputs+jplot];
-            if (sampleOutputs[sInd*nOutputs+jplot] < Ymin) 
-               Ymin = sampleOutputs[sInd*nOutputs+jplot];
+            if (sampleOutputs_[sInd*nOutputs_+jplot] > Ymax) 
+               Ymax = sampleOutputs_[sInd*nOutputs_+jplot];
+            if (sampleOutputs_[sInd*nOutputs_+jplot] < Ymin) 
+               Ymin = sampleOutputs_[sInd*nOutputs_+jplot];
          }
          printf("Ymin and Ymax found = %e %e.\n", Ymin, Ymax);
          sprintf(pString,"Set lower threshold ? (y or n) ");
@@ -5550,7 +5715,7 @@ int PsuadeBase::interpretInteractive()
          }
          else fprintf(fp, "Ymax = 1.0e35;\n");
 
-         faYIn = new double[nSamples];
+         faYIn = new double[nSamples_];
          diagMax = - PSUADE_UNDEFINED;
          diagMin =   PSUADE_UNDEFINED;
          for (ii = 0; ii < nPlots; ii++)
@@ -5561,9 +5726,9 @@ int PsuadeBase::interpretInteractive()
                iplot1 = plotIndices[jj];
                if (iplot1 == iplot2)
                {
-                  for (sInd = 0; sInd < nSamples; sInd++)
-                     faYIn[sInd] = sampleOutputs[sInd*nOutputs+jplot];
-                  faPtr->gen1DGridData(sampleInputs,faYIn,iplot2,
+                  for (sInd = 0; sInd < nSamples_; sInd++)
+                     faYIn[sInd] = sampleOutputs_[sInd*nOutputs_+jplot];
+                  faPtr->gen1DGridData(sampleInputs_,faYIn,iplot2,
                              inputSettings, &faLeng, &faXOut,&faYOut);
                   fprintf(fp, "A = [\n");
                   for (sInd = 0; sInd < faLeng; sInd++)
@@ -5596,16 +5761,16 @@ int PsuadeBase::interpretInteractive()
                           nPlots,nPlots,ii*nPlots+jj+1);
                   fprintf(fp, "plot(X,B,'LineWidth',2.0)\n");
                   fwritePlotAxes(fp);
-                  fwritePlotXLabel(fp, inputNames[iplot1]);
-                  fwritePlotYLabel(fp, outputNames[jplot]);
+                  fwritePlotXLabel(fp, inputNames_[iplot1]);
+                  fwritePlotYLabel(fp, outputNames_[jplot]);
                   delete [] faXOut;
                   delete [] faYOut;
                   continue;
                }
 
-               for (sInd = 0; sInd < nSamples; sInd++)
-                  faYIn[sInd] = sampleOutputs[sInd*nOutputs+jplot];
-               faPtr->gen2DGridData(sampleInputs,faYIn,iplot1,iplot2,
+               for (sInd = 0; sInd < nSamples_; sInd++)
+                  faYIn[sInd] = sampleOutputs_[sInd*nOutputs_+jplot];
+               faPtr->gen2DGridData(sampleInputs_,faYIn,iplot1,iplot2,
                              inputSettings, &faLeng, &faXOut,&faYOut);
 
                fprintf(fp, "A = [\n");
@@ -5640,15 +5805,15 @@ int PsuadeBase::interpretInteractive()
                fprintf(fp, "subplot(%d,%d,%d), ",nPlots,nPlots,ii*nPlots+jj+1);
                fprintf(fp, "contourf(X,Y,B)\n");
                fwritePlotAxes(fp);
-               fwritePlotXLabel(fp, inputNames[iplot1]);
-               fwritePlotYLabel(fp, inputNames[iplot2]);
-               fprintf(fp, "axis([%e %e %e %e])\n",iLowerB[iplot1],
-                       iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2]);
+               fwritePlotXLabel(fp, inputNames_[iplot1]);
+               fwritePlotYLabel(fp, inputNames_[iplot2]);
+               fprintf(fp, "axis([%e %e %e %e])\n",iLowerB_[iplot1],
+                       iUpperB_[iplot1],iLowerB_[iplot2],iUpperB_[iplot2]);
                fprintf(fp, "subplot(%d,%d,%d), ",nPlots,nPlots,jj*nPlots+ii+1);
                fprintf(fp, "surf(X,Y,B)\n");
                fwritePlotAxes(fp);
-               fwritePlotXLabel(fp, inputNames[iplot1]);
-               fwritePlotYLabel(fp, inputNames[iplot2]);
+               fwritePlotXLabel(fp, inputNames_[iplot1]);
+               fwritePlotYLabel(fp, inputNames_[iplot2]);
                delete [] faXOut;
                delete [] faYOut;
             }
@@ -5658,8 +5823,8 @@ int PsuadeBase::interpretInteractive()
          {
             iplot1 = plotIndices[ii];
             fprintf(fp, "subplot(%d,%d,%d), ",nPlots,nPlots,ii*nPlots+ii+1);
-            fprintf(fp, "axis([%e %e %e %e])\n",iLowerB[iplot1],
-                    iUpperB[iplot1],diagMin, diagMax);
+            fprintf(fp, "axis([%e %e %e %e])\n",iLowerB_[iplot1],
+                    iUpperB_[iplot1],diagMin, diagMax);
          }
          fclose(fp);
          printf("matlabrspairs.m is now available for contour plots.\n");
@@ -5681,12 +5846,12 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rsipairs (no argument needed).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: rsipairs requires 2 or more inputs.\n");
             continue;
@@ -5703,43 +5868,43 @@ int PsuadeBase::interpretInteractive()
          faPtr = genFAInteractive(psuadeIO_, faFlag);
          if (faPtr == NULL) {printf("ERROR detected.\n"); continue;}
          faPtr->setNPtsPerDim(nPtsPerDim);
-         faPtr->setBounds(iLowerB, iUpperB);
+         faPtr->setBounds(iLowerB_, iUpperB_);
          faPtr->setOutputLevel(outputLevel_);
 
          nPlots = 0;
          sprintf(pString, "Enter the number of inputs to plot (1 - %d) : ",
-                nInputs);
-         nPlots = getInt(1, nInputs, pString);
-         plotIndices = new int[nInputs];
-         for (ii = 0; ii < nInputs; ii++) plotIndices[ii] = ii;
-         if (nPlots < nInputs)
+                 nInputs_);
+         nPlots = getInt(1, nInputs_, pString);
+         plotIndices = new int[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++) plotIndices[ii] = ii;
+         if (nPlots < nInputs_)
          {
             for (ii = 0; ii < nPlots; ii++)
             {
                sprintf(pString, "Enter the %d-th input (1 - %d) : ", ii+1,
-                       nInputs);
-               plotIndices[ii] = getInt(1, nInputs, pString);
+                       nInputs_);
+               plotIndices[ii] = getInt(1, nInputs_, pString);
                plotIndices[ii]--;
             }
          }
     
          printf("rsipairs: will use all outputs for constraining.\n");
-         rsiNOutputs = nOutputs;
+         rsiNOutputs = nOutputs_;
          rsiSet = new int[rsiNOutputs];
          for (ii = 0; ii < rsiNOutputs; ii++) rsiSet[ii] = ii;
          threshLs = new double[rsiNOutputs];
          threshUs = new double[rsiNOutputs];
-         faYIn = new double[nSamples];
+         faYIn = new double[nSamples_];
          for (ii = 0; ii < rsiNOutputs; ii++)
          {
             jplot = rsiSet[ii];
-            Ymax = Ymin = sampleOutputs[0*nOutputs+jplot];
-            for (sInd = 1; sInd < nSamples; sInd++)
+            Ymax = Ymin = sampleOutputs_[0*nOutputs_+jplot];
+            for (sInd = 1; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs+jplot] > Ymax) 
-                  Ymax = sampleOutputs[sInd*nOutputs+jplot];
-               if (sampleOutputs[sInd*nOutputs+jplot] < Ymin) 
-                  Ymin = sampleOutputs[sInd*nOutputs+jplot];
+               if (sampleOutputs_[sInd*nOutputs_+jplot] > Ymax) 
+                  Ymax = sampleOutputs_[sInd*nOutputs_+jplot];
+               if (sampleOutputs_[sInd*nOutputs_+jplot] < Ymin) 
+                  Ymin = sampleOutputs_[sInd*nOutputs_+jplot];
             }
             printf("Output %d: Ymin and Ymax = %e %e\n",jplot+1,Ymin,Ymax);
             sprintf(pString,
@@ -5755,7 +5920,7 @@ int PsuadeBase::interpretInteractive()
                    rsiSet[ii]+1, threshLs[ii], threshUs[ii]);
          }
 
-         faYIn = new double[nSamples];
+         faYIn = new double[nSamples_];
          rsiMatrix = new int*[nPtsPerDim];
          for (ii = 0; ii < nPtsPerDim; ii++)
             rsiMatrix[ii] = new int[nPtsPerDim];
@@ -5768,17 +5933,17 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp, "hold off\n");
          fwritePlotCLF(fp);
 
-         inputSettings = new double[nInputs];
+         inputSettings = new double[nInputs_];
          for (ii = 0; ii < nPlots; ii++)
          {
             iplot2 = plotIndices[ii];
             for (jj = 0; jj <= ii; jj++)
             {
                iplot1 = plotIndices[jj];
-               for (iInd1 = 0; iInd1 < nInputs; iInd1++)
+               for (iInd1 = 0; iInd1 < nInputs_; iInd1++)
                {
                   if (iInd1 != iplot1 && iInd1 != iplot2)
-                       inputSettings[iInd1]=0.5*(iLowerB[iInd1]+iUpperB[iInd1]);
+                       inputSettings[iInd1]=0.5*(iLowerB_[iInd1]+iUpperB_[iInd1]);
                   else inputSettings[iInd1]=1.0;
                }
                for (iInd1 = 0; iInd1 < nPtsPerDim; iInd1++)
@@ -5787,12 +5952,12 @@ int PsuadeBase::interpretInteractive()
                for (kk = 0; kk < rsiNOutputs; kk++)
                {
                   jplot = rsiSet[kk];
-                  for (sInd = 0; sInd < nSamples; sInd++)
-                     faYIn[sInd] = sampleOutputs[sInd*nOutputs+jplot];
+                  for (sInd = 0; sInd < nSamples_; sInd++)
+                     faYIn[sInd] = sampleOutputs_[sInd*nOutputs_+jplot];
 
                   if (iplot1 == iplot2)
                   {
-                     faPtr->gen1DGridData(sampleInputs,faYIn,iplot1,
+                     faPtr->gen1DGridData(sampleInputs_,faYIn,iplot1,
                                inputSettings, &faLeng, &faXOut,&faYOut);
                      if (kk == 0)
                      {
@@ -5809,7 +5974,7 @@ int PsuadeBase::interpretInteractive()
                   }
                   else
                   {
-                     faPtr->gen2DGridData(sampleInputs,faYIn, iplot1, iplot2, 
+                     faPtr->gen2DGridData(sampleInputs_,faYIn, iplot1, iplot2, 
                                  inputSettings, &faLeng, &faXOut,&faYOut);
                      if (kk == 0)
                      {
@@ -5842,10 +6007,10 @@ int PsuadeBase::interpretInteractive()
                   fprintf(fp, "subplot(%d,%d,%d), ",
                           nPlots,nPlots,ii*nPlots+jj+1);
                   fprintf(fp, "plot(X,A,'LineWidth',2.0)\n");
-                  fprintf(fp, "axis([%e %e 0 %d])\n",iLowerB[iplot1],
-                          iUpperB[iplot1],rsiNOutputs+1);
+                  fprintf(fp, "axis([%e %e 0 %d])\n",iLowerB_[iplot1],
+                          iUpperB_[iplot1],rsiNOutputs+1);
                   fwritePlotAxes(fp);
-                  fwritePlotXLabel(fp, inputNames[iplot1]);
+                  fwritePlotXLabel(fp, inputNames_[iplot1]);
                }
                else
                {
@@ -5862,20 +6027,20 @@ int PsuadeBase::interpretInteractive()
                   fprintf(fp, "subplot(%d,%d,%d)\n",
                           nPlots,nPlots,ii*nPlots+jj+1);
                   fprintf(fp, "contourf(X,Y,A)\n");
-                  fprintf(fp, "axis([%e %e %e %e])\n",iLowerB[iplot1],
-                          iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2]);
+                  fprintf(fp, "axis([%e %e %e %e])\n",iLowerB_[iplot1],
+                          iUpperB_[iplot1],iLowerB_[iplot2],iUpperB_[iplot2]);
                   fwritePlotAxes(fp);
-                  fwritePlotXLabel(fp, inputNames[iplot1]);
-                  fwritePlotYLabel(fp, inputNames[iplot2]);
+                  fwritePlotXLabel(fp, inputNames_[iplot1]);
+                  fwritePlotYLabel(fp, inputNames_[iplot2]);
                   fprintf(fp, "subplot(%d,%d,%d)\n",
                           nPlots,nPlots,jj*nPlots+ii+1);
                   fprintf(fp, "surf(X,Y,A)\n");
-                  fprintf(fp, "axis([%e %e %e %e 0 %d])\n",iLowerB[iplot1],
-                      iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2],
+                  fprintf(fp, "axis([%e %e %e %e 0 %d])\n",iLowerB_[iplot1],
+                      iUpperB_[iplot1],iLowerB_[iplot2],iUpperB_[iplot2],
                       rsiNOutputs);
                   fwritePlotAxes(fp);
-                  fwritePlotXLabel(fp, inputNames[iplot1]);
-                  fwritePlotYLabel(fp, inputNames[iplot2]);
+                  fwritePlotXLabel(fp, inputNames_[iplot1]);
+                  fwritePlotYLabel(fp, inputNames_[iplot2]);
                }
             }
          }
@@ -5906,7 +6071,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rscheck (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -5919,10 +6084,10 @@ int PsuadeBase::interpretInteractive()
             faType = getFAType(pString);
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         if (psRSExpertMode_ == 1)
+         if (psRSExpertMode_ == 1 && psInteractive_ == 1)
          {
             printf("Available input/output transformations :\n");
             printf("0. no transformation.\n");
@@ -5964,7 +6129,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rstest_ts (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -5977,19 +6142,19 @@ int PsuadeBase::interpretInteractive()
             faType = getFAType(pString);
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         faPtr = genFA(faType, nInputs, iOne, nSamples);
-         faPtr->setBounds(iLowerB, iUpperB);
+         faPtr = genFA(faType, nInputs_, iOne, nSamples_);
+         faPtr->setBounds(iLowerB_, iUpperB_);
          faPtr->setOutputLevel(outputLevel_);
-         tempY = new double[nSamples];
-         for (ss = 0; ss < nSamples; ss++)
-            tempY[ss] = sampleOutputs[ss*nOutputs+outputID];
-         status = faPtr->initialize(sampleInputs,tempY);
-         tempV = new double[nSamples];
-         tempW = new double[nSamples];
-         faPtr->evaluatePointFuzzy(nSamples, sampleInputs, tempV, tempW);
+         tempY = new double[nSamples_];
+         for (ss = 0; ss < nSamples_; ss++)
+            tempY[ss] = sampleOutputs_[ss*nOutputs_+outputID];
+         status = faPtr->initialize(sampleInputs_,tempY);
+         tempV = new double[nSamples_];
+         tempW = new double[nSamples_];
+         faPtr->evaluatePointFuzzy(nSamples_, sampleInputs_, tempV, tempW);
          if (psPlotTool_ == 1) fp = fopen("RSTest_ts.sci", "w");
          else                  fp = fopen("RSTest_ts.m", "w");
          sprintf(pString," col 1: simulation data, col 2: rs data");
@@ -5997,7 +6162,7 @@ int PsuadeBase::interpretInteractive()
          sprintf(pString," col 3: std dev");
          fwriteComment(fp, pString);
          fprintf(fp, "A = [\n");
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             fprintf(fp, "%e %e %e\n",tempY[ss],tempV[ss],tempW[ss]);
          fprintf(fp, "];\n");
          fwritePlotCLF(fp);
@@ -6015,7 +6180,7 @@ int PsuadeBase::interpretInteractive()
          else
          {
             fprintf(fp, "[nk,xk] = hist(A(:,1)-A(:,2),10);\n");
-            fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples);
+            fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples_);
          }
          fwritePlotAxes(fp);
          fwritePlotTitle(fp, "Error Plot (unscaled)");
@@ -6042,12 +6207,12 @@ int PsuadeBase::interpretInteractive()
          fwritePlotYLabel(fp, "Interpolated data");
          fclose(fp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             ddata += (tempY[ss] - tempV[ss]);
-         ddata = ddata / nSamples;
+         ddata = ddata / nSamples_;
          printf("Training set avg error (unscaled) = %e\n", ddata);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             ddata += (tempY[ss] - tempV[ss]);
             if (tempY[ss] != 0.0)
@@ -6056,15 +6221,16 @@ int PsuadeBase::interpretInteractive()
                dtemp = tempY[ss];
             }
          }
-         ddata = ddata / nSamples;
-         printf("Training set avg error (  scaled) = %e (base=%e)\n",ddata,dtemp);
+         ddata = ddata / nSamples_;
+         printf("Training set avg error (  scaled) = %e (base=%e)\n",
+                ddata,dtemp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             ddata += pow(tempY[ss] - tempV[ss], 2.0);
-         ddata = sqrt(ddata / nSamples);
+         ddata = sqrt(ddata / nSamples_);
          printf("Training set rms error (unscaled) = %e\n", ddata);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             ddata += pow(tempY[ss] - tempV[ss], 2.0);
             if (tempY[ss] != 0.0)
@@ -6073,15 +6239,16 @@ int PsuadeBase::interpretInteractive()
                dtemp = tempY[ss];
             }
          }
-         ddata = sqrt(ddata / nSamples);
-         printf("Training set rms error (  scaled) = %e (base=%e)\n",ddata,dtemp);
+         ddata = sqrt(ddata / nSamples_);
+         printf("Training set rms error (  scaled) = %e (base=%e)\n",
+                ddata,dtemp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             if (PABS(tempV[ss]-tempY[ss]) > ddata)
                ddata = PABS(tempY[ss] - tempV[ss]);
          printf("Training set max error (unscaled) = %e\n", ddata);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             if (tempY[ss] != 0 && PABS((tempV[ss]-tempY[ss])/tempY[ss])>ddata)
             {
@@ -6089,16 +6256,17 @@ int PsuadeBase::interpretInteractive()
                ddata = PABS((tempY[ss]-tempV[ss])/tempY[ss]);
             }
          }
-         printf("Training set max error (  scaled) = %e (base=%e)\n",ddata,dtemp);
+         printf("Training set max error (  scaled) = %e (base=%e)\n",
+                ddata,dtemp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             ddata += (tempY[ss] - tempV[ss]);
-         ddata = ddata / nSamples;
+         ddata = ddata / nSamples_;
          printf("Training set error mean = %e\n", ddata);
          dtemp = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             dtemp += pow(tempY[ss] - tempV[ss] - ddata, 2.0);
-         dtemp = sqrt(dtemp / (nSamples - 1.0));
+         dtemp = sqrt(dtemp / (nSamples_ - 1.0));
          printf("Training set error std  = %e\n", dtemp);
          if (psPlotTool_ == 1)
               printf("rstest_ts plot file RSTest_ts.sci has been created\n");
@@ -6123,7 +6291,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rstest_cv (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -6136,32 +6304,32 @@ int PsuadeBase::interpretInteractive()
             faType = getFAType(pString);
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         sprintf(pString, "How many groups (2 - %d)? ", nSamples);
-         nParts = getInt(2, nSamples, pString);
-         count = nSamples / nParts;
-         tempX = new double[nSamples*nInputs];
-         tempY = new double[nSamples];
-         tempV = new double[nSamples];
-         for (ss = 0; ss < nSamples; ss+=count)
+         sprintf(pString, "How many groups (2 - %d)? ", nSamples_);
+         nParts = getInt(2, nSamples_, pString);
+         count = nSamples_ / nParts;
+         tempX = new double[nSamples_*nInputs_];
+         tempY = new double[nSamples_];
+         tempV = new double[nSamples_];
+         for (ss = 0; ss < nSamples_; ss+=count)
          { 
-            for (kk = 0; kk < ss*nInputs; kk++) tempX[kk] = sampleInputs[kk];
-            for (kk = (ss+count)*nInputs; kk < nSamples*nInputs; kk++)
-               tempX[kk-count*nInputs] = sampleInputs[kk];
+            for (kk = 0; kk < ss*nInputs_; kk++) tempX[kk] = sampleInputs_[kk];
+            for (kk = (ss+count)*nInputs_; kk < nSamples_*nInputs_; kk++)
+               tempX[kk-count*nInputs_] = sampleInputs_[kk];
             for (kk = 0; kk < ss; kk++)
-               tempY[kk] = sampleOutputs[kk*nOutputs+outputID];
-            for (kk = ss+count; kk < nSamples; kk++)
-               tempY[kk-count] = sampleOutputs[kk*nOutputs+outputID];
+               tempY[kk] = sampleOutputs_[kk*nOutputs_+outputID];
+            for (kk = ss+count; kk < nSamples_; kk++)
+               tempY[kk-count] = sampleOutputs_[kk*nOutputs_+outputID];
             count2 = ss;
-            if (ss+count < nSamples) count2 += (nSamples - ss - count);
-            faPtr = genFA(faType, nInputs, iOne, count2);
-            faPtr->setBounds(iLowerB, iUpperB);
+            if (ss+count < nSamples_) count2 += (nSamples_ - ss - count);
+            faPtr = genFA(faType, nInputs_, iOne, count2);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(outputLevel_);
             status = faPtr->initialize(tempX,tempY);
-            count2 = nSamples - count2;
-            faPtr->evaluatePoint(count2, &sampleInputs[ss*nInputs], &tempV[ss]);
+            count2 = nSamples_ - count2;
+            faPtr->evaluatePoint(count2, &sampleInputs_[ss*nInputs_], &tempV[ss]);
             delete faPtr;
          }
          if (psPlotTool_ == 1) fp = fopen("RSTest_cv.sci", "w");
@@ -6169,8 +6337,8 @@ int PsuadeBase::interpretInteractive()
          sprintf(pString," col 1: simulation data, col 2: rs predicted data");
          fwriteComment(fp, pString);
          fprintf(fp, "A = [\n");
-         for (ss = 0; ss < nSamples; ss++)
-            fprintf(fp, "%e %e\n",sampleOutputs[ss*nOutputs+outputID],tempV[ss]);
+         for (ss = 0; ss < nSamples_; ss++)
+            fprintf(fp,"%e %e\n",sampleOutputs_[ss*nOutputs_+outputID],tempV[ss]);
          fprintf(fp, "];\n");
          fwritePlotCLF(fp);
          fwritePlotFigure(fp, 1);
@@ -6187,7 +6355,7 @@ int PsuadeBase::interpretInteractive()
          else
          {
             fprintf(fp, "[nk,xk] = hist(A(:,1)-A(:,2),10);\n");
-            fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples);
+            fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples_);
          }
          fwritePlotAxes(fp);
          fwritePlotTitle(fp, "CV Error Plot (unscaled)");
@@ -6213,15 +6381,15 @@ int PsuadeBase::interpretInteractive()
          fwritePlotXLabel(fp, "Actual data");
          fwritePlotYLabel(fp, "Predicted data");
          fclose(fp);
-         for (ss = 0; ss < nSamples; ss++)
-            tempY[ss] = sampleOutputs[ss*nOutputs+outputID];
+         for (ss = 0; ss < nSamples_; ss++)
+            tempY[ss] = sampleOutputs_[ss*nOutputs_+outputID];
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             ddata += (tempY[ss] - tempV[ss]);
-         ddata = ddata / nSamples;
+         ddata = ddata / nSamples_;
          printf("CV avg error (unscaled) = %e\n", ddata);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             ddata += (tempY[ss] - tempV[ss]);
             if (tempY[ss] != 0.0)
@@ -6230,15 +6398,15 @@ int PsuadeBase::interpretInteractive()
                dtemp = tempY[ss];
             }
          }
-         ddata = ddata / nSamples;
+         ddata = ddata / nSamples_;
          printf("CV avg error (  scaled) = %e (base=%e)\n",ddata,dtemp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             ddata += pow(tempY[ss] - tempV[ss], 2.0);
-         ddata = sqrt(ddata / nSamples);
+         ddata = sqrt(ddata / nSamples_);
          printf("CV rms error (unscaled) = %e\n", ddata);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             ddata += pow(tempY[ss] - tempV[ss], 2.0);
             if (tempY[ss] != 0.0)
@@ -6247,15 +6415,15 @@ int PsuadeBase::interpretInteractive()
                dtemp = tempY[ss];
             }
          }
-         ddata = sqrt(ddata / nSamples);
+         ddata = sqrt(ddata / nSamples_);
          printf("CV rms error (  scaled) = %e (base=%e)\n",ddata,dtemp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             if (PABS(tempV[ss]-tempY[ss]) > ddata)
                ddata = PABS(tempY[ss] - tempV[ss]);
          printf("CV max error (unscaled) = %e\n", ddata);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             if (tempY[ss] != 0 && PABS((tempV[ss]-tempY[ss])/tempY[ss])>ddata)
             {
@@ -6265,14 +6433,14 @@ int PsuadeBase::interpretInteractive()
          }
          printf("CV max error (  scaled) = %e (base=%e)\n",ddata,dtemp);
          ddata = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             ddata += (tempY[ss] - tempV[ss]);
-         ddata = ddata / nSamples;
+         ddata = ddata / nSamples_;
          printf("CV error mean = %e\n", ddata);
          dtemp = 0.0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
             dtemp += pow(tempY[ss] - tempV[ss] - ddata, 2.0);
-         dtemp = sqrt(dtemp / (nSamples - 1.0));
+         dtemp = sqrt(dtemp / (nSamples_ - 1.0));
          printf("CV error std  = %e\n", dtemp);
          if (psPlotTool_ == 1)
               printf("rstest_cv plot file RSTest_cv.sci has been created\n");
@@ -6296,7 +6464,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rstest_gt (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -6310,16 +6478,17 @@ int PsuadeBase::interpretInteractive()
             faType = getFAType(pString);
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          thresh = -1.0;
          while (thresh < 0.5 || thresh >= 1.0)
          {
-            printf("This test partitions each input into two parts and uses\n");
-            printf("one part to predict the other part. You can decide the\n");
-            printf("percentage of the sample points for training (>= 50 percent).\n");
-            sprintf(pString, "Enter this percentage [0.5 - 1) = ");
+            printf("This test partitions each input into two parts and\n");
+            printf("uses one part to predict the other part. You can\n");
+            printf("decide the percentage of the sample points for \n");
+            printf("training (>= 50 percent).\n");
+            sprintf(pString,"Enter this percentage in fraction [0.5 - 1) = ");
             thresh = getDouble(pString);
          }
          if (psPlotTool_ == 1) fp = fopen("RSTest_gt.sci", "w");
@@ -6332,57 +6501,59 @@ int PsuadeBase::interpretInteractive()
 
          int    *acnts;
          double *ameans, *avars;
-         tempX = new double[nSamples*nInputs];
-         tempV = new double[nSamples*nInputs];
-         tempY = new double[nSamples];
-         tempW = new double[nSamples];
-         tempT = new double[nSamples];
-         ameans = new double[nInputs*2];
-         avars  = new double[nInputs*2];
-         acnts  = new int[nInputs*2];
+         tempX = new double[nSamples_*nInputs_];
+         tempV = new double[nSamples_*nInputs_];
+         tempY = new double[nSamples_];
+         tempW = new double[nSamples_];
+         tempT = new double[nSamples_];
+         ameans = new double[nInputs_*2];
+         avars  = new double[nInputs_*2];
+         acnts  = new int[nInputs_*2];
          printf("Generalization test results:\n");
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
             fprintf(fp, "A%d = [\n", ii+1);
-            ddata = thresh * (iUpperB[ii] - iLowerB[ii]) + iLowerB[ii];
+            ddata = thresh * (iUpperB_[ii] - iLowerB_[ii]) + iLowerB_[ii];
             count = count2 = 0;
-            for (ss = 0; ss < nSamples; ss++)
+            for (ss = 0; ss < nSamples_; ss++)
             { 
-               if (sampleInputs[ss*nInputs+ii] <= ddata)
+               if (sampleInputs_[ss*nInputs_+ii] <= ddata)
                {
-                  for (kk = 0; kk < nInputs; kk++)
-                     tempX[count*nInputs+kk] = sampleInputs[ss*nInputs+kk];
-                  tempY[count] = sampleOutputs[ss*nOutputs+outputID];
+                  for (kk = 0; kk < nInputs_; kk++)
+                     tempX[count*nInputs_+kk] = sampleInputs_[ss*nInputs_+kk];
+                  tempY[count] = sampleOutputs_[ss*nOutputs_+outputID];
                   count++;
                }
                else
                {
-                  for (kk = 0; kk < nInputs; kk++)
-                     tempV[count2*nInputs+kk] = sampleInputs[ss*nInputs+kk];
-                  tempW[count2] = sampleOutputs[ss*nOutputs+outputID];
+                  for (kk = 0; kk < nInputs_; kk++)
+                     tempV[count2*nInputs_+kk] = sampleInputs_[ss*nInputs_+kk];
+                  tempW[count2] = sampleOutputs_[ss*nOutputs_+outputID];
                   count2++;
                }
             }
             if (count2 == 0 || count == 0)
             {
-               printf("ERROR: for input %d - no training or test point.\n", ii+1);
+               printf("ERROR: for input %d - no training or test point.\n", 
+                      ii+1);
                continue;
             }
-            faPtr = genFA(faType, nInputs, iOne, count);
-            faPtr->setBounds(iLowerB, iUpperB);
+            faPtr = genFA(faType, nInputs_, iOne, count);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(outputLevel_);
             status = faPtr->initialize(tempX,tempY);
             faPtr->evaluatePoint(count2, tempV, tempT);
             delete faPtr;
             for (ss = 0; ss < count2; ss++)
             {
-               for (kk = 0; kk < nInputs; kk++)
-                  fprintf(fp, "%e ", tempV[ss*nInputs+kk]);
+               for (kk = 0; kk < nInputs_; kk++)
+                  fprintf(fp, "%e ", tempV[ss*nInputs_+kk]);
                fprintf(fp, "%e ", tempW[ss]);
                fprintf(fp, "%e\n", tempT[ss]);
             }
             ameans[2*ii] = 0.0;
-            for (ss = 0; ss < count2; ss++) ameans[2*ii] += (tempW[ss] - tempT[ss]);
+            for (ss = 0; ss < count2; ss++) 
+               ameans[2*ii] += (tempW[ss] - tempT[ss]);
             ameans[2*ii] /= (double) count2;
             avars[2*ii] = 0.0;
             for (ss = 0; ss < count2; ss++) 
@@ -6390,61 +6561,63 @@ int PsuadeBase::interpretInteractive()
             avars[2*ii] /= (double) count2;
             acnts[2*ii] = count2;
 
-            ddata = (1.0 - thresh) * (iUpperB[ii] - iLowerB[ii]) + iLowerB[ii];
+            ddata = (1.0 - thresh) * (iUpperB_[ii] - iLowerB_[ii]) + iLowerB_[ii];
             count = count2 = 0;
-            for (ss = 0; ss < nSamples; ss++)
+            for (ss = 0; ss < nSamples_; ss++)
             { 
-               if (sampleInputs[ss*nInputs+ii] > ddata)
+               if (sampleInputs_[ss*nInputs_+ii] > ddata)
                {
-                  for (kk = 0; kk < nInputs; kk++)
-                     tempX[count*nInputs+kk] = sampleInputs[ss*nInputs+kk];
-                  tempY[count] = sampleOutputs[ss*nOutputs+outputID];
+                  for (kk = 0; kk < nInputs_; kk++)
+                     tempX[count*nInputs_+kk] = sampleInputs_[ss*nInputs_+kk];
+                  tempY[count] = sampleOutputs_[ss*nOutputs_+outputID];
                   count++;
                }
                else
                {
-                  for (kk = 0; kk < nInputs; kk++)
-                     tempV[count2*nInputs+kk] = sampleInputs[ss*nInputs+kk];
-                  tempW[count2] = sampleOutputs[ss*nOutputs+outputID];
+                  for (kk = 0; kk < nInputs_; kk++)
+                     tempV[count2*nInputs_+kk] = sampleInputs_[ss*nInputs_+kk];
+                  tempW[count2] = sampleOutputs_[ss*nOutputs_+outputID];
                   count2++;
                }
             }
             if (count2 == 0 || count == 0)
             {
-               printf("ERROR: for input %d - no training or test point.\n",ii+1);
+               printf("ERROR: for input %d - no training or test point.\n",
+                      ii+1);
                continue;
             }
-            faPtr = genFA(faType, nInputs, iOne, count);
-            faPtr->setBounds(iLowerB, iUpperB);
+            faPtr = genFA(faType, nInputs_, iOne, count);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(outputLevel_);
             status = faPtr->initialize(tempX,tempY);
             faPtr->evaluatePoint(count2, tempV, tempT);
             delete faPtr;
             for (ss = 0; ss < count2; ss++)
             {
-               for (kk = 0; kk < nInputs; kk++)
-                  fprintf(fp, "%e ", tempV[ss*nInputs+kk]);
+               for (kk = 0; kk < nInputs_; kk++)
+                  fprintf(fp, "%e ", tempV[ss*nInputs_+kk]);
                fprintf(fp, "%e ", tempW[ss]);
                fprintf(fp, "%e\n", tempT[ss]);
             }
             fprintf(fp, "];\n");
             ameans[2*ii+1] = 0.0;
-            for (ss = 0; ss < count2; ss++) ameans[2*ii+1] += (tempW[ss] - tempT[ss]);
+            for (ss = 0; ss < count2; ss++) 
+               ameans[2*ii+1] += (tempW[ss] - tempT[ss]);
             ameans[2*ii+1] /= (double) count2;
             avars[2*ii+1] = 0.0;
             for (ss = 0; ss < count2; ss++) 
                avars[2*ii+1] += pow(tempW[ss]-tempT[ss]-ameans[2*ii+1],2.0);
             avars[2*ii+1] /= (double) count2;
             acnts[2*ii+1] = count2;
-            fprintf(fp, "xmax = max(A%d(:,%d+1));\n", ii+1, nInputs);
-            fprintf(fp, "xmin = min(A%d(:,%d+1));\n", ii+1, nInputs);
-            fprintf(fp, "ymax = max(A%d(:,%d+2));\n", ii+1, nInputs);
-            fprintf(fp, "ymin = min(A%d(:,%d+2));\n", ii+1, nInputs);
+            fprintf(fp, "xmax = max(A%d(:,%d+1));\n", ii+1, nInputs_);
+            fprintf(fp, "xmin = min(A%d(:,%d+1));\n", ii+1, nInputs_);
+            fprintf(fp, "ymax = max(A%d(:,%d+2));\n", ii+1, nInputs_);
+            fprintf(fp, "ymin = min(A%d(:,%d+2));\n", ii+1, nInputs_);
             fprintf(fp, "xmin = min(xmin, ymin);\n");
             fprintf(fp, "xmax = max(xmax, ymax);\n");
             fprintf(fp, "XX   = xmin : xmax-xmin : xmax;\n");
             fprintf(fp, "plot(A%d(:,%d+1), A%d(:,%d+2),'*', XX, XX)\n",
-                    ii+1, nInputs, ii+1, nInputs);
+                    ii+1, nInputs_, ii+1, nInputs_);
             if (psPlotTool_ == 1)
             {
                fprintf(fp, "a = gca();\n");
@@ -6457,13 +6630,13 @@ int PsuadeBase::interpretInteractive()
             fwritePlotXLabel(fp, "Actual data");
             fwritePlotYLabel(fp, "Predicted data");
             fprintf(fp, "disp('Press enter to continue to the next input')\n");
-            if (ii < nInputs-1) fprintf(fp, "pause\n");
+            if (ii < nInputs_-1) fprintf(fp, "pause\n");
          }
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            printf("Input %4d: partition 1 error mean/variance = %12.4e %12.4e (%d)\n",
+            printf("Input %4d: partition 1 error mean/var = %12.4e %12.4e (%d)\n",
                    ii+1, ameans[2*ii], avars[2*ii], acnts[2*ii]); 
-            printf("Input %4d: partition 2 error mean/variance = %12.4e %12.4e (%d)\n",
+            printf("Input %4d: partition 2 error mean/var = %12.4e %12.4e (%d)\n",
                    ii+1, ameans[2*ii+1], avars[2*ii+1], acnts[2*ii]+1); 
          }
          fclose(fp);
@@ -6497,7 +6670,7 @@ int PsuadeBase::interpretInteractive()
             printf("Note: This command is for SVM kern option RBF.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -6506,21 +6679,21 @@ int PsuadeBase::interpretInteractive()
          printf("SVM not installed.\n");
 #else
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          faType = PSUADE_RS_SVM;
          int saveMode1 = psAnaExpertMode_;
          psAnaExpertMode_ = 0;
          int saveMode2 = psRSExpertMode_;
          psRSExpertMode_ = 0;
-         faPtr = genFA(faType, nInputs, iOne, nSamples);
+         faPtr = genFA(faType, nInputs_, iOne, nSamples_);
          psAnaExpertMode_ = saveMode1;
          psRSExpertMode_ = saveMode2;
-         faPtr->setBounds(iLowerB, iUpperB);
-         tempY = new double[nSamples];
-         for (ii = 0; ii < nSamples; ii++)
-            tempY[ii] = sampleOutputs[nOutputs*ii+outputID];
+         faPtr->setBounds(iLowerB_, iUpperB_);
+         tempY = new double[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++)
+            tempY[ii] = sampleOutputs_[nOutputs_*ii+outputID];
          kk = 2;
          printf("Search for best gamma for RBF kernel.\n");
          printf("SVM tolerance can be adjusted for more accurate result.\n");
@@ -6528,11 +6701,11 @@ int PsuadeBase::interpretInteractive()
          sprintf(pString, "Enter the desired tolerance (e.g. 1e-4): ");
          tolerance = getDouble(pString);
          double gamma1=1e-10;
-         sprintf(pString, "Enter the lower bound of gamma to search (1e-6 - 1e-6): ");
+         sprintf(pString,"Enter lower bound of gamma to search (1e-6 - 1e-6): ");
          while (gamma1 < 1e-6 || gamma1 > 1e6)
             gamma1 = getDouble(pString);
          double gamma2=1e-10;
-         sprintf(pString, "Enter the upper bound of gamma to search (1e-6 - 1e-6): ");
+         sprintf(pString,"Enter upper bound of gamma to search (1e-6 - 1e-6): ");
          while (gamma2 < 1e-6 || gamma2 > 1e6 || gamma2 < gamma1)
             gamma2 = getDouble(pString);
          Ymin  = 1.0e35;
@@ -6543,12 +6716,12 @@ int PsuadeBase::interpretInteractive()
             targv[1] = (char *) &tolerance;
             targv[2] = (char *) &kk;
             faPtr->setParams(3, targv);
-            faPtr->initialize(sampleInputs, tempY);
+            faPtr->initialize(sampleInputs_, tempY);
             sumErr = maxErr = 0.0;
-            for (ii = 0; ii < nSamples; ii++)
+            for (ii = 0; ii < nSamples_; ii++)
             {
-               ddata = sampleOutputs[ii*nOutputs+outputID];
-               dtemp = faPtr->evaluatePoint(&sampleInputs[ii*nInputs]);
+               ddata = sampleOutputs_[ii*nOutputs_+outputID];
+               dtemp = faPtr->evaluatePoint(&sampleInputs_[ii*nInputs_]);
                dtemp = PABS(dtemp - ddata);
                if (dtemp > maxErr) maxErr = dtemp;
                sumErr += (dtemp * dtemp);
@@ -6583,7 +6756,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rstest_hs (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
@@ -6602,14 +6775,20 @@ int PsuadeBase::interpretInteractive()
          else fclose(fp);
          ioPtr = new PsuadeData();
          status = ioPtr->readPsuadeFile(dataFile);
+         if (status != 0)
+         {
+            printf("ERROR: file %s either not found or in wrong format.\n",
+                   dataFile);
+            continue;
+         }
          if (status == 0)
          {
             ioPtr->getParameter("output_noutputs", pPtr);
             kk = pPtr.intData_;
             if (kk > 1)
             {
-               printf("ERROR: your test data file should only have one output\n");
-               printf("       per sample point. Fix this and do this again.\n");
+               printf("ERROR: your test data file should only have 1 output\n");
+               printf("       per sample point. Fix and do this again.\n");
                status = 1;
             }
             delete ioPtr;
@@ -6618,8 +6797,8 @@ int PsuadeBase::interpretInteractive()
          if (status == 0)
          {
             outputID = 0;
-            sprintf(pString,"Enter output number (1 - %d) = ",nOutputs);
-            outputID = getInt(1, nOutputs, pString);
+            sprintf(pString,"Enter output number (1 - %d) = ",nOutputs_);
+            outputID = getInt(1, nOutputs_, pString);
             outputID--;
             faType = -1;
             faLimit = 9;
@@ -6650,9 +6829,9 @@ int PsuadeBase::interpretInteractive()
                xsforms[1] = 0;
             }
             int discFile=1, nInps, nOuts;
-            printf("Have a discrepancy model file? If so, enter name (enter n otherwise): ");
+            printf("Name of the discrepancy model file? (enter n if none): ");
             scanf("%s", winput);
-            fgets(lineIn,500,stdin); 
+            fgets(lineIn,5000,stdin); 
             if (!strcmp(winput, "NONE") || winput[0] == 'n') discFile = 0;
             else
             {
@@ -6662,10 +6841,11 @@ int PsuadeBase::interpretInteractive()
                {
                   ioPtr->getParameter("input_ninputs", pPtr);
                   nInps = pPtr.intData_;
-                  if (nInps < nInputs)
+                  if (nInps < nInputs_)
                   {
-                     printf("ERROR: your sample has %d inputs but\n", nInputs);
-                     printf("       your discrepancy model has %d inputs.\n", nInps);
+                     printf("ERROR: your sample has %d inputs but\n", nInputs_);
+                     printf("       your discrepancy model has %d inputs.\n",
+                            nInps);
                      delete ioPtr;
                      ioPtr = NULL;
                      delete [] xsforms;
@@ -6689,41 +6869,46 @@ int PsuadeBase::interpretInteractive()
                }
                else
                {
-                  printf("ERROR: in reading the discrepancy model file %s.\n",winput);
+                  printf("ERROR: in reading the discrepancy model file %s.\n",
+                         winput);
                   discFile = 0;
                   delete ioPtr;
                   ioPtr = NULL;
                   continue;
                }
             }
-            double *samOuts = new double[nSamples];
-            for (ii = 0; ii < nSamples; ii++) 
-               samOuts[ii] = sampleOutputs[ii*nOutputs+outputID];
+            double *samOuts = new double[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++) 
+               samOuts[ii] = sampleOutputs_[ii*nOutputs_+outputID];
             if (discFile == 1)
             {
                if (psMasterMode_ == 1)
                {
                   fp = fopen("rstest_hs_data", "w");
                   if (fp != NULL)
-                     fprintf(fp,"%% Col 2: RS estimate, Col 3: model correction.\n");
+                  {
+                     fprintf(fp,"%% Col 2: RS estimate, \n");
+                     fprintf(fp,"%% Col 3: model correction.\n");
+                  }
                }
                else fp = NULL; 
                   
-               for (ii = 0; ii < nSamples; ii++)
+               for (ii = 0; ii < nSamples_; ii++)
                {
-                  dtemp = faPtrsRsEval[0]->evaluatePoint(&sampleInputs[ii*nInputs]);
+                  dtemp = 
+                     faPtrsRsEval[0]->evaluatePoint(&sampleInputs_[ii*nInputs_]);
                   if (fp != NULL) 
                   {
                      fprintf(fp, "%6d ",ii+1);
-                     for (jj = 0; jj < nInputs; jj++)
-                        fprintf(fp, "%12.4e ",sampleInputs[ii*nInputs+jj]);
+                     for (jj = 0; jj < nInputs_; jj++)
+                        fprintf(fp, "%12.4e ",sampleInputs_[ii*nInputs_+jj]);
                      fprintf(fp, " %12.4e %12.4e\n",samOuts[ii],dtemp);
                   }
                   samOuts[ii] += dtemp;
                }
                if (fp != NULL)
                {
-                  printf("rstest_hs_data contains simulations plus discrepancies.\n");
+                  printf("rstest_hs_data has simulations and discrepancies.\n");
                   fclose(fp);
                }
             }
@@ -6732,18 +6917,18 @@ int PsuadeBase::interpretInteractive()
             anaManager->setup(analysisMethod, faType);
             anaManager->loadLogXsformFlags(2, xsforms);
             aPtr.printLevel_ = outputLevel_;
-            aPtr.sampleInputs_ = sampleInputs;
+            aPtr.sampleInputs_ = sampleInputs_;
             aPtr.sampleOutputs_ = samOuts;
-            aPtr.nSamples_ = nSamples;
-            aPtr.nInputs_ = nInputs;
+            aPtr.nSamples_ = nSamples_;
+            aPtr.nInputs_ = nInputs_;
             aPtr.nOutputs_ = 1;
-            aPtr.iLowerB_ = iLowerB;
-            aPtr.iUpperB_ = iUpperB;
+            aPtr.iLowerB_ = iLowerB_;
+            aPtr.iUpperB_ = iUpperB_;
             aPtr.outputID_ = 0;
             aPtr.faType_ = faType;
             aPtr.regWgtID_ = -1;
             aPtr.ioPtr_ = NULL;
-            aPtr.sampleStates_ = sampleStates;
+            aPtr.sampleStates_ = sampleStates_;
             strcpy(pString, "validate");
             targv[0] = (char *) pString;
             targv[1] = (char *) &aPtr;
@@ -6802,17 +6987,17 @@ int PsuadeBase::interpretInteractive()
          if (ind == 1)
          {
             sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_FACT);
-            count = (int) pow(2.0, 1.0*nInputs);
+            count = (int) pow(2.0, 1.0*nInputs_);
             if (count > 10000)
-               printf("nSamples = %d may be too large.\n", nSamples);
+               printf("nSamples = %d may be too large.\n", nSamples_);
          }
          else if (ind == 2)
          {
             sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_FF5);
             count = 128;
-            if (nInputs > 11)
+            if (nInputs_ > 11)
             {
-               printf("nInputs = %d too large for FF5.\n", nInputs);
+               printf("nInputs = %d too large for FF5.\n", nInputs_);
                continue;
             }
          }
@@ -6820,30 +7005,30 @@ int PsuadeBase::interpretInteractive()
          {
             sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_FF4);
             count = 64;
-            if (nInputs > 32)
+            if (nInputs_ > 32)
             {
-               printf("nInputs = %d too large for FF4.\n", nInputs);
+               printf("nInputs = %d too large for FF4.\n", nInputs_);
                continue;
             }
          }
          sampPtr->setPrintLevel(PL_INTERACTIVE);
-         sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-         sampPtr->setOutputParams(nOutputs);
+         sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+         sampPtr->setOutputParams(nOutputs_);
          sampPtr->setSamplingParams(count, -1, 0);
          sampPtr->initialize(0);
          count = sampPtr->getNumSamples();
-         tempX  = new double[count * nInputs];
-         tempY  = new double[count * nOutputs];
+         tempX  = new double[count * nInputs_];
+         tempY  = new double[count * nOutputs_];
          states = new int[count];
-         sampPtr->getSamples(count,nInputs,nOutputs,tempX,tempY,states);
+         sampPtr->getSamples(count,nInputs_,nOutputs_,tempX,tempY,states);
          delete sampPtr;
          sampPtr = NULL;
-         int    *iPDFs = new int[nInputs];
-         double *iMeans = new double[nInputs];
-         double *iStds = new double[nInputs];
+         int    *iPDFs = new int[nInputs_];
+         double *iMeans = new double[nInputs_];
+         double *iStds = new double[nInputs_];
          Matrix *iCMat = new Matrix();
-         iCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         iCMat->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
             iPDFs[ii] = 0;
             iMeans[ii] = 0;
@@ -6851,15 +7036,15 @@ int PsuadeBase::interpretInteractive()
             iCMat->setEntry(ii,ii,1.0);
          }
          ioPtr = new PsuadeData();
-         ioPtr->updateInputSection(count, nInputs, NULL, iLowerB,
-                                   iUpperB, tempX, inputNames, iPDFs, 
+         ioPtr->updateInputSection(count, nInputs_, NULL, iLowerB_,
+                                   iUpperB_, tempX, inputNames_, iPDFs, 
                                    iMeans, iStds, iCMat);
          delete [] iPDFs;
          delete [] iMeans;
          delete [] iStds;
          delete iCMat;
-         ioPtr->updateOutputSection(count, nOutputs, tempY, states, 
-                                    outputNames); 
+         ioPtr->updateOutputSection(count, nOutputs_, tempY, states, 
+                                    outputNames_); 
          ioPtr->updateMethodSection(PSUADE_SAMP_MC, count, 1, -1, -1);
          ioPtr->writePsuadeFile("psuade_rs_test.data",0);
          printf("The test sample is in file psuade_rs_test.data.\n"); 
@@ -6869,24 +7054,24 @@ int PsuadeBase::interpretInteractive()
          delete ioPtr;
       }
 
-      // +++ int 
-      else if (!strcmp(command, "int"))
+      // +++ rsint 
+      else if (!strcmp(command, "rsint"))
       {
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("int: numerical integration(volume under sample surface)\n");
+            printf("rsint: compute volume under sample surface)\n");
             printf("syntax: int (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_INTEGRATION;
          anaManager = new AnalysisManager();
@@ -6913,23 +7098,23 @@ int PsuadeBase::interpretInteractive()
             printf("that is feasible in view of constraints.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          Ymax = - 1.0e35;
          Ymin =   1.0e35;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
          }
          sprintf(pString,"Enter the lower bound constraint (Ymin=%e) : ",
                  Ymin);
@@ -6948,23 +7133,23 @@ int PsuadeBase::interpretInteractive()
          psuadeIO_->updateAnalysisSection(-1, -1, -1, -1, outputID,-1); 
          faPtr = genFAInteractive(psuadeIO_, faFlag);
          faPtr->setOutputLevel(outputLevel_);
-         if (nInputs <= 51) 
+         if (nInputs_ <= 51) 
               sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_LPTAU);
          else sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_MC);
          sampPtr->setPrintLevel(PL_INTERACTIVE);
-         sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
+         sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
          sampPtr->setOutputParams(1);
          kk = 1000000;
          sampPtr->setSamplingParams(kk, 1, 0);
          sampPtr->initialize(0);
-         tempX = new double[kk*nInputs];
+         tempX = new double[kk*nInputs_];
          tempY = new double[kk];
          states = new int[kk];
-         sampPtr->getSamples(kk, nInputs, 1, tempX, tempY, states);
+         sampPtr->getSamples(kk, nInputs_, 1, tempX, tempY, states);
          count = 0;
          for (ii = 0; ii < kk; ii++)
          {
-            dtemp = faPtr->evaluatePoint(&tempX[ii*nInputs]);
+            dtemp = faPtr->evaluatePoint(&tempX[ii*nInputs_]);
             if (dtemp >= threshL && dtemp <= threshU) count++; 
          } 
          printf("rsvol: percentage inside the constrained region = %5.2f%%.\n",
@@ -6994,21 +7179,21 @@ int PsuadeBase::interpretInteractive()
                !strcmp(command, "rs3m") || !strcmp(command, "rssd") ||
                !strcmp(command, "rssd_ua") ||
                !strcmp(command, "rsi2") || !strcmp(command, "rsi3") ||
-               !strcmp(command, "rsi3m"))
+               !strcmp(command, "rsi3m") || !strcmp(command, "rsadd"))
 
       {
          newSession = new PsuadeSession();
          newSession->outputLevel_ = outputLevel_;
-         newSession->nInputs_ = nInputs;
-         newSession->nOutputs_ = nOutputs;
-         newSession->nSamples_ = nSamples;
-         newSession->sampleInputs_ = sampleInputs;
-         newSession->sampleOutputs_ = sampleOutputs;
-         newSession->sampleStates_ = sampleStates;
-         newSession->inputLBounds_ = iLowerB;
-         newSession->inputUBounds_ = iUpperB;
-         newSession->inputNames_ = inputNames;
-         newSession->outputNames_ = outputNames;
+         newSession->nInputs_ = nInputs_;
+         newSession->nOutputs_ = nOutputs_;
+         newSession->nSamples_ = nSamples_;
+         newSession->sampleInputs_ = sampleInputs_;
+         newSession->sampleOutputs_ = sampleOutputs_;
+         newSession->sampleStates_ = sampleStates_;
+         newSession->inputLBounds_ = iLowerB_;
+         newSession->inputUBounds_ = iUpperB_;
+         newSession->inputNames_ = inputNames_;
+         newSession->outputNames_ = outputNames_;
          newSession->psuadeIO_ = psuadeIO_;
          RSBasedAnalysis(lineIn, newSession);
          delete newSession;
@@ -7022,53 +7207,53 @@ int PsuadeBase::interpretInteractive()
       {
          newSession = new PsuadeSession();
          newSession->outputLevel_ = outputLevel_;
-         newSession->nInputs_ = nInputs;
-         newSession->nOutputs_ = nOutputs;
-         newSession->nSamples_ = nSamples;
-         newSession->sampleInputs_ = sampleInputs;
-         newSession->sampleOutputs_ = sampleOutputs;
-         newSession->sampleStates_ = sampleStates;
-         newSession->inputLBounds_ = iLowerB;
-         newSession->inputUBounds_ = iUpperB;
-         newSession->inputNames_ = inputNames;
-         newSession->outputNames_ = outputNames;
+         newSession->nInputs_ = nInputs_;
+         newSession->nOutputs_ = nOutputs_;
+         newSession->nSamples_ = nSamples_;
+         newSession->sampleInputs_ = sampleInputs_;
+         newSession->sampleOutputs_ = sampleOutputs_;
+         newSession->sampleStates_ = sampleStates_;
+         newSession->inputLBounds_ = iLowerB_;
+         newSession->inputUBounds_ = iUpperB_;
+         newSession->inputNames_ = inputNames_;
+         newSession->outputNames_ = outputNames_;
          newSession->psuadeIO_ = psuadeIO_;
          RSBasedAnalysis(lineIn, newSession);
          delete newSession;
          newSession = NULL;
-         if (inputNames != NULL)
+         if (inputNames_ != NULL)
          {
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL) delete [] inputNames[ii];
-            delete [] inputNames;
+            for (ii = 0; ii < nInputs_; ii++)
+               if (inputNames_[ii] != NULL) delete [] inputNames_[ii];
+            delete [] inputNames_;
          }
-         inputNames = NULL;
-         if (outputNames != NULL)
+         inputNames_ = NULL;
+         if (outputNames_ != NULL)
          {
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL) delete [] outputNames[ii];
-            delete [] outputNames;
+            for (ii = 0; ii < nOutputs_; ii++)
+               if (outputNames_[ii] != NULL) delete [] outputNames_[ii];
+            delete [] outputNames_;
          }
-         outputNames = NULL;
-         if (sampleInputs != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates != NULL) delete [] sampleStates;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (inputPDFs     != NULL) delete [] inputPDFs;
-         if (inputMeans    != NULL) delete [] inputMeans;
-         if (inputStds     != NULL) delete [] inputStds;
-         if (inputCMat     != NULL) delete inputCMat;
-         sampleInputs = NULL;
-         sampleOutputs = NULL;
-         sampleStates = NULL;
-         iLowerB       = NULL;
-         iUpperB       = NULL;
-         inputPDFs     = NULL;
-         inputMeans    = NULL;
-         inputStds     = NULL;
-         inputCMat     = NULL;
-         nInputs = nOutputs = nSamples = 0;
+         outputNames_ = NULL;
+         if (sampleInputs_  != NULL) delete [] sampleInputs_;
+         if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+         if (sampleStates_  != NULL) delete [] sampleStates_;
+         if (iLowerB_       != NULL) delete [] iLowerB_;
+         if (iUpperB_       != NULL) delete [] iUpperB_;
+         if (inputPDFs_     != NULL) delete [] inputPDFs_;
+         if (inputMeans_    != NULL) delete [] inputMeans_;
+         if (inputStds_     != NULL) delete [] inputStds_;
+         if (inputCMat_     != NULL) delete inputCMat_;
+         sampleInputs_  = NULL;
+         sampleOutputs_ = NULL;
+         sampleStates_  = NULL;
+         iLowerB_       = NULL;
+         iUpperB_       = NULL;
+         inputPDFs_     = NULL;
+         inputMeans_    = NULL;
+         inputStds_     = NULL;
+         inputCMat_     = NULL;
+         nInputs_ = nOutputs_ = nSamples_ = 0;
          printf("LOADED DATA IN LOCAL MEMORY HAVE BEEN ERASED.\n");
          printf("RE-LOAD THE ORIGINAL DATA FILE FOR MORE ANALYSIS.\n");
       }
@@ -7083,18 +7268,18 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: pca (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         aPtr.nSamples_ = nSamples;
-         aPtr.nInputs_ = nInputs;
-         aPtr.nOutputs_ = nOutputs;
-         aPtr.iLowerB_ = iLowerB;
-         aPtr.iUpperB_ = iUpperB;
-         aPtr.sampleInputs_ = sampleInputs;
-         aPtr.sampleOutputs_ = sampleOutputs;
+         aPtr.nSamples_ = nSamples_;
+         aPtr.nInputs_  = nInputs_;
+         aPtr.nOutputs_ = nOutputs_;
+         aPtr.iLowerB_  = iLowerB_;
+         aPtr.iUpperB_  = iUpperB_;
+         aPtr.sampleInputs_ = sampleInputs_;
+         aPtr.sampleOutputs_ = sampleOutputs_;
          aPtr.printLevel_ = outputLevel_;
          anaManager = new AnalysisManager();
          analysisMethod = PSUADE_ANA_PCA;
@@ -7107,27 +7292,27 @@ int PsuadeBase::interpretInteractive()
          delete anaManager;
          psuadeIO_->getParameter("output_noutputs", pPtr);
          kk = pPtr.intData_;
-         if (kk != nOutputs) 
+         if (kk != nOutputs_) 
          {
-            if (outputNames != NULL) 
+            if (outputNames_ != NULL) 
             {
-               for (ii = 0; ii < nOutputs; ii++)
-                  delete [] outputNames[ii];
-               delete [] outputNames;
+               for (ii = 0; ii < nOutputs_; ii++)
+                  delete [] outputNames_[ii];
+               delete [] outputNames_;
             }
-            nOutputs = kk;
+            nOutputs_ = kk;
             pONames.clean();
             psuadeIO_->getParameter("output_names", pONames);
             names = pONames.strArray_;
-            outputNames = new char*[nOutputs+1];
-            for (ii = 0; ii < nOutputs; ii++)
+            outputNames_ = new char*[nOutputs_+1];
+            for (ii = 0; ii < nOutputs_; ii++)
             {
-               outputNames[ii] = new char[200]; 
-               strcpy(outputNames[ii], names[ii]);
+               outputNames_[ii] = new char[200]; 
+               strcpy(outputNames_[ii], names[ii]);
             }
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
+            if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
             psuadeIO_->getParameter("output_sample", pPtr);
-            sampleOutputs   = pPtr.dbleArray_;
+            sampleOutputs_   = pPtr.dbleArray_;
             pPtr.dbleArray_ = NULL;
          }
       }
@@ -7164,7 +7349,7 @@ int PsuadeBase::interpretInteractive()
          anaManager->setup(analysisMethod, 0);
          anaManager->analyze(analysisMethod);
          delete anaManager;
-         fgets(lineIn,500,stdin); 
+         fgets(lineIn,5000,stdin); 
       }
 
       // +++ iplot1
@@ -7177,14 +7362,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: iplot1 (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
          iplot1 = -1;
-         sprintf(pString, "Enter the input number (1 - %d) : ", nInputs);
-         iplot1 = getInt(1, nInputs, pString);
+         sprintf(pString, "Enter the input number (1 - %d) : ", nInputs_);
+         iplot1 = getInt(1, nInputs_, pString);
          iplot1--;
 
          if (psPlotTool_ == 1)
@@ -7197,16 +7382,16 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs] > 0.5*PSUADE_UNDEFINED ||
-                   sampleStates[sInd] != 1)
-                  fprintf(fp, "%e 0\n",sampleInputs[sInd*nInputs+iplot1]);
+               if (sampleOutputs_[sInd*nOutputs_] > 0.5*PSUADE_UNDEFINED ||
+                   sampleStates_[sInd] != 1)
+                  fprintf(fp, "%e 0\n",sampleInputs_[sInd*nInputs_+iplot1]);
                else
-                  fprintf(fp, "%e 1\n",sampleInputs[sInd*nInputs+iplot1]);
+                  fprintf(fp, "%e 1\n",sampleInputs_[sInd*nInputs_+iplot1]);
             }
             fprintf(fp, "];\n");
-            fprintf(fp, "n = %d;\n", nSamples);
+            fprintf(fp, "n = %d;\n", nSamples_);
             fprintf(fp, "ia = find(X(:,2) == 0);\n");
             fprintf(fp, "if (length(ia) > 0)\n");
             fprintf(fp, "   plot(ia, X(ia,1),'rX','markerSize',13)\n");
@@ -7219,8 +7404,8 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
             fprintf(fp, "minX = min(X(:,1)); maxX = max(X(:,1));\n");
             fprintf(fp, "a = gca();\n");
-            fprintf(fp, "a.data_bounds=[0,minX;%d,maxX];\n",nSamples);
-            fwritePlotYLabel(fp, inputNames[iplot1]);
+            fprintf(fp, "a.data_bounds=[0,minX;%d,maxX];\n",nSamples_);
+            fwritePlotYLabel(fp, inputNames_[iplot1]);
             fwritePlotXLabel(fp, "Sample Number");
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "1D Input Data Plot");
@@ -7237,13 +7422,13 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs] > 0.5*PSUADE_UNDEFINED ||
-                   sampleStates[sInd] != 1)
-                  fprintf(fp, "%e 0\n",sampleInputs[sInd*nInputs+iplot1]);
+               if (sampleOutputs_[sInd*nOutputs_] > 0.5*PSUADE_UNDEFINED ||
+                   sampleStates_[sInd] != 1)
+                  fprintf(fp, "%e 0\n",sampleInputs_[sInd*nInputs_+iplot1]);
                else
-                  fprintf(fp, "%e 1\n",sampleInputs[sInd*nInputs+iplot1]);
+                  fprintf(fp, "%e 1\n",sampleInputs_[sInd*nInputs_+iplot1]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "iset = find(X(:,2)==0);\n");
@@ -7252,8 +7437,8 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "iset = find(X(:,2)==1);\n");
             fprintf(fp, "plot(iset,X(iset,1),'b*','MarkerSize',13)\n");
             fprintf(fp, "hold off\n");
-            fprintf(fp, "axis([0 %d min(X(:,1)) max(X(:,1))])\n", nSamples);
-            fwritePlotYLabel(fp, inputNames[iplot1]);
+            fprintf(fp, "axis([0 %d min(X(:,1)) max(X(:,1))])\n", nSamples_);
+            fwritePlotYLabel(fp, inputNames_[iplot1]);
             fwritePlotXLabel(fp, "Sample Number");
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "1D Input Data Plot");
@@ -7274,30 +7459,30 @@ int PsuadeBase::interpretInteractive()
             printf("parameter space failed runs are.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: iplot2 requires 2 or more inputs.\n");
             continue;
          }
          iplot1 = iplot2 = -1;
-         sprintf(pString, "Enter the input for x axis (1 - %d) : ", nInputs);
-         iplot1 = getInt(1, nInputs, pString);
+         sprintf(pString, "Enter the input for x axis (1 - %d) : ", nInputs_);
+         iplot1 = getInt(1, nInputs_, pString);
          iplot1--;
-         if (nInputs == 2)
+         if (nInputs_ == 2)
          {
             if (iplot1 == 0) iplot2 = 1;
             else             iplot2 = 0;
          }
-         while (iplot2 < 0 || iplot2 >= nInputs || iplot1 == iplot2)
+         while (iplot2 < 0 || iplot2 >= nInputs_ || iplot1 == iplot2)
          {
             sprintf(pString, "Enter the input for y axis (1 - %d), not %d : ",
-                    nInputs, iplot1+1);
-            iplot2 = getInt(1, nInputs, pString);
+                    nInputs_, iplot1+1);
+            iplot2 = getInt(1, nInputs_, pString);
             iplot2--;
             if (iplot2 == iplot1)
             {
@@ -7316,14 +7501,14 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs] > 0.5*PSUADE_UNDEFINED)
-                  fprintf(fp, "%e %e 0\n",sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2]);
+               if (sampleOutputs_[sInd*nOutputs_] > 0.5*PSUADE_UNDEFINED)
+                  fprintf(fp, "%e %e 0\n",sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2]);
                else
-                  fprintf(fp, "%e %e 1\n",sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2]);
+                  fprintf(fp, "%e %e 1\n",sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "ia = find(X(:,3) == 0);\n");
@@ -7338,10 +7523,10 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
             fprintf(fp, "a=gca();\n");
             fprintf(fp, "a.data_bounds=[%e,%e;%e,%e];\n",
-                    iLowerB[iplot1], iLowerB[iplot2],
-                    iUpperB[iplot1], iUpperB[iplot2]);
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
+                    iLowerB_[iplot1], iLowerB_[iplot2],
+                    iUpperB_[iplot1], iUpperB_[iplot2]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
             fwritePlotTitle(fp, "2D Input Data Plot");
             fwritePlotAxes(fp);
             fprintf(fp,"disp('red X: failed runs.')\n");
@@ -7359,17 +7544,17 @@ int PsuadeBase::interpretInteractive()
             fwritePlotCLF(fp);
             fprintf(fp, "ranflag = 0;\n");
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs] > 0.5*PSUADE_UNDEFINED ||
-                   sampleStates[sInd] != 1)
+               if (sampleOutputs_[sInd*nOutputs_] > 0.5*PSUADE_UNDEFINED ||
+                   sampleStates_[sInd] != 1)
                   fprintf(fp, "%24.16e %24.16e 0\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2]);
                else
                   fprintf(fp, "%24.16e %24.16e 1\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2]);
             }
             fprintf(fp,"];\n");
             fprintf(fp,"iset = find(X(:,3)==0);\n");
@@ -7382,10 +7567,10 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp,"X(iset,2).*(1+ranflag*rand(size(iset,1),1)/100),'b*',");
             fprintf(fp,"'markerSize',13)\n");
             fprintf(fp,"hold off\n");
-            fprintf(fp,"axis([%e %e %e %e])\n", iLowerB[iplot1], iUpperB[iplot1],
-                    iLowerB[iplot2], iUpperB[iplot2]);
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
+            fprintf(fp,"axis([%e %e %e %e])\n", iLowerB_[iplot1], iUpperB_[iplot1],
+                    iLowerB_[iplot2], iUpperB_[iplot2]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "2D Input Data Plot");
             fprintf(fp,"disp('red X: failed runs.')\n");
@@ -7404,17 +7589,17 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: splot2 (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
             printf("ERROR: splot2 requires 2 or more inputs.\n");
             continue;
          }
-         if (nInputs == 2)
+         if (nInputs_ == 2)
          {
             iplot1 = 0;
             iplot2 = 1;
@@ -7423,25 +7608,25 @@ int PsuadeBase::interpretInteractive()
          {
             iplot1 = iplot2 = -1;
             sprintf(pString, "X-axis input ? (1 - %d) ",
-                    nInputs);
-            iplot1 = getInt(1, nInputs, pString);
+                    nInputs_);
+            iplot1 = getInt(1, nInputs_, pString);
             iplot1--;
             iplot2 = iplot1;
             while (iplot1 == iplot2)
             {
                sprintf(pString, "Y-axis input ? (1 - %d, not %d) ",
-                       nInputs, iplot1+1);
-               iplot2 = getInt(1, nInputs, pString);
+                       nInputs_, iplot1+1);
+               iplot2 = getInt(1, nInputs_, pString);
                iplot2--;
                if (iplot1 == iplot2)
                   printf("ERROR: duplicate input number %d.\n",iplot2+1);
             }
          }
-         if (nOutputs == 1) oplot1 = 0;
+         if (nOutputs_ == 1) oplot1 = 0;
          else
          {
-            sprintf(pString, "Z-axis output ? (1 - %d) : ",nOutputs);
-            oplot1 = getInt(1, nOutputs, pString);
+            sprintf(pString, "Z-axis output ? (1 - %d) : ",nOutputs_);
+            oplot1 = getInt(1, nOutputs_, pString);
             oplot1--;
          }
 
@@ -7455,19 +7640,19 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               dtemp = sampleOutputs[sInd*nOutputs+oplot1];
-               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates[sInd] != 1)
+               dtemp = sampleOutputs_[sInd*nOutputs_+oplot1];
+               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates_[sInd] != 1)
                   fprintf(fp, "%e %e %e 0\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleOutputs[sInd*nOutputs+oplot1]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleOutputs_[sInd*nOutputs_+oplot1]);
                else
                   fprintf(fp, "%e %e %e 1\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleOutputs[sInd*nOutputs+oplot1]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleOutputs_[sInd*nOutputs_+oplot1]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "f = gcf();\n");
@@ -7502,9 +7687,9 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "end\n");
             fprintf(fp, "drawnow\n");
             fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
-            fwritePlotZLabel(fp, outputNames[oplot1]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, outputNames_[oplot1]);
             fwritePlotTitle(fp, "3D 2-Input/1-Output Data Plot");
             fwritePlotAxes(fp);
             fprintf(fp,"disp('red  *: failed runs.')\n");
@@ -7522,19 +7707,19 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               dtemp = sampleOutputs[sInd*nOutputs+oplot1];
-               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates[sInd] != 1)
+               dtemp = sampleOutputs_[sInd*nOutputs_+oplot1];
+               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates_[sInd] != 1)
                   fprintf(fp, "%e %e %e 0\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleOutputs[sInd*nOutputs+oplot1]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleOutputs_[sInd*nOutputs_+oplot1]);
                else
                   fprintf(fp, "%e %e %e 1\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleOutputs[sInd*nOutputs+oplot1]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleOutputs_[sInd*nOutputs_+oplot1]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "iset = find(X(:,4)==0);\n");
@@ -7549,15 +7734,130 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "'MarkerSize',13)\n");
             fprintf(fp, "end;\n");
             fprintf(fp, "hold off\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
-            fwritePlotZLabel(fp, outputNames[oplot1]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, outputNames_[oplot1]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "3D 2-Input/1-Output Data Plot");
             fprintf(fp,"disp('red  *: failed runs.')\n");
             fprintf(fp,"disp('blue X: good   runs.')\n"); 
             fclose(fp);    
             printf("matlabsp2.m is now ready for input scatter plots.\n");
+         }
+      }
+
+      // +++ splot3
+      else if (!strcmp(command, "splot3"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("splot3: scatter plot 3-inputs/1-output in 3D\n");
+            printf("syntax: splot3 (no argument needed)\n");
+            continue;
+         }
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
+         {
+            printf("ERROR: data not loaded yet.\n");
+            continue;
+         }
+         if (nInputs_ < 3)
+         {
+            printf("ERROR: splot2 requires 3 or more inputs.\n");
+            continue;
+         }
+         if (nInputs_ == 3)
+         {
+            iplot1 = 0;
+            iplot2 = 1;
+            iplot3 = 2;
+         }
+         else
+         {
+            sprintf(pString, "X-axis input ? (1 - %d) ", nInputs_);
+            iplot1 = getInt(1, nInputs_, pString);
+            iplot1--;
+            sprintf(pString, "Y-axis input ? (1 - %d) ", nInputs_);
+            iplot2 = getInt(1, nInputs_, pString);
+            iplot2--;
+            sprintf(pString, "Z-axis input ? (1 - %d) ", nInputs_);
+            iplot3 = getInt(1, nInputs_, pString);
+            iplot3--;
+         }
+         if (nOutputs_ == 1) oplot1 = 0;
+         else
+         {
+            sprintf(pString, "Which output ? (1 - %d) : ",nOutputs_);
+            oplot1 = getInt(1, nOutputs_, pString);
+            oplot1--;
+         }
+
+         if (psPlotTool_ == 1)
+         {
+            printf("ERROR: this command is currently not supported on scilab.\n");
+         }
+         else
+         {
+            fp = fopen("matlabsp3.m", "w");
+            if (fp == NULL)
+            {
+               printf("ERROR: cannot open file matlabsp3.m.\n");
+               continue;
+            }
+            fwritePlotCLF(fp);
+            fprintf(fp, "scale = 1;\n");
+            fprintf(fp, "X = [\n");
+            for (sInd = 0; sInd < nSamples_; sInd++)
+            {
+               dtemp = sampleOutputs_[sInd*nOutputs_+oplot1];
+               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates_[sInd] != 1)
+                  fprintf(fp, "%e %e %e %e 0\n",
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleInputs_[sInd*nInputs_+iplot3],
+                          sampleOutputs_[sInd*nOutputs_+oplot1]);
+               else
+                  fprintf(fp, "%e %e %e %e 1\n",
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleInputs_[sInd*nInputs_+iplot3],
+                          sampleOutputs_[sInd*nOutputs_+oplot1]);
+            }
+            fprintf(fp, "];\n");
+            fprintf(fp, "ymin = min(X(:,4));\n");
+            fprintf(fp, "ywid = max(X(:,4)) - ymin;\n");
+            fprintf(fp, "if (ywid == 0)\n");
+            fprintf(fp, "  ywid = 1;\n");
+            fprintf(fp, "end;\n");
+            fprintf(fp, "ywid = 1 / ywid;\n");
+            fprintf(fp, "for ii = 1 : %d\n", nSamples_);
+            fprintf(fp, "  if X(ii,5) == 0\n");
+            fprintf(fp, "    dsize = (X(ii,4) - ymin) * ywid;\n");
+            fprintf(fp, "    isize = ceil((dsize * 100 + 10)*scale);\n");
+            fprintf(fp, "    plot3(X(ii,1),X(ii,2),X(ii,3),'r.',");
+            fprintf(fp, "'MarkerSize',isize)\n");
+            fprintf(fp, "  else\n");
+            fprintf(fp, "    dsize = (X(ii,4) - ymin) * ywid;\n");
+            fprintf(fp, "    isize = ceil((dsize * 100 + 10)*scale);\n");
+            fprintf(fp, "    plot3(X(ii,1),X(ii,2),X(ii,3),'b.',");
+            fprintf(fp, "'MarkerSize',isize)\n");
+            fprintf(fp, "  end;\n");
+            fprintf(fp, "  if ii == 1\n");
+            fprintf(fp, "    hold on\n");
+            fprintf(fp, "  end;\n");
+            fprintf(fp, "end;\n");
+            fprintf(fp, "hold off\n");
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, outputNames_[iplot3]);
+            fwritePlotAxes(fp);
+            fwritePlotTitle(fp, "3D 3-Input/1-Output Data Plot");
+            fprintf(fp,"disp('red  *: failed runs.')\n");
+            fprintf(fp,"disp('blue X: good   runs.')\n"); 
+            fprintf(fp,"disp('Note: sizes of the dots are output magnitudes.')\n");
+            fprintf(fp,"disp('Note: use scale to adjust relative sizes of dots')\n");
+            fclose(fp);    
+            printf("matlabsp3.m is now ready for input scatter plots.\n");
          }
       }
 
@@ -7573,37 +7873,37 @@ int PsuadeBase::interpretInteractive()
             printf("parameter space failed runs are.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         if (nInputs < 3)
+         if (nInputs_ < 3)
          {
             printf("ERROR: iplot3 requires 3 or more inputs.\n");
             continue;
          }
          iplot1 = iplot2 = iplot3 = -1;
-         sprintf(pString, "Enter the input for x axis (1 - %d) : ", nInputs);
-         iplot1 = getInt(1, nInputs, pString);
+         sprintf(pString, "Enter the input for x axis (1 - %d) : ", nInputs_);
+         iplot1 = getInt(1, nInputs_, pString);
          iplot1--;
          iplot2 = iplot1;
          while (iplot1 == iplot2)
          {
             sprintf(pString,"Enter the input for y axis (1 - %d), not %d : ",
-                    nInputs, iplot1+1);
-            iplot2 = getInt(1, nInputs, pString);
+                    nInputs_, iplot1+1);
+            iplot2 = getInt(1, nInputs_, pString);
             iplot2--;
             if (iplot1 == iplot2)
                printf("ERROR: duplicate input number %d.\n",iplot2+1);
          }
-         if (nInputs == 3) iplot3 = 3 - iplot1 - iplot2;
+         if (nInputs_ == 3) iplot3 = 3 - iplot1 - iplot2;
          while (iplot3 < 0 || iplot3 == iplot1 || iplot3 == iplot2)
          {
             sprintf(pString,
                     "Enter the input for z axis (1 - %d), not %d nor %d: ",
-                    nInputs, iplot1+1, iplot2+1);
-            iplot3 = getInt(1, nInputs, pString);
+                    nInputs_, iplot1+1, iplot2+1);
+            iplot3 = getInt(1, nInputs_, pString);
             iplot3--;
             if (iplot3 == iplot1 || iplot3 == iplot2)
                printf("ERROR: duplicate input number %d.\n",iplot3+1);
@@ -7619,19 +7919,19 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               dtemp = sampleOutputs[sInd*nOutputs];
-               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates[sInd] != 1)
+               dtemp = sampleOutputs_[sInd*nOutputs_];
+               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates_[sInd] != 1)
                   fprintf(fp, "%e %e %e 0\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleInputs[sInd*nInputs+iplot3]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleInputs_[sInd*nInputs_+iplot3]);
                else
                   fprintf(fp, "%e %e %e 1\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleInputs[sInd*nInputs+iplot3]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleInputs_[sInd*nInputs_+iplot3]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "f = gcf();\n");
@@ -7666,9 +7966,9 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "end\n");
             fprintf(fp, "drawnow\n");
             fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
-            fwritePlotZLabel(fp, inputNames[iplot3]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, inputNames_[iplot3]);
             fwritePlotTitle(fp, "3D Input Data Plot");
             fwritePlotAxes(fp);
             fclose(fp);    
@@ -7692,19 +7992,19 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "cvFlag = 0;\n");
             fwritePlotCLF(fp);
             fprintf(fp, "X = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               dtemp = sampleOutputs[sInd*nOutputs];
-               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates[sInd] != 1)
+               dtemp = sampleOutputs_[sInd*nOutputs_];
+               if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates_[sInd] != 1)
                   fprintf(fp, "%e %e %e 0\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleInputs[sInd*nInputs+iplot3]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleInputs_[sInd*nInputs_+iplot3]);
                else
                   fprintf(fp, "%e %e %e 1\n",
-                          sampleInputs[sInd*nInputs+iplot1],
-                          sampleInputs[sInd*nInputs+iplot2],
-                          sampleInputs[sInd*nInputs+iplot3]);
+                          sampleInputs_[sInd*nInputs_+iplot1],
+                          sampleInputs_[sInd*nInputs_+iplot2],
+                          sampleInputs_[sInd*nInputs_+iplot3]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "iset = find(X(:,4)==1);\n");
@@ -7719,9 +8019,9 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "X(iset,3).*(1+ranflag*rand(size(iset,1),1)/100),'rX',");
             fprintf(fp, "'MarkerSize',13)\n");
             fprintf(fp, "hold off\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
-            fwritePlotZLabel(fp, inputNames[iplot3]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, inputNames_[iplot3]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "3D Input Scatter Plot");
             fprintf(fp, "if cvFlag == 1\n");
@@ -7732,9 +8032,9 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "      XX = X(iset,1:3);\n");
             fprintf(fp, "      KK = convhulln(XX);\n");
             fprintf(fp, "      trisurf(KK,XX(:,1),XX(:,2),XX(:,3))\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
-            fwritePlotZLabel(fp, inputNames[iplot3]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, inputNames_[iplot3]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp,"3D Input Convex Hull for Good Points");
             fprintf(fp, "   else\n");
@@ -7761,12 +8061,12 @@ int PsuadeBase::interpretInteractive()
             printf("in time.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         if (nInputs < 4)
+         if (nInputs_ < 4)
          {
             printf("ERROR: iplot4m requires 4 or more inputs.\n");
             continue;
@@ -7777,15 +8077,15 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          iplot1 = iplot2 = iplot3 = iplot4 = -1;
-         sprintf(pString, "Enter the input for x axis (1 - %d) : ", nInputs);
-         iplot1 = getInt(1, nInputs, pString);
+         sprintf(pString, "Enter the input for x axis (1 - %d) : ", nInputs_);
+         iplot1 = getInt(1, nInputs_, pString);
          iplot1--;
          iplot2 = iplot1;
          while (iplot1 == iplot2)
          {
             sprintf(pString,"Enter the input for y axis (1 - %d), not %d : ",
-                    nInputs, iplot1+1);
-            iplot2 = getInt(1, nInputs, pString);
+                    nInputs_, iplot1+1);
+            iplot2 = getInt(1, nInputs_, pString);
             iplot2--;
             if (iplot1 == iplot2)
                printf("ERROR: duplicate input number %d.\n",iplot2+1);
@@ -7795,8 +8095,8 @@ int PsuadeBase::interpretInteractive()
          {
             sprintf(pString,
                     "Enter the input for z axis (1 - %d), not %d nor %d: ",
-                    nInputs, iplot1+1, iplot2+1);
-            iplot3 = getInt(1, nInputs, pString);
+                    nInputs_, iplot1+1, iplot2+1);
+            iplot3 = getInt(1, nInputs_, pString);
             iplot3--;
             if (iplot3 == iplot1 || iplot3 == iplot2)
                printf("ERROR: duplicate input number %d.\n",iplot3+1);
@@ -7807,8 +8107,8 @@ int PsuadeBase::interpretInteractive()
          {
             sprintf(pString,
                "Enter the input for t axis (1 - %d), not %d nor %d nor %d: ",
-                    nInputs, iplot1+1, iplot2+1, iplot3+1);
-            iplot4 = getInt(1, nInputs, pString);
+                    nInputs_, iplot1+1, iplot2+1, iplot3+1);
+            iplot4 = getInt(1, nInputs_, pString);
             iplot4--;
             if (iplot4 == iplot1 || iplot4 == iplot2 || iplot4 == iplot3)
                printf("ERROR: duplicate input number %d.\n",iplot4+1);
@@ -7829,21 +8129,21 @@ int PsuadeBase::interpretInteractive()
          fwriteComment(fp, pString);
          fwritePlotCLF(fp);
          fprintf(fp, "X = [\n");
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            dtemp = sampleOutputs[sInd*nOutputs];
-            if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates[sInd] != 1)
+            dtemp = sampleOutputs_[sInd*nOutputs_];
+            if (dtemp > 0.5*PSUADE_UNDEFINED || sampleStates_[sInd] != 1)
                fprintf(fp, "%e %e %e %e 0\n",
-                       sampleInputs[sInd*nInputs+iplot1],
-                       sampleInputs[sInd*nInputs+iplot2],
-                       sampleInputs[sInd*nInputs+iplot3],
-                       sampleInputs[sInd*nInputs+iplot4]);
+                       sampleInputs_[sInd*nInputs_+iplot1],
+                       sampleInputs_[sInd*nInputs_+iplot2],
+                       sampleInputs_[sInd*nInputs_+iplot3],
+                       sampleInputs_[sInd*nInputs_+iplot4]);
             else
                fprintf(fp, "%e %e %e %e 1\n",
-                       sampleInputs[sInd*nInputs+iplot1],
-                       sampleInputs[sInd*nInputs+iplot2],
-                       sampleInputs[sInd*nInputs+iplot3],
-                       sampleInputs[sInd*nInputs+iplot4]);
+                       sampleInputs_[sInd*nInputs_+iplot1],
+                       sampleInputs_[sInd*nInputs_+iplot2],
+                       sampleInputs_[sInd*nInputs_+iplot3],
+                       sampleInputs_[sInd*nInputs_+iplot4]);
          }
          fprintf(fp, "];\n");
          fprintf(fp, "iset = find(X(:,5)==0);\n");
@@ -7886,11 +8186,11 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp, "          disp('too few points to display')\n");
          fprintf(fp, "        end;\n");
          fprintf(fp, "      end;\n");
-         fwritePlotXLabel(fp, inputNames[iplot1]);
-         fwritePlotYLabel(fp, inputNames[iplot2]);
-         fwritePlotZLabel(fp, inputNames[iplot3]);
+         fwritePlotXLabel(fp, inputNames_[iplot1]);
+         fwritePlotYLabel(fp, inputNames_[iplot2]);
+         fwritePlotZLabel(fp, inputNames_[iplot3]);
          fwritePlotAxes(fp);
-         sprintf(pString,"4D Input Scatter Plot for %s)",inputNames[iplot4]);
+         sprintf(pString,"4D Input Scatter Plot for %s)",inputNames_[iplot4]);
          fwritePlotTitle(fp, pString);
          fprintf(fp, "      disp('Press ENTER to advance')\n");
          fprintf(fp, "      pause\n");
@@ -7913,30 +8213,30 @@ int PsuadeBase::interpretInteractive()
             printf("This command is useful for examining output correlation\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         if (nOutputs < 2)
+         if (nOutputs_ < 2)
          {
             printf("ERROR: oplot2 requires 2 or more outputs.\n");
             continue;
          }
          oplot1 = oplot2 = -1;
-         sprintf(pString,"Enter the output for x axis (1 - %d) : ",nOutputs);
-         oplot1 = getInt(1, nOutputs, pString);
+         sprintf(pString,"Enter the output for x axis (1 - %d) : ",nOutputs_);
+         oplot1 = getInt(1, nOutputs_, pString);
          oplot1--;
-         if (nOutputs == 2)
+         if (nOutputs_ == 2)
          {
             if (oplot1 == 0) oplot2 = 1;
             else             oplot2 = 0;
          }
-         while (oplot2 < 0 || oplot2 >= nOutputs || oplot1 == oplot2)
+         while (oplot2 < 0 || oplot2 >= nOutputs_ || oplot1 == oplot2)
          {
             sprintf(pString,"Enter the output for y axis (1 - %d, not %d): ",
-                    nOutputs, oplot1+1);
-            oplot2 = getInt(1, nOutputs, pString);
+                    nOutputs_, oplot1+1);
+            oplot2 = getInt(1, nOutputs_, pString);
             oplot2--;
             if (oplot2 == oplot1)
             {
@@ -7955,17 +8255,17 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "Y = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if ((sampleOutputs[sInd*nOutputs+oplot1]>0.5*PSUADE_UNDEFINED)||
-                   (sampleOutputs[sInd*nOutputs+oplot2]>0.5*PSUADE_UNDEFINED))
+               if ((sampleOutputs_[sInd*nOutputs_+oplot1]>0.5*PSUADE_UNDEFINED)||
+                   (sampleOutputs_[sInd*nOutputs_+oplot2]>0.5*PSUADE_UNDEFINED))
                   fprintf(fp, "%e %e 0\n",
-                          sampleOutputs[sInd*nOutputs+oplot1],
-                          sampleOutputs[sInd*nOutputs+oplot2]);
+                          sampleOutputs_[sInd*nOutputs_+oplot1],
+                          sampleOutputs_[sInd*nOutputs_+oplot2]);
                else
                   fprintf(fp, "%e %e 1\n",
-                          sampleOutputs[sInd*nOutputs+oplot1],
-                          sampleOutputs[sInd*nOutputs+oplot2]);
+                          sampleOutputs_[sInd*nOutputs_+oplot1],
+                          sampleOutputs_[sInd*nOutputs_+oplot2]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "ia1 = find(X(:,4) == 0);\n");
@@ -7980,8 +8280,8 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "end\n");
             fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
             fprintf(fp, "drawnow\n");
-            fwritePlotXLabel(fp, outputNames[oplot1]);
-            fwritePlotYLabel(fp, outputNames[oplot2]);
+            fwritePlotXLabel(fp, outputNames_[oplot1]);
+            fwritePlotYLabel(fp, outputNames_[oplot2]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "2D Output Scatter Plot");
             fclose(fp);    
@@ -7997,17 +8297,17 @@ int PsuadeBase::interpretInteractive()
             }
             fwritePlotCLF(fp);
             fprintf(fp, "Y = [\n");
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if ((sampleOutputs[sInd*nOutputs+oplot1]>0.5*PSUADE_UNDEFINED)||
-                   (sampleOutputs[sInd*nOutputs+oplot2]>0.5*PSUADE_UNDEFINED))
+               if ((sampleOutputs_[sInd*nOutputs_+oplot1]>0.5*PSUADE_UNDEFINED)||
+                   (sampleOutputs_[sInd*nOutputs_+oplot2]>0.5*PSUADE_UNDEFINED))
                   fprintf(fp, "%e %e 0\n",
-                          sampleOutputs[sInd*nOutputs+oplot1],
-                          sampleOutputs[sInd*nOutputs+oplot2]);
+                          sampleOutputs_[sInd*nOutputs_+oplot1],
+                          sampleOutputs_[sInd*nOutputs_+oplot2]);
                else
                   fprintf(fp, "%e %e 1\n",
-                          sampleOutputs[sInd*nOutputs+oplot1],
-                          sampleOutputs[sInd*nOutputs+oplot2]);
+                          sampleOutputs_[sInd*nOutputs_+oplot1],
+                          sampleOutputs_[sInd*nOutputs_+oplot2]);
             }
             fprintf(fp, "];\n");
             fprintf(fp, "iset = find(Y(:,3) == 1);\n");
@@ -8016,8 +8316,8 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "iset = find(Y(:,3) == 0);\n");
             fprintf(fp, "plot(Y(iset,1),Y(iset,2),\'r*\')\n");
             fprintf(fp, "hold off\n");
-            fwritePlotXLabel(fp, outputNames[oplot1]);
-            fwritePlotYLabel(fp, outputNames[oplot2]);
+            fwritePlotXLabel(fp, outputNames_[oplot1]);
+            fwritePlotYLabel(fp, outputNames_[oplot2]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "2D Output Scatter Plot");
             fclose(fp);    
@@ -8037,9 +8337,10 @@ int PsuadeBase::interpretInteractive()
             printf("already loaded into local memory.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
+            printf("       Need input/output specification file.\n");
             continue;
          }
          analysisMethod = PSUADE_ANA_MCMC;
@@ -8063,7 +8364,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: mcmc (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
@@ -8093,7 +8394,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: refine (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
@@ -8104,34 +8405,40 @@ int PsuadeBase::interpretInteractive()
          psSamExpertMode_ = 0;
          sampPtr = (Sampling *) SamplingCreateFromID(samplingMethod);
          sampPtr->setPrintLevel(PL_INTERACTIVE);
-         sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-         sampPtr->setInputParams(nInputs, NULL, NULL, NULL);
-         sampPtr->setOutputParams(nOutputs);
+         sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+         sampPtr->setInputParams(nInputs_, NULL, NULL, NULL);
+         sampPtr->setOutputParams(nOutputs_);
          psuadeIO_->getParameter("method_nreplications",pPtr);
          nReps = pPtr.intData_;
-         sampPtr->setSamplingParams(nSamples, nReps, -1);
+         sampPtr->setSamplingParams(nSamples_, nReps, -1);
          sampPtr->initialize(1);
-         sampPtr->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                              sampleOutputs, sampleStates);
-         status = sampPtr->refine(2, 0, 0.0, nSamples, NULL);
+         sampPtr->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                              sampleOutputs_, sampleStates_);
+         status = sampPtr->refine(2, 0, 0.0, nSamples_, NULL);
 
          if (status == 0)
          {
-            if (sampleInputs  != NULL) delete [] sampleInputs;
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
-            if (sampleStates  != NULL) delete [] sampleStates;
-            nSamples = sampPtr->getNumSamples();
-            sampleInputs  = new double[nInputs*nSamples];
-            sampleOutputs = new double[nOutputs*nSamples];
-            sampleStates  = new int[nSamples];
-            sampPtr->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                sampleOutputs, sampleStates);
-            psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                     sampleInputs,NULL,NULL,NULL,NULL,NULL); 
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                           sampleStates,NULL); 
-            psuadeIO_->updateMethodSection(-1, nSamples, -1, -1, -1);
+            if (sampleInputs_  != NULL) delete [] sampleInputs_;
+            if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+            if (sampleStates_  != NULL) delete [] sampleStates_;
+            sampleInputs_  = NULL;
+            sampleOutputs_ = NULL;
+            sampleStates_  = NULL;
+            nSamples_ = sampPtr->getNumSamples();
+            sampleInputs_  = new double[nInputs_*nSamples_];
+            sampleOutputs_ = new double[nOutputs_*nSamples_];
+            sampleStates_  = new int[nSamples_];
+            sampPtr->getSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                sampleOutputs_, sampleStates_);
+            psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                     sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                           sampleStates_,NULL); 
+            psuadeIO_->updateMethodSection(-1, nSamples_, -1, -1, -1);
             printf("refine successful: use write to store data set.\n");
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
          }
          else
          {
@@ -8153,14 +8460,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: a_refine_metis (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString,"Select output to use for a_refine (1 - %d) ",nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString,"Select output to use for a_refine (1 - %d) ",nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          psuadeIO_->getParameter("method_sampling", pPtr);
          samplingMethod = pPtr.intData_;
          if (samplingMethod != PSUADE_SAMP_METIS)
@@ -8169,9 +8476,9 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          flag = 1;
-         for (ss = 0; ss < nSamples*nOutputs; ss++)
+         for (ss = 0; ss < nSamples_*nOutputs_; ss++)
          {
-            if (sampleOutputs[ss] != 1 && sampleOutputs[ss] != 0)
+            if (sampleOutputs_[ss] != 1 && sampleOutputs_[ss] != 0)
             {
                flag = 0;
                break;
@@ -8187,90 +8494,89 @@ int PsuadeBase::interpretInteractive()
             printf("(2) the previous refinement file (psuadeMetisInfo) which\n");
             printf("    needs to be in the current directory.\n");
             sprintf(pString,"What is the original sample size ? ");
-            int origNSamples = getInt(1, nSamples, pString);
-            sprintf(pString,"How many sample points to add? (1 - %d) ",nSamples);
-            int refineSize = getInt(1, nSamples, pString);
+            int origNSamples = getInt(1, nSamples_, pString);
+            sprintf(pString,"How many sample points to add? (1 - %d) ",nSamples_);
+            int refineSize = getInt(1, nSamples_, pString);
             int tempSamExpert = psSamExpertMode_;
             psSamExpertMode_ = 0;
             sampPtr = (Sampling *) SamplingCreateFromID(samplingMethod);
             sampPtr->setPrintLevel(PL_INTERACTIVE);
-            sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-            sampPtr->setInputParams(nInputs, NULL, NULL, NULL);
-            sampPtr->setOutputParams(nOutputs);
-            sampPtr->setSamplingParams(nSamples, -1, -1);
+            sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+            sampPtr->setInputParams(nInputs_, NULL, NULL, NULL);
+            sampPtr->setOutputParams(nOutputs_);
+            sampPtr->setSamplingParams(nSamples_, -1, -1);
             sampPtr->initialize(1);
-            sampPtr->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                 sampleOutputs, sampleStates);
+            sampPtr->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                 sampleOutputs_, sampleStates_);
             sampAux = (Sampling *) SamplingCreateFromID(samplingMethod);
             sampAux->setPrintLevel(PL_INTERACTIVE);
-            sampAux->setInputBounds(nInputs, iLowerB, iUpperB);
-            sampAux->setInputParams(nInputs, NULL, NULL, NULL);
-            sampAux->setOutputParams(nOutputs);
-            sampAux->setSamplingParams(nSamples, -1, -1);
+            sampAux->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+            sampAux->setInputParams(nInputs_, NULL, NULL, NULL);
+            sampAux->setOutputParams(nOutputs_);
+            sampAux->setSamplingParams(nSamples_, -1, -1);
             sampAux->initialize(1);
-            if (nOutputs > 1)
+            if (nOutputs_ > 1)
             {
-               tempY = new double[nSamples];
-               for (ss = 0; ss < nSamples; ss++)
-                  tempY[ss] = sampleOutputs[ss*nOutputs+outputID];
-               sampAux->loadSamples(nSamples, nInputs, 1, sampleInputs,
-                                    tempY, sampleStates);
+               tempY = new double[nSamples_];
+               for (ss = 0; ss < nSamples_; ss++)
+                  tempY[ss] = sampleOutputs_[ss*nOutputs_+outputID];
+               sampAux->loadSamples(nSamples_, nInputs_, 1, sampleInputs_,
+                                    tempY, sampleStates_);
             }
             else
             {
-               sampAux->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                    sampleOutputs, sampleStates);
+               sampAux->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                    sampleOutputs_, sampleStates_);
             }
-            sparam.clear();
-            sparam.append("setUniformRefinement");
-            sampAux->setParam(sparam);
-            status = sampAux->refine(2, 1, 0.0, nSamples, NULL);
+            strcpy(pString, "setUniformRefinement");
+            sampAux->setParam(pString);
+            status = sampAux->refine(2, 1, 0.0, nSamples_, NULL);
             int nSamples2 = sampAux->getNumSamples();
-            if (nSamples2 != 2 * nSamples)
+            if (nSamples2 != 2 * nSamples_)
             {
-               printf("a_refine_metis ERROR: something is wrong. Consult developers.\n");
-               printf("                refined sample size != 2 * original size\n");
-               printf("                May be due to too many levels of refinement.\n");
+               printf("a_refine_metis: Catastrophic ERROR: consult developers.\n");
+               printf("         refined sample size != 2 * original size\n");
+               printf("         May be due to too many levels of refinement.\n");
                delete sampAux;;
                sampAux = NULL;
                delete sampPtr;;
                sampPtr = NULL;
-               if (nOutputs > 1) delete [] tempY;
+               if (nOutputs_ > 1) delete [] tempY;
                tempY = NULL;
                continue;
             }
-            double *samInputs2  = new double[nSamples2*nInputs];
+            double *samInputs2  = new double[nSamples2*nInputs_];
             double *samOutputs2 = new double[nSamples2];
             int    *samStates2  = new int[nSamples2];
             double *samStds2    = new double[nSamples2];
-            sampAux->getSamples(nSamples2, nInputs, 1, samInputs2, 
+            sampAux->getSamples(nSamples2, nInputs_, 1, samInputs2, 
                                 samOutputs2, samStates2);
             faType = PSUADE_RS_MARSB;
-            faPtr = genFA(faType, nInputs, iOne, nSamples);
+            faPtr = genFA(faType, nInputs_, iOne, nSamples_);
             faPtr->setNPtsPerDim(32);
-            faPtr->setBounds(iLowerB, iUpperB);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(0);
             int numMars = 100, ivar1;
             double **marsX = new double*[numMars];
             double **marsY = new double*[numMars];
             for (ii = 0; ii < numMars; ii++)
             {
-               marsX[ii] = new double[nInputs*nSamples];
-               marsY[ii] = new double[nSamples];
-               for (ss = 0; ss < nSamples; ss++)
+               marsX[ii] = new double[nInputs_*nSamples_];
+               marsY[ii] = new double[nSamples_];
+               for (ss = 0; ss < nSamples_; ss++)
                {
                   if (ss < origNSamples)
                        ivar1 = PSUADE_rand() % origNSamples;
                   else ivar1 = ss;
-                  for (jj = 0; jj < nInputs; jj++)
-                     marsX[ii][ss*nInputs+jj] =
-                         sampleInputs[ivar1*nInputs+jj];
-                  marsY[ii][ss] = sampleOutputs[ivar1*nOutputs+outputID];
+                  for (jj = 0; jj < nInputs_; jj++)
+                     marsX[ii][ss*nInputs_+jj] =
+                         sampleInputs_[ivar1*nInputs_+jj];
+                  marsY[ii][ss] = sampleOutputs_[ivar1*nOutputs_+outputID];
                }
             }
             strcpy(cString, "mars_params");
-            int ivar2 = 2 * nInputs / 3 + 1;
-            int ivar3 = nSamples;
+            int ivar2 = 2 * nInputs_ / 3 + 1;
+            int ivar3 = nSamples_;
             if (ivar3 > 300) ivar3 = 300;
             targv[0] = (char *) cString;
             targv[1] = (char *) &ivar3;
@@ -8282,7 +8588,7 @@ int PsuadeBase::interpretInteractive()
             faPtr->setParams(2, targv);
             strcpy(cString, "mars_sample");
             targv[0] = (char *) cString;
-            targv[2] = (char *) &nSamples;
+            targv[2] = (char *) &nSamples_;
             for (ii = 0; ii < numMars; ii++)
             {
                targv[1] = (char *) &ii;
@@ -8290,45 +8596,45 @@ int PsuadeBase::interpretInteractive()
                targv[4] = (char *) marsY[ii];
                faPtr->setParams(5, targv);
             }
-            if (nOutputs > 1)
-                 faPtr->initialize(sampleInputs,tempY);
-            else faPtr->initialize(sampleInputs,sampleOutputs);
+            if (nOutputs_ > 1)
+                 faPtr->initialize(sampleInputs_,tempY);
+            else faPtr->initialize(sampleInputs_,sampleOutputs_);
 
-            faPtr->evaluatePointFuzzy(nSamples2-nSamples, 
-                            &samInputs2[nInputs*nSamples], 
-                            &samOutputs2[nSamples], &samStds2[nSamples]);
-            for (ss = 0; ss < nSamples; ss++) 
-               samStds2[ss] = PABS(samStds2[ss+nSamples]);
+            faPtr->evaluatePointFuzzy(nSamples2-nSamples_, 
+                            &samInputs2[nInputs_*nSamples_], 
+                            &samOutputs2[nSamples_], &samStds2[nSamples_]);
+            for (ss = 0; ss < nSamples_; ss++) 
+               samStds2[ss] = PABS(samStds2[ss+nSamples_]);
             if (outputLevel_ > 4)
             {
                printf("Standard deviations to be used to select refinements.\n");
-               for (ss = 0; ss < nSamples; ss++) 
+               for (ss = 0; ss < nSamples_; ss++) 
                   printf("Sample point %7d: stdev = %e\n", ss+1, samStds2[ss]);
             }
 
-            sparam.clear();
-            sparam.append("setAdaptiveRefinementBasedOnErrors");
-            sampPtr->setParam(sparam);
-            sparam.clear();
-            sprintf(cString, "setRefineSize %d", refineSize);
-            sparam.append(cString);
-            sampPtr->setParam(sparam);
-            sampPtr->refine(2,1,1.0e-6,nSamples,samStds2);
-            if (sampleInputs  != NULL) delete [] sampleInputs;
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
-            if (sampleStates  != NULL) delete [] sampleStates;
+            strcpy(pString, "setAdaptiveRefinementBasedOnErrors");
+            sampPtr->setParam(pString);
+            sprintf(pString, "setRefineSize %d", refineSize);
+            sampPtr->setParam(pString);
+            sampPtr->refine(2,1,1.0e-6,nSamples_,samStds2);
+            if (sampleInputs_  != NULL) delete [] sampleInputs_;
+            if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+            if (sampleStates_  != NULL) delete [] sampleStates_;
 
-            nSamples = sampPtr->getNumSamples();
-            sampleInputs  = new double[nInputs*nSamples];
-            sampleOutputs = new double[nOutputs*nSamples];
-            sampleStates  = new int[nSamples];
-            sampPtr->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                sampleOutputs, sampleStates);
-            psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                       sampleInputs,NULL,NULL,NULL,NULL,NULL); 
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                           sampleStates,NULL); 
-            psuadeIO_->updateMethodSection(-1, nSamples, -1, -1, -1);
+            nSamples_ = sampPtr->getNumSamples();
+            sampleInputs_  = new double[nInputs_*nSamples_];
+            sampleOutputs_ = new double[nOutputs_*nSamples_];
+            sampleStates_  = new int[nSamples_];
+            sampPtr->getSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                sampleOutputs_, sampleStates_);
+            psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                       sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                           sampleStates_,NULL); 
+            psuadeIO_->updateMethodSection(-1, nSamples_, -1, -1, -1);
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
             printf("refine successful: use write to store the refined sample.\n");
             printf("                   Then run the newly created sample points\n");
             printf("                   in this refined sample.\n");
@@ -8349,7 +8655,7 @@ int PsuadeBase::interpretInteractive()
             }
             delete [] marsX;
             delete [] marsY;
-            if (nOutputs > 1) delete [] tempY;
+            if (nOutputs_ > 1) delete [] tempY;
          }
          else
          {
@@ -8362,68 +8668,68 @@ int PsuadeBase::interpretInteractive()
             psSamExpertMode_ = 0;
             sampPtr = (Sampling *) SamplingCreateFromID(samplingMethod);
             sampPtr->setPrintLevel(PL_INTERACTIVE);
-            sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-            sampPtr->setInputParams(nInputs, NULL, NULL, NULL);
-            sampPtr->setOutputParams(nOutputs);
-            sampPtr->setSamplingParams(nSamples, -1, -1);
+            sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+            sampPtr->setInputParams(nInputs_, NULL, NULL, NULL);
+            sampPtr->setOutputParams(nOutputs_);
+            sampPtr->setSamplingParams(nSamples_, -1, -1);
             sampPtr->initialize(1);
-            if (nOutputs > 1)
+            if (nOutputs_ > 1)
             {
-               tempY = new double[nSamples];
-               for (ss = 0; ss < nSamples; ss++)
-                  tempY[ss] = sampleOutputs[ss*nOutputs+outputID];
-               sampPtr->loadSamples(nSamples, nInputs, 1, sampleInputs,
-                                    tempY, sampleStates);
+               tempY = new double[nSamples_];
+               for (ss = 0; ss < nSamples_; ss++)
+                  tempY[ss] = sampleOutputs_[ss*nOutputs_+outputID];
+               sampPtr->loadSamples(nSamples_, nInputs_, 1, sampleInputs_,
+                                    tempY, sampleStates_);
             }
             else
             {
-               sampPtr->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                    sampleOutputs, sampleStates);
+               sampPtr->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                    sampleOutputs_, sampleStates_);
             }
-            sparam.clear();
-            sparam.append("setAdaptiveRefinementBasedOnOutputs");
-            sampPtr->setParam(sparam);
-            sparam.clear();
-            sprintf(cString, "setRefineSize %d", nSamples);
-            sparam.append(cString);
-            sampPtr->setParam(sparam);
+            strcpy(pString, "setAdaptiveRefinementBasedOnOutputs");
+            sampPtr->setParam(pString);
+            sprintf(pString, "setRefineSize %d", nSamples_);
+            sampPtr->setParam(pString);
             sampPtr->refine(2,1,1.0e-6,0,NULL);
-            if (sampleInputs  != NULL) delete [] sampleInputs;
-            if (sampleStates  != NULL) delete [] sampleStates;
-            tempV = sampleOutputs;
+            if (sampleInputs_  != NULL) delete [] sampleInputs_;
+            if (sampleStates_  != NULL) delete [] sampleStates_;
+            tempV = sampleOutputs_;
 
-            kk = nSamples;
-            nSamples = sampPtr->getNumSamples();
-            sampleInputs  = new double[nInputs*nSamples];
-            sampleOutputs = new double[nOutputs*nSamples];
-            sampleStates  = new int[nSamples];
-            if (nOutputs > 1)
+            kk = nSamples_;
+            nSamples_ = sampPtr->getNumSamples();
+            sampleInputs_  = new double[nInputs_*nSamples_];
+            sampleOutputs_ = new double[nOutputs_*nSamples_];
+            sampleStates_  = new int[nSamples_];
+            if (nOutputs_ > 1)
             {
-               sampPtr->getSamples(nSamples, nInputs, 1, sampleInputs,
-                                   tempY, sampleStates);
-               for (ss = 0; ss < kk*nOutputs; ii++)
-                  sampleOutputs[ss] = tempV[ss];
-               for (ss = kk*nOutputs; ss < nSamples*nOutputs; ii++)
-                  sampleOutputs[ss] = PSUADE_UNDEFINED;
+               sampPtr->getSamples(nSamples_, nInputs_, 1, sampleInputs_,
+                                   tempY, sampleStates_);
+               for (ss = 0; ss < kk*nOutputs_; ii++)
+                  sampleOutputs_[ss] = tempV[ss];
+               for (ss = kk*nOutputs_; ss < nSamples_*nOutputs_; ii++)
+                  sampleOutputs_[ss] = PSUADE_UNDEFINED;
             }
             else
             {
-               sampPtr->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                   sampleOutputs, sampleStates);
+               sampPtr->getSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                   sampleOutputs_, sampleStates_);
             }
-            psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                          sampleInputs,NULL,NULL,NULL,NULL,NULL); 
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                           sampleStates,NULL); 
-            psuadeIO_->updateMethodSection(-1, nSamples, -1, -1, -1);
+            psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                          sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                           sampleStates_,NULL); 
+            psuadeIO_->updateMethodSection(-1, nSamples_, -1, -1, -1);
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
             printf("refine successful: use write to store the refined sample.\n");
             printf("                   Then run the newly created sample points\n");
             printf("                   in this refined sample.\n");
             delete tempV;
             delete sampPtr;
             sampPtr = NULL;
-            if (nOutputs > 1) delete [] tempY;
-            if (sampleOutputs != NULL) delete [] sampleOutputs;
+            if (nOutputs_ > 1) delete [] tempY;
+            if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
             psSamExpertMode_ = tempSamExpert;;
          }
       }
@@ -8438,25 +8744,25 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: a_refine (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString,"Select output to use for a_refine (1 - %d) ",nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString,"Select output to use for a_refine (1 - %d) ",nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
-            if (sampleOutputs[ss*nInputs+outputID] == PSUADE_UNDEFINED ||
-                sampleStates[ss] != 1)
+            if (sampleOutputs_[ss*nInputs_+outputID] == PSUADE_UNDEFINED ||
+                sampleStates_[ss] != 1)
             {
                printf("a_refine ERROR: some of the sample outputs are not ready.\n");
                break;
             }
          }
-         if (ss != nSamples) continue;
+         if (ss != nSamples_) continue;
  
          printf("Please provide the initial sample size (before any refinement).\n");
          printf("below. This information is useful to prevent clustering of\n");
@@ -8464,60 +8770,59 @@ int PsuadeBase::interpretInteractive()
          printf("in all bootstrapped samples for prediction error estimation).\n");
          printf("If you enter 0, the current sample size will be used as the\n");
          printf("initial sample size (i.e. no favorites).\n");
-         sprintf(pString,"Enter the initial sample size (<= %d): ",nSamples);
-         int origNSamples = getInt(0, nSamples, pString);
-         if (origNSamples == 0) origNSamples = nSamples;
+         sprintf(pString,"Enter the initial sample size (<= %d): ",nSamples_);
+         int origNSamples = getInt(0, nSamples_, pString);
+         if (origNSamples == 0) origNSamples = nSamples_;
          psuadeIO_->getParameter("method_sampling", pPtr);
          samplingMethod = PSUADE_SAMP_GMETIS;
-         sprintf(pString,"How many sample points to add? (1 - %d) ",nSamples);
-         int refineSize = getInt(1, nSamples, pString);
+         sprintf(pString,"How many sample points to add? (1 - %d) ",nSamples_);
+         int refineSize = getInt(1, nSamples_, pString);
          int tempSamExpert = psSamExpertMode_;
          psSamExpertMode_ = 0;
          sampPtr = (Sampling *) SamplingCreateFromID(samplingMethod);
          sampPtr->setPrintLevel(PL_INTERACTIVE);
-         sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
-         sampPtr->setOutputParams(nOutputs);
-         sampPtr->setSamplingParams(nSamples, -1, -1);
+         sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+         sampPtr->setOutputParams(nOutputs_);
+         sampPtr->setSamplingParams(nSamples_, -1, -1);
          sampPtr->initialize(1);
-         sampPtr->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                              sampleOutputs, sampleStates);
+         sampPtr->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                              sampleOutputs_, sampleStates_);
          sampAux = (Sampling *) SamplingCreateFromID(samplingMethod);
          sampAux->setPrintLevel(PL_INTERACTIVE);
-         sampAux->setInputBounds(nInputs, iLowerB, iUpperB);
+         sampAux->setInputBounds(nInputs_, iLowerB_, iUpperB_);
          sampAux->setOutputParams(1);
-         sampAux->setSamplingParams(nSamples, -1, -1);
+         sampAux->setSamplingParams(nSamples_, -1, -1);
          sampAux->initialize(1);
-         if (nOutputs > 1)
+         if (nOutputs_ > 1)
          {
-            tempY = new double[nSamples];
-            for (ss = 0; ss < nSamples; ss++)
-               tempY[ss] = sampleOutputs[ss*nOutputs+outputID];
-            sampAux->loadSamples(nSamples, nInputs, 1, sampleInputs,
-                                 tempY, sampleStates);
+            tempY = new double[nSamples_];
+            for (ss = 0; ss < nSamples_; ss++)
+               tempY[ss] = sampleOutputs_[ss*nOutputs_+outputID];
+            sampAux->loadSamples(nSamples_, nInputs_, 1, sampleInputs_,
+                                 tempY, sampleStates_);
          }
          else
          {
-            sampAux->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                                 sampleOutputs, sampleStates);
+            sampAux->loadSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                                 sampleOutputs_, sampleStates_);
          }
-         sparam.clear();
-         sparam.append("changeInfoName");
-         sparam.clear();
-         sparam.append("setUniformRefinement");
-         sampAux->setParam(sparam);
-         status = sampAux->refine(2, 1, 0.0, nSamples, NULL);
+         strcpy(pString, "changeInfoName");
+         sampAux->setParam(pString);
+         strcpy(pString, "setUniformRefinement");
+         sampAux->setParam(pString);
+         status = sampAux->refine(2, 1, 0.0, nSamples_, NULL);
          int nSamples2 = sampAux->getNumSamples();
-         double *samInputs2  = new double[nSamples2*nInputs];
+         double *samInputs2  = new double[nSamples2*nInputs_];
          double *samOutputs2 = new double[nSamples2];
          int    *samStates2  = new int[nSamples2];
          double *samStds2    = new double[nSamples2];
-         sampAux->getSamples(nSamples2, nInputs, 1, samInputs2, 
+         sampAux->getSamples(nSamples2, nInputs_, 1, samInputs2, 
                              samOutputs2, samStates2);
          faType = PSUADE_RS_MARSB;
          if (psRSExpertMode_ == 1)
          {
             faType = -1;
-            printf("Select your stochastic response surface method for error estimation : ");
+            printf("Select a stochastic response surface method : ");
             printf("1. MARS with bootstrapped aggregation (MARSB)\n");
 #ifdef HAVE_TPROS
             printf("2. Gaussian process (GP)\n");
@@ -8540,31 +8845,31 @@ int PsuadeBase::interpretInteractive()
                case 4: faType = PSUADE_RS_SOTS; break;
             }
          }
-         faPtr = genFA(faType, nInputs, iOne, nSamples);
+         faPtr = genFA(faType, nInputs_, iOne, nSamples_);
          faPtr->setNPtsPerDim(32);
-         faPtr->setBounds(iLowerB, iUpperB);
+         faPtr->setBounds(iLowerB_, iUpperB_);
          faPtr->setOutputLevel(0);
          int numMars = 100, ivar1;
          double **marsX = new double*[numMars];
          double **marsY = new double*[numMars];
          for (ii = 0; ii < numMars; ii++)
          {
-            marsX[ii] = new double[nInputs*nSamples];
-            marsY[ii] = new double[nSamples];
-            for (ss = 0; ss < nSamples; ss++)
+            marsX[ii] = new double[nInputs_*nSamples_];
+            marsY[ii] = new double[nSamples_];
+            for (ss = 0; ss < nSamples_; ss++)
             {
                if (ss < origNSamples)
                     ivar1 = PSUADE_rand() % origNSamples;
                else ivar1 = ss;
-               for (jj = 0; jj < nInputs; jj++)
-                  marsX[ii][ss*nInputs+jj] =
-                      sampleInputs[ivar1*nInputs+jj];
-               marsY[ii][ss] = sampleOutputs[ivar1*nOutputs+outputID];
+               for (jj = 0; jj < nInputs_; jj++)
+                  marsX[ii][ss*nInputs_+jj] =
+                      sampleInputs_[ivar1*nInputs_+jj];
+               marsY[ii][ss] = sampleOutputs_[ivar1*nOutputs_+outputID];
             }
          }
          strcpy(cString, "mars_params");
-         int ivar2 = 2 * nInputs / 3 + 1;
-         int ivar3 = nSamples;
+         int ivar2 = 2 * nInputs_ / 3 + 1;
+         int ivar3 = nSamples_;
          if (ivar3 > 300) ivar3 = 300;
          targv[0] = (char *) cString;
          targv[1] = (char *) &ivar3;
@@ -8576,7 +8881,7 @@ int PsuadeBase::interpretInteractive()
          faPtr->setParams(2, targv);
          strcpy(cString, "mars_sample");
          targv[0] = (char *) cString;
-         targv[2] = (char *) &nSamples;
+         targv[2] = (char *) &nSamples_;
          for (ii = 0; ii < numMars; ii++)
          {
             targv[1] = (char *) &ii;
@@ -8584,46 +8889,46 @@ int PsuadeBase::interpretInteractive()
             targv[4] = (char *) marsY[ii];
             faPtr->setParams(5, targv);
          }
-         if (nOutputs > 1)
-              faPtr->initialize(sampleInputs,tempY);
-         else faPtr->initialize(sampleInputs,sampleOutputs);
+         if (nOutputs_ > 1)
+              faPtr->initialize(sampleInputs_,tempY);
+         else faPtr->initialize(sampleInputs_,sampleOutputs_);
 
-         faPtr->evaluatePointFuzzy(nSamples2-nSamples, 
-                         &samInputs2[nInputs*nSamples], 
-                         &samOutputs2[nSamples], &samStds2[nSamples]);
+         faPtr->evaluatePointFuzzy(nSamples2-nSamples_, 
+                         &samInputs2[nInputs_*nSamples_], 
+                         &samOutputs2[nSamples_], &samStds2[nSamples_]);
 
-         for (ss = 0; ss < nSamples2-nSamples; ss++) 
-            samStds2[ss] = PABS(samStds2[ss+nSamples]);
+         for (ss = 0; ss < nSamples2-nSamples_; ss++) 
+            samStds2[ss] = PABS(samStds2[ss+nSamples_]);
          if (outputLevel_ > 4)
          {
             printf("Standard deviations to be used to select refinements.\n");
-               for (ss = 0; ss < nSamples2-nSamples; ss++) 
+               for (ss = 0; ss < nSamples2-nSamples_; ss++) 
                   printf("Sample point %7d: stdev = %e\n", ss+1, samStds2[ss]);
          }
 
-         sparam.clear();
-         sparam.append("setAdaptiveRefinementBasedOnErrors");
-         sampPtr->setParam(sparam);
-         sparam.clear();
-         sprintf(cString, "setRefineSize %d", refineSize);
-         sparam.append(cString);
-         sampPtr->setParam(sparam);
-         sampPtr->refine(2,1,1.0e-6,nSamples,samStds2);
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates  != NULL) delete [] sampleStates;
+         strcpy(pString, "setAdaptiveRefinementBasedOnErrors");
+         sampPtr->setParam(pString);
+         sprintf(pString, "setRefineSize %d", refineSize);
+         sampPtr->setParam(pString);
+         sampPtr->refine(2,1,1.0e-6,nSamples_,samStds2);
+         if (sampleInputs_  != NULL) delete [] sampleInputs_;
+         if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+         if (sampleStates_  != NULL) delete [] sampleStates_;
 
-         nSamples = sampPtr->getNumSamples();
-         sampleInputs  = new double[nInputs*nSamples];
-         sampleOutputs = new double[nOutputs*nSamples];
-         sampleStates  = new int[nSamples];
-         sampPtr->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                             sampleOutputs, sampleStates);
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                    sampleInputs,NULL,NULL,NULL,NULL,NULL); 
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                        sampleStates,NULL); 
-         psuadeIO_->updateMethodSection(-1, nSamples, -1, -1, -1);
+         nSamples_ = sampPtr->getNumSamples();
+         sampleInputs_  = new double[nInputs_*nSamples_];
+         sampleOutputs_ = new double[nOutputs_*nSamples_];
+         sampleStates_  = new int[nSamples_];
+         sampPtr->getSamples(nSamples_, nInputs_, nOutputs_, sampleInputs_,
+                             sampleOutputs_, sampleStates_);
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                    sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                        sampleStates_,NULL); 
+         psuadeIO_->updateMethodSection(-1, nSamples_, -1, -1, -1);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("refine successful: use write to store the refined sample.\n");
          printf("                   Then run the newly created sample points\n");
          printf("                   in this refined sample.\n");
@@ -8644,7 +8949,7 @@ int PsuadeBase::interpretInteractive()
          }
          delete [] marsX;
          delete [] marsY;
-         if (nOutputs > 1)
+         if (nOutputs_ > 1)
          {
             delete [] tempY;
             tempY = NULL;
@@ -8663,14 +8968,19 @@ int PsuadeBase::interpretInteractive()
             printf("between sample points.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            dtemp = SamplingQuality(nSamples, nInputs, sampleInputs);
-            printf("Max-min distance between sample points = %e\n", dtemp);
+            tempV = new double[2];
+            SamplingQuality(nSamples_,nInputs_,sampleInputs_,iLowerB_,
+                            iUpperB_,tempV);
+            printf("Max-min distance between sample points = %e (normalized)\n", 
+                   tempV[0]);
+            printf("Min-min distance between sample points = %e (normalized)\n", 
+                   tempV[1]);
          }
       }
 
@@ -8686,20 +8996,20 @@ int PsuadeBase::interpretInteractive()
             printf("point to be 'ready' (NO OUTPUT VALUE IS MODIFIED).\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (validate assumes outputs exist.)\n");
             continue;
          }
-         sprintf(pString,"Enter first sample number (1 - %d) = ", nSamples);
-         ind = getInt(1, nSamples, pString);
+         sprintf(pString,"Enter first sample number (1 - %d) = ", nSamples_);
+         ind = getInt(1, nSamples_, pString);
          ind--;
          sprintf(pString, "Enter last sample number (%d - %d) = ", 
-                 ind+1, nSamples);
-         ind2 = getInt(ind+1, nSamples, pString);
-         for (ii = ind; ii < ind2; ii++) sampleStates[ii] = 1;
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                        sampleStates,NULL); 
+                 ind+1, nSamples_);
+         ind2 = getInt(ind+1, nSamples_, pString);
+         for (ii = ind; ii < ind2; ii++) sampleStates_[ii] = 1;
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                        sampleStates_,NULL); 
          psuadeIO_->writePsuadeFile(dataFile,0);
       }
 
@@ -8713,45 +9023,40 @@ int PsuadeBase::interpretInteractive()
             printf("            based on a certain sample output value\n");
             printf("            (or deselect all sample points).\n");
             printf("syntax: invalidate (no argument needed)\n");
-            printf("This command just set the ready flag of selected sample\n");
-            printf("points to be 'not ready' based on some an output value.\n");
-            printf("If a range of sample points is to be unevaluated irrespective\n");
-            printf("of output values, first use 'invalidate' for all sample points,\n");
-            printf("and then use 'validate' to restore the range of desired \n");
-            printf("sample points.\n");
+            printf("This command invalidates sample points based on the value\n");
+            printf("of an output.  If most sample points are to be invalidated,\n");
+            printf("first use 'invalidate' for all sample points, and then use\n");
+            printf("'validate' to restore the range of desired sample points.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         printf("Invalidate sample points based on the value of an output.\n");
-         printf("If a range of sample points is to be unevaluated, first\n");
-         printf("use 'invalidate' for all sample points, and then use\n");
-         printf("'validate' to restore the range of desired sample points.\n");
-         printf("If all sample points are to be invalidated, enter 0.\n");
+         printf("Invalidate sample points based on the sample output values.\n");
+         printf("If all sample points are to be invalidated, enter 0 below.\n");
          sprintf(pString, "Enter output number (1 - %d, 0 for all points) : ", 
-                 nOutputs);
-         outputID = getInt(0, nOutputs, pString);
+                 nOutputs_);
+         outputID = getInt(0, nOutputs_, pString);
          outputID--;
          if (outputID == -1)
          {
-            for (ii = 0; ii < nSamples; ii++) sampleStates[ii] = 0;
-            psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs, 
-                                           sampleStates,NULL); 
+            for (ii = 0; ii < nSamples_; ii++) sampleStates_[ii] = 0;
+            psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
+                                           sampleStates_,NULL); 
             printf("Use the write command to store the filtered sample.\n");
          }
          else
          {
             Ymax = - PSUADE_UNDEFINED;
             Ymin =   PSUADE_UNDEFINED;
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-                  Ymax = sampleOutputs[sInd*nOutputs+outputID];
-               if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-                  Ymin = sampleOutputs[sInd*nOutputs+outputID];
+               if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+                  Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+               if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+                  Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
             }
             printf("INFO: Values outside the bounds are invalidated.\n");
             sprintf(pString, "Enter the filter's lower bound (Ymin=%e) : ",
@@ -8765,14 +9070,17 @@ int PsuadeBase::interpretInteractive()
                printf("ERROR: lower bound >= upper bound.\n");
                continue;
             }
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs+outputID] < threshL ||
-                   sampleOutputs[sInd*nOutputs+outputID] > threshU)
-                  sampleStates[sInd] = 0;
+               if (sampleOutputs_[sInd*nOutputs_+outputID] < threshL ||
+                   sampleOutputs_[sInd*nOutputs_+outputID] > threshU)
+                  sampleStates_[sInd] = 0;
             }
-            psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                           sampleStates, NULL);
+            psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                           sampleStates_, NULL);
+            if (currSession != NULL) delete currSession;
+            currSession = new PsuadeSession();
+            psuadeIO_->getSession(currSession);
             printf("INFO: use 'purge' to take out the invalid points.\n");
             printf("INFO: then use 'write' to store the filtered sample.\n");
          }
@@ -8789,87 +9097,91 @@ int PsuadeBase::interpretInteractive()
             printf("That command can be used, for example, with rstest_cv.\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nInputs <= 0)
+         if (psuadeIO_ == NULL || nInputs_ <= 0)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         tempX = new double[nInputs * nSamples];
-         tempY = new double[nOutputs * nSamples];
-         tempI = new int[nSamples];;
-         generateRandomIvector(nSamples, tempI);
-         for (ii = 0; ii < nSamples; ii++)
+         tempX = new double[nInputs_ * nSamples_];
+         tempY = new double[nOutputs_ * nSamples_];
+         tempI = new int[nSamples_];;
+         generateRandomIvector(nSamples_, tempI);
+         for (ii = 0; ii < nSamples_; ii++)
          {
             ind = tempI[ii];
-            for (jj = 0; jj < nInputs; jj++)
-               tempX[ii*nInputs+jj] = sampleInputs[ind*nInputs+jj];
-            for (jj = 0; jj < nOutputs; jj++)
-               tempY[ii*nOutputs+jj] = sampleOutputs[ind*nOutputs+jj];
-            tempI[ii] = sampleStates[ind];
+            for (jj = 0; jj < nInputs_; jj++)
+               tempX[ii*nInputs_+jj] = sampleInputs_[ind*nInputs_+jj];
+            for (jj = 0; jj < nOutputs_; jj++)
+               tempY[ii*nOutputs_+jj] = sampleOutputs_[ind*nOutputs_+jj];
+            tempI[ii] = sampleStates_[ind];
          }
-         delete [] sampleInputs;
-         delete [] sampleOutputs;
-         delete [] sampleStates;
-         sampleInputs = tempX;
-         sampleOutputs = tempY;
-         sampleStates = tempI;
+         delete [] sampleInputs_;
+         delete [] sampleOutputs_;
+         delete [] sampleStates_;
+         sampleInputs_  = tempX;
+         sampleOutputs_ = tempY;
+         sampleStates_  = tempI;
       }
 
-      // +++ purge 
-      else if (!strcmp(command, "purge"))
+      // +++ spurge 
+      else if (!strcmp(command, "spurge"))
       {
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("purge: take out bad sample points (Output=UNDEFINED or status!=1)\n");
-            printf("       (It also has an option to take out repeated sample points.)\n");
-            printf("syntax: purge (no argument needed)\n");
+            printf("spurge: remove bad sample points (Output=UNDEFINED or\n");
+            printf("        status != 1). There is also an option to remove\n");
+            printf("        repeated sample points.)\n");
+            printf("syntax: spurge (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nInputs <= 0)
+         if (psuadeIO_ == NULL || nInputs_ <= 0)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
-         sprintf(pString,"Do you want repeated sample points purged too? (y or n)");
+         sprintf(pString,"Do you want duplicate sample points purged too? (y or n)");
          getString(pString, winput);
          setCompare = 0;
          if (winput[0] == 'y') setCompare = 1;
          kk = 0;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            for (oInd = 0; oInd < nOutputs; oInd++)
-               if (sampleOutputs[sInd*nOutputs+oInd] == 
-                   PSUADE_UNDEFINED || sampleStates[sInd] == 0) break; 
-            if (oInd == nOutputs)
+            for (oInd = 0; oInd < nOutputs_; oInd++)
+               if (sampleOutputs_[sInd*nOutputs_+oInd] == 
+                   PSUADE_UNDEFINED || sampleStates_[sInd] == 0) break; 
+            if (oInd == nOutputs_)
             {
                if (setCompare == 1)
-                  jj = compareSamples(sInd,nSamples,nInputs,
-                                      sampleInputs, sampleStates);
+                  jj = compareSamples(sInd,nSamples_,nInputs_,
+                                      sampleInputs_, sampleStates_);
                else jj = -1;
                if (jj < 0 || jj > sInd)
                {
-                  for (iInd = 0; iInd < nInputs; iInd++)
-                     sampleInputs[kk*nInputs+iInd] = 
-                        sampleInputs[sInd*nInputs+iInd];
-                  for (oInd = 0; oInd < nOutputs; oInd++)
-                     sampleOutputs[kk*nOutputs+oInd] = 
-                        sampleOutputs[sInd*nOutputs+oInd];
-                  sampleStates[kk] = sampleStates[sInd]; 
+                  for (iInd = 0; iInd < nInputs_; iInd++)
+                     sampleInputs_[kk*nInputs_+iInd] = 
+                        sampleInputs_[sInd*nInputs_+iInd];
+                  for (oInd = 0; oInd < nOutputs_; oInd++)
+                     sampleOutputs_[kk*nOutputs_+oInd] = 
+                        sampleOutputs_[sInd*nOutputs_+oInd];
+                  sampleStates_[kk] = sampleStates_[sInd]; 
                   kk++;
                }
             }
          }
-         nSamples = kk;
+         nSamples_ = kk;
          samplingMethod = PSUADE_SAMP_MC;
          nReps = 1;
-         psuadeIO_->updateMethodSection(samplingMethod,nSamples,nReps,0,-1);
-         psuadeIO_->updateInputSection(nSamples, nInputs, NULL, iLowerB,
-                          iUpperB,sampleInputs,NULL,NULL,NULL,NULL,NULL);
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                    sampleStates, outputNames);
-         printf("Number of sample points after purge = %d\n", nSamples);
-         printf("purge completed. Use write to store the reduced sample.\n");
+         psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,0,-1);
+         psuadeIO_->updateInputSection(nSamples_, nInputs_, NULL, iLowerB_,
+                          iUpperB_,sampleInputs_,NULL,NULL,NULL,NULL,NULL);
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                    sampleStates_, outputNames_);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
+         printf("Number of sample points after spurge = %d\n", nSamples_);
+         printf("spurge completed. Use write to store the reduced sample.\n");
       }
 
       // +++ rm_dup
@@ -8882,37 +9194,40 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rm_dup (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nInputs <= 0)
+         if (psuadeIO_ == NULL || nInputs_ <= 0)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
          kk = 0;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            jj = compareSamples(sInd,nSamples,nInputs,sampleInputs,
-                                sampleStates);
+            jj = compareSamples(sInd,nSamples_,nInputs_,sampleInputs_,
+                                sampleStates_);
             if (jj < 0 || jj > sInd)
             {
-               for (iInd = 0; iInd < nInputs; iInd++)
-                  sampleInputs[kk*nInputs+iInd] = 
-                        sampleInputs[sInd*nInputs+iInd];
-               for (oInd = 0; oInd < nOutputs; oInd++)
-                  sampleOutputs[kk*nOutputs+oInd] = 
-                        sampleOutputs[sInd*nOutputs+oInd];
-               sampleStates[kk] = sampleStates[sInd]; 
+               for (iInd = 0; iInd < nInputs_; iInd++)
+                  sampleInputs_[kk*nInputs_+iInd] = 
+                        sampleInputs_[sInd*nInputs_+iInd];
+               for (oInd = 0; oInd < nOutputs_; oInd++)
+                  sampleOutputs_[kk*nOutputs_+oInd] = 
+                        sampleOutputs_[sInd*nOutputs_+oInd];
+               sampleStates_[kk] = sampleStates_[sInd]; 
                kk++;
             }
          }
-         nSamples = kk;
+         nSamples_ = kk;
          samplingMethod = PSUADE_SAMP_MC;
          nReps = 1;
-         psuadeIO_->updateMethodSection(samplingMethod,nSamples,nReps,0,-1);
-         psuadeIO_->updateInputSection(nSamples, nInputs, NULL, iLowerB,
-                        iUpperB, sampleInputs, NULL,NULL,NULL,NULL,NULL);
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                    sampleStates, outputNames);
-         printf("Number of sample points after rm_repeats = %d\n", nSamples);
+         psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,0,-1);
+         psuadeIO_->updateInputSection(nSamples_, nInputs_, NULL, iLowerB_,
+                        iUpperB_, sampleInputs_, NULL,NULL,NULL,NULL,NULL);
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                    sampleStates_, outputNames_);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
+         printf("Number of sample points after rm_repeats = %d\n", nSamples_);
          printf("rm_dup completed. Use write to store the reduced sample.\n");
       }
 
@@ -8926,26 +9241,26 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ifilter (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nInputs <= 0)
+         if (psuadeIO_ == NULL || nInputs_ <= 0)
          {
             printf("ERROR: data not loaded yet.\n");
             continue;
          }
          inputID = 0;
-         if (nInputs > 1)
+         if (nInputs_ > 1)
          {
-            sprintf(pString, "Enter input number (1 - %d) : ", nInputs);
-            inputID = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter input number (1 - %d) : ", nInputs_);
+            inputID = getInt(1, nInputs_, pString);
             inputID--;
          }
-         Xmin = sampleInputs[inputID];
-         for (sInd = 1; sInd < nSamples; sInd++)
-            if (sampleInputs[sInd*nInputs+inputID] < Xmin) 
-               Xmin = sampleInputs[sInd*nInputs+inputID];
-         Xmax = sampleInputs[inputID];
-         for (sInd = 1; sInd < nSamples; sInd++)
-            if (sampleInputs[sInd*nInputs+inputID] > Xmax) 
-               Xmax = sampleInputs[sInd*nInputs+inputID];
+         Xmin = sampleInputs_[inputID];
+         for (sInd = 1; sInd < nSamples_; sInd++)
+            if (sampleInputs_[sInd*nInputs_+inputID] < Xmin) 
+               Xmin = sampleInputs_[sInd*nInputs_+inputID];
+         Xmax = sampleInputs_[inputID];
+         for (sInd = 1; sInd < nSamples_; sInd++)
+            if (sampleInputs_[sInd*nInputs_+inputID] > Xmax) 
+               Xmax = sampleInputs_[sInd*nInputs_+inputID];
          printf("Xmin and Xmax found = %e %e.\n", Xmin, Xmax);
          sprintf(pString,"Enter the lower threshold (Xmin = %e) : ",Xmin);
          threshL = getDouble(pString);
@@ -8957,28 +9272,31 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          kk = 0;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleInputs[sInd*nInputs+inputID] >= threshL && 
-                sampleInputs[sInd*nInputs+inputID] <= threshU) 
+            if (sampleInputs_[sInd*nInputs_+inputID] >= threshL && 
+                sampleInputs_[sInd*nInputs_+inputID] <= threshU) 
             {
-               for (iInd = 0; iInd < nInputs; iInd++)
-                  sampleInputs[kk*nInputs+iInd] = 
-                     sampleInputs[sInd*nInputs+iInd];
-               for (oInd = 0; oInd < nOutputs; oInd++)
-                  sampleOutputs[kk*nOutputs+oInd] = 
-                     sampleOutputs[sInd*nOutputs+oInd];
-               sampleStates[kk] = sampleStates[sInd]; 
+               for (iInd = 0; iInd < nInputs_; iInd++)
+                  sampleInputs_[kk*nInputs_+iInd] = 
+                     sampleInputs_[sInd*nInputs_+iInd];
+               for (oInd = 0; oInd < nOutputs_; oInd++)
+                  sampleOutputs_[kk*nOutputs_+oInd] = 
+                     sampleOutputs_[sInd*nOutputs_+oInd];
+               sampleStates_[kk] = sampleStates_[sInd]; 
                kk++;
             }
          }
-         nSamples = kk;
+         nSamples_ = kk;
          nReps = 1;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                          sampleInputs,inputNames,NULL,NULL,NULL,NULL); 
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                        sampleStates, outputNames);
-         psuadeIO_->updateMethodSection(-1,nSamples,nReps,0,-1);
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                          sampleInputs_,inputNames_,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                        sampleStates_, outputNames_);
+         psuadeIO_->updateMethodSection(-1,nSamples_,nReps,0,-1);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("ifilter completed. Use write and load again to continue.\n");
       }
 
@@ -8992,26 +9310,26 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ofilter (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nOutputs == 1) outputID = 0;
+         if (nOutputs_ == 1) outputID = 0;
          else
          {
-            sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-            outputID = getInt(1, nOutputs, pString);
+            sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+            outputID = getInt(1, nOutputs_, pString);
             outputID--;
          }
          Ymax = - PSUADE_UNDEFINED;
          Ymin =   PSUADE_UNDEFINED;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
          }
          sprintf(pString, "Enter the lower constraint (Ymin=%e) : ",Ymin);
          threshL = getDouble(pString);
@@ -9023,28 +9341,31 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          kk = 0;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] >= threshL &&
-                sampleOutputs[sInd*nOutputs+outputID] <= threshU)
+            if (sampleOutputs_[sInd*nOutputs_+outputID] >= threshL &&
+                sampleOutputs_[sInd*nOutputs_+outputID] <= threshU)
             {
-               for (iInd = 0; iInd < nInputs; iInd++)
-                  sampleInputs[kk*nInputs+iInd] = 
-                        sampleInputs[sInd*nInputs+iInd];
-               for (oInd = 0; oInd < nOutputs; oInd++)
-                  sampleOutputs[kk*nOutputs+oInd] = 
-                        sampleOutputs[sInd*nOutputs+oInd];
-               sampleStates[kk] = sampleStates[sInd]; 
+               for (iInd = 0; iInd < nInputs_; iInd++)
+                  sampleInputs_[kk*nInputs_+iInd] = 
+                        sampleInputs_[sInd*nInputs_+iInd];
+               for (oInd = 0; oInd < nOutputs_; oInd++)
+                  sampleOutputs_[kk*nOutputs_+oInd] = 
+                        sampleOutputs_[sInd*nOutputs_+oInd];
+               sampleStates_[kk] = sampleStates_[sInd]; 
                kk++;
             }
          }
-         nSamples = kk;
+         nSamples_ = kk;
          nReps = 1;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                          sampleInputs,inputNames,NULL,NULL,NULL,NULL); 
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                        sampleStates, outputNames);
-         psuadeIO_->updateMethodSection(-1,nSamples,nReps,0,-1);
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                          sampleInputs_,inputNames_,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                        sampleStates_, outputNames_);
+         psuadeIO_->updateMethodSection(-1,nSamples_,nReps,0,-1);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("ofilter completed. Use write and load again to continue.\n");
       }
 
@@ -9060,33 +9381,36 @@ int PsuadeBase::interpretInteractive()
             printf("new output (e.g. the difference of two outputs).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          printf("Set output <1> = <a> * output <2> + <b> * output <3>\n");
-         sprintf(pString, "Enter output <1> (1 - %d) : ", nOutputs);
-         ii = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output <1> (1 - %d) : ", nOutputs_);
+         ii = getInt(1, nOutputs_, pString);
          ii--;
          sprintf(pString, "Enter the value <a>: ");
          aVal = getDouble(pString);
-         sprintf(pString, "Enter output <2> (1 - %d) : ", nOutputs);
-         jj = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output <2> (1 - %d) : ", nOutputs_);
+         jj = getInt(1, nOutputs_, pString);
          jj--;
          sprintf(pString, "Enter the value <b>: ");
          bVal = getDouble(pString);
-         sprintf(pString, "Enter output <3> (1 - %d) : ", nOutputs);
-         kk = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output <3> (1 - %d) : ", nOutputs_);
+         kk = getInt(1, nOutputs_, pString);
          kk--;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            sampleOutputs[sInd*nOutputs+ii] = 
-                        aVal * sampleOutputs[sInd*nOutputs+jj] + 
-                        bVal * sampleOutputs[sInd*nOutputs+kk]; 
+            sampleOutputs_[sInd*nOutputs_+ii] = 
+                        aVal * sampleOutputs_[sInd*nOutputs_+jj] + 
+                        bVal * sampleOutputs_[sInd*nOutputs_+kk]; 
          }
-         psuadeIO_->updateOutputSection(nSamples, nOutputs, sampleOutputs, 
-                                        sampleStates, outputNames);
+         psuadeIO_->updateOutputSection(nSamples_, nOutputs_, sampleOutputs_, 
+                                        sampleStates_, outputNames_);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("oop completed. Use write and load again to continue.\n");
       }
 
@@ -9103,7 +9427,7 @@ int PsuadeBase::interpretInteractive()
             printf("it will be shown to have large gradient.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
@@ -9111,8 +9435,8 @@ int PsuadeBase::interpretInteractive()
          outputID = 0;
          printf("nna: for each data point, find nearest neighbor and");
          printf(" plot changes in the outputs.\n");
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          if (psPlotTool_ == 1)
          {
@@ -9143,20 +9467,20 @@ int PsuadeBase::interpretInteractive()
          sprintf(pString," X-axis: sample number");
          fwriteComment(fp, pString);
          fprintf(fp, "A = [\n");
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
             minDist = PSUADE_UNDEFINED;
             ind = -1;
-            for (kk = 0; kk < nSamples; kk++)
+            for (kk = 0; kk < nSamples_; kk++)
             {
                if (ii != kk)
                {
                   ddata = 0.0;
-                  for (jj = 0; jj < nInputs; jj++)
+                  for (jj = 0; jj < nInputs_; jj++)
                   {
-                     dtemp = sampleInputs[ii*nInputs+jj] - 
-                             sampleInputs[kk*nInputs+jj];
-                     dtemp /= (iUpperB[jj] - iLowerB[jj]);
+                     dtemp = sampleInputs_[ii*nInputs_+jj] - 
+                             sampleInputs_[kk*nInputs_+jj];
+                     dtemp /= (iUpperB_[jj] - iLowerB_[jj]);
                      ddata += pow(dtemp, 2.0);
                   }
                   if (ddata < minDist && ddata > 0.0)
@@ -9167,8 +9491,8 @@ int PsuadeBase::interpretInteractive()
                }
             }
             if (minDist > 0)
-               dtemp = (sampleOutputs[ii*nOutputs+outputID] -
-                        sampleOutputs[ind*nOutputs+outputID])/minDist;
+               dtemp = (sampleOutputs_[ii*nOutputs_+outputID] -
+                        sampleOutputs_[ind*nOutputs_+outputID])/minDist;
             else dtemp = 0.0;
             fprintf(fp, "%7d %24.16e %d %e\n", ii+1, dtemp, ind+1, minDist);
          }
@@ -9199,46 +9523,47 @@ int PsuadeBase::interpretInteractive()
             printf("output is '0' using a polynomial function.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Which output to use (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Which output to use (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          int nIndex = 3, ss2;
          if (psAnaExpertMode_ == 1)
          {
-            printf("In order to track the interface, the outputs of the nearest\n");
-            printf("neighbors of each sample point are compared against themselves.\n");
-            printf("You need to select the number of neighbors (K) to examine. The more\n");
-            printf("neighbors are used, the more fuzzy the interface will be. On the\n");
-            printf("other hand, the less neighbors are used, the sample size may be\n");
-            printf("too small to be useful. Try different ones. The default is 3.\n");
+            printf("In order to track the interface, the outputs of the\n");
+            printf("nearest neighbors of each sample point are compared\n");
+            printf("against themselves. You need to select the number of\n");
+            printf("neighbors (K) to examine. The more neighbors are used,\n");
+            printf("the more fuzzy the interface will be. On the other hand,\n");
+            printf("the less neighbors are used, the sample size may be too\n");
+            printf("small to be useful. Try different ones. The default is 3.\n");
             sprintf(pString, "What is K (>= 1, <= 10, default=3)? ");
             nIndex = getInt(1, 10, pString);
          }
-         double *distPairs  = new double[nSamples * (nSamples - 1) / 2];
+         double *distPairs  = new double[nSamples_ * (nSamples_ - 1) / 2];
          int    *minIndices = new int[nIndex];;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             for (ss2 = 0; ss2 < ss; ss2++)
             {
                kk = ss * (ss - 1) / 2 + ss2;
                distPairs[kk] = 0.0;
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
-                  ddata = sampleInputs[ss*nInputs+jj] - sampleInputs[ss2*nInputs+jj];
-                  ddata = ddata / (iUpperB[jj] - iLowerB[jj]);
+                  ddata = sampleInputs_[ss*nInputs_+jj] - sampleInputs_[ss2*nInputs_+jj];
+                  ddata = ddata / (iUpperB_[jj] - iLowerB_[jj]);
                   distPairs[kk] += pow(ddata, 2.0);
                }
             }
          } 
          count = 0;
-         tempX = new double[nSamples*nInputs];
-         for (ss = 0; ss < nSamples; ss++)
+         tempX = new double[nSamples_*nInputs_];
+         for (ss = 0; ss < nSamples_; ss++)
          {
             for (jj = 0; jj < nIndex; jj++)
             {
@@ -9258,7 +9583,7 @@ int PsuadeBase::interpretInteractive()
                      }
                   }
                }
-               for (ss2 = ss+1; ss2 < nSamples; ss2++)
+               for (ss2 = ss+1; ss2 < nSamples_; ss2++)
                {
                   kk = ss2 * (ss2 - 1) / 2 + ss;
                   if (distPairs[kk] < minDist)
@@ -9278,21 +9603,21 @@ int PsuadeBase::interpretInteractive()
             {
                if (minIndices[jj] != -1)
                {
-                  if (sampleOutputs[ss*nOutputs+outputID] != 
-                      sampleOutputs[minIndices[jj]*nOutputs+outputID]) 
+                  if (sampleOutputs_[ss*nOutputs_+outputID] != 
+                      sampleOutputs_[minIndices[jj]*nOutputs_+outputID]) 
                       flag = 1;
                }
             }
             if (flag == 1) 
             {
-               for (jj = 0; jj < nInputs; jj++) 
-                  tempX[count*nInputs+jj] = sampleInputs[ss*nInputs+jj];
+               for (jj = 0; jj < nInputs_; jj++) 
+                  tempX[count*nInputs_+jj] = sampleInputs_[ss*nInputs_+jj];
                count++;
             }
          }
          delete [] minIndices;
          delete [] distPairs;
-         if (count < nInputs+1)
+         if (count < nInputs_+1)
          {
             printf("Too few valid points (%d).\n", count);
          }
@@ -9304,8 +9629,8 @@ int PsuadeBase::interpretInteractive()
                for (ss = 0; ss < count; ss++) 
                {
                   printf("%5d  ", ss+1);
-                  for (ii = 0; ii < nInputs; ii++) 
-                     printf("%e ", tempX[ss*nInputs+ii]);
+                  for (ii = 0; ii < nInputs_; ii++) 
+                     printf("%e ", tempX[ss*nInputs_+ii]);
                   printf("\n");
                }
             }
@@ -9315,18 +9640,18 @@ int PsuadeBase::interpretInteractive()
             printf("to be the dependent variable in the polynomial equation\n");
             printf("describing the interface in the form of :\n");
             printf("   X(k) = a polynomial in terms of all other X(i), i != k.\n");
-            sprintf(pString, "Select k (1 - %d) : ", nInputs);
-            kk = getInt(1, nInputs, pString);
+            sprintf(pString, "Select k (1 - %d) : ", nInputs_);
+            kk = getInt(1, nInputs_, pString);
             kk--;
-            double *jLowerB = new double[nInputs-1];
-            double *jUpperB = new double[nInputs-1];
+            double *jLowerB = new double[nInputs_-1];
+            double *jUpperB = new double[nInputs_-1];
             jj = 0;
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
                if (ii != kk)
                {
-                  jLowerB[jj] = iLowerB[ii];
-                  jUpperB[jj] = iUpperB[ii];
+                  jLowerB[jj] = iLowerB_[ii];
+                  jUpperB[jj] = iUpperB_[ii];
                   jj++;
                }
             }
@@ -9334,37 +9659,37 @@ int PsuadeBase::interpretInteractive()
             states = new int[count];
             for (ss = 0; ss < count; ss++) 
             {
-               tempY[ss] = tempX[ss*nInputs+kk];
+               tempY[ss] = tempX[ss*nInputs_+kk];
                jj = 0;
-               for (ii = 0; ii < nInputs; ii++)
+               for (ii = 0; ii < nInputs_; ii++)
                {
                   if (ii != kk)
                   {
-                     tempX[ss*(nInputs-1)+jj] = tempX[ss*nInputs+ii];
+                     tempX[ss*(nInputs_-1)+jj] = tempX[ss*nInputs_+ii];
                      jj++;
                   }
                }
             }
-            int    *iPDFs = new int[nInputs];
-            double *iMeans = new double[nInputs];
-            double *iStds = new double[nInputs];
+            int    *iPDFs = new int[nInputs_];
+            double *iMeans = new double[nInputs_];
+            double *iStds = new double[nInputs_];
             Matrix *iCMat = new Matrix();
-            iCMat->setDim(nInputs, nInputs);
-            for (ii = 0; ii < nInputs; ii++)
+            iCMat->setDim(nInputs_, nInputs_);
+            for (ii = 0; ii < nInputs_; ii++)
             {
                iPDFs[ii] = 0;
                iMeans[ii] = 0;
                iStds[ii] = 0;
                iCMat->setEntry(ii,ii,1.0);
             }
-            ioPtr->updateInputSection(count, nInputs-1, NULL, jLowerB,
-                          jUpperB, tempX, inputNames,NULL,NULL,NULL,NULL); 
+            ioPtr->updateInputSection(count, nInputs_-1, NULL, jLowerB,
+                          jUpperB, tempX, inputNames_,NULL,NULL,NULL,NULL); 
             delete [] iPDFs;
             delete [] iMeans;
             delete [] iStds;
             delete iCMat;
             for (ss = 0; ss < count; ss++) states[ss] = 1;
-            ioPtr->updateOutputSection(count, 1, tempY, states,outputNames);
+            ioPtr->updateOutputSection(count, 1, tempY, states,outputNames_);
             ioPtr->updateMethodSection(PSUADE_SAMP_MC, count, 1, -1, -1);
             analysisMethod = PSUADE_ANA_RSFA;
             anaManager = new AnalysisManager();
@@ -9407,7 +9732,7 @@ int PsuadeBase::interpretInteractive()
             printf("Use write to store the converted sample.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
@@ -9418,34 +9743,37 @@ int PsuadeBase::interpretInteractive()
          psuadeIO_->updateAnalysisSection(-1,-1,-1,outputLevel_,-1, -1);
          psuadeIO_->updateMethodSection(PSUADE_SAMP_MC, -1, -1, -1, -1);
          pdfman->initialize(psuadeIO_);
-         vecIn.load(nSamples*nInputs, sampleInputs);
-         vecOut.setLength(nSamples*nInputs);
-         vecUpper.load(nInputs, iUpperB);
-         vecLower.load(nInputs, iLowerB);
-         pdfman->invCDF(nSamples, vecIn, vecOut, vecLower, vecUpper);
+         vecIn.load(nSamples_*nInputs_, sampleInputs_);
+         vecOut.setLength(nSamples_*nInputs_);
+         vecUpper.load(nInputs_, iUpperB_);
+         vecLower.load(nInputs_, iLowerB_);
+         pdfman->invCDF(nSamples_, vecIn, vecOut, vecLower, vecUpper);
          psuadeIO_->updateAnalysisSection(-1,-1,-1,ii,-1, -1);
-         for (ii = 0; ii < nSamples*nInputs; ii++)
-            sampleInputs[ii] = vecOut[ii];
-         int    *iPDFs = new int[nInputs];
-         double *iMeans = new double[nInputs];
-         double *iStds = new double[nInputs];
+         for (ii = 0; ii < nSamples_*nInputs_; ii++)
+            sampleInputs_[ii] = vecOut[ii];
+         int    *iPDFs = new int[nInputs_];
+         double *iMeans = new double[nInputs_];
+         double *iStds = new double[nInputs_];
          Matrix *iCMat = new Matrix();
-         iCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         iCMat->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
             iPDFs[ii] = 0;
             iMeans[ii] = 0;
             iStds[ii] = 0;
             iCMat->setEntry(ii,ii,1.0);
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,
-                                       NULL,NULL,sampleInputs,NULL, 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,
+                                       NULL,NULL,sampleInputs_,NULL, 
                                        iPDFs,iMeans,iStds,iCMat);
          delete [] iPDFs;
          delete [] iMeans;
          delete [] iStds;
          delete iCMat;
          psuadeIO_->updateAnalysisSection(-1, -1, -1, kk, -1, 0);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          delete pdfman;
          printf("The sample in local memory has been converted based on\n");
          printf("the PDF information in the INPUT section.\n");
@@ -9466,31 +9794,31 @@ int PsuadeBase::interpretInteractive()
             printf("from the posterior sample after Bayesian analysis.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          sprintf(pString,"Size of the sample to be drawn : (1-1000000) ");
          count = getInt(1, 1000000, pString);
-         tempX = new double[nInputs * count];
-         tempY = new double[nOutputs * count];
+         tempX = new double[nInputs_ * count];
+         tempY = new double[nOutputs_ * count];
          tempI = new int[count];;
          for (ii = 0; ii < count; ii++)
          {
-            ind = PSUADE_rand() % nSamples;
-            for (jj = 0; jj < nInputs; jj++)
-               tempX[ii*nInputs+jj] = sampleInputs[ind*nInputs+jj];
-            for (jj = 0; jj < nOutputs; jj++)
-               tempY[ii*nOutputs+jj] = sampleOutputs[ind*nOutputs+jj];
-            tempI[ii] = sampleStates[ind];
+            ind = PSUADE_rand() % nSamples_;
+            for (jj = 0; jj < nInputs_; jj++)
+               tempX[ii*nInputs_+jj] = sampleInputs_[ind*nInputs_+jj];
+            for (jj = 0; jj < nOutputs_; jj++)
+               tempY[ii*nOutputs_+jj] = sampleOutputs_[ind*nOutputs_+jj];
+            tempI[ii] = sampleStates_[ind];
          }
-         int    *iPDFs = new int[nInputs];
-         double *iMeans = new double[nInputs];
-         double *iStds = new double[nInputs];
+         int    *iPDFs = new int[nInputs_];
+         double *iMeans = new double[nInputs_];
+         double *iStds = new double[nInputs_];
          Matrix *iCMat = new Matrix();
-         iCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         iCMat->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
             iPDFs[ii] = 0;
             iMeans[ii] = 0;
@@ -9498,19 +9826,19 @@ int PsuadeBase::interpretInteractive()
             iCMat->setEntry(ii,ii,1.0);
          }
          ioPtr = new PsuadeData();
-         ioPtr->updateInputSection(count, nInputs, NULL, iLowerB,
-                                   iUpperB, tempX, inputNames,
+         ioPtr->updateInputSection(count, nInputs_, NULL, iLowerB_,
+                                   iUpperB_, tempX, inputNames_,
                                    iPDFs,iMeans,iStds,iCMat);
          delete [] iPDFs;
          delete [] iMeans;
          delete [] iStds;
          delete iCMat;
-         ioPtr->updateOutputSection(count, nOutputs, tempY, tempI,
-                                    outputNames);
+         ioPtr->updateOutputSection(count, nOutputs_, tempY, tempI,
+                                    outputNames_);
          ioPtr->updateMethodSection(PSUADE_SAMP_MC, count, 1, -1, -1);
          printf("Store random sample to : (filename) ");
          scanf("%s", dataFile);
-         fgets(lineIn,500,stdin); 
+         fgets(lineIn,5000,stdin); 
          if ((fp = fopen(dataFile, "w")) == NULL)
          {
             printf("ERROR: cannot open file %s\n", dataFile);
@@ -9568,80 +9896,80 @@ int PsuadeBase::interpretInteractive()
          }
 
          psuadeIO_->getParameter("input_ninputs", pPtr);
-         nInputs = pPtr.intData_;
+         nInputs_ = pPtr.intData_;
          psuadeIO_->getParameter("method_nsamples", pPtr);
-         nSamples = pPtr.intData_;
+         nSamples_ = pPtr.intData_;
          psuadeIO_->getParameter("input_sample", pPtr);
-         if (sampleInputs != NULL) delete [] sampleInputs;
-         sampleInputs = pPtr.dbleArray_;
+         if (sampleInputs_ != NULL) delete [] sampleInputs_;
+         sampleInputs_ = pPtr.dbleArray_;
          pPtr.dbleArray_ = NULL;
 
          ioPtr->getParameter("input_ninputs", pPtr);
-         nInputs2 = pPtr.intData_;
+         int nInputs2 = pPtr.intData_;
          ioPtr->getParameter("method_nsamples", pPtr);
-         nSamples2 = pPtr.intData_;
+         int nSamples2 = pPtr.intData_;
          ioPtr->getParameter("input_sample", pPtr);
          tempX = pPtr.dbleArray_;
          pPtr.dbleArray_ = NULL;
 
-         iLowerB = new double[nInputs+nInputs2];
-         iUpperB = new double[nInputs+nInputs2];
+         iLowerB_ = new double[nInputs_+nInputs2];
+         iUpperB_ = new double[nInputs_+nInputs2];
          pLower.clean();
          psuadeIO_->getParameter("input_lbounds", pLower);
          tempT = pLower.dbleArray_;
          pLower.dbleArray_ = NULL;
-         for (ii = 0; ii < nInputs; ii++) iLowerB[ii] = tempT[ii];
+         for (ii = 0; ii < nInputs_; ii++) iLowerB_[ii] = tempT[ii];
          delete [] tempT;
          ioPtr->getParameter("input_lbounds", pLower);
          tempT = pLower.dbleArray_;
          pLower.dbleArray_ = NULL;
-         for (ii = 0; ii < nInputs2; ii++) iLowerB[nInputs+ii] = tempT[ii];
+         for (ii = 0; ii < nInputs2; ii++) iLowerB_[nInputs_+ii] = tempT[ii];
          delete [] tempT;
 
          pUpper.clean();
          psuadeIO_->getParameter("input_ubounds", pUpper);
          tempT = pUpper.dbleArray_;
          pUpper.dbleArray_ = NULL;
-         for (ii = 0; ii < nInputs; ii++) iUpperB[ii] = tempT[ii];
+         for (ii = 0; ii < nInputs_; ii++) iUpperB_[ii] = tempT[ii];
          delete [] tempT;
          ioPtr->getParameter("input_ubounds", pUpper);
          tempT = pUpper.dbleArray_;
          pUpper.dbleArray_ = NULL;
-         for (ii = 0; ii < nInputs2; ii++) iUpperB[nInputs+ii] = tempT[ii];
+         for (ii = 0; ii < nInputs2; ii++) iUpperB_[nInputs_+ii] = tempT[ii];
          delete [] tempT;
 
          sprintf(pString,"Size of the sample to be drawn : (1-2000000) ");
          count = getInt(1, 200000, pString);
-         tempW = new double[count*(nInputs+nInputs2)];
+         tempW = new double[count*(nInputs_+nInputs2)];
          tempY = new double[count];
          tempI = new int[count]; 
          for (ii = 0; ii < count; ii++)
          {
-            ind  = PSUADE_rand() % nSamples;
+            ind  = PSUADE_rand() % nSamples_;
             ind2 = PSUADE_rand() % nSamples2;
-            for (jj = 0; jj < nInputs; jj++)
-               tempW[ii*(nInputs+nInputs2)+jj] = 
-                  sampleInputs[ind*nInputs+jj];
+            for (jj = 0; jj < nInputs_; jj++)
+               tempW[ii*(nInputs_+nInputs2)+jj] = 
+                  sampleInputs_[ind*nInputs_+jj];
             for (jj = 0; jj < nInputs2; jj++)
-               tempW[ii*(nInputs+nInputs2)+nInputs+jj] = 
+               tempW[ii*(nInputs_+nInputs2)+nInputs_+jj] = 
                   tempX[ind2*nInputs2+jj];
             tempY[ii] = PSUADE_UNDEFINED;
             tempI[ii] = 0;
          } 
 
-         inputNames = new char*[nInputs+nInputs2];
+         inputNames_ = new char*[nInputs_+nInputs2];
          psuadeIO_->getParameter("input_names", pINames);
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            inputNames[ii] = new char[1001]; 
-            strcpy(inputNames[ii], pINames.strArray_[ii]);
+            inputNames_[ii] = new char[1001]; 
+            strcpy(inputNames_[ii], pINames.strArray_[ii]);
          }
          pINames.clean();
          ioPtr->getParameter("input_names", pINames);
          for (ii = 0; ii < nInputs2; ii++)
          {
-            inputNames[nInputs+ii] = new char[1001]; 
-            strcpy(inputNames[nInputs+ii], pINames.strArray_[ii]);
+            inputNames_[nInputs_+ii] = new char[1001]; 
+            strcpy(inputNames_[nInputs_+ii], pINames.strArray_[ii]);
          }
          pINames.clean();
          delete psuadeIO_;
@@ -9649,37 +9977,37 @@ int PsuadeBase::interpretInteractive()
          psuadeIO_ = NULL;
 
          ioPtr = new PsuadeData();
-         int    *iPDFs = new int[nInputs+nInputs2];
-         double *iMeans = new double[nInputs+nInputs2];
-         double *iStds = new double[nInputs+nInputs2];
+         int    *iPDFs = new int[nInputs_+nInputs2];
+         double *iMeans = new double[nInputs_+nInputs2];
+         double *iStds = new double[nInputs_+nInputs2];
          Matrix *iCMat = new Matrix();
-         iCMat->setDim(nInputs+nInputs2, nInputs+nInputs2);
-         for (ii = 0; ii < nInputs+nInputs2; ii++)
+         iCMat->setDim(nInputs_+nInputs2, nInputs_+nInputs2);
+         for (ii = 0; ii < nInputs_+nInputs2; ii++)
          {
             iPDFs[ii] = 0;
             iMeans[ii] = 0;
             iStds[ii] = 0;
             iCMat->setEntry(ii,ii,1.0);
          }
-         ioPtr->updateInputSection(count, nInputs+nInputs2, NULL, 
-                              iLowerB, iUpperB, tempW, inputNames,
+         ioPtr->updateInputSection(count, nInputs_+nInputs2, NULL, 
+                              iLowerB_, iUpperB_, tempW, inputNames_,
                               iPDFs, iMeans, iStds, iCMat);
          delete [] iPDFs;
          delete [] iMeans;
          delete [] iStds;
          delete iCMat;
  
-         nOutputs = 1;
-         outputNames = new char*[1];
-         outputNames[0] = new char[200]; 
-         sprintf(outputNames[0], "Y");
-         ioPtr->updateOutputSection(count, nOutputs, tempY, tempI,
-                                    outputNames);
+         nOutputs_ = 1;
+         outputNames_ = new char*[1];
+         outputNames_[0] = new char[200]; 
+         sprintf(outputNames_[0], "Y");
+         ioPtr->updateOutputSection(count, nOutputs_, tempY, tempI,
+                                    outputNames_);
          ioPtr->updateMethodSection(PSUADE_SAMP_MC, count, 1, -1, -1);
 
          printf("Store random sample to : (filename) ");
          scanf("%s", dataFile);
-         fgets(lineIn,500,stdin); 
+         fgets(lineIn,5000,stdin); 
          if ((fp = fopen(dataFile, "w")) == NULL)
          {
             printf("ERROR: cannot open file %s\n", dataFile);
@@ -9693,36 +10021,93 @@ int PsuadeBase::interpretInteractive()
          delete [] tempX;
          delete [] tempY;
          delete [] tempI;
-         for (ii = 0; ii < nInputs+nInputs2; ii++) 
-            delete [] inputNames[ii];
-         delete [] inputNames;
-         delete [] outputNames[0];
-         delete [] outputNames;
-         inputNames  = NULL;
-         outputNames = NULL;
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (sampleStates  != NULL) delete [] sampleStates;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (inputPDFs     != NULL) delete [] inputPDFs;
-         if (inputMeans    != NULL) delete [] inputMeans;
-         if (inputStds     != NULL) delete [] inputStds;
-         sampleInputs  = NULL;
-         sampleOutputs = NULL;
-         sampleStates  = NULL;
-         iLowerB       = NULL;
-         iUpperB       = NULL;
-         inputPDFs     = NULL;
-         inputMeans    = NULL;
-         inputStds     = NULL;
-         nSamples = 0;
-         nInputs = 0;
-         nOutputs = 0;
-         inputNames = NULL;
-         outputNames = NULL;
+         for (ii = 0; ii < nInputs_+nInputs2; ii++) 
+            delete [] inputNames_[ii];
+         delete [] inputNames_;
+         delete [] outputNames_[0];
+         delete [] outputNames_;
+         inputNames_  = NULL;
+         outputNames_ = NULL;
+         if (sampleInputs_  != NULL) delete [] sampleInputs_;
+         if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+         if (sampleStates_  != NULL) delete [] sampleStates_;
+         if (iLowerB_       != NULL) delete [] iLowerB_;
+         if (iUpperB_       != NULL) delete [] iUpperB_;
+         if (inputPDFs_     != NULL) delete [] inputPDFs_;
+         if (inputMeans_    != NULL) delete [] inputMeans_;
+         if (inputStds_     != NULL) delete [] inputStds_;
+         sampleInputs_  = NULL;
+         sampleOutputs_ = NULL;
+         sampleStates_  = NULL;
+         iLowerB_       = NULL;
+         iUpperB_       = NULL;
+         inputPDFs_     = NULL;
+         inputMeans_    = NULL;
+         inputStds_     = NULL;
+         nSamples_ = 0;
+         nInputs_ = 0;
+         nOutputs_ = 0;
+         inputNames_ = NULL;
+         outputNames_ = NULL;
          delete ioPtr;
          ioPtr = NULL;
+      }
+
+      // +++ gensample 
+      else if (!strcmp(command, "gensample"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("gensample: create a sample from the loaded INPUT PDFs.\n");
+            continue;
+         }
+         if (psuadeIO_ == NULL)
+         {
+            printf("ERROR: no sample input information.\n");
+            printf("       Use load to put data into local memory first.\n");
+            continue;
+         }
+         sprintf(pString,"Sample size? (>= 2, <=10000000) ");
+         kk = getInt(1,10000000,pString);
+         pdfman = new PDFManager();
+         pdfman->initialize(nInputs_,inputPDFs_,inputMeans_,inputStds_,
+                            *inputCMat_,inputPDFFiles,SPDFIndices);
+         vecLower.load(nInputs_, iLowerB_);
+         vecUpper.load(nInputs_, iUpperB_);
+         vecIn.setLength(kk*nInputs_);
+         pdfman->genSample(kk, vecIn, vecLower, vecUpper);
+         delete pdfman;
+         ioPtr = new PsuadeData();
+         tempX = vecIn.getDVector();
+         tempY = new double[kk];
+         for (ii = 0; ii < kk; ii++) tempY[ii] = PSUADE_UNDEFINED; 
+         states = new int[kk];
+         for (ii = 0; ii < kk; ii++) states[ii] = 0; 
+         ioPtr->updateInputSection(kk,nInputs_,NULL,iLowerB_,iUpperB_,tempX, 
+                  inputNames_,inputPDFs_,inputMeans_,inputStds_,inputCMat_);
+         if (sampleOutputs_ == NULL)
+         {
+            names = new char*[1];
+            names[0] = new char[100];
+            strcpy(names[0], "Y");
+         }
+         else names = outputNames_;
+         ioPtr->updateOutputSection(kk, iOne, tempY, states, names);
+         if (sampleOutputs_ == NULL)
+         {
+            delete [] names[0];
+            delete [] names;
+            names = NULL;
+         }
+         ioPtr->updateMethodSection(PSUADE_SAMP_MC, kk, 1, -1, -1);
+         ioPtr->writePsuadeFile("psuade_sample",0);
+         printf("The sample has been written into the 'psuade_sample' file.\n");
+         delete ioPtr;
+         delete [] tempY;
+         delete [] states;
+         tempY = NULL;
+         states = NULL;
       }
 
       // +++ cdf_lookup 
@@ -9740,23 +10125,72 @@ int PsuadeBase::interpretInteractive()
          }
          int    gtype;
          double slbound, subound, smean, sstdev;
-         sprintf(pString,"PDF type? (1) N (2) L (3) T (4) Beta (5) Weibull (6) Gamma (7) Exp: ");
-         gtype = getInt(1, 7, pString);
-         if      (gtype == 1) gtype = PSUADE_PDF_NORMAL;
-         else if (gtype == 2) gtype = PSUADE_PDF_LOGNORMAL;
-         else if (gtype == 3) gtype = PSUADE_PDF_TRIANGLE;
-         else if (gtype == 4) gtype = PSUADE_PDF_BETA;
-         else if (gtype == 5) gtype = PSUADE_PDF_WEIBULL;
-         else if (gtype == 6) gtype = PSUADE_PDF_GAMMA;
-         else if (gtype == 7) gtype = PSUADE_PDF_EXPONENTIAL;
-         sprintf(pString, "PDF parameter 1 (e.g. mean for Normal) = ");
-         smean = getDouble(pString);
-         if (gtype != PSUADE_PDF_EXPONENTIAL) 
+         sprintf(pString,
+           "PDF type? (1) N (2) L (3) T (4) Beta (5) Weibull (6) Gamma (7) Exp (8) F : ");
+         gtype = getInt(1, 8, pString);
+         if (gtype == 1)
          {
-            sprintf(pString, "PDF parameter 2 (e.g. std dev. for Normal) = ");
+            gtype = PSUADE_PDF_NORMAL;
+            sprintf(pString, "PDF mean = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF std. dev. = ");
             sstdev = getDouble(pString);
          }
-         else sstdev = 0.0;
+         else if (gtype == 2) 
+         {
+            gtype = PSUADE_PDF_LOGNORMAL;
+            sprintf(pString, "PDF log(mean) = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF std. dev. = ");
+            sstdev = getDouble(pString);
+         }
+         else if (gtype == 3)
+         {
+            gtype = PSUADE_PDF_TRIANGLE;
+            sprintf(pString, "PDF center = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF half base width (assumed isosceles) = ");
+            sstdev = getDouble(pString);
+         }
+         else if (gtype == 4)
+         {
+            gtype = PSUADE_PDF_BETA;
+            sprintf(pString, "PDF alpha = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF beta = ");
+            sstdev = getDouble(pString);
+         }
+         else if (gtype == 5)
+         {
+            gtype = PSUADE_PDF_WEIBULL;
+            sprintf(pString, "PDF lambda = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF k = ");
+            sstdev = getDouble(pString);
+         }
+         else if (gtype == 6)
+         {
+            gtype = PSUADE_PDF_GAMMA;
+            sprintf(pString, "PDF alpha = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF beta = ");
+            sstdev = getDouble(pString);
+         }
+         else if (gtype == 7)
+         {
+            gtype = PSUADE_PDF_EXPONENTIAL;
+            sprintf(pString, "PDF lambda = ");
+            smean = getDouble(pString);
+            sstdev = 0.0;
+         }
+         else if (gtype == 8)
+         {
+            gtype = PSUADE_PDF_F;
+            sprintf(pString, "PDF d1 = ");
+            smean = getDouble(pString);
+            sprintf(pString, "PDF d2 = ");
+            sstdev = getDouble(pString);
+         }
          corMat.setDim(1,1);
          corMat.setEntry(0,0, 1.0e0);
          pdfman = new PDFManager();
@@ -9789,8 +10223,9 @@ int PsuadeBase::interpretInteractive()
          psOutputFilename_ = PSUADE_strdup(winput);
          if (psInputFilename_ == psOutputFilename_)
          {
-            printf("WARNING: The output filename is the same as the input filename\n");
-            printf("         If you save the file it will overwrite the input file.\n");
+            printf("WARNING: The output filename is the same as the input\n");
+            printf("         filename. If you save the file it will overwrite\n");
+            printf("         the input file.\n");
          }
       }
 
@@ -9829,27 +10264,27 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          status = genSetup(0, dataFile);
-         if (sampleInputs  != NULL) delete [] sampleInputs;
-         if (sampleOutputs != NULL) delete [] sampleOutputs;
-         if (iLowerB       != NULL) delete [] iLowerB;
-         if (iUpperB       != NULL) delete [] iUpperB;
-         if (sampleStates  != NULL) delete [] sampleStates;
-         if (inputNames != NULL)
+         if (sampleInputs_  != NULL) delete [] sampleInputs_;
+         if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+         if (iLowerB_       != NULL) delete [] iLowerB_;
+         if (iUpperB_       != NULL) delete [] iUpperB_;
+         if (sampleStates_  != NULL) delete [] sampleStates_;
+         if (inputNames_ != NULL)
          {
-            for (ii = 0; ii < nInputs; ii++)
-               delete [] inputNames[ii];
-            delete [] inputNames;
+            for (ii = 0; ii < nInputs_; ii++)
+               delete [] inputNames_[ii];
+            delete [] inputNames_;
          }
-         if (outputNames != NULL)
+         if (outputNames_ != NULL)
          {
-            for (ii = 0; ii < nOutputs; ii++)
-               delete [] outputNames[ii];
-            delete [] outputNames;
+            for (ii = 0; ii < nOutputs_; ii++)
+               delete [] outputNames_[ii];
+            delete [] outputNames_;
          }
-         sampleInputs = sampleOutputs = NULL;
-         sampleStates = NULL;
-         iLowerB = iUpperB = NULL;
-         inputNames = outputNames = NULL;
+         sampleInputs_ = sampleOutputs_ = NULL;
+         sampleStates_ = NULL;
+         iLowerB_ = iUpperB_ = NULL;
+         inputNames_ = outputNames_ = NULL;
 
          if (status == 0)
          {
@@ -9860,72 +10295,64 @@ int PsuadeBase::interpretInteractive()
             {
                getInputFromFile(dataFile);
                cleanUp();
-               if (psuadeIO_ != NULL) delete psuadeIO_;
-               if (sampler_ != NULL) SamplingDestroy(sampler_);
-               sampler_ = NULL;
-               if (inputNames != NULL) 
-               {
-                  for (ii = 0; ii < nInputs; ii++) delete [] inputNames[ii];
-                  delete [] inputNames;
-               }
-               if (outputNames != NULL) 
-               {
-                  for (ii = 0; ii < nOutputs; ii++) delete [] outputNames[ii];
-                  delete [] outputNames;
-               }
                psuadeIO_ = new PsuadeData();
                psuadeIO_->setOutputLevel(0);
                strcpy(winput, psInputFilename_);
                status = psuadeIO_->readPsuadeFile(winput);
-               if (status != 0) continue;
+               if (status != 0) 
+               {
+                  printf("ERROR: cannot read file %s\n",winput);
+                  continue;
+               }
                psuadeIO_->getParameter("input_ninputs", pPtr);
-               nInputs = pPtr.intData_;
+               nInputs_ = pPtr.intData_;
                pINames.clean();
                psuadeIO_->getParameter("input_names", pINames);
                names = pINames.strArray_;
                pLower.clean();
                psuadeIO_->getParameter("input_lbounds", pLower);
-               iLowerB = pLower.dbleArray_;
+               iLowerB_ = pLower.dbleArray_;
                pLower.dbleArray_ = NULL;
                pUpper.clean();
                psuadeIO_->getParameter("input_ubounds", pUpper);
-               iUpperB = pUpper.dbleArray_;
+               iUpperB_ = pUpper.dbleArray_;
                pUpper.dbleArray_ = NULL;
-               inputNames = new char*[nInputs+1];
-               for (ii = 0; ii < nInputs; ii++)
+               inputNames_ = new char*[nInputs_+1];
+               for (ii = 0; ii < nInputs_; ii++)
                {
-                  inputNames[ii] = new char[200]; 
-                  strcpy(inputNames[ii], names[ii]);
+                  inputNames_[ii] = new char[200]; 
+                  strcpy(inputNames_[ii], names[ii]);
                }
                psuadeIO_->getParameter("output_noutputs", pPtr);
-               nOutputs = pPtr.intData_;
+               nOutputs_ = pPtr.intData_;
                pONames.clean();
                psuadeIO_->getParameter("output_names", pONames);
                names = pONames.strArray_;
-               outputNames = new char*[nOutputs+1];
-               for (ii = 0; ii < nOutputs; ii++)
+               outputNames_ = new char*[nOutputs_+1];
+               for (ii = 0; ii < nOutputs_; ii++)
                {
-                  outputNames[ii] = new char[200]; 
-                  strcpy(outputNames[ii], names[ii]);
+                  outputNames_[ii] = new char[200]; 
+                  strcpy(outputNames_[ii], names[ii]);
                }
                psuadeIO_->getParameter("method_sampling", pPtr);
                samplingMethod = pPtr.intData_;
                psuadeIO_->getParameter("method_nsamples", pPtr);
-               nSamples = pPtr.intData_;
+               nSamples_ = pPtr.intData_;
                psuadeIO_->getParameter("method_nreplications",pPtr);
                nReps = pPtr.intData_;
                psuadeIO_->getParameter("input_sample", pPtr);
-               sampleInputs  = pPtr.dbleArray_;
+               sampleInputs_  = pPtr.dbleArray_;
                psuadeIO_->getParameter("output_sample", pPtr);
-               sampleOutputs  = pPtr.dbleArray_;
+               sampleOutputs_  = pPtr.dbleArray_;
                psuadeIO_->getParameter("output_states", pPtr);
-               sampleStates  = pPtr.intArray_;
+               sampleStates_  = pPtr.intArray_;
                pPtr.intArray_ = NULL;
                pPtr.dbleArray_ = NULL;
                pINames.clean();
                pONames.clean();
                printf("==================================================\n");
-               printf("The sample matrix is now stored in %s file.\n", psOutputFilename_);
+               printf("The sample matrix is now stored in %s file.\n", 
+                      psOutputFilename_);
                printf("You can also use genmars command to convert the\n");
                printf("sample matrix to a row-column format.\n");
                printf("==================================================\n");
@@ -9968,13 +10395,14 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("gendist: create a sample using some probability distributions\n");
+            printf("gendist: create a sample using selected PDFs\n");
             printf("syntax: gendist (no argument needed)\n");
             continue;
          }
          sprintf(pString, "nSamples = ");
          ns = getInt(10, 10000000, pString);
-         sprintf(pString, "PDF type = (1) N (2) L (3) T (4) Beta (5) Exp (6) Weibull: ");
+         sprintf(pString, 
+           "PDF type = (1) N (2) L (3) T (4) Beta (5) Exp (6) Weibull: ");
          gtype = getInt(1, 6, pString);
          if      (gtype == 1) gtype = PSUADE_PDF_NORMAL;
          else if (gtype == 2) gtype = PSUADE_PDF_LOGNORMAL;
@@ -10022,7 +10450,7 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("genexample: create a PSUADE example (driver + psuade input file)\n");
+            printf("genexample: create a PSUADE example (driver+input file)\n");
             printf("syntax: genexample (no argument needed)\n");
             continue;
          }
@@ -10289,20 +10717,20 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: list1 (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            sprintf(pString, "Enter input number (1 - %d) : ", nInputs);
-            iInd = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter input number (1 - %d) : ", nInputs_);
+            iInd = getInt(1, nInputs_, pString);
             iInd--;
-            if (nOutputs == 1) outputID = 0;
+            if (nOutputs_ == 1) outputID = 0;
             else
             {
-               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-               outputID = getInt(1, nOutputs, pString);
+               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+               outputID = getInt(1, nOutputs_, pString);
                outputID--;
             }
             sprintf(pString,"Sort the input (y or n) ? ");
@@ -10314,20 +10742,20 @@ int PsuadeBase::interpretInteractive()
                if (winput[0] == 'n') winput[0] = 'N'; 
                if (winput[0] == 'y') winput[0] = 'Y'; 
             }
-            tempX = new double[nSamples];
-            tempY = new double[nSamples];
-            tempW = new double[nSamples];
-            for (sInd = 0; sInd < nSamples; sInd++)
+            tempX = new double[nSamples_];
+            tempY = new double[nSamples_];
+            tempW = new double[nSamples_];
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               tempX[sInd] = sampleInputs[sInd*nInputs+iInd];
-               tempY[sInd] = sampleOutputs[sInd*nOutputs+outputID];
+               tempX[sInd] = sampleInputs_[sInd*nInputs_+iInd];
+               tempY[sInd] = sampleOutputs_[sInd*nOutputs_+outputID];
                tempW[sInd] = (double) sInd + 1;
             }
             if (winput[0] == 'y') 
-               sortDbleList3(nSamples, tempX, tempY, tempW);
+               sortDbleList3(nSamples_, tempX, tempY, tempW);
             else if (winput[0] == 'Y') 
-               sortDbleList3(nSamples, tempY, tempX, tempW);
-            for (sInd = 0; sInd < nSamples; sInd++)
+               sortDbleList3(nSamples_, tempY, tempX, tempW);
+            for (sInd = 0; sInd < nSamples_; sInd++)
                printf("%6d: Sample %7d : input = %16.8e, output = %16.8e\n",
                       sInd+1, (int) tempW[sInd], tempX[sInd], tempY[sInd]);
             delete [] tempX;
@@ -10347,23 +10775,23 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: list2 (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            sprintf(pString, "Enter input number 1 (1 - %d) : ", nInputs);
-            iInd1 = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter input number 1 (1 - %d) : ", nInputs_);
+            iInd1 = getInt(1, nInputs_, pString);
             iInd1--;
-            sprintf(pString, "Enter input number 2 (1 - %d) : ", nInputs);
-            iInd2 = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter input number 2 (1 - %d) : ", nInputs_);
+            iInd2 = getInt(1, nInputs_, pString);
             iInd2--;
-            if (nOutputs == 1) outputID = 0;
+            if (nOutputs_ == 1) outputID = 0;
             else
             {
-               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-               outputID = getInt(1, nOutputs, pString);
+               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+               outputID = getInt(1, nOutputs_, pString);
                outputID--;
             }
             sprintf(pString,"Sort the inputs (y or n) ? ");
@@ -10375,23 +10803,23 @@ int PsuadeBase::interpretInteractive()
                if (winput[0] == 'n') winput[0] = 'N'; 
                if (winput[0] == 'y') winput[0] = 'Y'; 
             }
-            tempX = new double[nSamples];
-            tempY = new double[nSamples];
-            tempW = new double[nSamples];
-            tempV = new double[nSamples];
-            for (sInd = 0; sInd < nSamples; sInd++)
+            tempX = new double[nSamples_];
+            tempY = new double[nSamples_];
+            tempW = new double[nSamples_];
+            tempV = new double[nSamples_];
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
-               tempX[sInd] = sampleInputs[sInd*nInputs+iInd1];
-               tempV[sInd] = sampleInputs[sInd*nInputs+iInd2];
-               tempY[sInd] = sampleOutputs[sInd*nOutputs+outputID];
+               tempX[sInd] = sampleInputs_[sInd*nInputs_+iInd1];
+               tempV[sInd] = sampleInputs_[sInd*nInputs_+iInd2];
+               tempY[sInd] = sampleOutputs_[sInd*nOutputs_+outputID];
                tempW[sInd] = (double) sInd;
             }
             if (winput[0] == 'y') 
             {
-               sortDbleList4(nSamples, tempX, tempV, tempY, tempW);
+               sortDbleList4(nSamples_, tempX, tempV, tempY, tempW);
                sInd = 0;
                count = 1; 
-               while (sInd < nSamples) 
+               while (sInd < nSamples_) 
                {
                   sInd++;
                   if (tempX[sInd] == tempX[sInd-1]) count++;
@@ -10415,9 +10843,9 @@ int PsuadeBase::interpretInteractive()
             }
             else if (winput[0] == 'Y') 
             {
-               sortDbleList4(nSamples, tempY, tempX, tempV, tempW);
+               sortDbleList4(nSamples_, tempY, tempX, tempV, tempW);
             }
-            for (sInd = 0; sInd < nSamples; sInd++)
+            for (sInd = 0; sInd < nSamples_; sInd++)
             {
                printf("%6d: Sample %7d : ", sInd+1, ((int) tempW[sInd])+1);
                printf("inputs = (%12.4e, %12.4e), output = %12.4e\n",
@@ -10441,52 +10869,50 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: listall (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            if (nOutputs == 1) outputID = 0;
+            if (nOutputs_ == 1) outputID = 0;
             else
             {
-               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-               outputID = getInt(1, nOutputs, pString);
+               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+               outputID = getInt(1, nOutputs_, pString);
                outputID--;
             }
             sprintf(pString,"Sort the output (y or n) ? ");
             getString(pString, winput);
             if (winput[0] == 'y')
             {
-               tempI = new int[nSamples];
-               tempY = new double[nSamples];
-               for (sInd = 0; sInd < nSamples; sInd++)
+               int    *tmpInds = new int[nSamples_];
+               double *tmpOuts = new double[nSamples_];
+               for (sInd = 0; sInd < nSamples_; sInd++)
                {
-                  tempI[sInd] = sInd;
-                  tempY[sInd] = sampleOutputs[sInd*nOutputs+outputID];
+                  tmpInds[sInd] = sInd;
+                  tmpOuts[sInd] = sampleOutputs_[sInd*nOutputs_+outputID];
                }
-               sortDbleList2a(nSamples, tempY, tempI);
-               for (sInd = 0; sInd < nSamples; sInd++)
+               sortDbleList2a(nSamples_, tmpOuts, tmpInds);
+               for (sInd = 0; sInd < nSamples_; sInd++)
                {
-                  kk = tempI[sInd];
+                  kk = tmpInds[sInd];
                   printf("%6d: Sample %7d : ", sInd+1, kk+1);
-                  for (ii = 0; ii < nInputs; ii++)
-                     printf("%12.4e ", sampleInputs[kk*nInputs+ii]);
-                  printf("= %12.4e\n", tempY[sInd]);
+                  for (ii = 0; ii < nInputs_; ii++)
+                     printf("%12.4e ", sampleInputs_[kk*nInputs_+ii]);
+                  printf("= %12.4e\n", tmpOuts[ss]);
                }
-               delete [] tempY;
-               delete [] tempI;
-               tempY = NULL;
-               tempI = NULL;
+               delete [] tmpOuts;
+               delete [] tmpInds;
             }
             else
             {
-               for (sInd = 0; sInd < nSamples; sInd++)
+               for (ss = 0; ss < nSamples_; ss++)
                {
-                  printf("Sample %7d : ", sInd+1);
-                  for (ii = 0; ii < nInputs; ii++)
-                     printf("%12.4e ", sampleInputs[sInd*nInputs+ii]);
-                  printf("= %12.4e\n", sampleOutputs[sInd]);
+                  printf("Sample %7d : ", ss+1);
+                  for (ii = 0; ii < nInputs_; ii++)
+                     printf("%12.4e ", sampleInputs_[ss*nInputs_+ii]);
+                  printf("= %12.4e\n", sampleOutputs_[ss]);
                }
             }
          }
@@ -10502,22 +10928,22 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: disp_sample or sshow (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            sprintf(pString, "Enter sample number (1 - %d) : ", nSamples);
-            iInd = getInt(1, nSamples, pString);
-            iInd--;
-            printf("Sample %7d : \n", iInd+1);
-            for (sInd = 0; sInd < nInputs; sInd++)
-               printf("   input  %3d = %16.8e\n", sInd+1, 
-                      sampleInputs[iInd*nInputs+sInd]);
-            for (sInd = 0; sInd < nOutputs; sInd++)
+            sprintf(pString, "Enter sample number (1 - %d) : ", nSamples_);
+            ind = getInt(1, nSamples_, pString);
+            ind--;
+            printf("Sample %7d : \n", ind+1);
+            for (ii = 0; ii < nInputs_; ii++)
+               printf("   input  %3d = %16.8e\n", ii+1, 
+                      sampleInputs_[ind*nInputs_+ii]);
+            for (ii = 0; ii < nOutputs_; ii++)
                printf("   output %3d = %16.8e\n", sInd+1, 
-                      sampleOutputs[iInd*nOutputs+sInd]);
+                      sampleOutputs_[ind*nOutputs_+ii]);
          }
       }
 
@@ -10531,36 +10957,36 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: max (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            if (nOutputs == 1) outputID = 0;
+            if (nOutputs_ == 1) outputID = 0;
             else
             {
-               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-               outputID = getInt(1, nOutputs, pString);
+               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+               outputID = getInt(1, nOutputs_, pString);
                outputID--;
             }
-            Ymax = sampleOutputs[outputID];
-            ind  = 0;
-            for (sInd = 1; sInd < nSamples; sInd++)
+            double maxY = sampleOutputs_[outputID];
+            int    maxI = 0;
+            for (sInd = 1; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
+               if (sampleOutputs_[sInd*nOutputs_+outputID] > maxY)
                {
-                  ind  = sInd;
-                  Ymax = sampleOutputs[sInd*nOutputs+outputID];
+                  maxI  = sInd;
+                  maxY = sampleOutputs_[sInd*nOutputs_+outputID];
                }
             }
             printf("Sample %d gives maximum for output %d\n",
-                    ind+1,outputID+1);
-            for (iInd = 0; iInd < nInputs; iInd++)
+                    maxI+1,outputID+1);
+            for (iInd = 0; iInd < nInputs_; iInd++)
                printf("  input %4d = %16.8e\n", iInd+1,
-                      sampleInputs[ind*nInputs+iInd]);
+                      sampleInputs_[maxI*nInputs_+iInd]);
             printf("  ====> output %4d = %16.8e\n", outputID+1,
-                   sampleOutputs[ind*nOutputs+outputID]);
+                   sampleOutputs_[maxI*nOutputs_+outputID]);
          }
       }
 
@@ -10574,36 +11000,36 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: min (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
          }
          else
          {
-            if (nOutputs == 1) outputID = 0;
+            if (nOutputs_ == 1) outputID = 0;
             else
             {
-               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-               outputID = getInt(1, nOutputs, pString);
+               sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+               outputID = getInt(1, nOutputs_, pString);
                outputID--;
             }
-            Ymin = sampleOutputs[outputID];
-            ind  = 0;
-            for (sInd = 1; sInd < nSamples; sInd++)
+            double minY = sampleOutputs_[outputID];
+            int    minI = 0;
+            for (sInd = 1; sInd < nSamples_; sInd++)
             {
-               if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
+               if (sampleOutputs_[sInd*nOutputs_+outputID] < minY)
                {
-                  ind  = sInd;
-                  Ymin = sampleOutputs[sInd*nOutputs+outputID];
+                  minI = sInd;
+                  minY = sampleOutputs_[sInd*nOutputs_+outputID];
                }
             }
             printf("Sample %d gives minimum for output %d\n",
-                    ind+1,outputID+1);
-            for (iInd = 0; iInd < nInputs; iInd++)
+                    minI+1,outputID+1);
+            for (iInd = 0; iInd < nInputs_; iInd++)
                printf("  input  %4d = %16.8e\n", iInd+1,
-                      sampleInputs[ind*nInputs+iInd]);
+                      sampleInputs_[minI*nInputs_+iInd]);
             printf("  ====> output %4d = %16.8e\n", outputID+1,
-                   sampleOutputs[ind*nOutputs+outputID]);
+                   sampleOutputs_[minI*nOutputs_+outputID]);
          }
       }
 
@@ -10617,106 +11043,105 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: idelete (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nInputs == 1)
+         if (nInputs_ == 1)
          {
             printf("You have only one input left -> no deletion.\n");
             continue;
          }
-         pINames.clean();
-         psuadeIO_->getParameter("input_names", pINames);
-         names = pINames.strArray_;
-         for (ii = 0; ii < nInputs; ii++)
-            printf("Input %3d = %s\n", ii+1, names[ii]);
+         for (ii = 0; ii < nInputs_; ii++)
+            printf("Input %3d = %s\n", ii+1, inputNames_[ii]);
             
-         indSet = new int[nInputs];
-         for (ii = 0; ii < nInputs; ii++) indSet[ii] = 1;
-
-         sprintf(pString,"How many inputs to remove? (1-%d) ",nInputs-1);
-         count = getInt(1, nInputs-1, pString);
-         sprintf(pString,"Enter input number (1 - %d) : ", nInputs);
-         for (ii = 0; ii < count; ii++)
+         int *indexSet = new int[nInputs_];
+         int inpCnt    = 0;
+         for (ii = 0; ii < nInputs_; ii++) indexSet[ii] = 1;
+         sprintf(pString,"How many inputs to remove? (1-%d) ",nInputs_-1);
+         inpCnt = getInt(1, nInputs_-1, pString);
+         sprintf(pString,"Enter input number (1 - %d) : ", nInputs_);
+         for (ii = 0; ii < inpCnt; ii++)
          {
-            iInd = getInt(1, nInputs, pString);
-            printf("You are removing input %d (%s)\n",iInd,names[iInd-1]);
-            indSet[iInd-1] = 0;
+            iInd = getInt(1, nInputs_, pString);
+            printf("You are removing input %d (%s)\n",iInd,inputNames_[iInd-1]);
+            indexSet[iInd-1] = 0;
          }
-         kk = 0;
-         for (ii = 0; ii < nInputs; ii++)
+         inpCnt = 0;
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            if (indSet[ii] == 1)
+            if (indexSet[ii] == 1)
             {
-               iLowerB[kk] = iLowerB[ii];
-               iUpperB[kk] = iUpperB[ii];
-               kk++;
+               iLowerB_[inpCnt] = iLowerB_[ii];
+               iUpperB_[inpCnt] = iUpperB_[ii];
+               inpCnt++;
             }
          }
-         count = kk;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
             kk = 0;
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               if (indSet[ii] == 1)
+               if (indexSet[ii] == 1)
                {
-                  sampleInputs[sInd*count+kk] = 
-                        sampleInputs[sInd*nInputs+ii];
+                  sampleInputs_[sInd*inpCnt+kk] = 
+                        sampleInputs_[sInd*nInputs_+ii];
                   kk++;
                }
             }
          }
          kk = 0;
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            if (indSet[ii] == 1)
+            if (indexSet[ii] == 1)
             {
-               strcpy(inputNames[kk], names[ii]);
-               strcpy(names[kk++], names[ii]);
+               strcpy(inputNames_[kk], inputNames_[ii]);
+               kk++;
             }
          }
          kk = 0;
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            if (indSet[ii] == 1)
+            if (indexSet[ii] == 1)
             {
-               inputPDFs[kk] = inputPDFs[ii];
-               inputMeans[kk] = inputMeans[ii];
-               inputStds[kk] = inputStds[ii];
-               for (jj = 0; jj < nInputs; jj++)
+               inputPDFs_[kk]  = inputPDFs_[ii];
+               inputMeans_[kk] = inputMeans_[ii];
+               inputStds_[kk]  = inputStds_[ii];
+               for (jj = 0; jj < nInputs_; jj++)
                {
-                  ddata = inputCMat->getEntry(ii,jj);
-                  inputCMat->setEntry(kk,jj,ddata);
+                  ddata = inputCMat_->getEntry(ii,jj);
+                  inputCMat_->setEntry(kk,jj,ddata);
                }
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
-                  ddata = inputCMat->getEntry(jj,ii);
-                  inputCMat->setEntry(jj,kk,ddata);
+                  ddata = inputCMat_->getEntry(jj,ii);
+                  inputCMat_->setEntry(jj,kk,ddata);
                }
                kk++;
             }
          }
          Matrix *tmpMat = new Matrix();
-         tmpMat->setDim(count,count);
-         for (ii = 0; ii < count; ii++)
+         tmpMat->setDim(inpCnt,inpCnt);
+         for (ii = 0; ii < inpCnt; ii++)
          {
-            for (jj = 0; jj < count; jj++)
+            for (jj = 0; jj < inpCnt; jj++)
             {
-               ddata = inputCMat->getEntry(ii,jj);
+               ddata = inputCMat_->getEntry(ii,jj);
                tmpMat->setEntry(ii,jj,ddata);
             }
          }
-         delete inputCMat;
-         inputCMat = tmpMat;
-         nInputs = count;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                                       iUpperB,sampleInputs,names,
-                                       inputPDFs,inputMeans,inputStds,
-                                       inputCMat); 
-         delete [] indSet;
+         delete [] indexSet;
+         delete inputCMat_;
+         inputCMat_ = tmpMat;
+         nInputs_ = inpCnt;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                                       iUpperB_,sampleInputs_,inputNames_,
+                                       inputPDFs_,inputMeans_,inputStds_,
+                                       inputCMat_); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("idelete completed. Use 'write' to store.\n");
       }
 
@@ -10730,43 +11155,46 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: odelete (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nOutputs == 1)
+         if (nOutputs_ == 1)
          {
             printf("You have only one output left -> no deletion.\n");
             continue;
          }
-         if (outputNames != NULL) 
+         if (outputNames_ != NULL) 
          {
-            for (ii = 0; ii < nOutputs; ii++)
-               printf("Output %3d = %s\n", ii+1, outputNames[ii]);
+            for (ii = 0; ii < nOutputs_; ii++)
+               printf("Output %3d = %s\n", ii+1, outputNames_[ii]);
          }
-         sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         if (outputNames != NULL) 
+         if (outputNames_ != NULL) 
          {
-            for (ii = outputID+1; ii < nOutputs; ii++)
-               strcpy(outputNames[ii-1], outputNames[ii]);
-            delete [] outputNames[nOutputs-1];
-            outputNames[nOutputs-1] = NULL;
+            for (ii = outputID+1; ii < nOutputs_; ii++)
+               strcpy(outputNames_[ii-1], outputNames_[ii]);
+            delete [] outputNames_[nOutputs_-1];
+            outputNames_[nOutputs_-1] = NULL;
          }
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
             for (jj = 0; jj < outputID; jj++)
-                  sampleOutputs[ii*(nOutputs-1)+jj] = 
-                                sampleOutputs[ii*nOutputs+jj];
-            for (jj = outputID+1; jj < nOutputs; jj++)
-               sampleOutputs[ii*(nOutputs-1)+jj-1] = 
-                             sampleOutputs[ii*nOutputs+jj];
+                  sampleOutputs_[ii*(nOutputs_-1)+jj] = 
+                                sampleOutputs_[ii*nOutputs_+jj];
+            for (jj = outputID+1; jj < nOutputs_; jj++)
+               sampleOutputs_[ii*(nOutputs_-1)+jj-1] = 
+                             sampleOutputs_[ii*nOutputs_+jj];
          }
-         nOutputs--;
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                         sampleOutputs,sampleStates,outputNames); 
+         nOutputs_--;
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                         sampleOutputs_,sampleStates_,outputNames_); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("odelete completed. Use 'write' to store.\n");
       }
 
@@ -10780,35 +11208,38 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: sdelete (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nSamples == 1)
+         if (nSamples_ == 1)
          {
             printf("You have only one sample point left -> no deletion.\n");
             continue;
          }
-         sprintf(pString,"Enter sample point to delete (1 - %d) : ", nSamples);
-         ss = getInt(1, nSamples, pString);
+         sprintf(pString,"Enter sample point to delete (1 - %d) : ",nSamples_);
+         ss = getInt(1, nSamples_, pString);
          ss--;
-         for (ii = ss; ii < nSamples; ii++)
+         for (ii = ss; ii < nSamples_; ii++)
          {
-            for (jj = 0; jj < nInputs; jj++)
-               sampleInputs[ii*nInputs+jj] = 
-                             sampleInputs[(ii+1)*nInputs+jj];
-            for (jj = 0; jj < nOutputs; jj++)
-               sampleOutputs[ii*nOutputs+jj] = 
-                             sampleOutputs[(ii+1)*nOutputs+jj];
+            for (jj = 0; jj < nInputs_; jj++)
+               sampleInputs_[ii*nInputs_+jj] = 
+                             sampleInputs_[(ii+1)*nInputs_+jj];
+            for (jj = 0; jj < nOutputs_; jj++)
+               sampleOutputs_[ii*nOutputs_+jj] = 
+                             sampleOutputs_[(ii+1)*nOutputs_+jj];
          }
-         nSamples--;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,
-                                       NULL,NULL,sampleInputs,NULL, 
+         nSamples_--;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,
+                                       NULL,NULL,sampleInputs_,NULL, 
                                        NULL, NULL, NULL, NULL);
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                       sampleOutputs,sampleStates,outputNames); 
-         psuadeIO_->updateMethodSection(-1,nSamples,-1,-1,-1);
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                       sampleOutputs_,sampleStates_,outputNames_); 
+         psuadeIO_->updateMethodSection(-1,nSamples_,-1,-1,-1);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("sdelete completed. Use 'write' to store.\n");
       }
 
@@ -10824,83 +11255,89 @@ int PsuadeBase::interpretInteractive()
             printf("      until a 'write' is issued.\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nSamples <= 0)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         indSet = new int[nInputs];
-         ii = 0;
-         while (ii < nInputs)
+         int *indexSet = new int[nInputs_];
+         int indexCnt  = 0;
+         while (indexCnt < nInputs_)
          {
-            sprintf(pString, "Enter the %d-th input (1 - %d) : ",ii+1,nInputs);
-            indSet[ii] = getInt(1, nInputs, pString);
-            ii++;
+            sprintf(pString, "Enter the %d-th input (1 - %d) : ",ii+1,nInputs_);
+            indexSet[indexCnt] = getInt(1, nInputs_, pString);
+            indexCnt++;
          }
-         tempX = new double[nSamples*nInputs];
-         if (inputNames != NULL) names  = new char*[nInputs];
-         for (ii = 0; ii < nInputs; ii++)
+         double *samInps   = new double[nSamples_*nInputs_];
+         char   **inpNames = new char*[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            kk = indSet[ii]-1;
-            for (jj = 0; jj < nSamples; jj++)
-               tempX[jj*nInputs+ii] = sampleInputs[jj*nInputs+kk];
-            if (inputNames != NULL) names[ii] = inputNames[kk];
+            kk = indexSet[ii] - 1;
+            for (jj = 0; jj < nSamples_; jj++)
+               samInps[jj*nInputs_+ii] = sampleInputs_[jj*nInputs_+kk];
+            if (inputNames_ != NULL) inpNames[ii] = inputNames_[kk];
          }
-         if (inputNames != NULL) 
+         delete [] sampleInputs_;
+         sampleInputs_ = samInps;
+         if (inputNames_ != NULL) 
          {
-            for (ii = 0; ii < nInputs; ii++) 
+            for (ii = 0; ii < nInputs_; ii++) 
             {
-               inputNames[ii] = names[ii];
-               names[ii] = NULL;
+               inputNames_[ii] = inpNames[ii];
+               inpNames[ii] = NULL;
             }
-            delete [] names;
+            delete [] inpNames;
          }
-         tempI = new int[nInputs];
-         tempV = new double[nInputs];
-         tempW = new double[nInputs];
-         for (ii = 0; ii < nInputs; ii++)
+         double *tmpLBs = new double[nInputs_];
+         double *tmpUBs = new double[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            kk = indSet[ii]-1;
-            tempI[ii] = inputPDFs[kk];
-            tempV[ii] = inputMeans[kk];
-            tempW[ii] = inputStds[kk];
+            kk = indexSet[ii]-1;
+            tmpLBs[ii] = iLowerB_[kk];
+            tmpUBs[ii] = iUpperB_[kk];
          }
-         delete [] inputPDFs;
-         delete [] inputMeans;
-         delete [] inputStds;
-         inputPDFs = tempI;
-         inputMeans = tempV;
-         inputStds = tempW;
-         tempV = new double[nInputs];
-         tempW = new double[nInputs];
-         for (ii = 0; ii < nInputs; ii++)
+         delete [] iLowerB_;
+         delete [] iUpperB_;
+         iLowerB_ = tmpLBs;
+         iUpperB_ = tmpUBs;
+         int    *tmpPDFs  = new int[nInputs_];
+         double *tmpMeans = new double[nInputs_];
+         double *tmpStds  = new double[nInputs_];
+         tempW = new double[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            kk = indSet[ii]-1;
-            tempV[ii] = iLowerB[kk];
-            tempW[ii] = iUpperB[kk];
+            kk = indexSet[ii] - 1;
+            tmpPDFs[ii]  = inputPDFs_[kk];
+            tmpMeans[ii] = inputMeans_[kk];
+            tmpStds[ii]  = inputStds_[kk];
          }
-         iLowerB = tempV;
-         iUpperB = tempW;
-         tempV = NULL;
-         tempW = NULL;
+         delete [] inputPDFs_;
+         delete [] inputMeans_;
+         delete [] inputStds_;
+         inputPDFs_ = tmpPDFs;
+         inputMeans_ = tmpMeans;
+         inputStds_ = tmpStds;
          Matrix *tmpMat = new Matrix();
-         tmpMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         tmpMat->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
-            kk = indSet[ii]-1;
-            for (jj = 0; jj < nInputs; jj++)
+            kk = indexSet[ii] - 1;
+            for (jj = 0; jj < nInputs_; jj++)
             {
-               ll = indSet[jj]-1;
-               ddata = inputCMat->getEntry(kk,ll);
+               ll = indexSet[jj]-1;
+               ddata = inputCMat_->getEntry(kk,ll);
                tmpMat->setEntry(ii,jj,ddata);
             }
          }
-         delete inputCMat;
-         inputCMat = tmpMat;
-         delete [] sampleInputs;
-         sampleInputs = tempX;
-         tempX = NULL;
-         delete [] indSet;
+         delete [] indexSet;
+         delete inputCMat_;
+         inputCMat_ = tmpMat;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                              iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                              inputMeans_,inputStds_,inputCMat_); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("ishuffle completed. Use 'write' to store.\n");
       }
 
@@ -10910,109 +11347,111 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("iselect_index: select a subset of inputs and re-order them.\n");
+            printf("iselect_index: select and re-order a subset of inputs.\n");
             printf("syntax: iselect_index (no argument needed)\n");
-            printf("This command can be used in conjunction with iread, iadd\n");
-            printf("and iwrite to convert an inferenced posterior sample to\n");
-            printf("a sample file understood by the S-type PDF in order to\n");
-            printf("multi-stage UQ analysis.\n");
+            printf("This command can be used in conjunction with iread,\n");
+            printf("iadd and iwrite to convert a posterior sample (from\n");
+            printf("rsmcmc) into a sample file that can be understood by\n");
+            printf("the S-type PDF for use in multi-stage UQ analysis.\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nSamples <= 0)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         indSet = new int[nInputs];
-         count = 0;
+         int *indexSet = new int[nInputs_+1];
+         int indexCnt  = 0;
          while (1)
          {
             sprintf(pString, "Enter the %d-th input (1 - %d, or 0 if done) : ",
-                    count+1,nInputs);
-            indSet[count] = getInt(0, nInputs, pString);
-            if (indSet[count] == 0) break;
-            count++;
-            if (count > nInputs)
+                    indexCnt+1,nInputs_);
+            indexSet[indexCnt] = getInt(0, nInputs_, pString);
+            if (indexSet[indexCnt] == 0) break;
+            indexCnt++;
+            if (indexCnt > nInputs_)
             {
-               printf("INFO: Your last input should be a 'DONE'.\n");
-               printf("      The last index is ignored.\n");
-               count = nInputs;
+               printf("WARNING: Your last input should be '0'.\n");
+               printf("         The last index is ignored.\n");
+               indexCnt = nInputs_;
                break;
             }
          }
-         if (count == 0)
+         if (indexCnt == 0)
          {
             printf("ERROR: you have not entered any inputs.\n");
             continue;
          }
-         tempX = new double[nSamples*count];
-         names  = new char*[count];
-         for (ii = 0; ii < count; ii++)
+         double *samInps = new double[nSamples_*indexCnt];
+         char   **inpNames = new char*[indexCnt];
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii]-1;
-            for (jj = 0; jj < nSamples; jj++)
-               tempX[jj*count+ii] = sampleInputs[jj*nInputs+kk];
-            names[ii] = inputNames[kk];
+            kk = indexSet[ii] - 1;
+            for (jj = 0; jj < nSamples_; jj++)
+               samInps[jj*indexCnt+ii] = sampleInputs_[jj*nInputs_+kk];
+            if (inputNames_ != NULL) inpNames[ii] = inputNames_[kk];
          }
-         for (ii = 0; ii < count; ii++) 
+         delete [] sampleInputs_;
+         sampleInputs_ = samInps;
+         for (ii = 0; ii < indexCnt; ii++) 
          {
-            inputNames[ii] = names[ii];
-            names[ii] = NULL;
+            if (inputNames_ != NULL) inputNames_[ii] = inpNames[ii];
+            inpNames[ii] = NULL;
          }
-         delete [] names;
-         tempI = new int[count];
-         tempV = new double[count];
-         tempW = new double[count];
-         for (ii = 0; ii < count; ii++)
+         delete [] inpNames;
+         double *tmpLBs = new double[indexCnt];
+         double *tmpUBs = new double[indexCnt];
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii]-1;
-            tempI[ii] = inputPDFs[kk];
-            tempV[ii] = inputMeans[kk];
-            tempW[ii] = inputStds[kk];
+            kk = indexSet[ii] - 1;
+            tmpLBs[ii] = iLowerB_[kk];
+            tmpUBs[ii] = iUpperB_[kk];
          }
-         delete [] inputPDFs;
-         delete [] inputMeans;
-         delete [] inputStds;
-         inputPDFs = tempI;
-         inputMeans = tempV;
-         inputStds = tempW;
-         tempV = new double[count];
-         tempW = new double[count];
-         for (ii = 0; ii < count; ii++)
+         delete [] iLowerB_;
+         delete [] iUpperB_;
+         iLowerB_ = tmpLBs;
+         iUpperB_ = tmpUBs;
+         int    *tmpPDFs = new int[indexCnt];
+         double *tmpMeans = new double[indexCnt];
+         double *tmpStds  = new double[indexCnt];
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii]-1;
-            tempV[ii] = iLowerB[kk];
-            tempW[ii] = iUpperB[kk];
+            kk = indexSet[ii] - 1;
+            tmpPDFs[ii]  = inputPDFs_[kk];
+            tmpMeans[ii] = inputMeans_[kk];
+            tmpStds[ii]  = inputStds_[kk];
          }
-         iLowerB = tempV;
-         iUpperB = tempW;
-         tempV = NULL;
-         tempW = NULL;
+         delete [] inputPDFs_;
+         delete [] inputMeans_;
+         delete [] inputStds_;
+         inputPDFs_  = tmpPDFs;
+         inputMeans_ = tmpMeans;
+         inputStds_  = tmpStds;
          Matrix *tmpMat = new Matrix();
-         tmpMat->setDim(count, count);
-         for (ii = 0; ii < count; ii++)
+         tmpMat->setDim(indexCnt, indexCnt);
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii]-1;
-            for (jj = 0; jj < count; jj++)
+            kk = indexSet[ii] - 1;
+            for (jj = 0; jj < indexCnt; jj++)
             {
-               ll = indSet[jj]-1;
-               ddata = inputCMat->getEntry(kk,ll);
+               ll = indexSet[jj]-1;
+               ddata = inputCMat_->getEntry(kk,ll);
                tmpMat->setEntry(ii,jj,ddata);
             }
          }
-         delete inputCMat;
-         inputCMat = tmpMat;
-         delete [] sampleInputs;
-         sampleInputs = tempX;
-         nInputs = count;
-         tempX = NULL;
-         delete [] indSet;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                              iUpperB,sampleInputs,inputNames,inputPDFs,
-                              inputMeans,inputStds,inputCMat); 
+         delete [] indexSet;
+         delete inputCMat_;
+         inputCMat_ = tmpMat;
+         nInputs_ = indexCnt;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                              iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                              inputMeans_,inputStds_,inputCMat_); 
          samplingMethod = PSUADE_SAMP_MC;
          nReps = 1;
-         psuadeIO_->updateMethodSection(samplingMethod,nSamples,nReps,-1,-1);
+         psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,-1,-1);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("iselect_index completed. Use 'write' to store.\n");
       }
 
@@ -11022,128 +11461,130 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("iselect_name: select a subset of inputs and re-order them.\n");
+            printf("iselect_name: select and re-order a subset of inputs.\n");
             printf("syntax: iselect_index (no argument needed)\n");
-            printf("This command can be used in conjunction with iread, iadd\n");
-            printf("and iwrite to convert an inferenced posterior sample to\n");
-            printf("a sample file understood by the S-type PDF in order to\n");
-            printf("multi-stage UQ analysis.\n");
+            printf("This command can be used in conjunction with iread, \n");
+            printf("iadd and iwrite to convert a posterior sample (from\n");
+            printf("rsmcmc) into a sample file that can be understood by\n");
+            printf("the S-type PDF for multi-stage UQ analysis.\n");
             continue;
          }
-         if (psuadeIO_ == NULL || nSamples <= 0)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (inputNames == NULL)
+         if (inputNames_ == NULL)
          {
             printf("ERROR: input name list does not exist.\n");
             continue;
          }
-         indSet = new int[nInputs];
-         count = 0;
+         int *indexSet = new int[nInputs_];
+         int indexCnt = 0;
          printf("Current input names:\n");
-         for (ii = 0; ii < nInputs; ii++)
-            printf("Input %5d : name = %s\n",ii+1,inputNames[ii]);
+         for (ii = 0; ii < nInputs_; ii++)
+            printf("Input %5d : name = %s\n",ii+1,inputNames_[ii]);
          while (1)
          {
             sprintf(pString,"Enter the %d-th input name (enter 'DONE' if done) : ",
-                    count+1);
+                    indexCnt+1);
             getString(pString, cString);
             kk = strlen(cString);
             cString[kk-1] = '\0';
             if (!strcmp(cString, "DONE")) break;
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               if (!strcmp(cString, inputNames[ii])) 
+               if (!strcmp(cString, inputNames_[ii])) 
                {
-                  indSet[count] = ii;
+                  indexSet[indexCnt] = ii;
                   break;
                }
             }
-            if (ii == nInputs) printf("ERROR: input name %s not found.\n",cString);
-            else               count++;
-            if (count > nInputs)
+            if (ii == nInputs_) printf("ERROR: input name %s not found.\n",cString);
+            else               indexCnt++;
+            if (indexCnt > nInputs_)
             {
-               printf("INFO: Your last input should be a 'DONE'.\n");
-               printf("      The last name is ignored.\n");
-               count = nInputs;
+               printf("WARNING: Your last input should be a 'DONE'.\n");
+               printf("         The last name is ignored.\n");
+               indexCnt = nInputs_;
                break;
             }
          }
-         if (count == 0)
+         if (indexCnt == 0)
          {
             printf("ERROR: you have not entered any inputs.\n");
             continue;
          }
-         tempX = new double[nSamples*count];
-         names  = new char*[count];
-         for (ii = 0; ii < count; ii++)
+         double *samInps = new double[nSamples_*indexCnt];
+         char   **inpNames  = new char*[indexCnt];
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii];
-            for (jj = 0; jj < nSamples; jj++)
-               tempX[jj*count+ii] = sampleInputs[jj*nInputs+kk];
-            names[ii] = inputNames[kk];
+            kk = indexSet[ii];
+            for (jj = 0; jj < nSamples_; jj++)
+               samInps[jj*indexCnt+ii] = sampleInputs_[jj*nInputs_+kk];
+            if (inputNames_ != NULL) inpNames[ii] = inputNames_[kk];
          }
-         for (ii = 0; ii < count; ii++) 
+         delete [] sampleInputs_;
+         sampleInputs_ = samInps;
+         for (ii = 0; ii < indexCnt; ii++) 
          {
-            inputNames[ii] = names[ii];
-            names[ii] = NULL;
+            if (inputNames_ != NULL) inputNames_[ii] = inpNames[ii];
+            inpNames[ii] = NULL;
          }
-         delete [] names;
-         tempI = new int[count];
-         tempV = new double[count];
-         tempW = new double[count];
-         for (ii = 0; ii < count; ii++)
+         delete [] inpNames;
+         double *tmpLBs = new double[indexCnt];
+         double *tmpUBs = new double[indexCnt];
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii];
-            tempI[ii] = inputPDFs[kk];
-            tempV[ii] = inputMeans[kk];
-            tempW[ii] = inputStds[kk];
+            kk = indexSet[ii];
+            tmpLBs[ii] = iLowerB_[kk];
+            tmpUBs[ii] = iUpperB_[kk];
          }
-         if (inputPDFs  != NULL) delete [] inputPDFs;
-         if (inputMeans != NULL) delete [] inputMeans;
-         if (inputStds  != NULL) delete [] inputStds;
-         inputPDFs = tempI;
-         inputMeans = tempV;
-         inputStds = tempW;
-         tempV = new double[count];
-         tempW = new double[count];
-         for (ii = 0; ii < count; ii++)
+         delete [] iLowerB_;
+         delete [] iUpperB_;
+         iLowerB_ = tmpLBs;
+         iUpperB_ = tmpUBs;
+         int    *tmpPDFs  = new int[indexCnt];
+         double *tmpMeans = new double[indexCnt];
+         double *tmpStds  = new double[indexCnt];
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii];
-            tempV[ii] = iLowerB[kk];
-            tempW[ii] = iUpperB[kk];
+            kk = indexSet[ii];
+            tmpPDFs[ii] = inputPDFs_[kk];
+            tmpMeans[ii] = inputMeans_[kk];
+            tmpStds[ii] = inputStds_[kk];
          }
-         iLowerB = tempV;
-         iUpperB = tempW;
-         tempV = NULL;
-         tempW = NULL;
+         if (inputPDFs_  != NULL) delete [] inputPDFs_;
+         if (inputMeans_ != NULL) delete [] inputMeans_;
+         if (inputStds_  != NULL) delete [] inputStds_;
+         inputPDFs_  = tmpPDFs;
+         inputMeans_ = tmpMeans;
+         inputStds_  = tmpStds;
          Matrix *tmpMat = new Matrix();
-         tmpMat->setDim(count, count);
-         for (ii = 0; ii < count; ii++)
+         tmpMat->setDim(indexCnt, indexCnt);
+         for (ii = 0; ii < indexCnt; ii++)
          {
-            kk = indSet[ii];
-            for (jj = 0; jj < count; jj++)
+            kk = indexSet[ii];
+            for (jj = 0; jj < indexCnt; jj++)
             {
-               ll = indSet[jj];
-               ddata = inputCMat->getEntry(kk,ll);
+               ll = indexSet[jj];
+               ddata = inputCMat_->getEntry(kk,ll);
                tmpMat->setEntry(ii,jj,ddata);
             }
          }
-         delete inputCMat;
-         inputCMat = tmpMat;
-         delete [] sampleInputs;
-         sampleInputs = tempX;
-         nInputs = count;
-         tempX = NULL;
-         delete [] indSet;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,
-                              iUpperB,sampleInputs,inputNames,inputPDFs,
-                              inputMeans,inputStds,inputCMat); 
+         delete [] indexSet;
+         delete inputCMat_;
+         inputCMat_ = tmpMat;
+         nInputs_ = indexCnt;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                              iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                              inputMeans_,inputStds_,inputCMat_); 
          samplingMethod = PSUADE_SAMP_MC;
          nReps = 1;
-         psuadeIO_->updateMethodSection(samplingMethod,nSamples,nReps,-1,-1);
+         psuadeIO_->updateMethodSection(samplingMethod,nSamples_,nReps,-1,-1);
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("iselect_name completed. Use 'write' to store.\n");
       }
 
@@ -11170,26 +11611,26 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (tagArray == NULL && nSamples > 0) 
+         if (tagArray_ == NULL && nSamples_ > 0) 
          {
-            tagArray = new int[nSamples];
-            for (ii = 0; ii < nSamples; ii++) tagArray[ii] = 1;
+            tagArray_ = new int[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++) tagArray_[ii] = 1;
          } 
          inputID = 0;
-         if (nInputs > 1)
+         if (nInputs_ > 1)
          {
-            sprintf(pString, "Enter input number (1 - %d) : ", nInputs);
-            inputID = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter input number (1 - %d) : ", nInputs_);
+            inputID = getInt(1, nInputs_, pString);
             inputID--;
          }
-         Xmin = sampleInputs[inputID];
-         for (sInd = 1; sInd < nSamples; sInd++)
-            if (sampleInputs[sInd*nInputs+inputID] < Xmin)
-               Xmin = sampleInputs[sInd*nInputs+inputID];
-         Xmax = sampleInputs[inputID];
-         for (sInd = 1; sInd < nSamples; sInd++)
-            if (sampleInputs[sInd*nInputs+inputID] > Xmax)
-               Xmax = sampleInputs[sInd*nInputs+inputID];
+         Xmin = sampleInputs_[inputID];
+         for (sInd = 1; sInd < nSamples_; sInd++)
+            if (sampleInputs_[sInd*nInputs_+inputID] < Xmin)
+               Xmin = sampleInputs_[sInd*nInputs_+inputID];
+         Xmax = sampleInputs_[inputID];
+         for (sInd = 1; sInd < nSamples_; sInd++)
+            if (sampleInputs_[sInd*nInputs_+inputID] > Xmax)
+               Xmax = sampleInputs_[sInd*nInputs_+inputID];
          printf("Xmin and Xmax found = %e %e.\n", Xmin, Xmax);
          sprintf(pString,"Enter the lower threshold (Xmin = %e) : ",Xmin);
          threshL = getDouble(pString);
@@ -11200,17 +11641,17 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: Lower bound should be < upper bound.\n");
             continue;
          }
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleInputs[sInd*nInputs+inputID] < threshL ||
-                sampleInputs[sInd*nInputs+inputID] > threshU)
+            if (sampleInputs_[sInd*nInputs_+inputID] < threshL ||
+                sampleInputs_[sInd*nInputs_+inputID] > threshU)
             {
-               tagArray[sInd] = 0;
+               tagArray_[sInd] = 0;
             }
          }
          printf("Sample points left after thresholding: [\n");
-         for (sInd = 0; sInd < nSamples; sInd++)
-            if (tagArray[sInd] == 1) printf("%d ", sInd+1);
+         for (sInd = 0; sInd < nSamples_; sInd++)
+            if (tagArray_[sInd] == 1) printf("%d ", sInd+1);
          printf("]\n");
          printf("itag completed.\n");
       }
@@ -11233,28 +11674,28 @@ int PsuadeBase::interpretInteractive()
             printf("      tagging.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (tagArray == NULL && nSamples > 0) 
+         if (tagArray_ == NULL && nSamples_ > 0) 
          {
-            tagArray = new int[nSamples];
-            for (ii = 0; ii < nSamples; ii++) tagArray[ii] = 1;
+            tagArray_ = new int[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++) tagArray_[ii] = 1;
          } 
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         Ymin = sampleOutputs[outputID];
-         for (sInd = 1; sInd < nSamples; sInd++)
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
-         Ymax = sampleOutputs[outputID];
-         for (sInd = 1; sInd < nSamples; sInd++)
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
+         Ymin = sampleOutputs_[outputID];
+         for (sInd = 1; sInd < nSamples_; sInd++)
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
+         Ymax = sampleOutputs_[outputID];
+         for (sInd = 1; sInd < nSamples_; sInd++)
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
          printf("Ymin and Ymax found = %e %e.\n", Ymin, Ymax);
          sprintf(pString,"Enter the lower threshold (Ymin = %e) : ",Ymin);
          threshL = getDouble(pString);
@@ -11265,17 +11706,17 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: Lower bound should be < upper bound.\n");
             continue;
          }
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] < threshL ||
-                sampleOutputs[sInd*nOutputs+outputID] > threshU)
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < threshL ||
+                sampleOutputs_[sInd*nOutputs_+outputID] > threshU)
             {
-               tagArray[sInd] = 0;
+               tagArray_[sInd] = 0;
             }
          }
          printf("Sample points left after thresholding: [\n");
-         for (sInd = 0; sInd < nSamples; sInd++)
-            if (tagArray[sInd] == 1) printf("%d ", sInd+1);
+         for (sInd = 0; sInd < nSamples_; sInd++)
+            if (tagArray_[sInd] == 1) printf("%d ", sInd+1);
          printf("]\n");
          printf("otag completed.\n");
       }
@@ -11292,22 +11733,22 @@ int PsuadeBase::interpretInteractive()
             printf("set to a different value (e.g. set undefined to 0).\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-         oInd = getInt(1, nInputs, pString);
+         sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+         oInd = getInt(1, nInputs_, pString);
          oInd--;
          Ymin = PSUADE_UNDEFINED;
          Ymax = -PSUADE_UNDEFINED;
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
-            if (sampleOutputs[ii*nOutputs+oInd] < Ymin)
-               Ymin = sampleOutputs[ii*nOutputs+oInd];
-            if (sampleOutputs[ii*nOutputs+oInd] > Ymax)
-               Ymax = sampleOutputs[ii*nOutputs+oInd];
+            if (sampleOutputs_[ii*nOutputs_+oInd] < Ymin)
+               Ymin = sampleOutputs_[ii*nOutputs_+oInd];
+            if (sampleOutputs_[ii*nOutputs_+oInd] > Ymax)
+               Ymax = sampleOutputs_[ii*nOutputs_+oInd];
          }
          printf("Lower and upper values for this output : %e %e\n",Ymin, Ymax);
          printf("Now specify the range of current values to be reset: \n");
@@ -11317,14 +11758,14 @@ int PsuadeBase::interpretInteractive()
          Ymax = getDouble(pString);
          sprintf(pString,"Enter the desired output value to be set to : ");
          ddata = getDouble(pString);
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
-            if (sampleOutputs[ii*nOutputs+oInd] >= Ymin &&
-                sampleOutputs[ii*nOutputs+oInd] <= Ymax)
-               sampleOutputs[ii*nOutputs+oInd] = ddata;
+            if (sampleOutputs_[ii*nOutputs_+oInd] >= Ymin &&
+                sampleOutputs_[ii*nOutputs_+oInd] <= Ymax)
+               sampleOutputs_[ii*nOutputs_+oInd] = ddata;
          }
-         psuadeIO_->updateOutputSection(nSamples,nOutputs, sampleOutputs,
-                                        sampleStates, NULL); 
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_, sampleOutputs_,
+                                        sampleStates_, NULL); 
          printf("oreset completed: use 'write' to store.\n");
       }
 
@@ -11345,15 +11786,15 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter input number (1 - %d) : ", nInputs);
-         iInd = getInt(1, nInputs, pString);
+         sprintf(pString,"Enter input number (1 - %d) : ", nInputs_);
+         iInd = getInt(1, nInputs_, pString);
          iInd--;
          printf("Current lower bound for input %d = %24.16e\n",
-                iInd+1,iLowerB[iInd]);
+                iInd+1,iLowerB_[iInd]);
          sprintf(pString,"Enter new lower bound for input %d : ",iInd+1);
          Xmin = getDouble(pString);
          printf("Current upper bound for input %d = %24.16e\n",
-                iInd+1,iUpperB[iInd]);
+                iInd+1,iUpperB_[iInd]);
          sprintf(pString,"Enter new upper bound for input %d : ",iInd+1);
          Xmax = getDouble(pString);
          if (Xmin >= Xmax)
@@ -11361,16 +11802,19 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: lower bound >= upper bound.\n");
             continue;
          }
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
-            dtemp = sampleInputs[ii*nInputs+iInd];
-            dtemp = (dtemp-iLowerB[iInd]) / (iUpperB[iInd]-iLowerB[iInd]);
-            sampleInputs[ii*nInputs+iInd] = dtemp * (Xmax - Xmin) + Xmin;
+            dtemp = sampleInputs_[ii*nInputs_+iInd];
+            dtemp = (dtemp-iLowerB_[iInd]) / (iUpperB_[iInd]-iLowerB_[iInd]);
+            sampleInputs_[ii*nInputs_+iInd] = dtemp * (Xmax - Xmin) + Xmin;
          }
-         iLowerB[iInd] = Xmin;
-         iUpperB[iInd] = Xmax;
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,iUpperB,
-                                       sampleInputs,NULL,NULL,NULL,NULL,NULL); 
+         iLowerB_[iInd] = Xmin;
+         iUpperB_[iInd] = Xmax;
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,iUpperB_,
+                                       sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("irerange completed: use 'write' to store.\n");
       }
 
@@ -11391,17 +11835,17 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter input number (1 - %d) : ", nInputs);
-         iInd = getInt(1, nInputs, pString);
+         sprintf(pString,"Enter input number (1 - %d) : ", nInputs_);
+         iInd = getInt(1, nInputs_, pString);
          iInd--;
          Xmin = PSUADE_UNDEFINED;
          Xmax = -PSUADE_UNDEFINED;
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
-            if (sampleInputs[ii*nInputs+iInd] < Xmin)
-               Xmin = sampleInputs[ii*nInputs+iInd];
-            if (sampleInputs[ii*nInputs+iInd] > Xmax)
-               Xmax = sampleInputs[ii*nInputs+iInd];
+            if (sampleInputs_[ii*nInputs_+iInd] < Xmin)
+               Xmin = sampleInputs_[ii*nInputs_+iInd];
+            if (sampleInputs_[ii*nInputs_+iInd] > Xmax)
+               Xmax = sampleInputs_[ii*nInputs_+iInd];
          }
          printf("Lower and upper values for this input : %e %e\n",Xmin, Xmax);
          printf("Now specify the range of current values to be reset.\n");
@@ -11411,14 +11855,17 @@ int PsuadeBase::interpretInteractive()
          Xmax = getDouble(pString);
          sprintf(pString,"Enter the desired input value to be set to : ");
          ddata = getDouble(pString);
-         for (jj = 0; jj < nSamples; jj++)
+         for (jj = 0; jj < nSamples_; jj++)
          {
-            if (sampleInputs[jj*nInputs+iInd] >= Xmin &&
-                sampleInputs[jj*nInputs+iInd] <= Xmax)
-               sampleInputs[jj*nInputs+iInd] = ddata;
+            if (sampleInputs_[jj*nInputs_+iInd] >= Xmin &&
+                sampleInputs_[jj*nInputs_+iInd] <= Xmax)
+               sampleInputs_[jj*nInputs_+iInd] = ddata;
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                       sampleInputs,NULL,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                       sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("ireset completed: use 'write' to store.\n");
       }
 
@@ -11441,16 +11888,19 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter input number (1 - %d) : ", nInputs);
-         iInd = getInt(1, nInputs, pString);
+         sprintf(pString,"Enter input number (1 - %d) : ", nInputs_);
+         iInd = getInt(1, nInputs_, pString);
          iInd--;
-         for (jj = 0; jj < nSamples; jj++)
+         for (jj = 0; jj < nSamples_; jj++)
          {
-            kk = (int) sampleInputs[jj*nInputs+iInd];
-            sampleInputs[jj*nInputs+iInd] = (double) kk;
+            kk = (int) sampleInputs_[jj*nInputs_+iInd];
+            sampleInputs_[jj*nInputs_+iInd] = (double) kk;
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                       sampleInputs,NULL,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                       sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("ifloor completed: use 'write' to store.\n");
       }
 
@@ -11473,18 +11923,21 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter input number (1 - %d) : ", nInputs);
-         iInd = getInt(1, nInputs, pString);
+         sprintf(pString,"Enter input number (1 - %d) : ", nInputs_);
+         iInd = getInt(1, nInputs_, pString);
          iInd--;
-         for (jj = 0; jj < nSamples; jj++)
+         for (jj = 0; jj < nSamples_; jj++)
          {
-            ddata = sampleInputs[jj*nInputs+iInd];
+            ddata = sampleInputs_[jj*nInputs_+iInd];
             kk = (int) ddata;
             if (kk != ddata) kk++;
-            sampleInputs[jj*nInputs+iInd] = (double) kk;
+            sampleInputs_[jj*nInputs_+iInd] = (double) kk;
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                       sampleInputs,NULL,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                       sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("iceil completed: use 'write' to store.\n");
       }
 
@@ -11507,18 +11960,21 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter input number (1 - %d) : ", nInputs);
-         iInd = getInt(1, nInputs, pString);
+         sprintf(pString,"Enter input number (1 - %d) : ", nInputs_);
+         iInd = getInt(1, nInputs_, pString);
          iInd--;
-         for (jj = 0; jj < nSamples; jj++)
+         for (jj = 0; jj < nSamples_; jj++)
          {
-            ddata = sampleInputs[jj*nInputs+iInd];
+            ddata = sampleInputs_[jj*nInputs_+iInd];
             kk = (int) ddata;
             if (kk != ddata) kk = (int) (ddata + 0.5);
-            sampleInputs[jj*nInputs+iInd] = (double) kk;
+            sampleInputs_[jj*nInputs_+iInd] = (double) kk;
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                    sampleInputs,NULL,NULL,NULL,NULL,NULL); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,NULL,NULL,
+                                    sampleInputs_,NULL,NULL,NULL,NULL,NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("iceil completed: use 'write' to store.\n");
       }
 
@@ -11537,8 +11993,8 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter input number (1 - %d, 0 - all) : ", nInputs);
-         iInd = getInt(0, nInputs, pString);
+         sprintf(pString,"Enter input number (1 - %d, 0 - all) : ", nInputs_);
+         iInd = getInt(0, nInputs_, pString);
          iInd--;
          sprintf(pString,"Enter type: (1) log10(input), (2) 10^(input) : ");
          kk = getInt(1, 2, pString);
@@ -11546,78 +12002,82 @@ int PsuadeBase::interpretInteractive()
          {
             if (kk == 1)
             {
-               for (ss = 0; ss < nSamples; ss++)
-                  sampleInputs[ss*nInputs+iInd] = log10(sampleInputs[ss*nInputs+iInd]);
+               for (ss = 0; ss < nSamples_; ss++)
+                  sampleInputs_[ss*nInputs_+iInd]=log10(sampleInputs_[ss*nInputs_+iInd]);
             }
             else
             {
-               for (ss = 0; ss < nSamples; ss++)
-                  sampleInputs[ss*nInputs+iInd] = pow(10.0,sampleInputs[ss*nInputs+iInd]);
+               for (ss = 0; ss < nSamples_; ss++)
+                  sampleInputs_[ss*nInputs_+iInd] = 
+                         pow(10.0,sampleInputs_[ss*nInputs_+iInd]);
             }
-            if (iLowerB != NULL)
+            if (iLowerB_ != NULL)
             {
-               iLowerB[iInd] = PSUADE_UNDEFINED;
-               iUpperB[iInd] = -PSUADE_UNDEFINED;
-               inputPDFs[iInd] = 0;
-               inputMeans[iInd] = 0;
-               inputStds[iInd] = 0;
-               for (ss = 0; ss < nSamples; ss++)
+               iLowerB_[iInd] = PSUADE_UNDEFINED;
+               iUpperB_[iInd] = -PSUADE_UNDEFINED;
+               inputPDFs_[iInd] = 0;
+               inputMeans_[iInd] = 0;
+               inputStds_[iInd] = 0;
+               for (ss = 0; ss < nSamples_; ss++)
                {
-                  if (sampleInputs[ss*nInputs+iInd] < iLowerB[iInd])
-                     iLowerB[iInd] = sampleInputs[ss*nInputs+iInd];
-                  if (sampleInputs[ss*nInputs+iInd] > iUpperB[iInd])
-                     iUpperB[iInd] = sampleInputs[ss*nInputs+iInd];
+                  if (sampleInputs_[ss*nInputs_+iInd] < iLowerB_[iInd])
+                     iLowerB_[iInd] = sampleInputs_[ss*nInputs_+iInd];
+                  if (sampleInputs_[ss*nInputs_+iInd] > iUpperB_[iInd])
+                     iUpperB_[iInd] = sampleInputs_[ss*nInputs_+iInd];
                }
             }
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               inputCMat->setEntry(iInd,ii,0.0);
-               inputCMat->setEntry(ii,iInd,0.0);
+               inputCMat_->setEntry(iInd,ii,0.0);
+               inputCMat_->setEntry(ii,iInd,0.0);
             }
-            inputCMat->setEntry(iInd,iInd,1.0);
+            inputCMat_->setEntry(iInd,iInd,1.0);
          }
          else
          {
             if (kk == 1)
             {
-               for (ss = 0; ss < nSamples*nInputs; ss++)
-                  sampleInputs[ss] = log10(sampleInputs[ss]);
+               for (ss = 0; ss < nSamples_*nInputs_; ss++)
+                  sampleInputs_[ss] = log10(sampleInputs_[ss]);
             }
             else
             {
-               for (ss = 0; ss < nSamples*nInputs; ss++)
-                  sampleInputs[ss] = pow(10.0,sampleInputs[ss]);
+               for (ss = 0; ss < nSamples_*nInputs_; ss++)
+                  sampleInputs_[ss] = pow(10.0,sampleInputs_[ss]);
             }
-            if (iLowerB != NULL)
+            if (iLowerB_ != NULL)
             {
-               for (ii = 0; ii < nInputs; ii++)
+               for (ii = 0; ii < nInputs_; ii++)
                {
-                  inputPDFs[ii] = 0;
-                  inputMeans[ii] = 0;
-                  inputStds[ii] = 0;
-                  iLowerB[ii] = PSUADE_UNDEFINED;
-                  iUpperB[ii] = -PSUADE_UNDEFINED;
-                  for (ss = 0; ss < nSamples; ss++)
+                  inputPDFs_[ii] = 0;
+                  inputMeans_[ii] = 0;
+                  inputStds_[ii] = 0;
+                  iLowerB_[ii] = PSUADE_UNDEFINED;
+                  iUpperB_[ii] = -PSUADE_UNDEFINED;
+                  for (ss = 0; ss < nSamples_; ss++)
                   {
-                     if (sampleInputs[ss*nInputs+ii] < iLowerB[ii])
-                        iLowerB[ii] = sampleInputs[ss*nInputs+ii];
-                     if (sampleInputs[ss*nInputs+ii] > iUpperB[ii])
-                        iUpperB[ii] = sampleInputs[ss*nInputs+ii];
+                     if (sampleInputs_[ss*nInputs_+ii] < iLowerB_[ii])
+                        iLowerB_[ii] = sampleInputs_[ss*nInputs_+ii];
+                     if (sampleInputs_[ss*nInputs_+ii] > iUpperB_[ii])
+                        iUpperB_[ii] = sampleInputs_[ss*nInputs_+ii];
                   }
                }
             }
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
-               for (jj = 0; jj < nInputs; jj++)
+               for (jj = 0; jj < nInputs_; jj++)
                {
-                  if (ii == jj) inputCMat->setEntry(ii,jj,1.0);
-                  else          inputCMat->setEntry(ii,jj,0.0);
+                  if (ii == jj) inputCMat_->setEntry(ii,jj,1.0);
+                  else          inputCMat_->setEntry(ii,jj,0.0);
                }
             }
          }
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,iLowerB,iUpperB,
-                             sampleInputs,NULL,inputPDFs,inputMeans,
-                             inputStds,inputCMat); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,iUpperB_,
+                             sampleInputs_,NULL,inputPDFs_,inputMeans_,
+                             inputStds_,inputCMat_); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("Input transformation completed: use 'write' to store.\n");
       }
 
@@ -11631,30 +12091,33 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: otran (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Enter output number (1 - %d) : ", nOutputs);
-         oInd = getInt(1, nOutputs, pString);
+         sprintf(pString,"Enter output number (1 - %d) : ", nOutputs_);
+         oInd = getInt(1, nOutputs_, pString);
          oInd--;
          sprintf(pString,"Enter type: (1) log10(output), (2) 10^(output) : ");
          kk = getInt(1, 2, pString);
          if (kk == 1)
          {
-            for (ss = 0; ss < nSamples; ss++)
-               sampleOutputs[ss*nOutputs+oInd] = 
-                        log10(sampleOutputs[ss*nOutputs+oInd]);
+            for (ss = 0; ss < nSamples_; ss++)
+               sampleOutputs_[ss*nOutputs_+oInd] = 
+                        log10(sampleOutputs_[ss*nOutputs_+oInd]);
          }
          else
          {
-            for (ss = 0; ss < nSamples; ss++)
-               sampleOutputs[ss*nOutputs+oInd] = 
-                        pow(10.0,sampleOutputs[ss*nOutputs+oInd]);
+            for (ss = 0; ss < nSamples_; ss++)
+               sampleOutputs_[ss*nOutputs_+oInd] = 
+                        pow(10.0,sampleOutputs_[ss*nOutputs_+oInd]);
          }
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,
-                                        sampleOutputs, sampleStates, NULL); 
+         psuadeIO_->updateOutputSection(nSamples_,nOutputs_,
+                                        sampleOutputs_, sampleStates_, NULL); 
+         if (currSession != NULL) delete currSession;
+         currSession = new PsuadeSession();
+         psuadeIO_->getSession(currSession);
          printf("Output transformation completed: use 'write' to store.\n");
       }
 
@@ -11672,48 +12135,48 @@ int PsuadeBase::interpretInteractive()
             printf("      inputs and outputs.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Number of inputs to plot (1 - %d) : ", nInputs);
-         kk = getInt(1, nInputs, pString);
-         if (kk < nInputs)
+         sprintf(pString,"Number of inputs to plot (1 - %d) : ", nInputs_);
+         kk = getInt(1, nInputs_, pString);
+         if (kk < nInputs_)
          {
             indSet = new int[kk];
             for (ii = 0; ii < kk; ii++)
             {
                sprintf(pString,"Enter the %d-th input (1 - %d): ",
-                       ii+1, nInputs);
-               indSet[ii] = getInt(1,nInputs,pString);
+                       ii+1, nInputs_);
+               indSet[ii] = getInt(1,nInputs_,pString);
                indSet[ii]--;
             }
          }
          else
          {
-            kk = nInputs;
-            indSet = new int[nInputs];
-            for (ii = 0; ii < nInputs; ii++) indSet[ii] = ii;
+            kk = nInputs_;
+            indSet = new int[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++) indSet[ii] = ii;
          }
-         sprintf(pString,"Number of outputs to plot (1 - %d) : ",nOutputs);
-         ll = getInt(1, nOutputs, pString);
-         if (ll < nOutputs)
+         sprintf(pString,"Number of outputs to plot (1 - %d) : ",nOutputs_);
+         ll = getInt(1, nOutputs_, pString);
+         if (ll < nOutputs_)
          {
             tempI = new int[ll];
             for (ii = 0; ii < ll; ii++)
             {
                sprintf(pString,"Enter the %d-th output (1 - %d): ",
-                       ii+1, nOutputs);
-               tempI[ii] = getInt(1,nOutputs,pString);
+                       ii+1, nOutputs_);
+               tempI[ii] = getInt(1,nOutputs_,pString);
                tempI[ii]--;
             }
          }
          else
          {
-            ll = nOutputs;
-            tempI = new int[nOutputs];
-            for (ii = 0; ii < nOutputs; ii++) tempI[ii] = ii;
+            ll = nOutputs_;
+            tempI = new int[nOutputs_];
+            for (ii = 0; ii < nOutputs_; ii++) tempI[ii] = ii;
          }
          if (psPlotTool_ == 1)
          {
@@ -11733,32 +12196,33 @@ int PsuadeBase::interpretInteractive()
                continue;
             }
          }
-         tempV = new double[nOutputs];
-         tempW = new double[nOutputs];
-         for (ii = 0; ii < nOutputs; ii++)
+         tempV = new double[nOutputs_];
+         tempW = new double[nOutputs_];
+         for (ii = 0; ii < nOutputs_; ii++)
          {
             tempV[ii] =  PSUADE_UNDEFINED;
             tempW[ii] = -PSUADE_UNDEFINED;
-            for (ss = 0; ss < nSamples; ss++)
+            for (ss = 0; ss < nSamples_; ss++)
             {
-               ddata = sampleOutputs[ss*nOutputs+ii];
+               ddata = sampleOutputs_[ss*nOutputs_+ii];
                tempV[ii] = (ddata < tempV[ii]) ? ddata : tempV[ii];
                tempW[ii] = (ddata > tempW[ii]) ? ddata : tempW[ii];
             }
          }
          fprintf(fp, "Y = 1:%d;\n", kk+ll); 
          fprintf(fp, "X = [\n"); 
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             for (ii = 0; ii < kk; ii++)
             {
-               ddata = (sampleInputs[ss*nInputs+indSet[ii]] - iLowerB[indSet[ii]]) /
-                       (iUpperB[indSet[ii]] - iLowerB[indSet[ii]]);
+               ddata = (sampleInputs_[ss*nInputs_+indSet[ii]] - 
+                        iLowerB_[indSet[ii]]) /
+                       (iUpperB_[indSet[ii]] - iLowerB_[indSet[ii]]);
                fprintf(fp, "%e ", ddata);
             }
             for (ii = 0; ii < ll; ii++)
             {
-               ddata = (sampleOutputs[ss*nOutputs+tempI[ii]] - tempV[tempI[ii]])/
+               ddata = (sampleOutputs_[ss*nOutputs_+tempI[ii]] - tempV[tempI[ii]])/
                        (tempW[tempI[ii]] - tempV[tempI[ii]]);
                fprintf(fp, "%e ", ddata);
             }
@@ -11800,24 +12264,24 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Number of inputs to plot (1 - %d) : ", nInputs);
-         kk = getInt(1, nInputs, pString);
-         if (kk < nInputs)
+         sprintf(pString,"Number of inputs to plot (1 - %d) : ", nInputs_);
+         kk = getInt(1, nInputs_, pString);
+         if (kk < nInputs_)
          {
             indSet = new int[kk];
             for (ii = 0; ii < kk; ii++)
             {
                sprintf(pString,"Enter the %d-th input (1 - %d): ",
-                       ii+1, nInputs);
-               indSet[ii] = getInt(1,nInputs,pString);
+                       ii+1, nInputs_);
+               indSet[ii] = getInt(1,nInputs_,pString);
                indSet[ii]--;
             }
          }
          else
          {
-            kk = nInputs;
-            indSet = new int[nInputs];
-            for (ii = 0; ii < nInputs; ii++) indSet[ii] = ii;
+            kk = nInputs_;
+            indSet = new int[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++) indSet[ii] = ii;
          }
 
          if (psPlotTool_ == 1)
@@ -11851,13 +12315,13 @@ int PsuadeBase::interpretInteractive()
          for (ii = 0; ii < kk; ii++)
          {
             fprintf(fp, "X%d = [\n", ii+1); 
-            for (jj = 0; jj < nSamples; jj++)
-               fprintf(fp, "%e\n", sampleInputs[jj*nInputs+indSet[ii]]);
+            for (jj = 0; jj < nSamples_; jj++)
+               fprintf(fp, "%e\n", sampleInputs_[jj*nInputs_+indSet[ii]]);
             fprintf(fp, "];\n"); 
          }
          fprintf(fp, "S = [\n"); 
-         for (jj = 0; jj < nSamples; jj++)
-            fprintf(fp, "%d\n", sampleStates[jj]);
+         for (jj = 0; jj < nSamples_; jj++)
+            fprintf(fp, "%d\n", sampleStates_[jj]);
          fprintf(fp, "];\n"); 
          fprintf(fp, "X = [\n"); 
          for (ii = 0; ii < kk; ii++) fprintf(fp, "X%d ", ii+1); 
@@ -11903,23 +12367,23 @@ int PsuadeBase::interpretInteractive()
                   fprintf(fp, ".*(1+ranflag*rand(size(iset,1),1)/100),'b*',");
                   fprintf(fp, "'MarkerSize',13)\n");
                }
-               fwritePlotXLabel(fp, inputNames[indSet[jj]]);
-               fwritePlotYLabel(fp, inputNames[indSet[ii]]);
+               fwritePlotXLabel(fp, inputNames_[indSet[jj]]);
+               fwritePlotYLabel(fp, inputNames_[indSet[ii]]);
                fwritePlotAxes(fp);
                if (psPlotTool_ == 1)
                {
                   fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
                   fprintf(fp, "a=gca();\n");
                   fprintf(fp, "a.data_bounds=[%e,%e;%e,%e];\n",
-                          iLowerB[indSet[jj]], iLowerB[indSet[ii]],
-                          iUpperB[indSet[jj]], iUpperB[indSet[ii]]);
+                          iLowerB_[indSet[jj]], iLowerB_[indSet[ii]],
+                          iUpperB_[indSet[jj]], iUpperB_[indSet[ii]]);
                }
                else
                {
                   fprintf(fp, "hold off\n");
                   fprintf(fp,"axis([%e %e %e %e])\n",
-                          iLowerB[indSet[jj]], iUpperB[indSet[jj]],
-                          iLowerB[indSet[ii]], iUpperB[indSet[ii]]);
+                          iLowerB_[indSet[jj]], iUpperB_[indSet[jj]],
+                          iLowerB_[indSet[ii]], iUpperB_[indSet[ii]]);
                }
                fprintf(fp,"disp('red X: failed runs.')\n");
             }
@@ -11950,14 +12414,14 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          sprintf(pString,"Which input to generate histogram (1 - %d) : ",
-                 nInputs);
-         kk = getInt(1, nInputs, pString);
+                 nInputs_);
+         kk = getInt(1, nInputs_, pString);
          kk--;
          if (psPlotTool_ == 1) fp = fopen("scilabihist.sci", "w");
          else                  fp = fopen("matlabihist.m", "w");
          fprintf(fp, "X = [\n");
-         for (ss = 0; ss < nSamples; ss++)
-            fprintf(fp, "%e \n",sampleInputs[ss*nInputs+kk]);
+         for (ss = 0; ss < nSamples_; ss++)
+            fprintf(fp, "%e \n",sampleInputs_[ss*nInputs_+kk]);
          fprintf(fp, "];\n");
          fwritePlotCLF(fp);
          fwritePlotFigure(fp, 1);
@@ -11973,10 +12437,10 @@ int PsuadeBase::interpretInteractive()
          else
          {
             fprintf(fp, "[nk,xk] = hist(X,10);\n");
-            fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples);
+            fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples_);
          }
          fwritePlotAxes(fp);
-         sprintf(pString,"Sample Histogram for %s",inputNames[kk]);
+         sprintf(pString,"Sample Histogram for %s",inputNames_[kk]);
          fwritePlotTitle(fp, pString);
          fwritePlotXLabel(fp, "Input Value");
          fwritePlotYLabel(fp, "Probabilities");
@@ -12003,16 +12467,16 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nInputs < 2)
+         if (nInputs_ < 2)
          {
-            printf("ERROR: this command is for nInputs >= 2.\n");
+            printf("ERROR: this command is for nInputs_ >= 2.\n");
             continue;
          }
-         sprintf(pString,"Select the first input (1 - %d) : ", nInputs);
-         jj = getInt(1, nInputs, pString);
+         sprintf(pString,"Select the first input (1 - %d) : ", nInputs_);
+         jj = getInt(1, nInputs_, pString);
          jj--;
-         sprintf(pString,"Select the second input (1 - %d) : ", nInputs);
-         kk = getInt(1, nInputs, pString);
+         sprintf(pString,"Select the second input (1 - %d) : ", nInputs_);
+         kk = getInt(1, nInputs_, pString);
          kk--;
          if (psPlotTool_ == 1)
          {
@@ -12021,16 +12485,16 @@ int PsuadeBase::interpretInteractive()
          }
          fp = fopen("matlabihist2.m", "w");
          fprintf(fp, "X = [\n");
-         for (ss = 0; ss < nSamples; ss++)
-            fprintf(fp, "%e %e\n",sampleInputs[ss*nInputs+kk],
-                    sampleInputs[ss*nInputs+kk]);
+         for (ss = 0; ss < nSamples_; ss++)
+            fprintf(fp, "%e %e\n",sampleInputs_[ss*nInputs_+kk],
+                    sampleInputs_[ss*nInputs_+kk]);
          fprintf(fp, "];\n");
          fprintf(fp, "X1 = X(:,1);\n");
          fprintf(fp, "X2 = X(:,2);\n");
          fprintf(fp, "nb = 20;\n");
          fprintf(fp, "bins = zeros(nb,nb);\n");
-         fprintf(fp, "x1min = %e;\n",iLowerB[jj]);
-         fprintf(fp, "x1max = %e;\n",iUpperB[jj]);
+         fprintf(fp, "x1min = %e;\n",iLowerB_[jj]);
+         fprintf(fp, "x1max = %e;\n",iUpperB_[jj]);
          fprintf(fp, "if (x1min == x1max)\n");
          fprintf(fp, "   if (x1min == 0)\n");
          fprintf(fp, "      x1min = -0.1;\n");
@@ -12042,8 +12506,8 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp, "   end\n");
          fprintf(fp, "end\n");
          fprintf(fp, "x1wid = (x1max - x1min) / (nb - 1);\n");
-         fprintf(fp, "x2min = %e;\n",iLowerB[kk]);
-         fprintf(fp, "x2max = %e;\n",iUpperB[kk]);
+         fprintf(fp, "x2min = %e;\n",iLowerB_[kk]);
+         fprintf(fp, "x2max = %e;\n",iUpperB_[kk]);
          fprintf(fp, "if (x2min == x2max)\n");
          fprintf(fp, "   if (x2min == 0)\n");
          fprintf(fp, "      x2min = -0.1;\n");
@@ -12088,9 +12552,9 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp,"set(gca,'YTickLabel', ytick);\n");
          fprintf(fp,"set(gca,'YDir', 'normal');\n");
          fprintf(fp,"xlabel('%s','FontWeight','bold','FontSize',12)\n",
-                 inputNames[jj]);
+                 inputNames_[jj]);
          fprintf(fp,"ylabel('%s','FontWeight','bold','FontSize',12)\n",
-                 inputNames[kk]);
+                 inputNames_[kk]);
          fwritePlotAxesNoGrid(fp);
          sprintf(pString,"Sample Input Histogram");
          fwritePlotTitle(fp, pString);
@@ -12110,20 +12574,20 @@ int PsuadeBase::interpretInteractive()
             printf("without using the 'ua' command.\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          sprintf(pString,"Which output to generate histogram (1 - %d) : ",
-                 nOutputs);
-         kk = getInt(1, nOutputs, pString);
+                 nOutputs_);
+         kk = getInt(1, nOutputs_, pString);
          kk--;
          if (psPlotTool_ == 1) fp = fopen("scilabohist.sci", "w");
          else                  fp = fopen("matlabohist.m", "w");
          fprintf(fp, "Y = [\n");
-         for (ss = 0; ss < nSamples; ss++)
-            fprintf(fp, "%e \n",sampleOutputs[ss*nOutputs+kk]);
+         for (ss = 0; ss < nSamples_; ss++)
+            fprintf(fp, "%e \n",sampleOutputs_[ss*nOutputs_+kk]);
          fprintf(fp, "];\n");
          fwritePlotCLF(fp);
          fwritePlotFigure(fp, 1);
@@ -12139,10 +12603,10 @@ int PsuadeBase::interpretInteractive()
          else
          {
             fprintf(fp, "[nk,yk] = hist(Y,10);\n");
-            fprintf(fp, "bar(yk,nk/%d,1.0)\n",nSamples);
+            fprintf(fp, "bar(yk,nk/%d,1.0)\n",nSamples_);
          }
          fwritePlotAxes(fp);
-         sprintf(pString,"Sample Output Histogram for %s",outputNames[kk]);
+         sprintf(pString,"Sample Output Histogram for %s",outputNames_[kk]);
          fwritePlotTitle(fp, pString);
          fwritePlotXLabel(fp, "Output Value");
          fwritePlotYLabel(fp, "Probabilities");
@@ -12161,21 +12625,21 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: ohist2 (no argument needed)\n");
             continue;
          }
-         if (psuadeIO_ == NULL)
+         if (psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nOutputs < 2)
+         if (nOutputs_ < 2)
          {
             printf("ERROR: this command is for nOutputs >= 2.\n");
             continue;
          }
-         sprintf(pString,"Select the first input (1 - %d) : ", nOutputs);
-         jj = getInt(1, nOutputs, pString);
+         sprintf(pString,"Select the first input (1 - %d) : ", nOutputs_);
+         jj = getInt(1, nOutputs_, pString);
          jj--;
-         sprintf(pString,"Select the second input (1 - %d) : ", nOutputs);
-         kk = getInt(1, nOutputs, pString);
+         sprintf(pString,"Select the second input (1 - %d) : ", nOutputs_);
+         kk = getInt(1, nOutputs_, pString);
          kk--;
          if (psPlotTool_ == 1)
          {
@@ -12184,9 +12648,9 @@ int PsuadeBase::interpretInteractive()
          }
          fp = fopen("matlabohist2.m", "w");
          fprintf(fp, "Y = [\n");
-         for (ss = 0; ss < nSamples; ss++)
-            fprintf(fp, "%e %e\n",sampleInputs[ss*nInputs+kk],
-                    sampleInputs[ss*nInputs+kk]);
+         for (ss = 0; ss < nSamples_; ss++)
+            fprintf(fp, "%e %e\n",sampleInputs_[ss*nInputs_+kk],
+                    sampleInputs_[ss*nInputs_+kk]);
          fprintf(fp, "];\n");
          fprintf(fp, "Y1 = Y(:,1);\n");
          fprintf(fp, "Y2 = Y(:,2);\n");
@@ -12251,9 +12715,9 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp,"set(gca,'YTickLabel', ytick);\n");
          fprintf(fp,"set(gca,'YDir', 'normal');\n");
          fprintf(fp,"xlabel('%s','FontWeight','bold','FontSize',12)\n",
-                 outputNames[jj]);
+                 outputNames_[jj]);
          fprintf(fp,"ylabel('%s','FontWeight','bold','FontSize',12)\n",
-                 outputNames[kk]);
+                 outputNames_[kk]);
          fwritePlotAxesNoGrid(fp);
          fwritePlotAxes(fp);
          sprintf(pString,"Sample Output Histogram");
@@ -12277,24 +12741,24 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString,"Number of inputs to plot (1 - %d) : ", nInputs);
-         kk = getInt(1, nInputs, pString);
-         if (kk < nInputs)
+         sprintf(pString,"Number of inputs to plot (1 - %d) : ", nInputs_);
+         kk = getInt(1, nInputs_, pString);
+         if (kk < nInputs_)
          {
             indSet = new int[kk];
             for (ii = 0; ii < kk; ii++)
             {
                sprintf(pString,"Enter the %d-th input (1 - %d): ",
-                       ii+1, nInputs);
-               indSet[ii] = getInt(1,nInputs,pString);
+                       ii+1, nInputs_);
+               indSet[ii] = getInt(1,nInputs_,pString);
                indSet[ii]--;
             }
          }
          else
          {
-            kk = nInputs;
-            indSet = new int[nInputs];
-            for (ii = 0; ii < nInputs; ii++) indSet[ii] = ii;
+            kk = nInputs_;
+            indSet = new int[nInputs_];
+            for (ii = 0; ii < nInputs_; ii++) indSet[ii] = ii;
          }
 
          if (psPlotTool_ == 1)
@@ -12316,10 +12780,10 @@ int PsuadeBase::interpretInteractive()
             }
          }
          fprintf(fp, "XX = [\n"); 
-         for (ii = 0; ii < nSamples; ii++)
+         for (ii = 0; ii < nSamples_; ii++)
          {
             for (jj = 0; jj < kk; jj++)
-               fprintf(fp, "%e ", sampleInputs[ii*nInputs+indSet[jj]]);
+               fprintf(fp, "%e ", sampleInputs_[ii*nInputs_+indSet[jj]]);
             fprintf(fp, "\n");
          }
          fprintf(fp, "];\n"); 
@@ -12350,8 +12814,8 @@ int PsuadeBase::interpretInteractive()
                fprintf(fp, "a.children.background = 2;\n");
                fwritePlotAxes(fp);
                fwritePlotTitle(fp, "Input Distribution");
-               if (inputNames != NULL)
-                    fwritePlotXLabel(fp, inputNames[indSet[ii]]);
+               if (inputNames_ != NULL)
+                    fwritePlotXLabel(fp, inputNames_[indSet[ii]]);
                else fwritePlotXLabel(fp, "Input Value");
                fwritePlotYLabel(fp, "Probabilities");
             }
@@ -12359,11 +12823,11 @@ int PsuadeBase::interpretInteractive()
             {
                fprintf(fp, "X = X%d;\n",ii+1);
                fprintf(fp, "[nk,xk]=hist(X,10);\n");
-               fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples);
+               fprintf(fp, "bar(xk,nk/%d,1.0)\n",nSamples_);
                fwritePlotAxes(fp);
                fwritePlotTitle(fp, "Input Distribution");
-               if (inputNames != NULL)
-                  fwritePlotXLabel(fp, inputNames[indSet[ii]]);
+               if (inputNames_ != NULL)
+                  fwritePlotXLabel(fp, inputNames_[indSet[ii]]);
                else fwritePlotXLabel(fp, "Input Value");
                fprintf(fp, "axis tight\n");
                fwritePlotYLabel(fp, "Probabilities");
@@ -12387,14 +12851,14 @@ int PsuadeBase::interpretInteractive()
          }
          sscanf(lineIn, "%s %d", command, &ii);
          if (ii >= PL_MIN && ii <= PL_MAX)
-        	 {
-        	 	 outputLevel_ = ii;
-        	 	 printf("psuade printlevel set to %d\n", ii);
-        	 }
+         {
+            outputLevel_ = ii;
+            printf("psuade printlevel set to %d\n", ii);
+         }
          else
          {
-        	 printf("printlevel out of range; set to %d\n", PL_INTERACTIVE);
-        	 outputLevel_ = PL_INTERACTIVE;
+            printf("printlevel out of range; set to %d\n", PL_INTERACTIVE);
+            outputLevel_ = PL_INTERACTIVE;
          }
          setPrintLevelTS(outputLevel_);
       }
@@ -12424,42 +12888,42 @@ int PsuadeBase::interpretInteractive()
             printf("        (not verified yet)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          faType = PSUADE_RS_GP1;
          printf("This command may be very time-consuming to execute.\n");
-         count = nSamples / 100;
+         count = nSamples_ / 100;
          if (count > 4) count = 4;
          sprintf(pString, "How many partitions (1 - %d) = ", count);
          nParts = getInt(1, count, pString);
-         count = nSamples / nParts + 1;
-         tempX = new double[count*nInputs];
+         count = nSamples_ / nParts + 1;
+         tempX = new double[count*nInputs_];
          tempY = new double[count];
-         tempW = new double[nInputs];
-         for (ii = 0; ii < nInputs; ii++)
+         tempW = new double[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++)
          {
             tempW[ii] = 0.0;
-            ddata = (iUpperB[ii] - iLowerB[ii]) / (double) nParts;
+            ddata = (iUpperB_[ii] - iLowerB_[ii]) / (double) nParts;
             for (jj = 0; jj < nParts; jj++)
             {
                count = 0;
-               for (kk = 0; kk < nSamples; kk++)
+               for (kk = 0; kk < nSamples_; kk++)
                {
-                  dtemp = sampleInputs[kk*nInputs+ii];
-                  if (dtemp >= ddata*jj+iLowerB[ii] &&
-                      dtemp <= ddata*(jj+1)+iLowerB[ii])
+                  dtemp = sampleInputs_[kk*nInputs_+ii];
+                  if (dtemp >= ddata*jj+iLowerB_[ii] &&
+                      dtemp <= ddata*(jj+1)+iLowerB_[ii])
                   {
-                     for (ind = 0; ind < nInputs; ind++)
-                        tempX[count*nInputs+ind] = 
-                              sampleInputs[kk*nInputs+ii];
-                     tempY[count++] = sampleOutputs[kk*nOutputs+outputID];
+                     for (ind = 0; ind < nInputs_; ind++)
+                        tempX[count*nInputs_+ind] = 
+                              sampleInputs_[kk*nInputs_+ii];
+                     tempY[count++] = sampleOutputs_[kk*nOutputs_+outputID];
                   }
                }
                if (count == 0)
@@ -12469,10 +12933,10 @@ int PsuadeBase::interpretInteractive()
                }
                if (outputLevel_ > 1)
                  printf("Input %3d Part %3d has size %d\n",ii+1,jj+1,count);
-               faPtr = genFA(faType, nInputs, iOne, count);
+               faPtr = genFA(faType, nInputs_, iOne, count);
                if (faPtr != NULL)
                {
-                  faPtr->setBounds(iLowerB, iUpperB);
+                  faPtr->setBounds(iLowerB_, iUpperB_);
                   faPtr->setOutputLevel(outputLevel_);
                   faPtr->initialize(tempX,tempY);
                   strcpy(pString, "rank");
@@ -12497,24 +12961,24 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: sot_sa2 (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          faType = PSUADE_RS_SOTS;
-         faPtr  = genFA(faType, nInputs, iOne, nSamples);
+         faPtr  = genFA(faType, nInputs_, iOne, nSamples_);
          if (faPtr != NULL)
          {
-            faPtr->setBounds(iLowerB, iUpperB);
+            faPtr->setBounds(iLowerB_, iUpperB_);
             faPtr->setOutputLevel(outputLevel_);
-            tempY = new double[nSamples];
-            for (ii = 0; ii < nSamples; ii++)
-               tempY[ii] = sampleOutputs[ii*nOutputs+outputID];
-            status = faPtr->initialize(sampleInputs,tempY);
+            tempY = new double[nSamples_];
+            for (ii = 0; ii < nSamples_; ii++)
+               tempY[ii] = sampleOutputs_[ii*nOutputs_+outputID];
+            status = faPtr->initialize(sampleInputs_,tempY);
             strcpy(pString, "mode1");
             targv[0] = (char *) pString;
             faPtr->setParams(1, targv);
@@ -12538,14 +13002,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: delta_test (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_DTEST;
          anaManager = new AnalysisManager();
@@ -12570,14 +13034,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: eta_test (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) = ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_ETEST;
          anaManager = new AnalysisManager();
@@ -12602,14 +13066,14 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: gd_test (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          analysisMethod = PSUADE_ANA_GOWER;
          anaManager = new AnalysisManager();
@@ -12636,26 +13100,26 @@ int PsuadeBase::interpretInteractive()
             printf("been loaded to local memory using 'load'.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          faFlag = 3;
-         sprintf(pString, "Which output to use (1 - %d, 0 - all) ? ",nOutputs);
-         outputID = getInt(0, nOutputs, pString);
+         sprintf(pString, "Which output to use (1 - %d, 0 - all) ? ",nOutputs_);
+         outputID = getInt(0, nOutputs_, pString);
          psuadeIO_->getParameter("ana_outputid", pPtr);
          kk = pPtr.intData_;
-         faPtrsRsEval = new FuncApprox*[nOutputs];
+         faPtrsRsEval = new FuncApprox*[nOutputs_];
          if (outputID != 0)
          {
             psuadeIO_->updateAnalysisSection(-1, -1, -1, outputLevel_, outputID-1, -1);
             faPtrsRsEval[0] = genFAInteractive(psuadeIO_, faFlag);
-            for (ii = 1; ii < nOutputs; ii++) faPtrsRsEval[ii] = NULL;
+            for (ii = 1; ii < nOutputs_; ii++) faPtrsRsEval[ii] = NULL;
          }
          else
          {
-            for (ii = 0; ii < nOutputs; ii++)
+            for (ii = 0; ii < nOutputs_; ii++)
             {
                printf("Creating response surface for output %d\n", ii+1);
                psuadeIO_->updateAnalysisSection(-1, -1, -1, outputLevel_, ii, -1);
@@ -12679,7 +13143,7 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: rseval (no argument needed)\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
@@ -12704,7 +13168,7 @@ int PsuadeBase::interpretInteractive()
             printf("PSUADE_END \n");
             printf("Enter file for evaluation data : ");
             scanf("%s", dataFile);
-            fgets(lineIn,500,stdin); 
+            fgets(lineIn,5000,stdin); 
             fp = fopen(dataFile, "r");
             if (fp == NULL)
             {
@@ -12730,18 +13194,32 @@ int PsuadeBase::interpretInteractive()
                      fclose(fp);
                      continue;
                   }
-                  if (kk != nInputs)
+                  if (kk != nInputs_)
                   {
                      printf("ERROR: input size does not match nInputs.\n");
                      printf(":      input size in local memory = %d.\n", 
-                            nInputs);
+                            nInputs_);
                      printf(":      input size from file       = %d.\n", kk);
                      count = 0;
                      fclose(fp);
                      continue;
                   }
                   printf("Number of points to be evaluated = %d\n", count);
-                  inputSettings = new double[count*nInputs];
+                  fgets(pString, 5000, fp);
+                  while (1)
+                  {
+                     kk = getc(fp);
+                     if (kk != '#')
+                     {
+                        ungetc(kk, fp);
+                        break;
+                     }
+                     else
+                     {
+                        fgets(pString, 5000, fp);
+                     }
+                  }
+                  inputSettings = new double[count*nInputs_];
                   for (jj = 0; jj < count; jj++)
                   {
                      fscanf(fp, "%d", &ind);
@@ -12753,35 +13231,39 @@ int PsuadeBase::interpretInteractive()
                         printf("       expected index = %d\n", jj+1);
                         count = 0;
                         delete [] inputSettings;
+                        inputSettings = NULL;
                         break;
                      }
-                     for (ii = 0; ii < nInputs; ii++)
-                        fscanf(fp, "%lg", &(inputSettings[jj*nInputs+ii]));
+                     for (ii = 0; ii < nInputs_; ii++)
+                        fscanf(fp, "%lg", &(inputSettings[jj*nInputs_+ii]));
                   }
-                  fscanf(fp, "%s", winput);
-                  fscanf(fp, "%s", winput);
-                  if (strcmp(winput, "PSUADE_END"))
+                  if (count > 0)
                   {
-                     fclose(fp);
-                     printf("ERROR: file must end with PSUADE_END\n");
-                     delete [] inputSettings;
-                     count = 0;
-                     continue;
+                     fscanf(fp, "%s", winput);
+                     fscanf(fp, "%s", winput);
+                     if (strcmp(winput, "PSUADE_END"))
+                     {
+                        fclose(fp);
+                        printf("ERROR: file must end with PSUADE_END\n");
+                        delete [] inputSettings;
+                        count = 0;
+                        continue;
+                     }
                   }
                }
             }
          }
          else
          {
-            inputSettings = new double[nInputs];
-            if (dataReg == NULL)
+            inputSettings = new double[nInputs_];
+            if (dataReg_ == NULL)
             {
                printf("ERROR: data register has not been created.\n");
                continue;
             }
             count = 1;
-            for (ii = 0; ii < nInputs; ii++) 
-               inputSettings[ii] = dataReg[ii];
+            for (ii = 0; ii < nInputs_; ii++) 
+               inputSettings[ii] = dataReg_[ii];
          }
          if (count > 0)
          {
@@ -12796,15 +13278,15 @@ int PsuadeBase::interpretInteractive()
                fp = fopen("eval_sample","w");
                sprintf(pString," Inputs Out1 <Std1> Out2 <Std2> ...");
                fwriteComment(fp, pString);
-               if (nOutputs == 1 || (nOutputs > 1 && faPtrsRsEval[1] == NULL))
-                  fprintf(fp, "%d %d 2\n", count, nInputs);
+               if (nOutputs_ == 1 || (nOutputs_ > 1 && faPtrsRsEval[1] == NULL))
+                  fprintf(fp, "%d %d 2\n", count, nInputs_);
                else
-                  fprintf(fp, "%d %d %d\n", count, nInputs, 2*nOutputs);
+                  fprintf(fp, "%d %d %d\n", count, nInputs_, 2*nOutputs_);
             }
             else fp = NULL;
-            tempY = new double[nOutputs*count];
-            tempW = new double[nOutputs*count];
-            for (ii = 0 ; ii < nOutputs; ii++)
+            tempY = new double[nOutputs_*count];
+            tempW = new double[nOutputs_*count];
+            for (ii = 0 ; ii < nOutputs_; ii++)
             {
                if (faPtrsRsEval[ii] != NULL)
                {
@@ -12819,10 +13301,10 @@ int PsuadeBase::interpretInteractive()
             for (kk = 0 ; kk < count; kk++)
             {
                if (fp != NULL)
-                  for (ii = 0 ; ii < nInputs; ii++)
-                     fprintf(fp, "%e ", inputSettings[kk*nInputs+ii]);
+                  for (ii = 0 ; ii < nInputs_; ii++)
+                     fprintf(fp, "%e ", inputSettings[kk*nInputs_+ii]);
                printf("Interpolated Point %d: ", kk+1);
-               for (ii = 0 ; ii < nOutputs; ii++)
+               for (ii = 0 ; ii < nOutputs_; ii++)
                {
                   if (faPtrsRsEval[ii] != NULL)
                   {
@@ -12877,7 +13359,7 @@ int PsuadeBase::interpretInteractive()
             printf("      and so on.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
@@ -12894,7 +13376,7 @@ int PsuadeBase::interpretInteractive()
             printf("Please remove psComplete file and re-do.\n");
             continue;
          }
-         inputSettings = new double[nInputs];
+         inputSettings = new double[nInputs_];
          count = 1;
          while ((fp=fopen(dataFile,"r")) == NULL)
          {
@@ -12912,7 +13394,7 @@ int PsuadeBase::interpretInteractive()
             else
             {
                fscanf(fp, "%d %d", &count2, &kk);
-               if (count2 <= 0 || kk != nInputs)
+               if (count2 <= 0 || kk != nInputs_)
                {
                   printf("ERROR: invalid data in file.\n");
                   printf("       nData = %d, nInputs = %d\n",count2,kk);
@@ -12938,9 +13420,9 @@ int PsuadeBase::interpretInteractive()
                      fclose(fp);
                      continue;
                   }
-                  for (ii = 0; ii < nInputs; ii++)
+                  for (ii = 0; ii < nInputs_; ii++)
                      fscanf(fp, "%lg", &inputSettings[ii]);
-                  for (ii = 0; ii < nOutputs; ii++)
+                  for (ii = 0; ii < nOutputs_; ii++)
                   {
                      if (faPtrsRsEval[ii] != NULL)
                      {
@@ -13006,23 +13488,23 @@ int PsuadeBase::interpretInteractive()
             printf("using response surfaces from small data set.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
          outputID = 0;
-         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          Ymax = - 1.0e35;
          Ymin =   1.0e35;
-         for (sInd = 0; sInd < nSamples; sInd++)
+         for (sInd = 0; sInd < nSamples_; sInd++)
          {
-            if (sampleOutputs[sInd*nOutputs+outputID] > Ymax)
-               Ymax = sampleOutputs[sInd*nOutputs+outputID];
-            if (sampleOutputs[sInd*nOutputs+outputID] < Ymin)
-               Ymin = sampleOutputs[sInd*nOutputs+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] > Ymax)
+               Ymax = sampleOutputs_[sInd*nOutputs_+outputID];
+            if (sampleOutputs_[sInd*nOutputs_+outputID] < Ymin)
+               Ymin = sampleOutputs_[sInd*nOutputs_+outputID];
          }
          sprintf(pString,"Enter the lower bound constraint (Ymin=%e) : ",
                  Ymin);
@@ -13044,19 +13526,19 @@ int PsuadeBase::interpretInteractive()
          kk = getInt(100, 100000, pString);
          sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_MC);
          sampPtr->setPrintLevel(PL_INTERACTIVE);
-         sampPtr->setInputBounds(nInputs, iLowerB, iUpperB);
+         sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
          sampPtr->setOutputParams(1);
          sampPtr->setSamplingParams(kk, 1, 0);
          sampPtr->initialize(0);
-         tempX = new double[kk*nInputs];
+         tempX = new double[kk*nInputs_];
          tempY = new double[kk];
          states = new int[kk];
          for (ii = 0; ii < kk; ii++) states[ii] = 1;
-         sampPtr->getSamples(kk, nInputs, 1, tempX, tempY, states);
+         sampPtr->getSamples(kk, nInputs_, 1, tempX, tempY, states);
          count = 0;
          for (ii = 0; ii < kk; ii++)
          {
-            dtemp = faPtr->evaluatePoint(&tempX[ii*nInputs]);
+            dtemp = faPtr->evaluatePoint(&tempX[ii*nInputs_]);
             tempY[ii] = dtemp;
             states[ii] = 1;
             if (dtemp >= threshL && dtemp <= threshU) count++; 
@@ -13076,24 +13558,24 @@ int PsuadeBase::interpretInteractive()
             for (sInd = 0; sInd < kk; sInd++)
                if (states[sInd] == 1) fprintf(fp, "%e\n",tempY[sInd]);
             fprintf(fp, "];\n");
-            for (iInd = 0; iInd < nInputs; iInd++)
+            for (iInd = 0; iInd < nInputs_; iInd++)
             {
                fprintf(fp, "X%d = [\n", iInd+1);
                for (sInd = 0; sInd < kk; sInd++)
                   if (states[sInd] == 1)
-                     fprintf(fp, "%e\n",tempX[sInd*nInputs+iInd]);
+                     fprintf(fp, "%e\n",tempX[sInd*nInputs_+iInd]);
                fprintf(fp, "];\n");
             }
-            for (iInd = 0; iInd < nInputs; iInd++)
+            for (iInd = 0; iInd < nInputs_; iInd++)
             {
                fwritePlotCLF(fp);
                fprintf(fp, "plot(X%d,Y,'X','MarkerSize',13)\n",iInd+1);
-               sprintf(pString, "%s vs %s",outputNames[outputID],inputNames[iInd]);
+               sprintf(pString, "%s vs %s",outputNames_[outputID],inputNames_[iInd]);
                fwritePlotTitle(fp, pString);
-               fwritePlotXLabel(fp, inputNames[iInd]);
-               fwritePlotYLabel(fp, outputNames[outputID]);
+               fwritePlotXLabel(fp, inputNames_[iInd]);
+               fwritePlotYLabel(fp, outputNames_[outputID]);
                fwritePlotAxes(fp);
-               if (iInd < nInputs-1) 
+               if (iInd < nInputs_-1) 
                {
                   fprintf(fp, "disp(\'Press enter to go to the next plot\')\n");
                   fprintf(fp, "pause\n");
@@ -13142,6 +13624,21 @@ int PsuadeBase::interpretInteractive()
             psAnaExpertMode_ = 0;
             printf("analysis expert mode off\n");
          }
+      }
+
+      // +++ dontask 
+      else if (!strcmp(command, "dontask"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("This command turns on/off interactive mode.\n");
+            printf("Interactive mode, when turned on, will trigger many\n");
+            printf("prompts for additonal information during the course\n");
+            printf("of setup and analysis.\n");
+            continue;
+         }
+         psInteractive_ = 0;
       }
 
       // +++ io_expert 
@@ -13305,6 +13802,91 @@ int PsuadeBase::interpretInteractive()
          }
       }
 
+      // +++ genhistogram 
+      else if (!strcmp(command, "genhistogram"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("This command uses the loaded sample and generates\n");
+            printf("a sample of scenarios each associated with a\n");
+            printf("probability.\n");
+            continue;
+         }
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
+         {
+            printf("ERROR: no data (load sample data first).\n");
+            continue;
+         }
+         int *incrs = new int[nInputs_];
+         printf("Please enter the number of bins per input dimension.\n");
+         for (ii = 0; ii < nInputs_; ii++)
+         {
+            sprintf(pString, "Number of histogram bins for input %d : ", ii+1);
+            incrs[ii] = getInt(2, 1000, pString);
+         }
+         PDFHistogram *pdfhist = new PDFHistogram(nSamples_, nInputs_, 
+                                                  sampleInputs_, incrs, 1);
+         delete pdfhist;
+         delete [] incrs;
+         printf("Histogram file has been created in psuade_pdfhist_sample.\n");
+      }
+
+      // +++ genhistogram2 
+      else if (!strcmp(command, "genhistogram2"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("This command uses the loaded sample and generates\n");
+            printf("a sample of scenarios each associated with a\n");
+            printf("probability. The number of scenarios is obtained\n");
+            printf("from the user.\n");
+            continue;
+         }
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
+         {
+            printf("ERROR: no data (load sample data first).\n");
+            continue;
+         }
+         int *incrs = new int[nInputs_];
+         sprintf(pString, "Approximate number of scenarios (2-%d): ",nSamples_);
+         int nScen = getInt(2, nSamples_, pString);
+         int nbins = (int) pow(10.0 * nScen, 1.0/nInputs_);
+         int kdiff = 1;
+         int ksign = 0;
+         PDFHistogram *pdfhist=NULL;
+         while (1)
+         {
+            for (ii = 0; ii < nInputs_; ii++) incrs[ii] = nbins;
+            pdfhist = new PDFHistogram(nSamples_,nInputs_,sampleInputs_,incrs,1);
+            delete pdfhist;
+            fp = fopen("psuade_pdfhist_sample", "r");
+            if (fp == NULL)
+            {
+               printf("ERROR: psuade_pdfhist_sample file not found.\n");
+               continue;
+            }
+            else
+            {
+               fscanf(fp, "%d", &kk);
+               fclose(fp);
+               printf("Current iteration: nbins = %d, scenario size = %d\n",
+                      nbins,kk);
+               kdiff = kk - nScen;
+               if (kdiff == 0) break;
+               if (kdiff < 0 && ksign == 1) break;
+               if (kdiff > 0 && ksign == -1) break;
+               if (kdiff < 0) nbins++;
+               if (kdiff > 0) nbins--;
+               if (kdiff < 0) ksign = -1;
+               if (kdiff > 0) ksign = 1;
+            }
+         }
+         delete [] incrs;
+         printf("Histogram file has been created in psuade_pdfhist_sample.\n");
+      }
+
       // +++ master 
       else if (!strcmp(command, "master"))
       {
@@ -13442,14 +14024,14 @@ int PsuadeBase::interpretInteractive()
             printf("is to do a brute force search on an interpolated mesh.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data (load data first).\n");
             continue;
          }
-         if (nInputs > 4)
+         if (nInputs_ > 4)
          {
-            printf("INFO: nInputs must be <= 4.\n");
+            printf("INFO: nInputs_ must be <= 4.\n");
             continue;
          }
          if (psPlotTool_ != 0)
@@ -13459,12 +14041,12 @@ int PsuadeBase::interpretInteractive()
          }
          if (faPtr != NULL) delete faPtr;
 
-         inputSettings = new double[nInputs];
+         inputSettings = new double[nInputs_];
          iplot1 = 0;
          iplot2 = 1;
          iplot3 = 2;
-         kk = nInputs;
-         if (nInputs > 3)
+         kk = nInputs_;
+         if (nInputs_ > 3)
          {
             printf("Currently, you can only select at most 3 inputs.\n");
             sprintf(pString, "Enter the number of inputs to study (1 - 3) : ");
@@ -13472,10 +14054,10 @@ int PsuadeBase::interpretInteractive()
          }
          if (kk == 1) iplot2 = iplot3 = -2;
          if (kk == 2) iplot3 = -2;
-         if (nInputs > kk)
+         if (nInputs_ > kk)
          {
-            sprintf(pString, "Enter the first input (1 - %d) : ", nInputs);
-            iplot1 = getInt(1, nInputs, pString);
+            sprintf(pString, "Enter the first input (1 - %d) : ", nInputs_);
+            iplot1 = getInt(1, nInputs_, pString);
             iplot1--;
             if (kk > 1)
             {
@@ -13483,8 +14065,8 @@ int PsuadeBase::interpretInteractive()
                while (iplot1 == iplot2)
                {
                   sprintf(pString, "Enter the second input (1 - %d), not %d : ",
-                          nInputs, iplot1+1);
-                  iplot2 = getInt(1, nInputs, pString);
+                          nInputs_, iplot1+1);
+                  iplot2 = getInt(1, nInputs_, pString);
                   iplot2--;
                   if (iplot1 == iplot2)
                      printf("ERROR: duplicate input number %d.\n",iplot2+1);
@@ -13497,8 +14079,8 @@ int PsuadeBase::interpretInteractive()
                {
                   sprintf(pString,
                     "Enter the input for t axis (1 - %d), not %d nor %d: ",
-                          nInputs, iplot1+1, iplot2+1);
-                  iplot3 = getInt(1, nInputs, pString);
+                          nInputs_, iplot1+1, iplot2+1);
+                  iplot3 = getInt(1, nInputs_, pString);
                   iplot3--;
                   if (iplot3 == iplot1 || iplot3 == iplot2)
                      printf("ERROR: duplicate input number %d.\n",iplot3+1);
@@ -13514,19 +14096,19 @@ int PsuadeBase::interpretInteractive()
          if (faPtr == NULL) {printf("Error detected.\n"); continue;}
          faPtr->setOutputLevel(outputLevel_);
          faPtr->setNPtsPerDim(nPtsPerDim);
-         faPtr->setBounds(iLowerB, iUpperB);
-         if (nInputs > kk)
+         faPtr->setBounds(iLowerB_, iUpperB_);
+         if (nInputs_ > kk)
             printf("The other inputs will be set to their nominal values.\n");
-         for (iInd1 = 0; iInd1 < nInputs; iInd1++)
+         for (iInd1 = 0; iInd1 < nInputs_; iInd1++)
          {
             if (iInd1 != iplot1 && iInd1 != iplot2 && iInd1 != iplot3)
-               inputSettings[iInd1] = 0.5*(iLowerB[iInd1]+iUpperB[iInd1]);
+               inputSettings[iInd1] = 0.5*(iLowerB_[iInd1]+iUpperB_[iInd1]);
             else inputSettings[iInd1] = 1.0;
          }
          jplot = 0;
-         faYIn = new double[nSamples];
-         for (sInd = 0; sInd < nSamples; sInd++)
-            faYIn[sInd] = sampleOutputs[sInd*nOutputs+jplot];
+         faYIn = new double[nSamples_];
+         for (sInd = 0; sInd < nSamples_; sInd++)
+            faYIn[sInd] = sampleOutputs_[sInd*nOutputs_+jplot];
          if (kk == 3)
          {
             printf("Please wait while generating data \n");
@@ -13544,9 +14126,9 @@ int PsuadeBase::interpretInteractive()
             {
                printf(".");
                fflush(stdout);
-               inputSettings[iplot3] = (iUpperB[iplot3] - iLowerB[iplot3]) *
-                                   ii / (nPtsPerDim - 1.0) + iLowerB[iplot3];
-               faPtr->gen2DGridData(sampleInputs,faYIn, iplot1, iplot2,
+               inputSettings[iplot3] = (iUpperB_[iplot3] - iLowerB_[iplot3]) *
+                                   ii / (nPtsPerDim - 1.0) + iLowerB_[iplot3];
+               faPtr->gen2DGridData(sampleInputs_,faYIn, iplot1, iplot2,
                                    inputSettings, &faLeng, &faXOut,&faYOut);
                if (ii == 0)
                {
@@ -13630,34 +14212,34 @@ int PsuadeBase::interpretInteractive()
             fwritePlotCLF(fp);
             for (ii = 0; ii < nPtsPerDim; ii++)
             {
-               dtemp = (iUpperB[iplot3] - iLowerB[iplot3]) *
-                       ii / (nPtsPerDim - 1.0) + iLowerB[iplot3];
+               dtemp = (iUpperB_[iplot3] - iLowerB_[iplot3]) *
+                       ii / (nPtsPerDim - 1.0) + iLowerB_[iplot3];
                fprintf(fp, "disp(\'Plotting frame %d of %d\')\n",
                        ii+1,nPtsPerDim);
                fprintf(fp, "if twoPlots == 1\n");
                fprintf(fp, "subplot(1,2,1), mesh(X,Y,A%d)\n", ii+1);
-               fprintf(fp, "axis([%e %e %e %e %e %e])\n",iLowerB[iplot1],
-                       iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2],
+               fprintf(fp, "axis([%e %e %e %e %e %e])\n",iLowerB_[iplot1],
+                       iUpperB_[iplot1],iLowerB_[iplot2],iUpperB_[iplot2],
                        GYmin, GYmax);
-               fwritePlotXLabel(fp, inputNames[iplot1]);
-               fwritePlotYLabel(fp, inputNames[iplot2]);
-               fwritePlotZLabel(fp, outputNames[jplot]);
+               fwritePlotXLabel(fp, inputNames_[iplot1]);
+               fwritePlotYLabel(fp, inputNames_[iplot2]);
+               fwritePlotZLabel(fp, outputNames_[jplot]);
                fwritePlotAxes(fp);
                fprintf(fp, "colorbar\n");
                fprintf(fp, "title(\'%s Mesh plot, val(3) = %14.7e\')\n",
-                       outputNames[jplot], dtemp);
+                       outputNames_[jplot], dtemp);
                fprintf(fp, "subplot(1,2,2)\n");
                fprintf(fp, "end\n");
                fprintf(fp, "contourf(X,Y,A%d)\n",ii+1);
-               fprintf(fp, "axis([%e %e %e %e])\n",iLowerB[iplot1],
-                       iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2]);
-               fwritePlotXLabel(fp, inputNames[iplot1]);
-               fwritePlotYLabel(fp, inputNames[iplot2]);
+               fprintf(fp, "axis([%e %e %e %e])\n",iLowerB_[iplot1],
+                       iUpperB_[iplot1],iLowerB_[iplot2],iUpperB_[iplot2]);
+               fwritePlotXLabel(fp, inputNames_[iplot1]);
+               fwritePlotYLabel(fp, inputNames_[iplot2]);
                fwritePlotAxes(fp);
                fprintf(fp, "colorbar\n");
                fprintf(fp, "colormap(jet)\n");
                fprintf(fp, "title(\'%s contour plot, val(3) = %14.7e\')\n",
-                       outputNames[jplot], dtemp);
+                       outputNames_[jplot], dtemp);
                fprintf(fp,"pause(1)\n");
             }
             fprintf(fp, "rotate3d on\n");
@@ -13681,7 +14263,7 @@ int PsuadeBase::interpretInteractive()
             }
             fprintf(fp, "twoPlots = 1;\n");
             fwritePlotCLF(fp);
-            faPtr->gen2DGridData(sampleInputs,faYIn,iplot1,iplot2,
+            faPtr->gen2DGridData(sampleInputs_,faYIn,iplot1,iplot2,
                           inputSettings, &faLeng, &faXOut,&faYOut);
                                                                                 
             for (jj = 0; jj < faLeng; jj++) faYOut[jj] = exp(-faYOut[jj]);
@@ -13753,21 +14335,21 @@ int PsuadeBase::interpretInteractive()
             fwritePlotCLF(fp);
             fprintf(fp, "if twoPlots == 1\n");
             fprintf(fp, "subplot(1,2,1), mesh(X,Y,A)\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
-            fwritePlotZLabel(fp, outputNames[jplot]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
+            fwritePlotZLabel(fp, outputNames_[jplot]);
             fwritePlotAxes(fp);
-            fprintf(fp, "title(\'Mesh Plot for %s\')\n",outputNames[jplot]);
+            fprintf(fp, "title(\'Mesh Plot for %s\')\n",outputNames_[jplot]);
             fprintf(fp, "colorbar\n");
             fprintf(fp, "subplot(1,2,2)\n");
             fprintf(fp, "end\n");
             fprintf(fp, "contourf(X,Y,A)\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, inputNames[iplot2]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, inputNames_[iplot2]);
             fwritePlotAxes(fp);
             fprintf(fp, "colorbar\n");
             fprintf(fp, "colormap(jet)\n");
-            fprintf(fp, "title(\'Contour Plot for %s\')\n",outputNames[jplot]);
+            fprintf(fp, "title(\'Contour Plot for %s\')\n",outputNames_[jplot]);
             fclose(fp);
             printf("matlabrsbca2.m is now available.\n");
             printf("You can identify the max and min from the plots.\n");
@@ -13789,7 +14371,7 @@ int PsuadeBase::interpretInteractive()
                continue;
             }
             fwritePlotCLF(fp);
-            faPtr->gen1DGridData(sampleInputs,faYIn, iplot1,
+            faPtr->gen1DGridData(sampleInputs_,faYIn, iplot1,
                                  inputSettings, &faLeng, &faXOut,&faYOut);
             for (jj = 0; jj < faLeng; jj++)
                faYOut[jj] = exp(-faYOut[jj]);
@@ -13843,11 +14425,11 @@ int PsuadeBase::interpretInteractive()
                fprintf(fp, "%e\n", faXOut[sInd]);
             fprintf(fp, "];\n");
             fprintf(fp, "plot(X,A)\n");
-            fwritePlotXLabel(fp, inputNames[iplot1]);
-            fwritePlotYLabel(fp, outputNames[jplot]);
+            fwritePlotXLabel(fp, inputNames_[iplot1]);
+            fwritePlotYLabel(fp, outputNames_[jplot]);
             fwritePlotAxes(fp);
             fprintf(fp, "title(\'Likelihood Plot for %s\')\n",
-                    outputNames[jplot]);
+                    outputNames_[jplot]);
             fclose(fp);
             printf("matlabrsbca1.m is now available.\n");
             printf("You can identify the max and min from the plots.\n");
@@ -14221,12 +14803,12 @@ int PsuadeBase::interpretInteractive()
          strptr = new char*[1];
          strptr[0] = new char[100];
          strcpy(strptr[0], "Y");
-         int    *iPDFs = new int[nInputs];
-         double *iMeans = new double[nInputs];
-         double *iStds = new double[nInputs];
+         int    *iPDFs = new int[nInputs_];
+         double *iMeans = new double[nInputs_];
+         double *iStds = new double[nInputs_];
          Matrix *iCMat = new Matrix();
-         iCMat->setDim(nInputs, nInputs);
-         for (ii = 0; ii < nInputs; ii++)
+         iCMat->setDim(nInputs_, nInputs_);
+         for (ii = 0; ii < nInputs_; ii++)
          {
             iPDFs[ii] = 0;
             iMeans[ii] = 0;
@@ -14267,7 +14849,7 @@ int PsuadeBase::interpretInteractive()
             printf("Note: no need to load data file first\n");
             continue;
          }
-         sprintf(pString,"Enter a PSUADE input file (specify inputs/outputs): ");
+         sprintf(pString,"Enter the name of a PSUADE input file: ");
          getString(pString, dataFile);
          kk = strlen(dataFile);
          dataFile[kk-1] = '\0';
@@ -14280,64 +14862,52 @@ int PsuadeBase::interpretInteractive()
          }
          fclose(fp);
          cleanUp();
-         if (psuadeIO_ != NULL) delete psuadeIO_;
-         if (sampler_ != NULL) SamplingDestroy(sampler_);
-         if (tagArray != NULL) delete [] tagArray;
-         tagArray = NULL;
-         if (inputNames != NULL)
-         {
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL) delete [] inputNames[ii];
-            delete [] inputNames;
-         }
-         if (outputNames != NULL)
-         {
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL) delete [] outputNames[ii];
-            delete [] outputNames;
-         }
          ioPtr = new PsuadeData();
          status = ioPtr->readPsuadeFile(dataFile);
-         if (status != 0) continue;
+         if (status != 0) 
+         {
+            printf("ERROR: cannot read file %s.\n", dataFile);
+            continue;
+         }
          ioPtr->getParameter("input_ninputs", pPtr);
-         nInputs = pPtr.intData_;
+         nInputs_ = pPtr.intData_;
          ioPtr->getParameter("output_noutputs", pPtr);
-         nOutputs = pPtr.intData_;
+         nOutputs_ = pPtr.intData_;
          ioPtr->getParameter("input_lbounds", pLower);
-         iLowerB = pLower.dbleArray_;
+         double *iLowerB = pLower.dbleArray_;
          ioPtr->getParameter("input_ubounds", pUpper);
-         iUpperB = pUpper.dbleArray_;
-         printf("Next, enter the name of the application driver. It can be\n");
-         printf("an executable or a PSUADE data file to be used to create\n");
-         printf("a response surface. In the latter case, make sure the\n");
-         printf("number of inputs and outputs are the same as the PSUADE\n");
-         printf("input file (%s).\n", dataFile);
-         sprintf(pString, "Enter the application driver file now: ");
+         double *iUpperB = pUpper.dbleArray_;
+         printf("Enter the name of the optimization driver. It can\n");
+         printf("be an executable or a PSUADE data file to be used\n");
+         printf("to create a response surface. In the latter case,\n");
+         printf("make sure the number of inputs and outputs are the\n");
+         printf("same as the PSUADE input file (%s).\n", dataFile);
+         sprintf(pString,"Enter name of optimization driver file : ");
          getString(pString, winput);
          kk = strlen(winput);
          winput[kk-1] = '\0';
-         printf("application driver (RS data) file = %s\n", winput);
+         printf("optimization driver (RS data) file = %s\n", winput);
          fp = fopen(winput, "r");
          if (fp == NULL)
          {
             printf("ERROR: file %s not found.\n", winput);
             continue;
          }
-         ioPtr->updateApplicationSection(winput, winput,-1);
-         ioPtr->updateOptimizationSection(10, 1.0e-6);
+         ioPtr->updateApplicationSection(winput,winput,NULL,NULL,NULL,-1);
+         ioPtr->updateOptimizationSection(10, 1, 1.0e-6);
 
          int    optCnt=0;
          double *optData[4]; 
          double *optInitX, *optInitY, *optX, *optY;
-         optInitX = new double[nInputs];
-         for (ii = 0; ii < nInputs; ii++)
+         optInitX = new double[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++)
             optInitX[ii] = 0.5 * (iLowerB[ii] + iUpperB[ii]);
-         optInitY = new double[nOutputs];
-         for (ii = 0; ii < nOutputs; ii++) optInitY[ii] = 0.0;
-         optX = new double[nInputs];
-         for (ii = 0; ii < nInputs; ii++) optX[ii] = 0.0;
-         optY = new double[nOutputs];
-         for (ii = 0; ii < nOutputs; ii++) optY[ii] = 0.0;
+         optInitY = new double[nOutputs_];
+         for (ii = 0; ii < nOutputs_; ii++) optInitY[ii] = 0.0;
+         optX = new double[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++) optX[ii] = 0.0;
+         optY = new double[nOutputs_];
+         for (ii = 0; ii < nOutputs_; ii++) optY[ii] = 0.0;
          optData[0] = optInitX;
          optData[1] = optInitY;
          optData[2] = optX;
@@ -14352,8 +14922,6 @@ int PsuadeBase::interpretInteractive()
          delete ioPtr;
          pLower.clean();
          pUpper.clean();
-         iLowerB = NULL;
-         iUpperB = NULL;
       }
 
       // +++ so_ua or soua  
@@ -14363,18 +14931,18 @@ int PsuadeBase::interpretInteractive()
          if (!strcmp(winput, "-h"))
          {
             printf("soua: UQ for second order uncertainty analysis\n");
-            printf("      (uncertainty in parameter probability distributions)\n");
+            printf("      (uncertainty in input probability distributions)\n");
             printf("syntax: soua (no argument needed).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs == 1)
+         if (nInputs_ == 1)
          {
-            printf("ERROR: nInputs must be 2 or more.\n");
+            printf("ERROR: nInputs_ must be 2 or more.\n");
             continue;
          }
          if (faPtr != NULL) delete faPtr;
@@ -14391,7 +14959,7 @@ int PsuadeBase::interpretInteractive()
          }
          if (faPtr == NULL) {printf("ERROR detected.\n"); continue;}
          faPtr->setNPtsPerDim(nPtsPerDim);
-         faPtr->setBounds(iLowerB, iUpperB);
+         faPtr->setBounds(iLowerB_, iUpperB_);
          faPtr->setOutputLevel(outputLevel_);
          psuadeIO_->getParameter("ana_outputid", pPtr);
          outputID = pPtr.intData_;
@@ -14411,16 +14979,16 @@ int PsuadeBase::interpretInteractive()
          printf("is needed for an input, simply set the lower and upper\n");
          printf("bounds the same.\n");
          
-         nParams = 2 * nInputs;
+         nParams = 2 * nInputs_;
          tempV = new double[nParams];
          tempW = new double[nParams];
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
             printf("Enter uncertainties for input %d:\n", ii+1); 
-            if (inputPDFs == NULL || inputPDFs[ii] == 0)
+            if (inputPDFs_ == NULL || inputPDFs_[ii] == 0)
             {
                printf("Lower and upper bounds = %e %e\n",
-                      iLowerB[ii],iUpperB[ii]);
+                      iLowerB_[ii],iUpperB_[ii]);
                sprintf(pString, "Enter lower bound for input lower bound: ");
                tempV[ii*2] = getDouble(pString); 
                sprintf(pString, "Enter upper bound for input lower bound: ");
@@ -14430,10 +14998,10 @@ int PsuadeBase::interpretInteractive()
                sprintf(pString, "Enter upper bound for input upper bound: ");
                tempW[ii*2+1] = getDouble(pString); 
             }
-            else if (inputPDFs[ii] == PSUADE_PDF_NORMAL)
+            else if (inputPDFs_[ii] == PSUADE_PDF_NORMAL)
             {
                printf("Normal distribution mean and std dev = %e %e\n",
-                      inputMeans[ii],inputStds[ii]);
+                      inputMeans_[ii],inputStds_[ii]);
                sprintf(pString, "Enter lower bound for input mean : ");
                tempV[ii*2] = getDouble(pString); 
                sprintf(pString, "Enter upper bound for input mean : ");
@@ -14443,10 +15011,10 @@ int PsuadeBase::interpretInteractive()
                sprintf(pString, "Enter upper bound for input std dev : ");
                tempW[ii*2+1] = getDouble(pString); 
             }
-            else if (inputPDFs[ii] == PSUADE_PDF_LOGNORMAL)
+            else if (inputPDFs_[ii] == PSUADE_PDF_LOGNORMAL)
             {
                printf("LogNormal distribution mean and std dev = %e %e\n",
-                      inputMeans[ii],inputStds[ii]);
+                      inputMeans_[ii],inputStds_[ii]);
                sprintf(pString, "Enter lower bound for input mean : ");
                tempV[ii*2] = getDouble(pString); 
                sprintf(pString, "Enter upper bound for input mean : ");
@@ -14456,10 +15024,10 @@ int PsuadeBase::interpretInteractive()
                sprintf(pString, "Enter upper bound for input std dev : ");
                tempW[ii*2+1] = getDouble(pString); 
             }
-            else if (inputPDFs[ii] == PSUADE_PDF_BETA)
+            else if (inputPDFs_[ii] == PSUADE_PDF_BETA)
             {
                printf("Beta distribution alpha and beta = %e %e\n",
-                      inputMeans[ii],inputStds[ii]);
+                      inputMeans_[ii],inputStds_[ii]);
                sprintf(pString, "Enter lower bound for input alpha : ");
                tempV[ii*2] = getDouble(pString); 
                sprintf(pString, "Enter upper bound for input alpha : ");
@@ -14469,10 +15037,10 @@ int PsuadeBase::interpretInteractive()
                sprintf(pString, "Enter upper bound for input beta : ");
                tempW[ii*2+1] = getDouble(pString); 
             }
-            else if (inputPDFs[ii] == PSUADE_PDF_TRIANGLE)
+            else if (inputPDFs_[ii] == PSUADE_PDF_TRIANGLE)
             {
                printf("Triangle distribution mean and half width = %e %e\n",
-                      inputMeans[ii],inputStds[ii]);
+                      inputMeans_[ii],inputStds_[ii]);
                sprintf(pString, "Enter lower bound for input mean : ");
                tempV[ii*2] = getDouble(pString); 
                sprintf(pString, "Enter upper bound for input mean : ");
@@ -14492,8 +15060,8 @@ int PsuadeBase::interpretInteractive()
          }
  
          int    nValid=0, *validFlags;
-         validFlags = new int[nInputs*2];
-         for (ii = 0; ii < nInputs*2; ii++)
+         validFlags = new int[nInputs_*2];
+         for (ii = 0; ii < nInputs_*2; ii++)
          {
             if (tempV[ii] != tempW[ii])
             {
@@ -14503,7 +15071,7 @@ int PsuadeBase::interpretInteractive()
             else
             {
                validFlags[ii] = 0;
-               for (jj = ii+1; jj < nInputs*2; jj++)
+               for (jj = ii+1; jj < nInputs_*2; jj++)
                {
                   tempV[nValid+jj-ii-1] = tempV[jj];
                   tempW[nValid+jj-ii-1] = tempW[jj];
@@ -14533,50 +15101,50 @@ int PsuadeBase::interpretInteractive()
          delete sampPtr;
          sampPtr = NULL;
 
-         int    *sPDFs  = new int[nInputs];
-         double *sMeans = new double[nInputs];
-         double *sStds  = new double[nInputs];
-         double *oneSample = new double[nInputs];
-         if (inputMeans == NULL)
-            for (ii = 0; ii < nInputs; ii++) sPDFs[ii] = 0;
+         int    *sPDFs  = new int[nInputs_];
+         double *sMeans = new double[nInputs_];
+         double *sStds  = new double[nInputs_];
+         double *oneSample = new double[nInputs_];
+         if (inputMeans_ == NULL)
+            for (ii = 0; ii < nInputs_; ii++) sPDFs[ii] = 0;
          else
-            for (ii = 0; ii < nInputs; ii++) sPDFs[ii] = inputPDFs[ii];
-         corMat.setDim(nInputs,nInputs);
+            for (ii = 0; ii < nInputs_; ii++) sPDFs[ii] = inputPDFs_[ii];
+         corMat.setDim(nInputs_,nInputs_);
          ddata = 1.0;
-         for (ii = 0; ii < nInputs; ii++) corMat.setEntry(ii,ii,ddata);
+         for (ii = 0; ii < nInputs_; ii++) corMat.setEntry(ii,ii,ddata);
          if (psPlotTool_ == 1) fp = fopen("scilabsoua.sci", "w");
          else                  fp = fopen("matlabsoua.m", "w");
          fwritePlotCLF(fp);
          for (ss = 0; ss < nSams; ss++)
          { 
             kk = 0;
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
                if (validFlags[2*ii] == 1) 
                {
                   sMeans[ii] = samIns[ss*nParams+kk];
                   kk++;
                }
-               else sMeans[ii] = inputMeans[ii];
+               else sMeans[ii] = inputMeans_[ii];
                if (validFlags[2*ii+1] == 1) 
                {
                   sStds[ii] = samIns[ss*nParams+kk];
                   kk++;
                }
-               else sMeans[ii] = inputStds[ii];
+               else sMeans[ii] = inputStds_[ii];
             }
             pdfman = new PDFManager();
-            pdfman->initialize(nInputs, sPDFs, sMeans, sStds, corMat, NULL, NULL);
-            vecLower.load(nInputs, iLowerB);
-            vecUpper.load(nInputs, iUpperB);
-            vecIn.setLength(nSams2*nInputs);
+            pdfman->initialize(nInputs_, sPDFs, sMeans, sStds, corMat, NULL, NULL);
+            vecLower.load(nInputs_, iLowerB_);
+            vecUpper.load(nInputs_, iUpperB_);
+            vecIn.setLength(nSams2*nInputs_);
             pdfman->genSample(nSams2, vecIn, vecLower, vecUpper);
             fprintf(fp, "Y = [\n");
             count = 0;
             for (kk = 0; kk < nSams2; kk++)
             {
-               for (ii = 0; ii < nInputs; ii++)
-                  oneSample[ii] = vecIn[kk*nInputs+ii];
+               for (ii = 0; ii < nInputs_; ii++)
+                  oneSample[ii] = vecIn[kk*nInputs_+ii];
                dtemp = faPtr->evaluatePoint(oneSample);
                fprintf(fp, "%e\n", dtemp);
                count++;
@@ -14590,7 +15158,7 @@ int PsuadeBase::interpretInteractive()
             sprintf(winput, "Cumulative Distributions");
             fwritePlotTitle(fp, winput);
             fwritePlotAxes(fp);
-            if (outputNames != NULL) sprintf(winput, "%s", outputNames[outputID]);
+            if (outputNames_ != NULL) sprintf(winput, "%s", outputNames_[outputID]);
             else                     sprintf(winput, "Output Values");
             fwritePlotXLabel(fp, winput);
             sprintf(winput, "Probabilities");
@@ -14631,88 +15199,90 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: aeua (no argument needed).\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL || nSamples_ <= 0)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (nInputs == 1)
+         if (nInputs_ == 1)
          {
-            printf("ERROR: nInputs must be 2 or more.\n");
+            printf("ERROR: nInputs_ must be 2 or more.\n");
             continue;
          }
          if (faPtr != NULL) delete faPtr;
          psuadeIO_->getParameter("ana_outputid", pPtr);
          iSave = pPtr.intData_;
-         sprintf(pString,"Enter output number (1 - %d) : ",nOutputs);
-         outputID = getInt(1, nOutputs, pString);
+         sprintf(pString,"Enter output number (1 - %d) : ",nOutputs_);
+         outputID = getInt(1, nOutputs_, pString);
          outputID--;
          psuadeIO_->updateAnalysisSection(-1,-1,-1,-1,outputID,-1);
-         nPtsPerDim = 64;
-         faFlag = 3;
-         faID = -1;
-         while (faID < 0)
+         psuadeIO_->getParameter("ana_rstype",pPtr);
+         faType = pPtr.intData_;
+         printf("The response surface model is taken from your data file:\n");
+         printThisFA(faType);
+         faPtr = genFA(faType, nInputs_, outputLevel_, nSamples_);
+         if (faPtr == NULL) 
          {
-            faPtr = genFAInteractive(psuadeIO_, faFlag);
-            if (faPtr == NULL) {printf("ERROR detected.\n"); continue;}
-            faID = faPtr->getID();
-         }
-         if (faPtr == NULL) {printf("ERROR detected.\n"); continue;}
-         faPtr->setNPtsPerDim(nPtsPerDim);
-         faPtr->setBounds(iLowerB, iUpperB);
-         faPtr->setOutputLevel(outputLevel_);
-         printf("INFO: outputID = %d\n", outputID+1);
-         printf("INFO: outputID obtained from the loaded sample file.\n");
-         printf("      If a different output should be selected, modify\n");
-         printf("      the sample file, re-load, and re-run this.\n");
-
-         if (inputPDFs == NULL)
-         {
-            printf("ERROR: cannot perform because all variables are epistemic.\n");
+            printf("ERROR : cannot construct response surface.\n"); 
             continue;
          }
+         printf("Also, the aleatoric uncertainty information will be taken\n");
+         printf("      from the INPUT section of your data file.\n");
+         nPtsPerDim = 64;
+         faPtr->setNPtsPerDim(nPtsPerDim);
+         faPtr->setBounds(iLowerB_, iUpperB_);
+         faPtr->setOutputLevel(outputLevel_);
+         tempY = new double[nSamples_];
+         for (ii = 0; ii < nSamples_; ii++) 
+            tempY[ii] = sampleOutputs_[ii*nOutputs_+outputID];
+         status = faPtr->initialize(sampleInputs_,tempY);
+         delete [] tempY;
+         tempY = NULL;
+         printf("INFO: outputID = %d\n", outputID+1);
 
-         printf("First divide your parameters into aleatoric and epistemic sets.\n");
+         printf("Step 1: select aleatoric and epistemic parameters\n");
          int nEpistemic=0;
-         int *uTypes = new int[nInputs];
-         for (ii = 0; ii < nInputs; ii++) uTypes[ii] = 0;
+         int *uTypes = new int[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++) uTypes[ii] = 0;
          kk = 1;
          while (kk > 0)
          {
-            sprintf(pString, "Select epistemic parameters (1 - %d, 0 if done) : ",
-                    nInputs); 
-            kk = getInt(0, nInputs, pString);
+            sprintf(pString,
+                    "Select epistemic parameters (1 - %d, 0 if done) : ",
+                    nInputs_); 
+            kk = getInt(0, nInputs_, pString);
             if (kk > 0)
             {
                uTypes[kk-1] = 1;
                nEpistemic++;
             }
          } 
-         if (nEpistemic == 0 || nEpistemic == nInputs)
+         if (nEpistemic == 0 || nEpistemic == nInputs_)
          {
-            printf("At least 1 and at most %d epistemic parameters are\n",nInputs-1);
-            printf("needed for this command.\n");
+            printf("At least 1 and at most %d epistemic parameters are\n",
+                   nInputs_-1);
+            printf("required for this command.\n");
             continue;
          }
-         printf("You have specified %d epistemic parameters.\n", nEpistemic);
+         printf("You have specified %d epistemic parameters.\n",nEpistemic);
 
-         int    nSams=100, nSams2=1000;
+         int    nSams=20000, nSams2=2000;
          int    *samStates = new int[nSams];
          double *samIns  = new double[nSams*nEpistemic];
          double *samOuts = new double[nSams];
          double *lbs = new double[nEpistemic];
          double *ubs = new double[nEpistemic];
          kk = 0;
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
             if (uTypes[ii] != 0)
             {
-               lbs[kk] = iLowerB[ii];
-               ubs[kk] = iUpperB[ii];
+               lbs[kk] = iLowerB_[ii];
+               ubs[kk] = iUpperB_[ii];
                kk++;
             }
          }
-         sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_LPTAU);
+         sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_LHS);
          sampPtr->setPrintLevel(PL_INTERACTIVE);
          sampPtr->setInputBounds(nEpistemic, lbs, ubs);
          kk = 1;
@@ -14725,32 +15295,32 @@ int PsuadeBase::interpretInteractive()
          delete [] lbs;
          delete [] ubs;
 
-         int    nAleatoric = nInputs - nEpistemic;
+         int    nAleatoric = nInputs_ - nEpistemic;
          int    *iPDFs2 = new int[nAleatoric];
          double *iMeans2 = new double[nAleatoric];
          double *iStds2 = new double[nAleatoric];
-         double *oneSample = new double[nInputs];
+         double *oneSample = new double[nInputs_];
          lbs = new double[nAleatoric];
          ubs = new double[nAleatoric];
          ddata = 1.0;
          kk = 0;
          corMat.setDim(nAleatoric,nAleatoric);
-         for (ii = 0; ii < nInputs; ii++)
+         for (ii = 0; ii < nInputs_; ii++)
          {
             if (uTypes[ii] != 1)
             {
                corMat.setEntry(kk,kk,ddata);
-               iPDFs2[kk] = inputPDFs[ii]; 
-               iMeans2[kk] = inputMeans[ii]; 
-               iStds2[kk] = inputStds[ii]; 
-               lbs[kk] = iLowerB[ii];
-               ubs[kk] = iUpperB[ii];
+               iPDFs2[kk] = inputPDFs_[ii]; 
+               iMeans2[kk] = inputMeans_[ii]; 
+               iStds2[kk] = inputStds_[ii]; 
+               lbs[kk] = iLowerB_[ii];
+               ubs[kk] = iUpperB_[ii];
                kk++;
             }
          }
          pdfman = new PDFManager();
-         pdfman->initialize(nAleatoric,iPDFs2,iMeans2,iStds2,corMat,inputPDFFiles,
-                            SPDFIndices);
+         pdfman->initialize(nAleatoric,iPDFs2,iMeans2,iStds2,corMat,
+                            inputPDFFiles,SPDFIndices);
          vecLower.load(nAleatoric, lbs);
          vecUpper.load(nAleatoric, ubs);
          vecIn.setLength(nSams2*nAleatoric);
@@ -14767,11 +15337,28 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          fwritePlotCLF(fp);
-         for (ss = 0; ss < nSams; ss++)
+         double *Ymaxs = new double[nSams2];
+         double *Ymins = new double[nSams2];
+         for (ss = 0; ss < nSams2; ss++)
          {
-            fprintf(fp, "Y%d = [\n",ss+1);
+            Ymaxs[ss] = -PSUADE_UNDEFINED;
+            Ymins[ss] =  PSUADE_UNDEFINED;
+         }
+         ss = 0;
+         int converged = 0;
+         int upperCnt, lowerCnt, convergedCnt=0;
+         double upperAcc, lowerAcc;
+         while (ss < nSams && (converged == 0 || ss < 1000))
+         {
+            if (outputLevel_ > 1) printf("Epistemic sample %d\n",ss+1);
+            if (ss < 50) 
+            {
+               fprintf(fp, "Y%d = [\n",ss+1);
+               printf(".");
+               fflush(stdout);
+            }
             count2 = 0;
-            for (ii = 0; ii < nInputs; ii++)
+            for (ii = 0; ii < nInputs_; ii++)
             {
                if (uTypes[ii] == 1)
                {
@@ -14779,7 +15366,8 @@ int PsuadeBase::interpretInteractive()
                   count2++;
                }
             }
-            count = 0;
+            count = lowerCnt = upperCnt = 0;
+            upperAcc = lowerAcc = 0;
             for (kk = 0; kk < nSams2; kk++)
             {
                flag = 0;
@@ -14791,7 +15379,7 @@ int PsuadeBase::interpretInteractive()
                if (flag == 0)
                {
                   count2 = 0;
-                  for (ii = 0; ii < nInputs; ii++)
+                  for (ii = 0; ii < nInputs_; ii++)
                   {
                      if (uTypes[ii] == 0)
                      {
@@ -14800,43 +15388,110 @@ int PsuadeBase::interpretInteractive()
                      }
                   }
                   dtemp = faPtr->evaluatePoint(oneSample);
-                  fprintf(fp, "%e\n", dtemp);
+                  if (ss < 50) fprintf(fp, "%e\n", dtemp);
+                  if (dtemp > Ymaxs[kk]) 
+                  {
+                     if (Ymaxs[kk] != 0) upperAcc += PABS((Ymaxs[kk]-dtemp)/Ymaxs[kk]);
+                     Ymaxs[kk] = dtemp;
+                     upperCnt++;
+                  }
+                  if (dtemp < Ymins[kk])
+                  {
+                     if (Ymins[kk] != 0) lowerAcc += PABS((Ymins[kk]-dtemp)/Ymins[kk]);
+                     Ymins[kk] = dtemp;
+                     lowerCnt++;
+                  }
                   count++;
                }
             }
+            ddata = 100.0 * upperAcc / nSams;
+            if (outputLevel_ > 2 && ddata > 0.0 && ss > 0) 
+               printf("  Upper lifted  %7.3f percent on average from last time\n",ddata);
+            ddata = 100.0 * lowerAcc / nSams;
+            if (outputLevel_ > 2 && ddata > 0.0 && ss > 0) 
+               printf("  Lower dropped %7.3f percent on average from last time\n",ddata);
+            if (upperCnt+lowerCnt == 0) convergedCnt++;
+            else                        convergedCnt = converged = 0;
+            if (outputLevel_ > 1) 
+               printf("  Convergence indicator = %5d (0 20 times => converged)\n",
+                      upperCnt+lowerCnt);
+            if (convergedCnt >= 20) converged = 1;
             if (count < 0.5 * nSams2)
             {
-               printf("WARNING: less than half of the points are within bounds.\n");
-               printf("         Input ranges may need to be adjusted.\n");
+               printf("WARNING: < half of the points are within bounds.\n");
+               printf("         Input ranges may need to be widened.\n");
             }
             if (count == 0)
             {
                printf("ERROR: none of the sample points are within bounds.\n");
                continue;
             }
-            fprintf(fp, "];\n");
-            if (psPlotTool_ == 1) fprintf(fp, "Y%d = gsort(Y%d,'g','i');\n",ss+1,ss+1);
-            else                  fprintf(fp, "Y%d = sort(Y%d);\n",ss+1,ss+1);
-            fprintf(fp, "X = 1:%d;\n",count);
-            fprintf(fp, "X = X / %d;\n", count);
-            fprintf(fp, "plot(Y%d,X)\n",ss+1);
-            if (ss == 0)
+            if (ss < 50) fprintf(fp, "];\n");
+            if (ss < 50) 
             {
-               sprintf(winput, "Cumulative Distributions");
-               fwritePlotTitle(fp, winput);
-               fwritePlotAxes(fp);
-               if (outputNames != NULL) sprintf(winput, "%s", outputNames[outputID]);
-               else                     sprintf(winput, "Output Values");
-               fwritePlotXLabel(fp, winput);
-               sprintf(winput, "Probabilities");
-               fwritePlotYLabel(fp, winput);
-               if (psPlotTool_ == 1)
-                    fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
-               else fprintf(fp, "hold on\n");
+               if (psPlotTool_ == 1) 
+                    fprintf(fp,"Y%d = gsort(Y%d,'g','i');\n",ss+1,ss+1);
+               else fprintf(fp,"Y%d = sort(Y%d);\n",ss+1,ss+1);
+               fprintf(fp, "X = 1:%d;\n",count);
+               fprintf(fp, "X = X / %d;\n", count);
+               fprintf(fp, "plot(Y%d,X)\n",ss+1);
+               fprintf(fp, "drawnow\n");
+               if (ss == 0)
+               {
+                  sprintf(winput, "Cumulative Distributions");
+                  fwritePlotTitle(fp, winput);
+                  fwritePlotAxes(fp);
+                  if (outputNames_ != NULL) 
+                       sprintf(winput,"%s",outputNames_[outputID]);
+                  else sprintf(winput,"Output Values");
+                  fwritePlotXLabel(fp, winput);
+                  sprintf(winput, "Probabilities");
+                  fwritePlotYLabel(fp, winput);
+                  if (psPlotTool_ == 1)
+                       fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
+                  else fprintf(fp, "hold on\n");
+               }
+            }
+            ss++;
+         }
+         printf("\n");
+         count = 0;
+         fprintf(fp, "YU = [\n");
+         for (ss = 0; ss < nSams2; ss++)
+         {
+            if (Ymaxs[ss] > -PSUADE_UNDEFINED) 
+            {
+               fprintf(fp, "%e\n", Ymaxs[ss]);
+               count++;
             }
          }
+         fprintf(fp, "];\n");
+         if (psPlotTool_ == 1) 
+              fprintf(fp,"YU = gsort(YU,'g','i');\n");
+         else fprintf(fp,"YU = sort(YU);\n");
+         fprintf(fp, "X = 1:%d;\n",count);
+         fprintf(fp, "X = X / %d;\n", count);
+         fprintf(fp, "plot(YU,X,'r-','lineWidth',3)\n");
+
+         count = 0;
+         fprintf(fp, "YL = [\n");
+         for (ss = 0; ss < nSams2; ss++)
+         {
+            if (Ymins[ss] < PSUADE_UNDEFINED) 
+            {
+               fprintf(fp, "%e\n", Ymins[ss]);
+               count++;
+            }
+         }
+         fprintf(fp, "];\n");
+         if (psPlotTool_ == 1) 
+              fprintf(fp,"YL = gsort(YL,'g','i');\n");
+         else fprintf(fp,"YL = sort(YL);\n");
+         fprintf(fp, "X = 1:%d;\n",count);
+         fprintf(fp, "X = X / %d;\n", count);
+         fprintf(fp, "plot(YL,X,'r-','lineWidth',3)\n");
          fclose(fp);
-         printf("Plot file for aleatoric-epistemic uncertainty analysis is now ");
+         printf("Plot file for aleatoric-epistemic analysis is now ");
          if (psPlotTool_ == 1) printf("in scilabaeua.sci.\n");
          else                  printf("in matlabaeua.m.\n");
          psuadeIO_->updateAnalysisSection(-1,-1,-1,-1,iSave,-1);
@@ -14847,6 +15502,8 @@ int PsuadeBase::interpretInteractive()
          delete [] uTypes;
          delete [] lbs;
          delete [] ubs;
+         delete [] Ymaxs;
+         delete [] Ymins;
          delete faPtr;
          faPtr = NULL;
          oneSample = NULL;
@@ -14885,16 +15542,16 @@ int PsuadeBase::interpretInteractive()
             printf("a new sample point placed into the local register.\n");
             continue;
          }
-         if (nInputs <= 0 || psuadeIO_ == NULL)
+         if (nInputs_ <= 0 || psuadeIO_ == NULL)
          {
             printf("ERROR: no data to analyze (load data first).\n");
             continue;
          }
-         if (dataReg != NULL) delete [] dataReg;
-         dataReg = new double[nInputs];
-         for (ii = 0; ii < nInputs; ii++) 
-            dataReg[ii] = iLowerB[ii] + PSUADE_drand() *
-                          (iUpperB[ii] - iLowerB[ii]);; 
+         if (dataReg_ != NULL) delete [] dataReg_;
+         dataReg_ = new double[nInputs_];
+         for (ii = 0; ii < nInputs_; ii++) 
+            dataReg_[ii] = iLowerB_[ii] + PSUADE_drand() *
+                           (iUpperB_[ii] - iLowerB_[ii]);; 
          printf("Internal sample vector created and the values have been set");
          printf(" to be the mid points.\n");
       }
@@ -14911,20 +15568,20 @@ int PsuadeBase::interpretInteractive()
             printf("individual entries in the internal register.\n");
             continue;
          }
-         if (dataReg == NULL)
+         if (dataReg_ == NULL)
          {
            printf("ERROR: use ivec_create before this command.\n");
            continue;
          }
-         sprintf(pString, "Which entry to modify ? (1 - %d) ", nInputs);
-         ind = getInt(1, nInputs, pString);
+         sprintf(pString, "Which entry to modify ? (1 - %d) ", nInputs_);
+         ind = getInt(1, nInputs_, pString);
          ind--;
          sprintf(pString, "What is the new value ? (%e - %e) ",
-                 iLowerB[ind], iUpperB[ind]);
+                 iLowerB_[ind], iUpperB_[ind]);
          ddata = getDouble(pString);
-         if (ddata < iLowerB[ind] || ddata > iUpperB[ind])
+         if (ddata < iLowerB_[ind] || ddata > iUpperB_[ind])
             printf("WARNING: data out of range (extrapolation).\n");
-         dataReg[ind] = ddata;
+         dataReg_[ind] = ddata;
       }
 
       // +++ ivec_show
@@ -14939,23 +15596,23 @@ int PsuadeBase::interpretInteractive()
             printf("ivec_modify.\n");
             continue;
          }
-         if (dataReg == NULL)
+         if (dataReg_ == NULL)
          {
            printf("ERROR: use ivec_create before this command.\n");
            continue;
          }
-         for (ii = 0; ii < nInputs; ii++)
-            printf("Input %3d = %e\n", ii+1, dataReg[ii]);
+         for (ii = 0; ii < nInputs_; ii++)
+            printf("Input %3d = %e\n", ii+1, dataReg_[ii]);
       }
 
-      // +++ show_format
-      else if (!strcmp(command, "show_format"))
+      // +++ showformat
+      else if (!strcmp(command, "showformat"))
       {
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("show_format: display different PSUADE file formats \n");
-            printf("syntax: show_format (no argument needed)\n");
+            printf("showformat: display different PSUADE file formats \n");
+            printf("syntax: showformat (no argument needed)\n");
             printf("User-provided information are often needed in design\n");
             printf("and analysis. These information are provided by users\n");
             printf("to PSUADE at various stages. This command lists many\n");
@@ -14974,8 +15631,9 @@ int PsuadeBase::interpretInteractive()
          printDashes(PL_INFO, 0);
          printf("Xls file format (can be read by read_xls): \n");
          printf("  line 1: nSamples nInputs nOutputs\n");
-         printf("  line 2: 1 <sample 1 inputs> < sample 1 outputs>\n");
-         printf("  line 3: 2 <sample 2 inputs> < sample 2 outputs>\n");
+         printf("  line 2: (optional) # sample input and output names\n");
+         printf("  line 3: 1 <sample 1 inputs> < sample 1 outputs>\n");
+         printf("  line 4: 2 <sample 2 inputs> < sample 2 outputs>\n");
          printf("  .......\n");
          printDashes(PL_INFO, 0);
          printf("MCMC experimental data file format (O1 = output 1): \n");
@@ -15026,7 +15684,7 @@ int PsuadeBase::interpretInteractive()
          if (!strcmp(winput, "-h"))
          {
             printf("setdriver: set the driver field in the PSUADE file\n");
-            printf("syntax: setdrive <driver executable name>\n");
+            printf("syntax: setdriver\n");
             continue;
          }
          if (psuadeIO_ == NULL)
@@ -15034,16 +15692,33 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: data not loaded\n");
             continue;
          }
-         strcpy(dataFile, "\0");
-         sscanf(lineIn, "%s %s", command, dataFile);
-         if ((fp=fopen(dataFile,"r")) == NULL)
+         printf("Which driver do you want to set: \n");
+         printf("1. simulation driver (driver) \n");
+         printf("2. optimization driver (opt_driver) \n");
+         printf("3. auxiliary optimization driver (aux_opt_driver) \n");
+         printf("4. ensemble simulation driver (ensemble_driver) \n");
+         printf("5. ensemble optimization driver (ensemble_opt_driver) \n");
+         sprintf(pString, "Enter (1 - 5): ");
+         kk = getInt(1,5,pString);
+         printf("Enter name of the driver : ");
+         fgets(dataFile, 5000, stdin);
+         dataFile[strlen(dataFile)-1] = '\0';
+         for (ii = 0; ii < strlen(dataFile)-1; ii++)
+            if (dataFile[ii] == ' ') break;
+         if (ii == strlen(dataFile)-1 && (fp=fopen(dataFile,"r")) == NULL)
          {
-            printf("file %s not found.\n", dataFile);
-            printf("syntax: setdriver <file>.\n");
-            printf("where <file> is an executable driver file.\n");
-            continue;
+            printf("WARNING: file %s not found.\n", dataFile);
          }
-         psuadeIO_->updateApplicationSection(dataFile,NULL,-1);
+         if (kk == 1)
+            psuadeIO_->updateApplicationSection(dataFile,NULL,NULL,NULL,NULL,-1);
+         else if (kk == 2)
+            psuadeIO_->updateApplicationSection(NULL,dataFile,NULL,NULL,NULL,-1);
+         else if (kk == 3)
+            psuadeIO_->updateApplicationSection(NULL,NULL,dataFile,NULL,NULL,-1);
+         else if (kk == 4)
+            psuadeIO_->updateApplicationSection(NULL,NULL,NULL,dataFile,NULL,-1);
+         else if (kk == 5)
+            psuadeIO_->updateApplicationSection(NULL,NULL,NULL,NULL,dataFile,-1);
          printf("Use 'write' to update your PSUADE input file.\n");
       }
 
@@ -15075,6 +15750,72 @@ int PsuadeBase::interpretInteractive()
          }
       }
 
+      // +++ checkformat 
+      else if ((!strcmp(command, "checkformat")))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("checkformat: check format of files used by PSUADE.\n");
+            printf("syntax: checkformat (no argument needed)\n");
+            continue;
+         }
+         printf("Please select from the following file formats to check: \n");
+         printf("1. OUU Z3 sample file.\n");
+         printf("2. OUU Z4 sample file.\n");
+         printf("3. psuade input file\n");
+         printf("4. MCMC specification file\n");
+         printf("5. MCMC posterior file\n");
+         printf("6. S-type PDF sample file\n");
+         sprintf(pString, "Enter your selection : ");
+         int option = getInt(1,6,pString);
+         printf("Please enter your sample file: ");
+         scanf("%s", cString);
+         fgets(winput, 1000, stdin);
+         if (option == 1 || option == 2)
+         {
+            sprintf(pString, "How many inputs are in this sample file? ");
+            kk = getInt(1,10000000,pString);
+            status = checkOUUFileFormat(cString, option, kk, outputLevel_);
+         }
+         else if (option == 3)
+         {
+            ioPtr = new PsuadeData();
+            status = ioPtr->readPsuadeFile(cString);
+            if (status != 0) 
+            {
+               printf("PSUADE data file format is not valid.\n");
+               status = -1;
+            }
+            ioPtr->getParameter("input_ninputs", pPtr);
+            if (pPtr.intData_ <= 0) 
+            {
+               printf("PSUADE data file has no inputs.\n");
+               status = -1;
+            }
+            ioPtr->getParameter("input_sample", pPtr);
+            if (pPtr.dbleArray_ == NULL) 
+                 printf("PSUADE data file has no sample.\n");
+            else delete [] pPtr.dbleArray_;
+            pPtr.dbleArray_ = NULL;
+
+         }
+         else if (option == 4)
+         {
+            status = checkMCMCFileFormat(cString, 0, outputLevel_);
+         }
+         else if (option == 5)
+         {
+            status = checkMCMCFileFormat(cString, 1, outputLevel_);
+         }
+         else if (option == 6)
+         {
+            status = checkSPDFFileFormat(cString, outputLevel_);
+         }
+         if (status == 0) printf("PASSED: file format validated.\n");
+         else             printf("FAILED: invalid file format.\n");
+      }
+
       // +++ sample_info or sinfo
       else if (!strcmp(command, "sample_info") || !strcmp(command, "sinfo"))
       {
@@ -15085,32 +15826,32 @@ int PsuadeBase::interpretInteractive()
             printf("syntax: sample_info or sinfo (no argument needed)\n");
             continue;
          }
-         printf("Sample in memory: nSamples = %d\n", nSamples);
-         printf("                  nInputs  = %d\n", nInputs);
-         printf("                  nOutputs = %d\n", nOutputs);
-         if (inputNames != NULL)
+         printf("Sample in memory: nSamples = %d\n", nSamples_);
+         printf("                  nInputs  = %d\n", nInputs_);
+         printf("                  nOutputs = %d\n", nOutputs_);
+         if (inputNames_ != NULL)
          {
             printf("Input names: \n");
-            for (ii = 0; ii < nInputs; ii++)
-               if (inputNames[ii] != NULL)
-                  printf("  Input %4d: %s\n",ii+1,inputNames[ii]);
+            for (ii = 0; ii < nInputs_; ii++)
+               if (inputNames_[ii] != NULL)
+                  printf("  Input %4d: %s\n",ii+1,inputNames_[ii]);
          }
-         if (outputNames != NULL)
+         if (outputNames_ != NULL)
          {
             printf("Output names: \n");
-            for (ii = 0; ii < nOutputs; ii++)
-               if (outputNames[ii] != NULL)
-                  printf("  Output %4d: %s\n",ii+1,outputNames[ii]);
+            for (ii = 0; ii < nOutputs_; ii++)
+               if (outputNames_[ii] != NULL)
+                  printf("  Output %4d: %s\n",ii+1,outputNames_[ii]);
          }
          count = 0;
-         for (ss = 0; ss < nSamples; ss++) if (sampleStates[ss] == 1) count++;
+         for (ss = 0; ss < nSamples_; ss++) if (sampleStates_[ss] == 1) count++;
          printf("Number of valid sample points (state = 1)  = %d\n",count);
          count = 0;
-         for (ss = 0; ss < nSamples; ss++)
+         for (ss = 0; ss < nSamples_; ss++)
          {
             flag = 1;
-            for (ii = 0; ii < nOutputs; ii++)
-               if (sampleOutputs[ss*nOutputs+ii] == PSUADE_UNDEFINED) flag = 0;
+            for (ii = 0; ii < nOutputs_; ii++)
+               if (sampleOutputs_[ss*nOutputs_+ii] == PSUADE_UNDEFINED) flag = 0;
             if (flag == 1) count++;
          }
          printf("Number of sample points with valid outputs = %d\n",count);
@@ -15153,37 +15894,17 @@ int PsuadeBase::interpretInteractive()
    }
 
    // quit psuade interactive session
-   if (sampleInputs  != NULL) delete [] sampleInputs;
-   if (sampleOutputs != NULL) delete [] sampleOutputs;
-   if (sampleStates  != NULL) delete [] sampleStates;
-   if (iLowerB       != NULL) delete [] iLowerB;
-   if (iUpperB       != NULL) delete [] iUpperB;
-   if (inputPDFs     != NULL) delete [] inputPDFs;
-   if (inputMeans    != NULL) delete [] inputMeans;
-   if (inputStds     != NULL) delete [] inputStds;
-   if (inputCMat     != NULL) delete inputCMat;
-   if (dataReg       != NULL) delete [] dataReg;
-   if (inputNames != NULL)
-   {
-      for (ii = 0; ii < nInputs; ii++)
-         delete [] inputNames[ii];
-      delete [] inputNames;
-   }
-   if (outputNames != NULL)
-   {
-      for (ii = 0; ii < nOutputs; ii++)
-         delete [] outputNames[ii];
-      delete [] outputNames;
-   }
    if (faPtr != NULL) delete faPtr;
-   if (tagArray != NULL) delete [] tagArray;
    if (faPtrsRsEval != NULL)
    {
-      for (ii = 0; ii < nOutputs; ii++)
+      for (ii = 0; ii < nOutputs_; ii++)
          if (faPtrsRsEval[ii] != NULL) delete faPtrsRsEval[ii];
       delete faPtrsRsEval;
    }
    delete currSession;
+   faPtr = NULL;
+   faPtrsRsEval = NULL;
+   currSession = NULL;
    return 0;
 }
 

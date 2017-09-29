@@ -17,9 +17,9 @@ METHOD
    num_samples = 210
 END
 APPLICATION
-   driver = ./testmain.py
+   driver = /home/chtong/Python/Python-3.3.0/python ./testmain.py
 END
 ANALYSIS
-   diagnostics 1
+   printlevel 1
 END
 END

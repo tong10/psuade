@@ -208,17 +208,13 @@ int RFractFactSampling::refine(int, int, double, int, double *)
 // ************************************************************************
 // set internal scheme
 // ------------------------------------------------------------------------
-int RFractFactSampling::setParam(string sparam)
+int RFractFactSampling::setParam(char *sparam)
 {
-   istringstream buffer;
-   int           pos = sparam.find("setResolution");
-   string        substr;
-                                                                                
-   if (pos >= 0)
+   char winput[1001];
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "setResolution"))
    {
-      substr = sparam.substr(14);
-      buffer.str(substr);
-      buffer >> resolution_;
+      sscanf(sparam, "%s %d", winput, &resolution_);
       if (resolution_ != 4 && resolution_ != 5) resolution_ = 4;
       if (resolution_ == 4) samplingID_ = PSUADE_SAMP_FF4;
       else                  samplingID_ = PSUADE_SAMP_FF5;

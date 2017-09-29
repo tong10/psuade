@@ -29,6 +29,6 @@ ANALYSIS
    optimization fmin = 1.0e-5
    optimization num_fmin = 1
    optimization print_level = 2
-   diagnostics 4
+   printlevel 2
 END
 END

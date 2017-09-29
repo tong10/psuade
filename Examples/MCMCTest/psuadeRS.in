@@ -24,6 +24,6 @@ END
 ANALYSIS
 #  analyzer method = Moment
    analyzer output_id  = 1
-   diagnostics 3
+   printlevel 3
 END
 END

@@ -27,7 +27,6 @@
 #ifndef __DISCRETESAMPLINGH__
 #define __DISCRETESAMPLINGH__
 
-#include <iostream>
 #include <string.h>
 #include "Sampling.h"
 
@@ -41,9 +40,9 @@
 // ************************************************************************
 class DiscreteSampling : public Sampling 
 {
-  // int    **inputValues_;
-  // int    *inputValCnts_;
-  // double **inputProbs_;
+   int    **inputValues_;
+   int    *inputValCnts_;
+   double **inputProbs_;
 
 public:
 

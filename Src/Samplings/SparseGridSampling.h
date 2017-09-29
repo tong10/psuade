@@ -77,7 +77,7 @@ public:
    /** This function sets internal parameters
        @param sparam : parameter string
     */
-   int setParam(string sparam);
+   int setParam(char *sparam);
 
    /** This function computes Kronecker product
     */

@@ -179,7 +179,7 @@ int PsuadeBase::runAdaptiveGradBased()
          if (status != 0)
          {
             printOutTS(PL_ERROR, "ERROR: Problem reading file %s.\n", fileName);
-            return 1;
+            return -1;
          }
          psIO->getParameter("input_ninputs", pPtr);
          if (pPtr.intData_ != nInputs)
@@ -240,7 +240,7 @@ int PsuadeBase::runAdaptiveGradBased()
          if (status != 0)
          {
             printOutTS(PL_ERROR, "ERROR: Problem reading sample file %s.\n", fileName);
-            return 1;
+            return -1;
          }
          psIO->getParameter("input_ninputs", pPtr);
          if (pPtr.intData_ != nInputs)

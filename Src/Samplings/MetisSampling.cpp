@@ -1309,16 +1309,14 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
 // ************************************************************************
 // set internal scheme
 // ------------------------------------------------------------------------
-int MetisSampling::setParam(string sparam)
+int MetisSampling::setParam(char * sparam)
 {
-   int  pos, ii, curVol, count, *fGridFlags, sID, localN, *subLabels;
-   int  sID2, rowInd;
-   istringstream buffer;
-   string        substr;
+   int  ii,curVol,count, *fGridFlags, sID, localN, *subLabels, sID2, rowInd;
+   char  winput[501];
    FILE *fp;
 
-   pos = sparam.find("reset");
-   if (pos >= 0)
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "reset"))
    {
       if (changeInfoName_ == 0) fp = fopen("psuadeMetisInfo", "r");
       else                      fp = fopen("psuadeMetisInfo.tmp", "r");
@@ -1329,21 +1327,23 @@ int MetisSampling::setParam(string sparam)
          else                      unlink("psuadeMetisInfo.tmp");
       }
    }
-
-   pos = sparam.find("changeInfoName");
-   if (pos >= 0) changeInfoName_ = 1;
-
-   pos = sparam.find("setUniformRefinement");
-   if (pos >= 0) refineType_ = 0;
-
-   pos = sparam.find("setAdaptiveRefinementBasedOnErrors");
-   if (pos >= 0) refineType_ = 1;
-
-   pos = sparam.find("setAdaptiveRefinementBasedOnOutputs");
-   if (pos >= 0) refineType_ = 2;
-
-   pos = sparam.find("calVolumes");
-   if (pos >= 0)
+   else if (!strcmp(winput, "changeInfoName"))
+   {
+      changeInfoName_ = 1;
+   }
+   else if (!strcmp(winput, "setUniformRefinement"))
+   {
+      refineType_ = 0;
+   }
+   else if (!strcmp(winput, "setAdaptiveRefinementBasedOnErrors"))
+   {
+      refineType_ = 1;
+   }
+   else if (!strcmp(winput, "setAdaptiveRefinementBasedOnOutputs"))
+   {
+      refineType_ = 2;
+   }
+   else if (!strcmp(winput, "calVolumes"))
    {
       curVol = count = 0;
       for (ii = 0; ii < nAggrs_; ii++)
@@ -1356,26 +1356,17 @@ int MetisSampling::setParam(string sparam)
       }
       return curVol;
    }
-
-   pos = sparam.find("totalVolumes");
-   if (pos >= 0)
+   else if (!strcmp(winput, "totalVolumes"))
    {
       curVol = 0;
       for (ii = 0; ii < nAggrs_; ii++) curVol += aggrCnts_[ii];
       return curVol;
    }
-
-   pos = sparam.find("setRefineSize");
-   if (pos >= 0)
+   else if (!strcmp(winput, "setRefineSize"))
    {
-      substr = sparam.substr(14);
-      buffer.str(substr);
-      buffer >> refineSize_;
-      return 0;
+      sscanf(sparam, "%s %d", winput, &refineSize_);
    }
-
-   pos = sparam.find("genMeshPlot");
-   if (pos >= 0 && nInputs_ == 2)
+   else if (!strcmp(winput, "genMeshPlot") && nInputs_ == 2)
    {
       fGridFlags = new int[graphN_];
       for (sID = 0; sID < nAggrs_; sID++)

@@ -51,6 +51,8 @@
 #include "Splines.h"
 #include "KNN.h"
 #include "RBF.h"
+#include "Acosso.h"
+#include "BSSAnova.h"
 #include "PsuadeRegression.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -653,6 +655,8 @@ int writeFAInfo(int level)
    printf("19. Splines on regular grid (1D, 2D, or 3D only)\n");
    printf("20. K nearest neighbors \n");
    printf("21. Radial Basis Function\n");
+// printf("22. Acosso (by Storlie, LANL. Need R to run)\n");
+// printf("23. BSSAnova (by Storlie, LANL. Need R to run)\n");
    return PSUADE_NUM_RS;
 }
 
@@ -713,6 +717,12 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
         faPtr = new RBF(nInputs, nSamples);
    else if (rsType == PSUADE_RS_LOCAL)
         faPtr = new PsuadeRegression(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_ACOSSO)
+        faPtr = new Acosso(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_BSSANOVA)
+        faPtr = new BSSAnova(nInputs, nSamples);
+   else if (faType == PSUADE_RS_LOCAL)
+        faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (rsType == PSUADE_RS_NPL)
         faPtr = new NPLearning(nInputs, nSamples);
    else
@@ -735,7 +745,7 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
    int        totPts, outputID, printLevel;
    double     *wghts, *Y;
    FuncApprox *faPtr;
-   char       *params[1], winput[501];
+   char       *params[3], winput[5001];
    pData      pPtr, pInputs, pOutputs, pStates, pLower, pUpper;
 
    if (psuadeIO == NULL)
@@ -834,6 +844,10 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
         faPtr = new KNN(nInputs, nSamples);
    else if (faType == PSUADE_RS_RBF)
         faPtr = new RBF(nInputs, nSamples);
+   else if (faType == PSUADE_RS_ACOSSO)
+        faPtr = new Acosso(nInputs, nSamples);
+   else if (faType == PSUADE_RS_BSSANOVA)
+        faPtr = new BSSAnova(nInputs, nSamples);
    else if (faType == PSUADE_RS_LOCAL)
         faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (faType == PSUADE_RS_NPL)

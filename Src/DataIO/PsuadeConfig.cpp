@@ -35,7 +35,7 @@
 // ------------------------------------------------------------------------ 
 PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
 {
-   int  ii, lineLeng=500;
+   int  ii, lineLeng=500, lineCnt;
    char lineIn[500], winput[500];
    FILE *fIn;
 
@@ -57,12 +57,12 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
       fclose(fIn);
       exit(1);
    }
-   nLines_ = 0;
+   lineCnt = 0;
    while ((fgets(lineIn, lineLeng, fIn) != NULL) && (feof(fIn) == 0))
    {
       sscanf(lineIn,"%s", winput);
       if   (strcmp(winput, "PSUADE_END") == 0) break;
-      else nLines_++;
+      else lineCnt++;
    }
    if (strcmp(winput, "PSUADE_END") != 0)
    {
@@ -72,7 +72,16 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
    }
    fclose(fIn);
 
-   if (nLines_ == 0) fileData_ = NULL;
+   nLinesUsed_ = 0;
+   nLines_ = 1000; 
+   if (lineCnt > nLines_) nLines_ = lineCnt + 1000;
+   fileData_ = new char*[nLines_];
+   for (int ii = 0; ii < nLines_; ii++)
+   {
+      fileData_[ii] = new char[1000];
+      strcpy(fileData_[ii], "\0\n");
+   }
+   if (lineCnt == 0) return;
    else
    {
       fIn = fopen(fname, "r");
@@ -81,15 +90,28 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
          sscanf(lineIn,"%s", winput);
          if (strcmp(winput, "PSUADE_CONFIG") == 0) break;
       }
-      fileData_ = new char*[nLines_];
-      for (ii = 0; ii < nLines_; ii++)
-      {
-         fileData_[ii] = new char[lineLeng];
+      for (ii = 0; ii < lineCnt; ii++)
          fgets(fileData_[ii], lineLeng, fIn);
-      }
+      nLinesUsed_ = lineCnt;
       fclose(fIn);
    }
    printLevel_ = printLevel;
+}
+
+// ************************************************************************
+// constructor 
+// ------------------------------------------------------------------------ 
+PsuadeConfig::PsuadeConfig()
+{
+   printLevel_ = 0;
+   nLinesUsed_ = 0;
+   nLines_ = 1000; 
+   fileData_ = new char*[nLines_];
+   for (int ii = 0; ii < nLines_; ii++)
+   {
+      fileData_[ii] = new char[1000];
+      strcpy(fileData_[ii], "NONE");
+   }
 }
 
 // ************************************************************************
@@ -98,12 +120,13 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
 PsuadeConfig::PsuadeConfig(const PsuadeConfig & ps)
 {
    fileData_ = NULL; 
+   nLinesUsed_ = ps.nLinesUsed_;
    printLevel_ = ps.printLevel_;
    nLines_ = ps.nLines_;
-   if(ps.fileData_ != NULL)
+   if (ps.fileData_ != NULL)
    { 
       fileData_ = new char *[nLines_];
-      for(int i = 0; i < nLines_; i++)
+      for (int i = 0; i < nLines_; i++)
       {
 	 fileData_[i] = new char[strlen(ps.fileData_[i] + 1)];
 	 strcpy(fileData_[i], ps.fileData_[i]); 
@@ -134,13 +157,33 @@ char *PsuadeConfig::getParameter(const char *keyword)
    int  ii;
    char firstWord[100];
 
-   for (ii = 0; ii < nLines_; ii++)
+   for (ii = 0; ii < nLinesUsed_; ii++)
    {
       sscanf(fileData_[ii], "%s", firstWord);
       if (strcmp(keyword,firstWord) == 0)
+      {
+         printf("PsuadeConfig: parameter found = %s\n",fileData_[ii]);
          return fileData_[ii];
+      }
    }
    return NULL;
+}
+
+// ************************************************************************
+// request data from this object 
+// ------------------------------------------------------------------------ 
+void PsuadeConfig::putParameter(const char *putLine)
+{ 
+   int leng;
+   if (nLinesUsed_ >= nLines_)
+   {
+      printf("ERROR: cannot add lines to PsuadeConfig - FULL.\n");
+      return;
+   }
+   leng = strlen(putLine);
+   strncpy(fileData_[nLinesUsed_], putLine, leng);
+   nLinesUsed_++;
+   return;
 }
 
 // ************************************************************************
@@ -199,8 +242,8 @@ int genConfigFileTemplate(char *fname)
       fprintf(fp, "#SVM_tol = 1.0 (1e-6 - 1.0)\n");
       fprintf(fp, "#SVM_kernel = 1 (1:linear, 2:cubic, 3:RBF, 4:sigmoid)\n");
       fprintf(fp, "## Kriging parameters (take out the # to turn on)\n");
-      fprintf(fp, "#KRI_MODE = 2\n");
-      fprintf(fp, "#KRI_TOL = 1.0e-6\n");
+      fprintf(fp, "#KRI_mode = 2\n");
+      fprintf(fp, "#KRI_tol = 1.0e-6\n");
       fprintf(fp, "#KRI_DATA_STDEV_FILE = <add a file here>\n");
       fprintf(fp, "#KRI_LENG_SCALE 1 = 0.1\n");
       fprintf(fp, "#KRI_LENG_SCALE 2 = 0.1\n");

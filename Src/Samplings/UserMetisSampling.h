@@ -27,7 +27,6 @@
 #ifndef __USERMETISSAMPLINGH__
 #define __USERMETISSAMPLINGH__
 
-#include <iostream>
 #include <string.h>
 #include "Sampling.h"
 
@@ -81,7 +80,7 @@ public:
    /** This function sets internal parameters
        @param sparam : parameter string
     */
-   int setParam(string sparam);
+   int setParam(char *sparam);
 };
 
 #endif // __USERMETISSAMPLINGH__

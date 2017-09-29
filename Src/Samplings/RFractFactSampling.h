@@ -27,7 +27,6 @@
 #ifndef __RFRACTFACTSAMPLINGH__
 #define __RFRACTFACTSAMPLINGH__
 
-#include <iostream>
 #include <string.h>
 #include "Sampling.h"
 
@@ -74,7 +73,7 @@ public:
    /** This function sets internal parameters
        @param sparam : string containing parameter information
     */
-   int setParam(string sparam);
+   int setParam(char *sparam);
 };
 
 #endif // __RFRACTFACTSAMPLINGH__

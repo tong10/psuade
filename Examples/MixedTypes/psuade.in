@@ -22,6 +22,6 @@ APPLICATION
 END
 ANALYSIS
    analyzer output_id  = 1
-   diagnostics 1
+   printlevel 1
 END
 END

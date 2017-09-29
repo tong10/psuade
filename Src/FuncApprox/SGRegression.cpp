@@ -52,6 +52,12 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
    numPerms_      = 0;
    regCoefs_      = NULL;
 
+   if (outputLevel_ >= 0)
+   {
+      printAsterisks(PL_INFO, 0);
+      printf("*       Sparse Grid Regression Analysis\n");
+      printEquals(PL_INFO, 0);
+   }
    fp = fopen("ps_sparse_grid_info", "r");
    if (fp == NULL)
    {
@@ -139,7 +145,7 @@ int SparseGridRegression::initialize(double *X, double *Y)
    analyze(X, Y);
    if (psRSCodeGen_ == 1) 
    {
-      printf("SparseGrdiRegression INFO: response surface stand-alone ");
+      printf("SparseGridRegression INFO: response surface stand-alone ");
       printf("code not available.\n");
    }
    return 0;
@@ -477,11 +483,20 @@ int SparseGridRegression::analyze(double *X, double *Y)
          coefs[kk] += (ddata2 * wt);
       }
    } 
+   if (outputLevel_ >= 0)
+   {
+      printf("Legendre polynomial functional forms: \n");
+      printf("X normalized to Z in [-1 1] (e.g. X in [0,1] -> Z=2X-1)\n");
+      printf("P_0(Z) = 1\n");
+      printf("P_1(Z) = Z\n");
+      printf("P_{n+1} = 1/(n+1) {(2n + 1) Z P_n(Z) + n P_{n-1}(Z)}\n");
+      printEquals(PL_INFO, 0);
+   }
    for (kk = 0; kk < numPerms_; kk++)
    {
       if (coefs[kk] == 0.0) printf("ERROR in SparseGridRegression: divide by 0.\n");
       else                  regCoefs_[kk] /= coefs[kk];
-      if (psRSExpertMode_ == 1)
+      if (outputLevel_ >= 0)
       {
          printf("Legendre polynomial (");
          for (jj = 0; jj < nInputs_; jj++)
@@ -491,6 +506,7 @@ int SparseGridRegression::analyze(double *X, double *Y)
          printf(") coefficient = %e\n", ddata);
       }
    }
+   if (outputLevel_ >= 0) printAsterisks(PL_INFO, 0);
 
    delete [] coefs;
    for (ii = 0; ii < nInputs_; ii++) delete [] LTables[ii];
@@ -551,7 +567,6 @@ int SparseGridRegression::EvalLegendrePolynomials(double X, double *LTable)
          LTable[ii] = ((2 * ii - 1) * X * LTable[ii-1] -
                        (ii - 1) * LTable[ii-2]) / ii;
    }
-   //for (ii = 0; ii <= pOrder_; ii++) LTable[ii] *= sqrt(0.5+ii);
    return 0;
 }
 

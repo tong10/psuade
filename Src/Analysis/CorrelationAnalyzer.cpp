@@ -91,9 +91,11 @@ double CorrelationAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printOutTS(PL_INFO, "Correlation INFO: non-uniform probability distributions\n");
-         printOutTS(PL_INFO, "           have been defined in the data file, but they\n");
-         printOutTS(PL_INFO, "           will not be used in this analysis.\n");
+         printOutTS(PL_INFO, 
+              "Correlation INFO: non-uniform probability distributions\n");
+         printOutTS(PL_INFO, 
+              "           have been defined in the data file, but they\n");
+         printOutTS(PL_INFO,"           will not be used in this analysis.\n");
       }
    }
    ioPtr = adata.ioPtr_;
@@ -117,7 +119,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
    } 
    if (nSamples == 1)
    {
-      printOutTS(PL_ERROR, "Correlation INFO: analysis not meaningful for nSamples=1\n");
+      printOutTS(PL_ERROR, 
+           "Correlation INFO: analysis not meaningful for nSamples=1\n");
       return PSUADE_UNDEFINED;
    } 
    info = 0; 
@@ -125,8 +128,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*ss+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printOutTS(PL_ERROR, "Correlation ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR, "                   Prune the undefined's first.\n");
+      printOutTS(PL_ERROR,"Correlation ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR,"                   Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    } 
    
@@ -144,8 +147,10 @@ double CorrelationAnalyzer::analyze(aData &adata)
 
    // compute the Pearson product moment correlation coefficient (PEAR)
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "*  Pearson correlation coefficients (PEAR) - linear -\n");
-   printOutTS(PL_INFO, "*  which gives a measure of relationship between X_i's & Y.\n");
+   printOutTS(PL_INFO,
+        "*  Pearson correlation coefficients (PEAR) - linear -\n");
+   printOutTS(PL_INFO,
+        "*  which gives a measure of relationship between X_i's & Y.\n");
    printDashes(PL_INFO, 0);
    xmeans = new double[nInputs];
    xvars  = new double[nInputs];
@@ -165,8 +170,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
                      ymean,yvar,outputID,Xvals);
    for (ii = 0; ii < nInputs; ii++)
    {
-      printOutTS(PL_INFO, "* Pearson Correlation coeff.  (Input %3d) = %e\n", ii+1,
-             Xvals[ii]);
+      printOutTS(PL_INFO,"* Pearson Correlation coeff.  (Input %3d) = %e\n", 
+                 ii+1, Xvals[ii]);
       inputPearsonCoef_[ii] = Xvals[ii];
    }
 
@@ -175,7 +180,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
    {
       fp = fopen("scilabca.sci","w");
       if (fp == NULL)
-         printOutTS(PL_INFO, "CorrelationAnalysis: cannot write to scilab file.\n");
+         printOutTS(PL_INFO,
+              "CorrelationAnalysis: cannot write to scilab file.\n");
       else
          fprintf(fp,"// This file contains correlation coefficients.\n");
    }
@@ -183,7 +189,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
    {
       fp = fopen("matlabca.m","w");
       if (fp == NULL)
-         printOutTS(PL_WARN, "CorrelationAnalysis: cannot write to matlab file.\n");
+         printOutTS(PL_WARN, 
+              "CorrelationAnalysis: cannot write to matlab file.\n");
       else
          fprintf(fp,"%% This file contains correlation coefficients.\n");
    }
@@ -205,8 +212,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
          fprintf(fp, "  Str = {");
          for (ii = 0; ii < nInputs-1; ii++)
          {
-            if (pData.strArray_[ii] != NULL) fprintf(fp,"'%s',",pData.strArray_[ii]);
-            else                             fprintf(fp,"'X%d',",ii+1);
+            if (pData.strArray_[ii] != NULL) 
+                 fprintf(fp,"'%s',",pData.strArray_[ii]);
+            else fprintf(fp,"'X%d',",ii+1);
          }
          if (pData.strArray_[nInputs-1] != NULL) 
               fprintf(fp,"'%s'};\n",pData.strArray_[nInputs-1]);
@@ -233,21 +241,21 @@ double CorrelationAnalyzer::analyze(aData &adata)
       fwritePlotYLabel(fp, "Correlation Coefficient");
       if (psPlotTool_ == 1)
       {
-         fprintf(fp, "a=gca();\n");
-         fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
-         fprintf(fp, "a.x_ticks(2) = [1:nn]';\n");
-         fprintf(fp, "a.x_ticks(3) = Str1';\n");
-         fprintf(fp, "a.x_label.font_size = 3;\n");
-         fprintf(fp, "a.x_label.font_style = 4;\n");
+         fprintf(fp,"a=gca();\n");
+         fprintf(fp,"a.data_bounds=[0, ymin; nn+1, ymax];\n");
+         fprintf(fp,"a.x_ticks(2) = [1:nn]';\n");
+         fprintf(fp,"a.x_ticks(3) = Str1';\n");
+         fprintf(fp,"a.x_label.font_size = 3;\n");
+         fprintf(fp,"a.x_label.font_style = 4;\n");
       }
       else
       {
-         fprintf(fp, "axis([0 nn+1 ymin ymax])\n");
-         fprintf(fp, "set(gca,'XTickLabel',[]);\n");
-         fprintf(fp, "th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str1,");
-         fprintf(fp, "'HorizontalAlignment','left','rotation',90);\n");
-         fprintf(fp, "set(th, 'fontsize', 12)\n");
-         fprintf(fp, "set(th, 'fontweight', 'bold')\n");
+         fprintf(fp,"axis([0 nn+1 ymin ymax])\n");
+         fprintf(fp,"set(gca,'XTickLabel',[]);\n");
+         fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str1,");
+         fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp,"set(th, 'fontsize', 12)\n");
+         fprintf(fp,"set(th, 'fontweight', 'bold')\n");
       }
    }
 
@@ -277,15 +285,18 @@ double CorrelationAnalyzer::analyze(aData &adata)
       {
          outputPearsonCoef_[ii] = Yvals[ii];
          if (ii != outputID)
-            printOutTS(PL_INFO, "* Pearson Correlation coeff. (Output %2d) = %e\n", ii+1,
-                   Yvals[ii]);
+            printOutTS(PL_INFO, 
+                 "* Pearson Correlation coeff. (Output %2d) = %e\n", ii+1,
+                 Yvals[ii]);
       }
    }
    printEquals(PL_INFO, 0);
 
 
-   printOutTS(PL_INFO, "*  Spearman coefficients (SPEA) - nonlinear relationship -  *\n");
-   printOutTS(PL_INFO, "*  which gives a measure of relationship between X_i's & Y. *\n");
+   printOutTS(PL_INFO, 
+        "*  Spearman coefficients (SPEA) - nonlinear relationship -  *\n");
+   printOutTS(PL_INFO, 
+        "*  which gives a measure of relationship between X_i's & Y. *\n");
    printDashes(PL_INFO, 0);
    YY = new double[nSamples];
    Xlocal = new double[nSamples];
@@ -306,8 +317,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
       computeCovariance(nSamples,1,Xlocal,1,YY,&xmean,&xvar,
                         ymean,yvar,0,&(Xvals[ii]));
       inputSpearmanCoef_[ii] = Xvals[ii];
-      printOutTS(PL_INFO, "* Spearman coefficient         (Input %3d ) = %e\n", ii+1,
-             Xvals[ii]);
+      printOutTS(PL_INFO, 
+           "* Spearman coefficient         (Input %3d ) = %e\n", ii+1,
+           Xvals[ii]);
    }
    if (fp != NULL)
    {
@@ -360,7 +372,7 @@ double CorrelationAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs; ii++) Xvals[ii] = PABS(Xvals[ii]);
    sortDbleList2(nInputs, Xvals, xmeans);
    for (ii = nInputs-1; ii >= 0; ii--)
-      printOutTS(PL_INFO, "* Spearman coefficient(ordered) (Input %3d ) = %e\n",
+      printOutTS(PL_INFO,"* Spearman coefficient(ordered) (Input %3d ) = %e\n",
              (int) (xmeans[ii]+1), Xvals[ii]);
 
    Ylocal = new double[nSamples];
@@ -368,7 +380,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
    if (nOutputs > 1)
    {
       printEquals(PL_INFO, 0);
-      printOutTS(PL_INFO, "*  SPEA (nonlinear) for Y_i's versus Y.                     *\n");
+      printOutTS(PL_INFO,
+           "*  SPEA (nonlinear) for Y_i's versus Y.                     *\n");
       printDashes(PL_INFO, 0);
       for (ii = 0; ii < nOutputs; ii++)
       {
@@ -388,8 +401,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
             computeCovariance(nSamples,1,Ylocal,1,YY,&xmean,&xvar,
                               ymean,yvar,0,&(Yvals[ii]));
             outputSpearmanCoef_[ii] = Yvals[ii];
-            printOutTS(PL_INFO, "* Spearman coefficient        (Input %3d ) = %e\n", ii+1,
-                   Yvals[ii]);
+            printOutTS(PL_INFO,
+                 "* Spearman coefficient        (Input %3d ) = %e\n", ii+1,
+                 Yvals[ii]);
          }
       }
    }
@@ -430,8 +444,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
                }
             }
          }
-         printOutTS(PL_INFO, "* Kendall coefficient         (Input %3d ) = %10.2e \n",
-                ii+1, 2.0*(nc-nd)/(nSamples*(nSamples-1)));
+         printOutTS(PL_INFO, 
+              "* Kendall coefficient         (Input %3d ) = %10.2e \n",
+              ii+1, 2.0*(nc-nd)/(nSamples*(nSamples-1)));
          Xvals[ii] = 2.0 * (nc - nd) / (nSamples * (nSamples - 1));
          inputKendallCoef_[ii] = Xvals[ii];
       }
@@ -440,14 +455,16 @@ double CorrelationAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) Xvals[ii] = PABS(Xvals[ii]);
       sortDbleList2(nInputs, Xvals, xmeans);
       for (ii = nInputs-1; ii >= 0; ii--)
-         printOutTS(PL_INFO, "* Kendall coefficient(ordered) (Input %3d ) = %e\n",
-                (int) (xmeans[ii]+1), Xvals[ii]);
+         printOutTS(PL_INFO,
+              "* Kendall coefficient(ordered) (Input %3d ) = %e\n",
+              (int) (xmeans[ii]+1), Xvals[ii]);
    }
 
    if (printLevel > 2)
    {
       printEquals(PL_INFO, 0);
-      printOutTS(PL_INFO, "*  Regression analysis on rank-ordered inputs/outputs       *\n");
+      printOutTS(PL_INFO, 
+        "*  Regression analysis on rank-ordered inputs/outputs       *\n");
       XX = new double[nSamples*nInputs];
       Wlocal = new double[nSamples];
       for (ss = 0; ss < nSamples*nInputs; ss++) XX[ss] = X[ss];
@@ -542,8 +559,9 @@ int CorrelationAnalyzer::computeCovariance(int nSamples,int nX,double *X,
       denom = sqrt(xvars[ii] * yvar);
       if (denom == 0.0)
       {
-         printOutTS(PL_INFO, "Correlation ERROR: denom=0 for input %d\n", ii+1);
-         printOutTS(PL_INFO, "denom = xvar * yvar : xvar = %e, yvar = %e\n",xvars[ii],yvar);
+         printOutTS(PL_INFO,"Correlation ERROR: denom=0 for input %d\n",ii+1);
+         printOutTS(PL_INFO, 
+              "denom = xvar * yvar : xvar = %e, yvar = %e\n",xvars[ii],yvar);
          Rvalues[ii] = 0.0;
       }
       else Rvalues[ii] = numer / denom;
@@ -556,7 +574,7 @@ int CorrelationAnalyzer::computeCovariance(int nSamples,int nX,double *X,
 // ------------------------------------------------------------------------
 CorrelationAnalyzer& CorrelationAnalyzer::operator=(const CorrelationAnalyzer &)
 {
-   printOutTS(PL_ERROR, "Correlation operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"Correlation operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

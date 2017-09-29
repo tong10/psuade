@@ -94,6 +94,21 @@ PsuadeBase::PsuadeBase()
    jobsCompleted = -1;
    psuade_stop   = 0;
 
+   sampleInputs_  = NULL;
+   sampleOutputs_ = NULL;
+   sampleStates_  = NULL;
+   iLowerB_       = NULL;
+   iUpperB_       = NULL;
+   inputPDFs_     = NULL;
+   inputMeans_    = NULL;
+   inputStds_     = NULL;
+   inputCMat_     = NULL;
+   inputNames_    = NULL;
+   outputNames_   = NULL;
+   tagArray_      = NULL;
+   dataReg_       = NULL;
+   nInputs_ = nSamples_ = nOutputs_ = 0;
+
 #ifdef HAVE_PYTHON
    update_gui   = NULL;
    yesno_dialog = NULL;
@@ -118,14 +133,13 @@ PsuadeBase::~PsuadeBase()
 // ************************************************************************
 // get data and parameters from PsuadeData object
 // ------------------------------------------------------------------------
-int PsuadeBase::getInputFromFile(const char *fname, const char *psuadeio_filename)
+int PsuadeBase::getInputFromFile(const char *fname, 
+                                 const char *psuadeio_filename)
 {
    int    status, nInputs, nOutputs, *sampleStates, samplingMethod;
    int    randomize, nReps, *symTable, nSamples, nRefines, flag, ii;
    int    *inputPDFs, iSum, usePDFs;
    double *sampleInputs, *iLowerB, *iUpperB, *sampleOutputs, haveSettings;
-   char   cString[500];
-   string sparam;
    pData  pPtr, pSymTable, pLowerB, pUpperB, pOutputs, pInputs, pStates;
    pData  pSettings, pPDFs, pOutputs2, pInputs2, pStates2;
    PDFManager *pdfman;
@@ -134,13 +148,29 @@ int PsuadeBase::getInputFromFile(const char *fname, const char *psuadeio_filenam
    if (psuadeIO_ != NULL) delete psuadeIO_;
    psuadeIO_ = new PsuadeData();
    status = psuadeIO_->readPsuadeFile(fname);
-   if (status != 0) return 1;
+   if (status != 0) 
+   {
+      printOutTS(PL_ERROR,
+           "PsuadeBase ERROR: cannot read file %s or wrong format.\n",
+           fname);
+      return -1;
+   }
    if (psuadeio_filename != NULL)
-      psuadeIO_->readPsuadeIO(psuadeio_filename);
+   {
+      status = psuadeIO_->readPsuadeIO(psuadeio_filename);
+      if (status != 0) 
+      {
+         printOutTS(PL_ERROR,
+              "PsuadeBase ERROR: cannot read file %s or wrong format.\n",
+              psuadeio_filename);
+         return -1;
+      }
+   }
 
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-   if (outputLevel_ >= 4) printOutTS(PL_DETAIL, "PSUADE::getInputFromFile begins.\n");
+   if (outputLevel_ >= 4) 
+      printOutTS(PL_DETAIL, "PSUADE::getInputFromFile begins.\n");
    psuadeIO_->getParameter("input_ninputs", pPtr);
    nInputs = pPtr.intData_;
    psuadeIO_->getParameter("input_symtable", pSymTable);
@@ -176,10 +206,12 @@ int PsuadeBase::getInputFromFile(const char *fname, const char *psuadeio_filenam
    {
       iSum = 0;
       for (ii = 0; ii < nInputs; ii++) iSum += inputPDFs[ii];
-      if (iSum > 0 && nRefines > 0 && usePDFs == 1)
+      if ((iSum > 0) && (nRefines > 0) && (usePDFs == 1))
       {
-         printOutTS(PL_ERROR,"PSUADE ERROR: you have requested sample refinement.\n");
-         printOutTS(PL_ERROR,"       Sample refinement requires that all the input\n");
+         printOutTS(PL_ERROR,
+                    "PSUADE ERROR: you have requested sample refinement.\n");
+         printOutTS(PL_ERROR,
+                    "       Sample refinement requires that all the input\n");
          printOutTS(PL_ERROR,"       probability distributions be uniform.\n");
          exit(1);
       }
@@ -187,7 +219,7 @@ int PsuadeBase::getInputFromFile(const char *fname, const char *psuadeio_filenam
       sampleInputs = pInputs.dbleArray_;
       psuadeIO_->getParameter("output_states", pStates);
       sampleStates = pStates.intArray_;
-      if (nRefines == 0 && samplingMethod == -1) 
+      if ((nRefines == 0) && (samplingMethod == -1)) 
          samplingMethod = PSUADE_SAMP_MC;
       sampler_ = (Sampling *) SamplingCreateFromID(samplingMethod); 
       sampler_->setPrintLevel(outputLevel_);
@@ -206,7 +238,6 @@ int PsuadeBase::getInputFromFile(const char *fname, const char *psuadeio_filenam
    }
    psuadeIO_->writePsuadeFile(NULL,1);
 
-   if (outputLevel_ >= 4) printOutTS(PL_DETAIL, "PSUADE::getInputFromFile ends.\n");
    return 0;
 }
 
@@ -243,7 +274,7 @@ int PsuadeBase::run() throw(Psuade_Stop_Exception)
    psuadeIO_->getParameter("ana_method", pPtr);
    anaMethod = pPtr.intData_;
 
-   if (refineType == 1 && anaMethod == PSUADE_ANA_ONESIGMA) 
+   if ((refineType == 1) && (anaMethod == PSUADE_ANA_ONESIGMA)) 
         runAdaptiveErrBased0();
    else if (anaMethod == PSUADE_ANA_ARSM)
         runAdaptiveNN();
@@ -262,7 +293,13 @@ int PsuadeBase::run() throw(Psuade_Stop_Exception)
         runAdaptiveOpt();
    else if (anaMethod == PSUADE_ANA_GLSA)
         runAdaptiveGradBased();
-   else runUniform();
+   else
+   {
+      psuadeIO_->getParameter("app_runtype", pPtr);
+      int runType = pPtr.intData_;
+      if (((runType & 16) == 0) || (useRSModel_ == 1)) runUniform();
+      else                                             runEnsemble();
+   }
 
    if (psuadeIO_ != NULL) psuadeIO_->processOutputData();
    return 0;
@@ -271,11 +308,21 @@ int PsuadeBase::run() throw(Psuade_Stop_Exception)
 // ************************************************************************
 // interactive session
 // ------------------------------------------------------------------------
-int PsuadeBase::analyzeInteractive()
+int PsuadeBase::sessionInteractive()
 {
-  setPrintLevelTS(3);
-  interpretInteractive();
-  return 0;
+   setPrintLevelTS(3);
+   interpretInteractive();
+   return 0;
+}
+
+// ************************************************************************
+// parallel interactive session
+// ------------------------------------------------------------------------
+int PsuadeBase::sessionInteractiveParallel()
+{
+   setPrintLevelTS(3);
+   interpretInteractiveParallel();
+   return 0;
 }
 
 // ************************************************************************
@@ -315,7 +362,8 @@ int PsuadeBase::runUniform()
    runType = pPtr.intData_;
    if (runType & 8)
    {
-      printOutTS(PL_INFO, "PSUADE run: INFO - GENERATE INPUT FILE ONLY MODE.\n");
+      printOutTS(PL_INFO, 
+                 "PSUADE run: INFO - GENERATE INPUT FILE ONLY MODE.\n");
       funcIO = createFunctionInterfaceSimplified(psuadeIO_);
       psuadeIO_->getParameter("input_sample", pInpData);
       sampleInputs = pInpData.dbleArray_;
@@ -380,9 +428,11 @@ int PsuadeBase::runUniform()
       maxParallelJobs = 100000;
       if (outputLevel_ > 0) 
       {
-         printOutTS(PL_INFO,"PSUADE run: launch_only, max parallel jobs set to 100000.\n");
-         printOutTS(PL_INFO,"            launch_interval has been set to %d seconds\n",
-                launchInterval);
+         printOutTS(PL_INFO,
+              "PSUADE run: launch_only, max parallel jobs set to 100000.\n");
+         printOutTS(PL_INFO,
+              "            launch_interval has been set to %d seconds\n",
+              launchInterval);
       }
       outputLevel_ = 3;
    }
@@ -391,10 +441,12 @@ int PsuadeBase::runUniform()
       launchOnly = 1;
       if (outputLevel_ > 0) 
       {
-         printOutTS(PL_INFO,"PSUADE run: limited_launch_only mode, max parallel jobs = %d.\n",
-                maxParallelJobs);
-         printOutTS(PL_INFO,"            launch_interval has been set to %d seconds\n",
-                launchInterval);
+         printOutTS(PL_INFO,
+              "PSUADE run: limited_launch_only mode, max parallel jobs = %d.\n",
+              maxParallelJobs);
+         printOutTS(PL_INFO,
+              "            launch_interval has been set to %d seconds\n",
+              launchInterval);
       }
    }
    else launchOnly = 0;
@@ -422,8 +474,10 @@ int PsuadeBase::runUniform()
          {
             if (outputLevel_ > 1) 
             {
-               printOutTS(PL_INFO,"PSUADE INFO: no driver given. The sample points\n");
-               printOutTS(PL_INFO,"             will be used for optimization only.\n");
+               printOutTS(PL_INFO,
+                    "PSUADE INFO: no driver given. The sample points\n");
+               printOutTS(PL_INFO,
+                    "             will be used for optimization only.\n");
             }
             for (sampleID = 0; sampleID < nSamples; sampleID++)
             {
@@ -461,7 +515,8 @@ int PsuadeBase::runUniform()
       if (count < nSamples || nRefinements > 0)
       {
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "PSUADE run: creating interface to user driver.\n");
+            printOutTS(PL_INFO, 
+                 "PSUADE run: creating interface to user driver.\n");
          funcIO = createFunctionInterface(psuadeIO_);
       }
       else funcIO = createFunctionInterfaceSimplified(psuadeIO_);
@@ -487,15 +542,24 @@ int PsuadeBase::runUniform()
 
    if (outputLevel_ > 0) 
    {
-      printOutTS(PL_INFO,"PSUADE run: output level = %d\n", outputLevel_);
-      printOutTS(PL_INFO,"PSUADE run: max parallel jobs = %d\n", maxParallelJobs);
-      printOutTS(PL_INFO,"PSUADE run: max job wait time = %d seconds\n", maxJobWaitTime);
-      printOutTS(PL_INFO,"PSUADE run: min job wait time = %d seconds\n", minJobWaitTime);
-      printOutTS(PL_INFO,"PSUADE run: launch interval   = %d seconds\n", launchInterval);
-      printOutTS(PL_INFO,"PSUADE run: save frequency    = every %d runs\n", saveFrequency);
-      printOutTS(PL_INFO,"NOTE: if evaluation should be fast but is slow, check save frequency.\n");
-      printOutTS(PL_INFO,"Note: use psuade_pmachine to dynamically change max jobs.\n");
-      printOutTS(PL_INFO,"Note: use psuade_stop to terminate gracefully.\n");
+      printOutTS(PL_INFO,
+         "PSUADE run: output level = %d\n", outputLevel_);
+      printOutTS(PL_INFO,
+         "PSUADE run: max parallel jobs = %d\n", maxParallelJobs);
+      printOutTS(PL_INFO,
+         "PSUADE run: max job wait time = %d seconds\n", maxJobWaitTime);
+      printOutTS(PL_INFO,
+         "PSUADE run: min job wait time = %d seconds\n", minJobWaitTime);
+      printOutTS(PL_INFO,
+         "PSUADE run: launch interval   = %d seconds\n", launchInterval);
+      printOutTS(PL_INFO,
+         "PSUADE run: save frequency    = every %d runs\n", saveFrequency);
+      printOutTS(PL_INFO,
+         "NOTE: if evaluation should be fast but is slow, check save frequency.\n");
+      printOutTS(PL_INFO,
+         "Note: use psuade_pmachine to dynamically change max jobs.\n");
+      printOutTS(PL_INFO,
+         "Note: use psuade_stop to terminate gracefully.\n");
    }
    refineNSamples = new int[nRefinements+1];
    for (iR = 0; iR < nRefinements+1; iR++)
@@ -505,10 +569,12 @@ int PsuadeBase::runUniform()
       {
          printEquals(PL_INFO, 0);
          if (nRefinements > 0)
-            printOutTS(PL_INFO, "PSUADE run: refinement %d(out of %d), nSamples = %d\n",
-                   iR, nRefinements, nSamples);
+            printOutTS(PL_INFO, 
+                 "PSUADE run: refinement %d(out of %d), nSamples = %d\n",
+                 iR, nRefinements, nSamples);
          else
-            printOutTS(PL_INFO, "PSUADE run: running sample, nSamples = %d \n", nSamples);
+            printOutTS(PL_INFO, 
+                 "PSUADE run: running sample, nSamples = %d \n", nSamples);
       }
 
       refineNSamples[iR] = nSamples;
@@ -549,7 +615,7 @@ int PsuadeBase::runUniform()
       }
 
       parallelJobCount = limitedJobCount = iteration = 0;
-      while (noAnalysis == 0 && jobsCompleted < nSamples)
+      while ((noAnalysis == 0) && (jobsCompleted < nSamples))
       {
          jobsCompletedLast = jobsCompleted;
          iteration++;
@@ -585,7 +651,8 @@ int PsuadeBase::runUniform()
                      if (limitedJobCount < maxParallelJobs)
                      {
                         if (outputLevel_ > 2)
-                           printOutTS(PL_INFO, "Limited launch: job = %6d\n",sampleID+1);
+                           printOutTS(PL_INFO, "Limited launch: job = %6d\n",
+                                      sampleID+1);
                         status = funcIO->evaluate(sampleID,nInputs,
                                  &sampleInputs[sampleID*nInputs], nOutputs, 
                                  &sampleOutputs[sampleID*nOutputs],0);   
@@ -594,8 +661,8 @@ int PsuadeBase::runUniform()
                      else
                      {
                         if (outputLevel_ > 2)
-                           printOutTS(PL_INFO, "Limited launch: creating jobfile %6d\n",
-                                  sampleID+1);
+                           printOutTS(PL_INFO, 
+                              "Limited launch: creating jobfile %6d\n",sampleID+1);
                         status = funcIO->evaluate(sampleID,nInputs,
                                  &sampleInputs[sampleID*nInputs], nOutputs, 
                                  &sampleOutputs[sampleID*nOutputs],1);   
@@ -709,18 +776,20 @@ int PsuadeBase::runUniform()
                {
                   sampleStates[sampleID]++;
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "Waiting for Job %d to complete (status = %d)\n",
-                            sampleID+1, sampleStates[sampleID]);
+                     printOutTS(PL_INFO, 
+                          "Waiting for Job %d to complete (status = %d)\n",
+                          sampleID+1, sampleStates[sampleID]);
                } 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[sampleID]-2)*minJobWaitTime > maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[sampleID]-2)*minJobWaitTime > maxJobWaitTime))
                {
                   sampleStates[sampleID] = 0;
                   parallelJobCount--;
                   sampleID--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE run: sample %6d to be restarted.\n",
-                            sampleID+1);
+                     printOutTS(PL_INFO,
+                          "PSUADE run: sample %6d to be restarted.\n",
+                          sampleID+1);
                }
             }
 
@@ -747,15 +816,17 @@ int PsuadeBase::runUniform()
          {
             minJobWaitTime  = 1;
             if (outputLevel_ > 0) 
-               printOutTS(PL_INFO, "PSUADE run: min job wait time re-set to %d.\n",
-                      minJobWaitTime);
+               printOutTS(PL_INFO, 
+                    "PSUADE run: min job wait time re-set to %d.\n",
+                    minJobWaitTime);
          }
          if ((maxState > 200) && (minJobWaitTime >  0))
          {
             minJobWaitTime *= 2;
             if (outputLevel_ > 0) 
-               printOutTS(PL_INFO, "PSUADE run: min job wait time re-set to %d.\n",
-                      minJobWaitTime);
+               printOutTS(PL_INFO, 
+                    "PSUADE run: min job wait time re-set to %d.\n",
+                    minJobWaitTime);
          }
 
          if (launchOnly) break;
@@ -763,7 +834,8 @@ int PsuadeBase::runUniform()
          if ((jobsCompleted < nSamples) && (minJobWaitTime > 0))
          {
             if (outputLevel_ > 0) 
-               printOutTS(PL_INFO, "PSUADE run: sleep for %d seconds.\n",minJobWaitTime);
+               printOutTS(PL_INFO, 
+                    "PSUADE run: sleep for %d seconds.\n",minJobWaitTime);
 #ifdef WINDOWS
             Sleep(1000 * minJobWaitTime);
 #else
@@ -779,7 +851,8 @@ int PsuadeBase::runUniform()
                      fprintf(fp, "Sample %7d = %d\n",ii+1,sampleStates[ii]);
                   fclose(fp);
                }
-               printOutTS(PL_INFO, "PSUADE sample state information in psuadeStatus.\n");
+               printOutTS(PL_INFO, 
+                    "PSUADE sample state information in psuadeStatus.\n");
             }
          }
 
@@ -792,8 +865,9 @@ int PsuadeBase::runUniform()
                maxParallelJobs = status;
                if (maxParallelJobs > 1) funcIO->setAsynchronousMode();
             }
-            printOutTS(PL_INFO, "PSUADE run: psuade_pmachine found, max jobs reset to %d.\n",
-                   maxParallelJobs);
+            printOutTS(PL_INFO, 
+               "PSUADE run: psuade_pmachine found, max jobs reset to %d.\n",
+               maxParallelJobs);
             fclose(fp);
          }
 
@@ -804,20 +878,20 @@ int PsuadeBase::runUniform()
             for (ii = 0; ii < count; ii++)
             {
                fscanf(fp, "%d", &sampleID);
-               if (sampleID >= 1 && sampleID <= nSamples) 
+               if ((sampleID >= 1) && (sampleID <= nSamples)) 
                {
                   sampleID--;
                   if (sampleStates[sampleID] == 1) 
                   {
-                     printOutTS(PL_INFO, "Sample %d completed, no need to restart.\n",
+                     printOutTS(PL_INFO,"Sample %d completed, no need to restart.\n",
                             sampleID+1);
                   }
                   else
                   {
-                     if (sampleStates[sampleID] != 0 && parallelJobCount > 0)
+                     if ((sampleStates[sampleID] != 0) && (parallelJobCount > 0))
                         parallelJobCount--;
                      sampleStates[sampleID] = 0; 
-                     printOutTS(PL_INFO, "Sample %d to be restarted.\n", sampleID+1);
+                     printOutTS(PL_INFO,"Sample %d to be restarted.\n",sampleID+1);
                   }
                }
             }
@@ -834,10 +908,10 @@ int PsuadeBase::runUniform()
          }
          if (outputLevel_ > 0) 
          {
-            printOutTS(PL_INFO, "\nPSUADE run: jobs completed = %d(out of %d)\n",
+            printOutTS(PL_INFO,"\nPSUADE run: jobs completed = %d(out of %d)\n",
                    jobsCompleted, nSamples);
-            if (jobsCompleted == 0 && askFlag == 1 && iteration > 10 &&
-                outputLevel_ >= 4)
+            if ((jobsCompleted == 0) && (askFlag == 1) && (iteration > 10) &&
+                (outputLevel_ >= 4))
             {
 #ifdef HAVE_PYTHON
                if (yesno_dialog != NULL) {
@@ -846,21 +920,29 @@ int PsuadeBase::runUniform()
 		     "No Progress", "No progress has been made.\n"
 		     "Something may be wrong.\n\n"
                      "Do you want to proceed anyway?" );
-                  if (temp != NULL && PyObject_Not(temp) == 1) {
+                  if ((temp != NULL) && (PyObject_Not(temp) == 1)) {
 		     Py_DECREF(temp);
 		     throw Psuade_Stop_Exception();
 		  }
 	          else if (temp != NULL) Py_DECREF(temp);
                }
 #else
-	       printOutTS(PL_INFO, "The following message is for precautionary purpose:\n");
-	       printOutTS(PL_INFO, "No progress has been made. Something may be wrong if\n");
-	       printOutTS(PL_INFO, "your job should take less than a second to run, and\n");
-	       printOutTS(PL_INFO, "in that case you should answer no to the following\n");
-               printOutTS(PL_INFO, "question. Otherwise, answer yes.\n");
-               printOutTS(PL_INFO, "You can turn off this checking by setting diagnostics\n");
-               printOutTS(PL_INFO, "level to less than 4. You can avoid this complaint by\n");
-               printOutTS(PL_INFO, "setting the minimum wait time to be your estimated\n");
+	       printOutTS(PL_INFO, 
+                    "The following message is for precautionary purpose:\n");
+	       printOutTS(PL_INFO, 
+                    "No progress has been made. Something may be wrong if\n");
+	       printOutTS(PL_INFO, 
+                    "your job should take less than a second to run, and\n");
+	       printOutTS(PL_INFO, 
+                    "in that case you should answer no to the following\n");
+               printOutTS(PL_INFO, 
+                    "question. Otherwise, answer yes.\n");
+               printOutTS(PL_INFO, 
+                    "You can turn off this checking by setting diagnostics\n");
+               printOutTS(PL_INFO, 
+                    "level to less than 4. You can avoid this complaint by\n");
+               printOutTS(PL_INFO, 
+                    "setting the minimum wait time to be your estimated\n");
                printOutTS(PL_INFO, "time per run.\n");
                printf("Do you want to proceed? (y or n) ");
                scanf("%s", winput);
@@ -882,7 +964,7 @@ int PsuadeBase::runUniform()
       if (launchOnly && (jobsCompleted < nSamples))
       {
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "PSUADE run: terminate - launch only mode.\n");
+            printOutTS(PL_INFO,"PSUADE run: terminate - launch only mode.\n");
          break;
       }
 
@@ -940,7 +1022,8 @@ int PsuadeBase::runUniform()
          nReUsed = 0;
          for (sampleID = 0; sampleID < nSamples; sampleID++)
             if (sampleStates[sampleID] == 1) nReUsed++;
-         printOutTS(PL_INFO, "PSUADE run: refinement - number reused = %d(out of %d)\n",
+         printOutTS(PL_INFO,
+                "PSUADE run: refinement - number reused = %d(out of %d)\n",
                 nReUsed, oldNSamples);
 
          psuadeIO_->updateMethodSection(-1,nSamples,-1,nRefinements-iR-1,-1);
@@ -956,7 +1039,8 @@ int PsuadeBase::runUniform()
       if (outputLevel_ > -1) 
       {
           if (nRefinements > 0) 
-             printOutTS(PL_INFO, "PSUADE run: refinements completed = %d (out of %d)\n",
+             printOutTS(PL_INFO, 
+                    "PSUADE run: refinements completed = %d (out of %d)\n",
                     iR, nRefinements);
           printEquals(PL_INFO, 0);
       }
@@ -966,6 +1050,247 @@ int PsuadeBase::runUniform()
    delete funcIO;
    delete [] refineNSamples;
    if (outputLevel_ >= 4) printOutTS(PL_INFO, "PSUADE run: exiting...\n");
+   return 0;
+}
+
+// ************************************************************************
+// run the sample points as an ensemble
+// ------------------------------------------------------------------------
+int PsuadeBase::runEnsemble()
+{
+   int     nInputs, nSamples, nOutputs, sampleID, *sampleStates, status;
+   int     refineFlag,oldNSamples,nRefinements,refindNSamples,refineRatio;
+   int     iR, ii, count, iteration, nReUsed, randomize, *refineNSamples;
+   int     parallelJobCount, maxParallelJobs, runType;
+   double  *sampleInputs, *sampleOutputs, *tempOutputs, *tempInputs;
+   double  analysisThreshold, refineThreshold, *sampleErrors;
+   char    *ensembleDriver;
+   pData   pPtr, pAppFiles, pStates, pInpData, pOutData;
+   FunctionInterface *funcIO=NULL;
+
+   printAsterisks(PL_INFO, 0);
+   printf("INFO: You have turned on ensemble_run_mode. In this mode, the\n");
+   printf("      ensemble_driver in the APPLICATION sectin will be used.\n");
+   printf("      Your ensemble_driver executable will be run via\n");
+   printf("           ensemble_driver psuadeEval.in psuadeEval.out\n");
+   printf("      PSUADE will write to psuadeEval.in in the following format:\n");
+   printf("      line 1: <nSamples>\n");
+   printf("      line 2: parameter values for sample point 1\n");
+   printf("      line 3: parameter values for sample point 2\n");
+   printf("      .....\n\n");
+   printf("      Your ensemble_driver is expected to create the psuadeEval.out\n");
+   printf("      file and write all the sample output values to it.\n");
+   printf("      To change the size of each ensemble, change the\n");
+   printf("      max_parallel_jobs variable in the APPLICATION section.\n");
+   printEquals(PL_INFO, 0);
+   if (outputLevel_ >= 4) 
+      printOutTS(PL_DETAIL,"PSUADE::ensemble run begins.\n");
+   if (psuadeIO_ == NULL)
+   {
+      printOutTS(PL_ERROR,"PSUADE run ERROR - no PsuadeData object.\n");
+      return 0;
+   }
+
+   psuadeIO_->getParameter("app_runtype", pPtr);
+   runType = pPtr.intData_;
+   if ((runType & 16) == 1)
+   {
+      printOutTS(PL_INFO,"INFO: PSUADE is in ensemble run mode.\n");
+      printOutTS(PL_INFO,"      All other run modes will be disabled.\n");
+      printOutTS(PL_INFO,"      Optimization will be disabled.\n");
+   }
+
+   psuadeIO_->getParameter("app_files", pAppFiles);
+   ensembleDriver = pAppFiles.strArray_[0];
+   if (!strcmp(ensembleDriver, "NONE"))
+   {
+      printOutTS(PL_ERROR,"PSUADE ERROR: no ensemble driver given.\n");
+      return 0;
+   }
+
+   psuadeIO_->getParameter("input_ninputs", pPtr);
+   nInputs = pPtr.intData_;
+   psuadeIO_->getParameter("output_noutputs", pPtr);
+   nOutputs = pPtr.intData_;
+   psuadeIO_->getParameter("method_nsamples", pPtr);
+   nSamples = pPtr.intData_;
+   psuadeIO_->getParameter("method_nrefinements", pPtr);
+   nRefinements = pPtr.intData_;
+   psuadeIO_->getParameter("method_randomflag", pPtr);
+   randomize = pPtr.intData_;
+   psuadeIO_->getParameter("app_maxparalleljobs", pPtr);
+   maxParallelJobs = pPtr.intData_;
+   psuadeIO_->getParameter("ana_diagnostics", pPtr);
+   outputLevel_ = pPtr.intData_;
+   psuadeIO_->getParameter("ana_threshold", pPtr);
+   analysisThreshold = pPtr.dbleData_;
+   psuadeIO_->getParameter("output_states", pStates);
+   sampleStates = pStates.intArray_;
+   count = 0;
+   for (sampleID = 0; sampleID < nSamples; sampleID++)
+      if (sampleStates[sampleID] == 1) count++;
+   if ((count == nSamples) && (nRefinements == 0))
+   {
+      printOutTS(PL_INFO,"PSUADE INFO: all sample points have been evaluated.\n");
+      return 0;
+   }
+   if (outputLevel_ > 0) 
+      printOutTS(PL_INFO,"PSUADE run: creating interface to user driver.\n");
+   funcIO = createFunctionInterface(psuadeIO_);
+
+   analysisManager_.clearAnalyzers();
+   analysisManager_.setup(psuadeIO_);
+
+   funcIO->setOutputLevel(outputLevel_);
+
+   refineNSamples = new int[nRefinements+1];
+   tempInputs  = new double[maxParallelJobs*nInputs];
+   tempOutputs = new double[maxParallelJobs*nOutputs];
+   for (iR = 0; iR < nRefinements+1; iR++)
+   {
+      nSamples = sampler_->getNumSamples();
+      if (outputLevel_ > 0) 
+      {
+         printEquals(PL_INFO, 0);
+         if (nRefinements > 0)
+            printOutTS(PL_INFO,
+                 "PSUADE run: refinement %d(out of %d), nSamples = %d\n",
+                 iR, nRefinements, nSamples);
+         else
+            printOutTS(PL_INFO,"PSUADE run: running sample, nSamples = %d \n",
+                       nSamples);
+      }
+
+      refineNSamples[iR] = nSamples;
+      psuadeIO_->getParameter("input_sample", pInpData);
+      sampleInputs = pInpData.dbleArray_;
+      psuadeIO_->getParameter("output_sample", pOutData);
+      sampleOutputs = pOutData.dbleArray_;
+      psuadeIO_->getParameter("output_states", pStates);
+      sampleStates = pStates.intArray_;
+      psuadeIO_->getParameter("method_nsamples", pPtr);
+      nSamples = pPtr.intData_;
+
+      jobsCompleted = 0;
+      for (sampleID = 0; sampleID < nSamples; sampleID++) 
+      {
+         if (sampleStates[sampleID] == 1) jobsCompleted++;
+         else                             sampleStates[sampleID] = 0;
+         for (ii = 0; ii < nOutputs; ii++) 
+            if (sampleOutputs[sampleID*nOutputs+ii] >= PSUADE_UNDEFINED)
+               break;
+         if ((ii != nOutputs) && (sampleStates[sampleID] == 1))
+         {
+            jobsCompleted--;
+            sampleStates[sampleID] = 0;
+         }
+      }
+
+      iteration = 0;
+      while (jobsCompleted < nSamples)
+      {
+         iteration++;
+         printOutTS(PL_INFO,
+                    "PSUADE ensemble run begins (parallelism = %d)\n",
+                    maxParallelJobs);
+         while (jobsCompleted < nSamples)
+         {
+            parallelJobCount = 0;
+            for (sampleID = 0; sampleID < nSamples; sampleID++)
+            {
+               if ((sampleStates[sampleID] == 0) && 
+                   (parallelJobCount < maxParallelJobs))
+               {
+                  for (ii = 0; ii < nInputs; ii++)
+                     tempInputs[parallelJobCount*nInputs+ii] =
+                        sampleInputs[sampleID*nInputs+ii];
+                  parallelJobCount++;
+               }
+            }
+            status = funcIO->ensembleEvaluate(parallelJobCount,nInputs,
+                             tempInputs,nOutputs,tempOutputs,iteration);
+            parallelJobCount = 0;
+            for (sampleID = 0; sampleID < nSamples; sampleID++)
+            {
+               if ((sampleStates[sampleID] == 0) && 
+                   (parallelJobCount < maxParallelJobs))
+               {
+                  for (ii = 0; ii < nOutputs; ii++)
+                     sampleOutputs[sampleID*nOutputs+ii] = 
+                         tempOutputs[parallelJobCount*nOutputs+ii];
+                  sampleStates[sampleID] = 1; 
+                  parallelJobCount++;
+                  sampler_->storeResult(sampleID, nOutputs,
+                                   &(sampleOutputs[sampleID*nOutputs]),
+                                   &(sampleStates[sampleID]));
+                  jobsCompleted++;
+               }
+            }
+         }
+         printOutTS(PL_INFO,"PSUADE ensemble run completed.\n");
+
+         psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
+                                        sampleStates,NULL); 
+         psuadeIO_->writePsuadeFile(NULL,0);
+      }
+
+      refineFlag = analysisManager_.analyze(psuadeIO_,iR+1,
+                                            refineNSamples,-1);
+
+      if ((refineFlag == 1) && (nRefinements > 0) && (iR < nRefinements))
+      {
+         sampleErrors = analysisManager_.getSampleErrors();
+         refineRatio = 2;
+         refineThreshold = analysisThreshold;
+         sampler_->refine(refineRatio,randomize,refineThreshold,nSamples,
+                          sampleErrors);
+
+         oldNSamples = nSamples;
+         nSamples = sampler_->getNumSamples();
+         if (nSamples == oldNSamples)
+         {
+             refineFlag = 0;
+             break;
+         }
+         sampleInputs  = new double[nSamples*nInputs];
+         sampleOutputs = new double[nSamples*nOutputs];
+         sampleStates  = new int[nSamples];
+            
+         sampler_->getSamples(nSamples, nInputs, nOutputs, sampleInputs, 
+                              sampleOutputs, sampleStates);
+         nReUsed = 0;
+         for (sampleID = 0; sampleID < nSamples; sampleID++)
+            if (sampleStates[sampleID] == 1) nReUsed++;
+         printOutTS(PL_INFO,
+                "PSUADE refinement: nSamples reused = %d (out of %d)\n",
+                nReUsed, oldNSamples);
+
+         psuadeIO_->updateMethodSection(-1,nSamples,-1,nRefinements-iR-1,-1);
+         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
+                                       sampleInputs,NULL,NULL,NULL,NULL,NULL);
+         psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
+                                        sampleStates,NULL);
+         psuadeIO_->writePsuadeFile(NULL,0);
+         delete [] sampleInputs;
+         delete [] sampleOutputs;
+         delete [] sampleStates;
+      }
+      if (outputLevel_ > -1) 
+      {
+          if (nRefinements > 0) 
+             printOutTS(PL_INFO,
+                    "PSUADE run: refinements completed = %d (out of %d)\n",
+                    iR, nRefinements);
+          printEquals(PL_INFO, 0);
+      }
+      if (refineFlag == 0) break;
+   }
+
+   delete [] tempInputs;
+   delete [] tempOutputs;
+   delete funcIO;
+   delete [] refineNSamples;
+   if (outputLevel_ >= 4) printOutTS(PL_INFO,"PSUADE run: exiting...\n");
    return 0;
 }
 
@@ -994,8 +1319,10 @@ int PsuadeBase::runAdaptiveErrBased0()
    for (ii = 0; ii < nInputs; ii++) iSum += inputPDFs[ii];
    if (iSum)
    {
-      printOutTS(PL_ERROR, "PSUADE ERROR: adaptive(0) does not currenlty allow \n");
-      printOutTS(PL_ERROR, "       non-uniform probability distribution functions\n");
+      printOutTS(PL_ERROR, 
+           "PSUADE ERROR: adaptive(0) does not currenlty allow \n");
+      printOutTS(PL_ERROR, 
+           "       non-uniform probability distribution functions\n");
       printOutTS(PL_ERROR, "       to be used in INPUT section.\n");
       printOutTS(PL_ERROR, "       Please fix it and then run again.\n");
       exit(1);
@@ -1004,18 +1331,20 @@ int PsuadeBase::runAdaptiveErrBased0()
    printOutTS(PL_INFO, "PSUADE adaptive(0): GP, Kriging, or ANN with METIS.\n");
    psuadeIO_->getParameter("ana_rstype", pPtr);
    faType = pPtr.intData_;
-   if (faType != PSUADE_RS_GP1   && faType != PSUADE_RS_ANN &&
-       faType != PSUADE_RS_MARSB && faType != PSUADE_RS_KR)
+   if ((faType != PSUADE_RS_GP1)   && (faType != PSUADE_RS_ANN) &&
+       (faType != PSUADE_RS_MARSB) && (faType != PSUADE_RS_KR))
    {
-      printOutTS(PL_INFO, "PSUADE adaptive(0) INFO: response surface should be one of\n");
-      printOutTS(PL_INFO, "                         GP, ANN, Kriging, or MarsBag.\n");
+      printOutTS(PL_INFO, 
+           "PSUADE adaptive(0) INFO: response surface should be one of\n");
+      printOutTS(PL_INFO, 
+           "                         GP, ANN, Kriging, or MarsBag.\n");
       printOutTS(PL_INFO, "                         Default to Kriging.\n");
       faType = PSUADE_RS_KR;
       psuadeIO_->updateAnalysisSection(-1, -1, faType, -1, -1, -1);
    }
    psuadeIO_->getParameter("method_sampling", pPtr);
    samMethod = pPtr.intData_;
-   if (samMethod != PSUADE_SAMP_METIS && samMethod != PSUADE_SAMP_FACT)
+   if ((samMethod != PSUADE_SAMP_METIS) && (samMethod != PSUADE_SAMP_FACT))
    {
       printOutTS(PL_INFO, "PSUADE adaptive(0): sampling defaulted to METIS.\n");
       samMethod = PSUADE_SAMP_METIS; 
@@ -1102,7 +1431,8 @@ int PsuadeBase::runAdaptiveErrBased0()
          refineNSamples[iR+1] = nSamples;
          if (nSamples > 2000) 
          {
-            printOutTS(PL_INFO, "PSUADE adaptive(0): max nSamples clamped to %d\n",
+            printOutTS(PL_INFO, 
+                   "PSUADE adaptive(0): max nSamples clamped to %d\n",
                    nSamples);
             break;
          }
@@ -1208,15 +1538,16 @@ int PsuadeBase::runAdaptiveErrBased0()
                }
                else sampleStates[ss]++;
 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime))
                {
                   sampleStates[ss] = 0;
                   parallelJobCount--;
                   ss--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE adaptive(0): sample %6d to be restarted.\n",
-                            ss+1);
+                     printOutTS(PL_INFO, 
+                          "PSUADE adaptive(0): sample %6d to be restarted.\n",
+                          ss+1);
                }
             }
          }
@@ -1241,7 +1572,8 @@ int PsuadeBase::runAdaptiveErrBased0()
 #endif
          }
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "\nPSUADE adaptive(0): jobs completed = %d(of %d)\n",
+            printOutTS(PL_INFO, 
+                   "\nPSUADE adaptive(0): jobs completed = %d(of %d)\n",
                    jobsCompleted, currNJobs);
       }
 
@@ -1253,7 +1585,7 @@ int PsuadeBase::runAdaptiveErrBased0()
       maxError = 0.0;
       for (ss = 0; ss < nSamples; ss++)
       {
-         if (sampleStates[ss] < 0 && sampleErrors[ss] > maxError)
+         if ((sampleStates[ss] < 0) && (sampleErrors[ss] > maxError))
          {
             maxError = sampleErrors[ss];
             maxInd   = ss;
@@ -1264,10 +1596,12 @@ int PsuadeBase::runAdaptiveErrBased0()
          sampleStates[maxInd] = 0;
          if (outputLevel_ > 1)
          {
-            printOutTS(PL_INFO, "PSUADE adaptive(0): new data point (error = %12.4e) = \n",
+            printOutTS(PL_INFO, 
+                   "PSUADE adaptive(0): new data point (error = %12.4e) = \n",
                    sampleErrors[maxInd]);
             for (ii = 0; ii < nInputs; ii++)
-               printOutTS(PL_INFO, "\tX%3d = %12.4e\n",ii+1,sampleInputs[maxInd*nInputs+ii]);
+               printOutTS(PL_INFO, "\tX%3d = %12.4e\n",ii+1,
+                          sampleInputs[maxInd*nInputs+ii]);
          }
       }
    }
@@ -1287,10 +1621,10 @@ int PsuadeBase::runAdaptiveNN()
 {
    int    samMethod, initFlag, refineLevel, nInputs, nOutputs, nRefinements;
    int    maxParallelJobs, maxJobWaitTime, minJobWaitTime, launchInterval;
-   int    saveFrequency, ss, nSamples, refineRatio, randomize, iSum, *inputPDFs;
+   int    saveFrequency, ss, nSamples, refineRatio, randomize, *inputPDFs;
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff, ii, jj, marsMode=0;
    int    parallelJobCount, status, maxState, jobsCompletedLast, refineType;
-   int    lastNSamples, rstype, nPtsPerDim=64, length, refineSize;
+   int    lastNSamples, rstype, nPtsPerDim=64, length, refineSize, iSum;
    int    tstNSamples=0, tstNInputs, tstNOutputs, ivar1, ivar2, numMars=100;
    int    marsNSamples;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, outData, errAvg;
@@ -1298,9 +1632,8 @@ int PsuadeBase::runAdaptiveNN()
    double anaThreshold, errRMS, *tstSamInputs, *tstSamOutputs;
    double totalSum, *tstOutputs, **marsDataX, **marsDataY;
    char   systemCommand[100], cString[100], winput[500];
-   char   *targv[6];
+   char   *targv[6], sparam[501];
    pData  pPtr, pLowerB, pUpperB, pPDFs, pTstInputs, pTstOutputs;
-   string sparam;
    FILE   *fp;
    FuncApprox        *faPtr=NULL;
    FunctionInterface *funcIO=NULL;
@@ -1314,28 +1647,30 @@ int PsuadeBase::runAdaptiveNN()
    for (ss = 0; ss < nInputs; ss++) iSum += inputPDFs[ss];
    if (iSum)
    {
-      printOutTS(PL_ERROR, "PSUADE ERROR: adaptiveRSM does not currently allow \n");
-      printOutTS(PL_ERROR, "       non-uniform probability distributions to be\n");
+      printOutTS(PL_ERROR, 
+           "PSUADE ERROR: adaptiveRSM does not currently allow \n");
+      printOutTS(PL_ERROR, 
+           "       non-uniform probability distributions to be\n");
       printOutTS(PL_ERROR, "       defined in the INPUT SECTION.\n");
       printOutTS(PL_ERROR, "       Please fix it and then run again.\n");
       exit(1);
    }
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "PSUADE adaptiveNN: Use Metis sampling.\n");
-   printOutTS(PL_INFO, "Adaptive sampling based on discrepany of the output\n");
-   printOutTS(PL_INFO, "with its neighbor's output (select maximum).\n");
+   printOutTS(PL_INFO,"PSUADE adaptiveNN: Use Metis sampling.\n");
+   printOutTS(PL_INFO,"Adaptive sampling based on discrepany of the output\n");
+   printOutTS(PL_INFO,"with its neighbor's output (select maximum).\n");
    printDashes(PL_INFO, 0);
-   printOutTS(PL_INFO, "Note: Turn on rs_expert mode to set RS parameters.\n");
-   printOutTS(PL_INFO, "      Turn on outputLevel (>0) to get error histogram.\n");
-   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO,"Note: Turn on rs_expert mode to set RS parameters.\n");
+   printOutTS(PL_INFO,"      Turn on outputLevel (>0) to get error histogram.\n");
+   printEquals(PL_INFO,0);
    psuadeIO_->getParameter("method_refine_type", pPtr);
    refineType = pPtr.intData_;
    psuadeIO_->getParameter("method_sampling", pPtr);
    samMethod = pPtr.intData_;
    if (samMethod != PSUADE_SAMP_METIS)
    {
-      printOutTS(PL_INFO, "PSUADE adaptiveNN: sampling defaulted to METIS.\n");
+      printOutTS(PL_INFO,"PSUADE adaptiveNN: sampling defaulted to METIS.\n");
       samMethod = PSUADE_SAMP_METIS; 
       psuadeIO_->updateMethodSection(samMethod,-1,-1,-1,-1);
       initFlag = 1;
@@ -1394,7 +1729,13 @@ int PsuadeBase::runAdaptiveNN()
       winput[ss-1] = '\0';
       tstIO = new PsuadeData();
       status = tstIO->readPsuadeFile(winput);
-      if (status != 0) exit(1);
+      if (status != 0) 
+      {
+         printOutTS(PL_ERROR,
+              "PSUADE adaptiveNN ERROR: cannot read file %s or wrong format.\n",
+              winput);
+         exit(1);
+      }
       tstIO->getParameter("method_nsamples", pPtr);
       tstNSamples = pPtr.intData_;
       tstIO->getParameter("input_ninputs", pPtr);
@@ -1403,16 +1744,18 @@ int PsuadeBase::runAdaptiveNN()
       tstNOutputs = pPtr.intData_;
       if (tstNInputs != nInputs)
       {
-         printOutTS(PL_ERROR, "PSUADE adaptiveNN ERROR : test sample nInputs != %d\n",
-                nInputs);
+         printOutTS(PL_ERROR, 
+              "PSUADE adaptiveNN ERROR : test sample nInputs != %d\n",
+              nInputs);
          delete tstIO;
-         return 0;
+         return -1;
       }
       if (tstNOutputs > 1)
       {
-         printOutTS(PL_INFO,"PSUADE adaptiveNN ERROR: test sample nOutputs != 1.\n");
+         printOutTS(PL_INFO,
+                    "PSUADE adaptiveNN ERROR: test sample nOutputs != 1.\n");
          delete tstIO;
-         return 0;
+         return -1;
       }
       tstIO->getParameter("input_sample", pTstInputs);
       tstSamInputs = pTstInputs.dbleArray_;
@@ -1441,19 +1784,16 @@ int PsuadeBase::runAdaptiveNN()
       nSamples = sampler_->getNumSamples();
       psuadeIO_->updateMethodSection(-1,nSamples,-1,-1,-1);
    }
-   sparam.clear();
    if (refineType == 0)
    {
-      sparam.append("setUniformRefinement");
+      strcpy(sparam, "setUniformRefinement");
       refineSize = 100000;
    }
-   else sparam.append("setAdaptiveRefinementBasedOnOutputs");
+   else strcpy(sparam,"setAdaptiveRefinementBasedOnOutputs");
    sampler_->setParam(sparam);
    if (refineSize > 0)
    {
-      sparam.clear();
-      sprintf(cString, "setRefineSize %d", refineSize);
-      sparam.append(cString);
+      sprintf(sparam, "setRefineSize %d", refineSize);
       sampler_->setParam(sparam);
       printOutTS(PL_INFO, "PSUADE adaptiveNN: refineSize = %d\n",refineSize);
    }
@@ -1488,9 +1828,11 @@ int PsuadeBase::runAdaptiveNN()
       if (outputLevel_ > 1)
       {
          printAsterisks(PL_INFO, 0);
-         printOutTS(PL_INFO, "PSUADE adaptiveNN: current level    = %d (of %d)\n",
+         printOutTS(PL_INFO, 
+                "PSUADE adaptiveNN: current level    = %d (of %d)\n",
                 refineLevel, nRefinements);
-         printOutTS(PL_INFO, "PSUADE adaptiveNN: current nSamples = %d\n",nSamples);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptiveNN: current nSamples = %d\n",nSamples);
       }
       sampleInputs  = new double[nSamples * nInputs];
       sampleOutputs = new double[nSamples * nOutputs];
@@ -1505,27 +1847,42 @@ int PsuadeBase::runAdaptiveNN()
 
       currNJobs = jobsCompleted;
       for (ss = 0; ss < nSamples; ss++) if (sampleStates[ss]==0) currNJobs++;
-      if (psAnaExpertMode_ == 1 && jobsCompleted < currNJobs)
+      if ((psAnaExpertMode_ == 1) && (jobsCompleted < currNJobs))
       {
-         printOutTS(PL_INFO, "A sample has been created in the psuadeData file. \n");
-         printOutTS(PL_INFO, "At this point you can choose to run your model with\n");
-         printOutTS(PL_INFO, "this sample via psuade or by yourself (if the model\n");
-         printOutTS(PL_INFO, "is expensive to run, you want to choose the latter).\n");
+         printOutTS(PL_INFO, 
+              "A sample has been created in the psuadeData file. \n");
+         printOutTS(PL_INFO, 
+              "At this point you can choose to run your model with\n");
+         printOutTS(PL_INFO, 
+              "this sample via psuade or by yourself (if the model\n");
+         printOutTS(PL_INFO, 
+              "is expensive to run, you want to choose the latter).\n");
          sprintf(systemCommand, "Run the model yourself (y or n) ? ");
          getString(systemCommand, cString);
          if (cString[0] == 'y')
          {
-            printOutTS(PL_INFO, "You have chosen to run the sample yourself.\n");
-            printOutTS(PL_INFO, "The following steps are for ARSM refinements:\n");
-            printOutTS(PL_INFO, "(1) Rename psuadeData to something else. \n");
-            printOutTS(PL_INFO, "(2) Comment out num_refinements in this file.\n");
-            printOutTS(PL_INFO, "(3) Change sampling method to be MC in this file.\n");
-            printOutTS(PL_INFO, "(4) Comment out analysis method = ARSM in this file.\n");
-            printOutTS(PL_INFO, "(5) Run the sample in this file and collect outputs.\n");
-            printOutTS(PL_INFO, "(6) Restore num_refinements in this file.\n");
-            printOutTS(PL_INFO, "(7) Restore sampling method = METIS in this file.\n");
-            printOutTS(PL_INFO, "(8) Restore analysis method = ARSM in this file.\n");
-            printOutTS(PL_INFO, "(9) Finally, restart psuade with this file.\n");
+            printOutTS(PL_INFO, 
+              "You have chosen to run the sample yourself.\n");
+            printOutTS(PL_INFO, 
+              "The following steps are for ARSM refinements:\n");
+            printOutTS(PL_INFO, 
+              "(1) Rename psuadeData to something else. \n");
+            printOutTS(PL_INFO, 
+              "(2) Comment out num_refinements in this file.\n");
+            printOutTS(PL_INFO, 
+              "(3) Change sampling method to be MC in this file.\n");
+            printOutTS(PL_INFO, 
+              "(4) Comment out analysis method = ARSM in this file.\n");
+            printOutTS(PL_INFO, 
+              "(5) Run the sample in this file and collect outputs.\n");
+            printOutTS(PL_INFO, 
+              "(6) Restore num_refinements in this file.\n");
+            printOutTS(PL_INFO, 
+              "(7) Restore sampling method = METIS in this file.\n");
+            printOutTS(PL_INFO, 
+              "(8) Restore analysis method = ARSM in this file.\n");
+            printOutTS(PL_INFO, 
+              "(9) Finally, restart psuade with this file.\n");
             delete [] sampleInputs;
             delete [] sampleOutputs;
             delete [] sampleStates;
@@ -1607,15 +1964,16 @@ int PsuadeBase::runAdaptiveNN()
                }
                else sampleStates[ss]++;
 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime))
                {
                   sampleStates[ss] = 0;
                   parallelJobCount--;
                   ss--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE adaptiveNN: sample %6d to be restarted.\n",
-                            ss+1);
+                     printOutTS(PL_INFO, 
+                          "PSUADE adaptiveNN: sample %6d to be restarted.\n",
+                          ss+1);
                }
             }
          }
@@ -1640,17 +1998,20 @@ int PsuadeBase::runAdaptiveNN()
 #endif
          }
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "\nPSUADE adaptiveNN: jobs completed = %d(of %d)\n",
+            printOutTS(PL_INFO, 
+                   "\nPSUADE adaptiveNN: jobs completed = %d(of %d)\n",
                    jobsCompleted, currNJobs);
       }
 
       errRMS = anaThreshold;
       if (lastNSamples > 0)
       {
-         printOutTS(PL_INFO, "PSUADE adaptiveNN: response surface analysis.\n");
-         printOutTS(PL_INFO, "   construct response surface with %d sample points.\n",
-                lastNSamples);
-         printOutTS(PL_INFO, "   test response surface with previous %d sample points.\n",
+         printOutTS(PL_INFO,"PSUADE adaptiveNN: response surface analysis.\n");
+         printOutTS(PL_INFO,
+               "   construct response surface with %d sample points.\n",
+               lastNSamples);
+         printOutTS(PL_INFO,
+                "   test response surface with previous %d sample points.\n",
                 nSamples-lastNSamples);
          faPtr = genFA(rstype, nInputs, nOutputs, lastNSamples);
          if (faPtr == NULL)
@@ -1661,7 +2022,7 @@ int PsuadeBase::runAdaptiveNN()
          faPtr->setNPtsPerDim(nPtsPerDim);
          faPtr->setBounds(iLowerB, iUpperB);
          faPtr->setOutputLevel(outputLevel_);
-         if (psRSExpertMode_ == 0 && 
+         if ((psRSExpertMode_ == 0) && 
              (rstype == PSUADE_RS_MARS || rstype == PSUADE_RS_MARSB))
          {
             strcpy(cString, "mars_params");
@@ -1724,15 +2085,16 @@ int PsuadeBase::runAdaptiveNN()
          faPtr = genFA(rstype, nInputs, nOutputs, nSamples);
          if (faPtr == NULL)
          {
-	    printOutTS(PL_ERROR,"function genFA returned NULL in file %s line %d, exiting\n", 
-                       __FILE__, __LINE__);
+	    printOutTS(PL_ERROR,
+                 "function genFA returned NULL in file %s line %d, exiting\n", 
+                 __FILE__, __LINE__);
             exit(1);
          }
          faPtr->setNPtsPerDim(nPtsPerDim);
          faPtr->setBounds(iLowerB, iUpperB);
          faPtr->setOutputLevel(outputLevel_);
 
-         if (psRSExpertMode_ == 0 && 
+         if ((psRSExpertMode_ == 0) && 
              (rstype == PSUADE_RS_MARS || rstype == PSUADE_RS_MARSB))
          {
             strcpy(cString, "mars_params");
@@ -1799,14 +2161,14 @@ int PsuadeBase::runAdaptiveNN()
          errRMS = sqrt(errRMS / tstNSamples);
          totalSum /= (double) tstNSamples;
          errAvg  = errAvg / tstNSamples;
-         printOutTS(PL_INFO, "     test sample RS unscaled max error = %e\n",errMax);
-         printOutTS(PL_INFO, "     test sample RS   scaled max error = %e\n",
+         printOutTS(PL_INFO,"     test sample RS unscaled max error = %e\n",errMax);
+         printOutTS(PL_INFO,"     test sample RS   scaled max error = %e\n",
                 errMax/totalSum);
-         printOutTS(PL_INFO, "     test sample RS unscaled rms error = %e\n",errRMS);
-         printOutTS(PL_INFO, "     test sample RS   scaled rms error = %e\n",
+         printOutTS(PL_INFO,"     test sample RS unscaled rms error = %e\n",errRMS);
+         printOutTS(PL_INFO,"     test sample RS   scaled rms error = %e\n",
                 errRMS/totalSum);
-         printOutTS(PL_INFO, "     test sample RS unscaled avg error = %e\n",errAvg);
-         printOutTS(PL_INFO, "     test sample RS   scaled avg error = %e\n",
+         printOutTS(PL_INFO,"     test sample RS unscaled avg error = %e\n",errAvg);
+         printOutTS(PL_INFO,"     test sample RS   scaled avg error = %e\n",
                 errAvg / totalSum);
          if (errRMS < anaThreshold || refineLevel >= nRefinements)
          {
@@ -1877,7 +2239,8 @@ int PsuadeBase::runAdaptiveNN()
                             sampleOutputs, sampleStates);
       if (errRMS < anaThreshold)
       {
-         printOutTS(PL_INFO,"PSUADE adaptiveNN: threshold reached (using unscaled rms).\n");
+         printOutTS(PL_INFO,
+              "PSUADE adaptiveNN: threshold reached (using unscaled rms).\n");
          delete [] sampleInputs;
          delete [] sampleOutputs;
          delete [] sampleStates;
@@ -1946,25 +2309,26 @@ int PsuadeBase::runAdaptiveErrBased1()
    double *auxSamInputs=NULL, *auxSamOutputs=NULL;
    double *tstSamInputs=NULL, *tstSamOutputs=NULL, *tstOutputs;
    char   systemCommand[100], cString[100], winput[100], *targv[6];
+   char   sparam[501];
    FILE   *fp;
    pData  pPtr, pLowerB, pUpperB, pPDFs, pAuxInputs, pAuxOutputs;
    pData  pTstInputs, pTstOutputs;
-   string sparam;
    FuncApprox *faPtr=NULL;
    Sampling   *samplerAux=NULL;
    PsuadeData *auxIO=NULL, *tstIO=NULL;
    FunctionInterface *funcIO=NULL;
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "PSUADE adaptive(1): Use Metis with MarsBagging/GP/Kriging.\n");
-   printOutTS(PL_INFO, "Adaptive sampling based on predicted errors from\n");
-   printOutTS(PL_INFO, "the MARS-with-bagging/GP/Kriging response surface.\n");
+   printOutTS(PL_INFO,
+        "PSUADE adaptive(1): Use Metis with MarsBagging/GP/Kriging.\n");
+   printOutTS(PL_INFO,"Adaptive sampling based on predicted errors from\n");
+   printOutTS(PL_INFO,"the MARS-with-bagging/GP/Kriging response surface.\n");
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "To be able to exercise more control of this method,\n");
-   printOutTS(PL_INFO, "you can turn on interactive and/or expert modes in\n");
-   printOutTS(PL_INFO, "the input file.\n");
-   printOutTS(PL_INFO, "Turn on outputLevel (>0) to get error histogram.\n");
-   printOutTS(PL_INFO, "Turn on interactive to have stepwise control.\n");
+   printOutTS(PL_INFO,"To be able to exercise more control of this method,\n");
+   printOutTS(PL_INFO,"you can turn on interactive and/or expert modes in\n");
+   printOutTS(PL_INFO,"the input file.\n");
+   printOutTS(PL_INFO,"Turn on outputLevel (>0) to get error histogram.\n");
+   printOutTS(PL_INFO,"Turn on interactive to have stepwise control.\n");
    printEquals(PL_INFO, 0);
 
    psuadeIO_->getParameter("input_pdfs", pPDFs);
@@ -1975,10 +2339,10 @@ int PsuadeBase::runAdaptiveErrBased1()
    for (ss = 0; ss < nInputs; ss++) iSum += inputPDFs[ss];
    if (iSum)
    {
-      printOutTS(PL_ERROR, "PSUADE ERROR: adaptive(1) does not currently allow\n");
-      printOutTS(PL_ERROR, "       non-uniform probability distribution to be\n");
-      printOutTS(PL_ERROR, "       defined in the INPUT SECTION.\n");
-      printOutTS(PL_ERROR, "       Please fix it and then run again.\n");
+      printOutTS(PL_ERROR,"PSUADE ERROR: adaptive(1) does not currently allow\n");
+      printOutTS(PL_ERROR,"       non-uniform probability distribution to be\n");
+      printOutTS(PL_ERROR,"       defined in the INPUT SECTION.\n");
+      printOutTS(PL_ERROR,"       Please fix it and then run again.\n");
       exit(1);
    }
 
@@ -2032,7 +2396,13 @@ int PsuadeBase::runAdaptiveErrBased1()
       winput[ss-1] = '\0';
       tstIO = new PsuadeData();
       status = tstIO->readPsuadeFile(winput);
-      if (status != 0) exit(1);
+      if (status != 0)
+      {
+         printOutTS(PL_ERROR,
+            "PSUADE adaptive(1) ERROR: cannot read file %s or wrong format.\n",
+            winput);
+         exit(1);
+      }
       tstIO->getParameter("method_nsamples", pPtr);
       tstNSamples = pPtr.intData_;
       tstIO->getParameter("input_ninputs", pPtr);
@@ -2047,7 +2417,8 @@ int PsuadeBase::runAdaptiveErrBased1()
       }
       if (tstNOutputs > 1)
       {
-         printOutTS(PL_INFO,"PSUADE adaptive(1) ERROR: test sample nOutputs != 1.\n");
+         printOutTS(PL_INFO,
+              "PSUADE adaptive(1) ERROR: test sample nOutputs != 1.\n");
          return 0;
       }
       tstIO->getParameter("input_sample", pTstInputs);
@@ -2056,8 +2427,10 @@ int PsuadeBase::runAdaptiveErrBased1()
       tstSamOutputs = pTstOutputs.dbleArray_;
    }
 
-   printOutTS(PL_INFO,"You may add to the base sample an auxiliary sample which\n");
-   printOutTS(PL_INFO,"covers the corners (for example, factorial or fractional\n");
+   printOutTS(PL_INFO,
+        "You may add to the base sample an auxiliary sample which\n");
+   printOutTS(PL_INFO,
+        "covers the corners (for example, factorial or fractional\n");
    printOutTS(PL_INFO,"factorial).\n");
    sprintf(cString,"Add an auxiliary sample ? (y or n) ");
    getString(cString, winput);
@@ -2069,7 +2442,13 @@ int PsuadeBase::runAdaptiveErrBased1()
       winput[ss-1] = '\0';
       auxIO = new PsuadeData();
       status = auxIO->readPsuadeFile(winput);
-      if (status != 0) exit(1);
+      if (status != 0)
+      {
+         printOutTS(PL_ERROR,
+            "PSUADE adaptive(1) ERROR: cannot read file %s or wrong format.\n",
+            winput);
+         exit(1);
+      }
       auxIO->getParameter("method_nsamples", pPtr);
       auxNSamples = pPtr.intData_;
       auxIO->getParameter("input_ninputs", pPtr);
@@ -2084,7 +2463,8 @@ int PsuadeBase::runAdaptiveErrBased1()
       }
       if (auxNOutputs > 1)
       {
-         printOutTS(PL_INFO,"PSUADE adaptive(1) ERROR: auxiliary sample nOutputs != 1.\n");
+         printOutTS(PL_INFO,
+              "PSUADE adaptive(1) ERROR: auxiliary sample nOutputs != 1.\n");
          return 0;
       }
       auxIO->getParameter("input_sample", pAuxInputs);
@@ -2120,8 +2500,8 @@ int PsuadeBase::runAdaptiveErrBased1()
    outputLevel_ = pPtr.intData_;
    psuadeIO_->getParameter("ana_rstype", pPtr);
    rstype = pPtr.intData_;
-   if (rstype != PSUADE_RS_MARSB && rstype != PSUADE_RS_GP1 &&
-       rstype != PSUADE_RS_TGP   && rstype != PSUADE_RS_KR)
+   if ((rstype != PSUADE_RS_MARSB) && (rstype != PSUADE_RS_GP1) &&
+       (rstype != PSUADE_RS_TGP)   && (rstype != PSUADE_RS_KR))
    {
       printOutTS(PL_INFO, "PSUADE adaptive(1) INFO: RS type defaulted to MarsBag.\n");
       rstype = PSUADE_RS_MARSB; 
@@ -2150,19 +2530,16 @@ int PsuadeBase::runAdaptiveErrBased1()
       nSamples = sampler_->getNumSamples();
       psuadeIO_->updateMethodSection(-1,nSamples,-1,-1,-1);
    }
-   sparam.clear();
    if (refineType == 0)
    {
-      sparam.append("setUniformRefinement");
+      strcpy(sparam, "setUniformRefinement");
       refineSize = 100000;
    }
-   else sparam.append("setAdaptiveRefinementBasedOnErrors");
+   else strcpy(sparam, "setAdaptiveRefinementBasedOnErrors");
    sampler_->setParam(sparam);
    if (refineSize > 0)
    {
-      sparam.clear();
-      sprintf(cString, "setRefineSize %d", refineSize);
-      sparam.append(cString);
+      sprintf(sparam, "setRefineSize %d", refineSize);
       sampler_->setParam(sparam);
       printOutTS(PL_INFO, "PSUADE adaptive(1): refineSize = %d\n",refineSize);
    }
@@ -2217,22 +2594,31 @@ int PsuadeBase::runAdaptiveErrBased1()
 
       currNJobs = jobsCompleted;
       for (ss = 0; ss < nSamples; ss++) if (sampleStates[ss]==0) currNJobs++;
-      if (psAnaExpertMode_ == 1 && jobsCompleted < currNJobs)
+      if ((psAnaExpertMode_ == 1) && (jobsCompleted < currNJobs))
       {
-         printOutTS(PL_INFO, "A sample has been created in the psuadeData file. \n");
-         printOutTS(PL_INFO, "At this point you can choose to run your model with\n");
-         printOutTS(PL_INFO, "this sample via psuade or by yourself (if the model\n");
-         printOutTS(PL_INFO, "is expensive to run, you want to choose the latter).\n");
+         printOutTS(PL_INFO, 
+              "A sample has been created in the psuadeData file. \n");
+         printOutTS(PL_INFO, 
+              "At this point you can choose to run your model with\n");
+         printOutTS(PL_INFO, 
+              "this sample via psuade or by yourself (if the model\n");
+         printOutTS(PL_INFO, 
+              "is expensive to run, you want to choose the latter).\n");
          sprintf(systemCommand, "Run the model yourself (y or n) ? ");
          getString(systemCommand, cString);
          if (cString[0] == 'y')
          {
-            printOutTS(PL_INFO, "You have chosen to run the sample yourself.\n");
-            printOutTS(PL_INFO, "The following are the steps to continue ARSM refinements:\n");
-            printOutTS(PL_INFO, "(1) Rename psuadeData to something else (e.g. psData). \n");
-            printOutTS(PL_INFO, "(2) Run the sample in this file and collect outputs.\n");
-            printOutTS(PL_INFO, "(3) Replace the outputs in psData (do not change others).\n");
-            printOutTS(PL_INFO, "(4) Finally, restart psuade with this file (psData).\n");
+            printOutTS(PL_INFO,"You have chosen to run the sample yourself.\n");
+            printOutTS(PL_INFO, 
+              "The following are the steps to continue ARSM refinements:\n");
+            printOutTS(PL_INFO, 
+              "(1) Rename psuadeData to something else (e.g. psData). \n");
+            printOutTS(PL_INFO, 
+              "(2) Run the sample in this file and collect outputs.\n");
+            printOutTS(PL_INFO, 
+              "(3) Replace the outputs in psData (do not change others).\n");
+            printOutTS(PL_INFO, 
+              "(4) Finally, restart psuade with this file (psData).\n");
             delete [] sampleInputs;
             delete [] sampleOutputs;
             delete [] sampleStates;
@@ -2308,15 +2694,16 @@ int PsuadeBase::runAdaptiveErrBased1()
                }
                else sampleStates[ss]++;
 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime))
                {
                   sampleStates[ss] = 0;
                   parallelJobCount--;
                   ss--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE adaptive(1): sample %6d to be restarted.\n",
-                            ss+1);
+                     printOutTS(PL_INFO, 
+                          "PSUADE adaptive(1): sample %6d to be restarted.\n",
+                          ss+1);
                }
             }
          }
@@ -2352,18 +2739,17 @@ int PsuadeBase::runAdaptiveErrBased1()
       samplerAux->initialize(1);
       samplerAux->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
                               sampleOutputs, sampleStates);
-      sparam.clear();
-      sparam.append("changeInfoName");
+      strcpy(sparam, "changeInfoName");
       samplerAux->setParam(sparam);
-      sparam.clear();
-      sparam.append("setUniformRefinement");
+      strcpy(sparam, "setUniformRefinement");
       samplerAux->setParam(sparam);
       samplerAux->refine(refineRatio,randomize,0,0,NULL);
       nSamples2 = samplerAux->getNumSamples();
       if (nSamples2 != 2 * nSamples)
       {
-         printOutTS(PL_INFO,"PSUADE adaptive(1): something is wrong. Consult developers.\n");
-         printOutTS(PL_INFO,"                    refined sample size != 2 * original size\n");
+         printOutTS(PL_INFO,"PSUADE adaptive(1): Castastropic error.\n");
+         printOutTS(PL_INFO,"       refined sample size != 2 * original size\n");
+         printOutTS(PL_INFO,"       Please consult developers.\n");
          delete samplerAux;
          delete sampler_;
          sampler_ = NULL;
@@ -2410,7 +2796,7 @@ int PsuadeBase::runAdaptiveErrBased1()
       }
       marsNSamples = nSamples + auxNSamples;
 
-      if (psRSExpertMode_ == 0 && rstype == PSUADE_RS_MARSB)
+      if ((psRSExpertMode_ == 0) && (rstype == PSUADE_RS_MARSB))
       {
          strcpy(cString, "mars_params");
          targv[0] = (char *) cString;
@@ -2459,11 +2845,16 @@ int PsuadeBase::runAdaptiveErrBased1()
          errL2 = sqrt(errL2 / (nSamples2 - nSamples));
          totalSum /= (nSamples2 - nSamples);
          errAvg  = sqrt(errAvg/(nSamples2-nSamples));
-         printOutTS(PL_INFO, "     response surface unscaled max error = %e\n",errMax);
-         printOutTS(PL_INFO, "     response surface   scaled max error = %e\n",errMax/totalSum);
-         printOutTS(PL_INFO, "     response surface unscaled rms error = %e\n",errL2);
-         printOutTS(PL_INFO, "     response surface   scaled rms error = %e\n",errL2/totalSum);
-         printOutTS(PL_INFO, "     response surface unscaled avg error = %e\n",errAvg);
+         printOutTS(PL_INFO, 
+           "     response surface unscaled max error = %e\n",errMax);
+         printOutTS(PL_INFO, 
+           "     response surface   scaled max error = %e\n",errMax/totalSum);
+         printOutTS(PL_INFO, 
+           "     response surface unscaled rms error = %e\n",errL2);
+         printOutTS(PL_INFO, 
+           "     response surface   scaled rms error = %e\n",errL2/totalSum);
+         printOutTS(PL_INFO, 
+           "     response surface unscaled avg error = %e\n",errAvg);
          printOutTS(PL_INFO, "     response surface   scaled avg error = %e\n",
                 errAvg/totalSum);
       }
@@ -2485,11 +2876,16 @@ int PsuadeBase::runAdaptiveErrBased1()
          errL2 = sqrt(errL2 / tstNSamples);
          totalSum /= (double) tstNSamples;
          errAvg  = errAvg / tstNSamples;
-         printOutTS(PL_INFO, "     test sample RS unscaled max error = %e\n",errMax);
-         printOutTS(PL_INFO, "     test sample RS   scaled max error = %e\n",errMax/totalSum);
-         printOutTS(PL_INFO, "     test sample RS unscaled rms error = %e\n",errL2);
-         printOutTS(PL_INFO, "     test sample RS   scaled rms error = %e\n",errL2/totalSum);
-         printOutTS(PL_INFO, "     test sample RS unscaled avg error = %e\n",errAvg);
+         printOutTS(PL_INFO, 
+           "     test sample RS unscaled max error = %e\n",errMax);
+         printOutTS(PL_INFO, 
+           "     test sample RS   scaled max error = %e\n",errMax/totalSum);
+         printOutTS(PL_INFO, 
+           "     test sample RS unscaled rms error = %e\n",errL2);
+         printOutTS(PL_INFO, 
+           "     test sample RS   scaled rms error = %e\n",errL2/totalSum);
+         printOutTS(PL_INFO, 
+           "     test sample RS unscaled avg error = %e\n",errAvg);
          printOutTS(PL_INFO, "     test sample RS   scaled avg error = %e\n",
                 errAvg/totalSum);
          if (outputLevel_ > 0)
@@ -2560,7 +2956,8 @@ int PsuadeBase::runAdaptiveErrBased1()
       {
          printOutTS(PL_INFO, "PSUADE adaptive(1): threshold reached.\n");
          printOutTS(PL_INFO, "                    unscaled rms = %en", errL2);
-         printOutTS(PL_INFO, "                    threshold    = %e\n", anaThreshold);
+         printOutTS(PL_INFO, 
+              "                    threshold    = %e\n", anaThreshold);
          delete [] sampleInputs;
          delete [] sampleOutputs;
          delete [] sampleStates;
@@ -2589,8 +2986,9 @@ int PsuadeBase::runAdaptiveErrBased1()
       }
       if (refineLevel > nRefinements)
       {
-         printOutTS(PL_INFO, "PSUADE adaptive(1): number of refinements %d reached.\n",
-                nRefinements);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptive(1): number of refinements %d reached.\n",
+              nRefinements);
          delete [] sampleInputs;
          delete [] sampleOutputs;
          delete [] sampleStates;
@@ -2672,32 +3070,32 @@ int PsuadeBase::runAdaptiveErrBasedG()
    double *auxSamInputs=NULL, *auxSamOutputs=NULL;
    double *tstSamInputs=NULL, *tstSamOutputs=NULL, *tstOutputs;
    char   systemCommand[100], cString[100], winput[500];
-   char   *targv[3];
+   char   *targv[3], sparam[501];
    FILE   *fp;
    pData  pPtr, pLowerB, pUpperB, pPDFs, pInpData, pOutData, pStates;
    pData  pAuxInputs, pAuxOutputs, pTstInputs, pTstOutputs;
-   string sparam;
    FuncApprox *faPtr=NULL;
    Sampling   *samplerAux=NULL;
    PsuadeData *auxIO=NULL, *tstIO=NULL;
    FunctionInterface *funcIO=NULL;
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "PSUADE adaptive(G): Use GMetis with MarsBagging.\n");
-   printOutTS(PL_INFO, "Adaptive sampling based on predicted errors from the\n");
-   printOutTS(PL_INFO, "MARS-with-bagging response surfaces (differs from RSMMB\n");
-   printOutTS(PL_INFO, "by allowing initial sample to be arbitrary instead of Metis).\n");
+   printOutTS(PL_INFO,"PSUADE adaptive(G): Use GMetis with MarsBagging.\n");
+   printOutTS(PL_INFO,"Adaptive sampling based on predicted errors from the\n");
+   printOutTS(PL_INFO,"MARS-with-bagging response surfaces (differs from RSMMB\n");
+   printOutTS(PL_INFO,
+        "by allowing initial sample to be arbitrary instead of Metis).\n");
    printDashes(PL_INFO, 0);
-   printOutTS(PL_INFO, "To run this method, an initial sample can be provided.\n");
-   printOutTS(PL_INFO, "The sample should be somewhat space-filling.\n");
-   printOutTS(PL_INFO, "To use an initial sample, insert it in PSUADE_IO section,\n");
-   printOutTS(PL_INFO, "use ARSMG with desired number of refinements, and set\n");
-   printOutTS(PL_INFO, "refinement size.\n");
+   printOutTS(PL_INFO,"To run this method, an initial sample can be provided.\n");
+   printOutTS(PL_INFO,"The sample should be somewhat space-filling.\n");
+   printOutTS(PL_INFO,"To use an initial sample, insert it in PSUADE_IO section,\n");
+   printOutTS(PL_INFO,"use ARSMG with desired number of refinements, and set\n");
+   printOutTS(PL_INFO,"refinement size.\n");
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "To be able to exercise more control of this method,\n");
-   printOutTS(PL_INFO, "you can turn on interactive and/or expert modes in\n");
-   printOutTS(PL_INFO, "the input file.\n");
-   printOutTS(PL_INFO, "Turn on outputLevel (>0) to get error histogram.\n");
+   printOutTS(PL_INFO,"To be able to exercise more control of this method,\n");
+   printOutTS(PL_INFO,"you can turn on interactive and/or expert modes in\n");
+   printOutTS(PL_INFO,"the input file.\n");
+   printOutTS(PL_INFO,"Turn on outputLevel (>0) to get error histogram.\n");
    printEquals(PL_INFO, 0);
 
    psuadeIO_->getParameter("input_pdfs", pPDFs);
@@ -2708,10 +3106,10 @@ int PsuadeBase::runAdaptiveErrBasedG()
    for (ss = 0; ss < nInputs; ss++) iSum += inputPDFs[ss];
    if (iSum)
    {
-      printOutTS(PL_ERROR, "PSUADE adaptive(G) ERROR: does not currently allow \n");
-      printOutTS(PL_ERROR, "       non-uniform probability distribution to be\n");
-      printOutTS(PL_ERROR, "       defined in the INPUT SECTION.\n");
-      printOutTS(PL_ERROR, "       Please fix it and then run again.\n");
+      printOutTS(PL_ERROR,"PSUADE adaptive(G) ERROR: does not currently allow \n");
+      printOutTS(PL_ERROR,"       non-uniform probability distribution to be\n");
+      printOutTS(PL_ERROR,"       defined in the INPUT SECTION.\n");
+      printOutTS(PL_ERROR,"       Please fix it and then run again.\n");
       exit(1);
    }
 
@@ -2724,7 +3122,8 @@ int PsuadeBase::runAdaptiveErrBasedG()
    if (nOutputs > 1)
    {
       printOutTS(PL_INFO, "PSUADE adaptive(G): nOutputs should be 1.\n");
-      printOutTS(PL_INFO, "       INFO: use 'write' in interactive model to select\n");
+      printOutTS(PL_INFO, 
+           "       INFO: use 'write' in interactive model to select\n");
       printOutTS(PL_INFO, "             1 output only and re-run this.\n");
       return 0;
    }
@@ -2745,7 +3144,12 @@ int PsuadeBase::runAdaptiveErrBasedG()
       winput[ss-1] = '\0';
       tstIO = new PsuadeData();
       status = tstIO->readPsuadeFile(winput);
-      if (status != 0) exit(1);
+      if (status != 0)
+      {
+         printf("PSUADE adaptive(G) ERROR: cannot read file %s or wrong format.\n",
+                winput);
+         exit(1);
+      }
       tstIO->getParameter("method_nsamples", pPtr);
       tstNSamples = pPtr.intData_;
       tstIO->getParameter("input_ninputs", pPtr);
@@ -2754,13 +3158,15 @@ int PsuadeBase::runAdaptiveErrBasedG()
       tstNOutputs = pPtr.intData_;
       if (tstNInputs != nInputs)
       {
-         printOutTS(PL_ERROR,"PSUADE adaptive(G) ERROR: test sample nInputs != %d\n",
-                nInputs);
+         printOutTS(PL_ERROR,
+              "PSUADE adaptive(G) ERROR: test sample nInputs != %d\n",
+              nInputs);
          return 0;
       }
       if (tstNOutputs > 1)
       {
-         printOutTS(PL_INFO,"PSUADE adaptive(G) ERROR: test sample nOutputs != 1.\n");
+         printOutTS(PL_INFO,
+              "PSUADE adaptive(G) ERROR: test sample nOutputs != 1.\n");
          return 0;
       }
       tstIO->getParameter("input_sample", pTstInputs);
@@ -2769,8 +3175,10 @@ int PsuadeBase::runAdaptiveErrBasedG()
       tstSamOutputs = pTstOutputs.dbleArray_;
    }
 
-   printOutTS(PL_INFO, "You may add to the base sample an auxiliary sample which\n");
-   printOutTS(PL_INFO, "covers the corners (for example, factorial or fractional\n");
+   printOutTS(PL_INFO, 
+        "You may add to the base sample an auxiliary sample which\n");
+   printOutTS(PL_INFO, 
+        "covers the corners (for example, factorial or fractional\n");
    printOutTS(PL_INFO, "factorial).\n");
    sprintf(cString, "Add an auxiliary sample ? (y or n) ");
    getString(cString, winput);
@@ -2782,7 +3190,13 @@ int PsuadeBase::runAdaptiveErrBasedG()
       winput[ss-1] = '\0';
       auxIO = new PsuadeData();
       status = auxIO->readPsuadeFile(winput);
-      if (status == -1) exit(1);
+      if (status != 0)
+      {
+         printOutTS(PL_ERROR, 
+              "PSUADE adaptive(G) ERROR: cannot read file %s or wrong format.\n",
+              winput);
+         exit(1);
+      }
       auxIO->getParameter("method_nsamples", pPtr);
       auxNSamples = pPtr.intData_;
       auxIO->getParameter("input_ninputs", pPtr);
@@ -2791,15 +3205,18 @@ int PsuadeBase::runAdaptiveErrBasedG()
       auxNOutputs = pPtr.intData_;
       if (auxNInputs != nInputs)
       {
-         printOutTS(PL_ERROR, "PSUADE adaptive(G) ERROR : auxiliary nInputs != %d\n",
+         printOutTS(PL_ERROR,"PSUADE adaptive(G) ERROR : auxiliary nInputs != %d\n",
                 nInputs);
-         return 0;
+         exit(1);
       }
       if (auxNOutputs > 1)
       {
-         printOutTS(PL_INFO, "PSUADE adaptive(G): auxiliary sample nOutputs != 1.\n");
-         printOutTS(PL_INFO, "       INFO: use 'write' in interactive model to select\n");
-         printOutTS(PL_INFO, "             1 output only and re-run this.\n");
+         printOutTS(PL_INFO, 
+              "PSUADE adaptive(G): auxiliary sample nOutputs != 1.\n");
+         printOutTS(PL_INFO, 
+              "       INFO: use 'write' in interactive model to select\n");
+         printOutTS(PL_INFO, 
+              "             1 output only and re-run this.\n");
          return 0;
       }
       printOutTS(PL_INFO,"auxiliary sample has sample size = %d\n", auxNSamples);
@@ -2866,18 +3283,13 @@ int PsuadeBase::runAdaptiveErrBasedG()
    sampler_->setInputBounds(nInputs, iLowerB, iUpperB);
    sampler_->setOutputParams(nOutputs);
    sampler_->setSamplingParams(nSamples, 1, 1);
-   sparam.clear();
-   sprintf(cString, "reset");
-   sparam.append(cString);
+   strcpy(sparam, "reset");
    sampler_->setParam(sparam);
-   sparam.clear();
-   sparam.append("setAdaptiveRefinementBasedOnErrors");
+   strcpy(sparam, "setAdaptiveRefinementBasedOnErrors");
    sampler_->setParam(sparam);
    if (refineSize > 0)
    {
-      sparam.clear();
-      sprintf(cString, "setRefineSize %d", refineSize);
-      sparam.append(cString);
+      sprintf(sparam, "setRefineSize %d", refineSize);
       sampler_->setParam(sparam);
       printOutTS(PL_INFO, "PSUADE adaptive(G): refineSize = %d\n",refineSize);
    }
@@ -2901,9 +3313,11 @@ int PsuadeBase::runAdaptiveErrBasedG()
       if (outputLevel_ > 1)
       {
          printEquals(PL_INFO, 0);
-         printOutTS(PL_INFO, "PSUADE adaptive(G): current level    = %d (of %d)\n",
-                refineLevel, nRefinements);
-         printOutTS(PL_INFO, "PSUADE adaptive(G): current nSamples = %d\n",nSamples);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptive(G): current level    = %d (of %d)\n",
+              refineLevel, nRefinements);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptive(G): current nSamples = %d\n",nSamples);
       }
       sampleInputs  = new double[nSamples * nInputs];
       sampleOutputs = new double[nSamples * nOutputs];
@@ -2918,22 +3332,32 @@ int PsuadeBase::runAdaptiveErrBasedG()
 
       currNJobs = jobsCompleted;
       for (ss = 0; ss < nSamples; ss++) if (sampleStates[ss]==0) currNJobs++;
-      if (psAnaExpertMode_ == 1 && jobsCompleted < currNJobs)
+      if ((psAnaExpertMode_ == 1) && (jobsCompleted < currNJobs))
       {
-         printOutTS(PL_INFO, "A sample has been created in the psuadeData file. \n");
-         printOutTS(PL_INFO, "At this point you can choose to run your model with\n");
-         printOutTS(PL_INFO, "this sample via psuade or by yourself (if the model\n");
-         printOutTS(PL_INFO, "is expensive to run, you want to choose the latter).\n");
+         printOutTS(PL_INFO, 
+              "A sample has been created in the psuadeData file. \n");
+         printOutTS(PL_INFO, 
+              "At this point you can choose to run your model with\n");
+         printOutTS(PL_INFO, 
+              "this sample via psuade or by yourself (if the model\n");
+         printOutTS(PL_INFO, 
+              "is expensive to run, you want to choose the latter).\n");
          sprintf(systemCommand, "Run the model yourself (y or n) ? ");
          getString(systemCommand, cString);
          if (cString[0] == 'y')
          {
-            printOutTS(PL_INFO, "You have chosen to run the sample yourself.\n");
-            printOutTS(PL_INFO, "The following are steps to continue ARSM refinement:\n");
-            printOutTS(PL_INFO, "(1) Rename psuadeData to something else (e.g. psData). \n");
-            printOutTS(PL_INFO, "(2) Run the sample in this file and collect outputs.\n");
-            printOutTS(PL_INFO, "(3) Replace the outputs in psData (outputs only).\n");
-            printOutTS(PL_INFO, "(4) Finally, restart psuade with this file (psData).\n");
+            printOutTS(PL_INFO, 
+              "You have chosen to run the sample yourself.\n");
+            printOutTS(PL_INFO, 
+              "The following are steps to continue ARSM refinement:\n");
+            printOutTS(PL_INFO, 
+              "(1) Rename psuadeData to something else (e.g. psData). \n");
+            printOutTS(PL_INFO, 
+              "(2) Run the sample in this file and collect outputs.\n");
+            printOutTS(PL_INFO, 
+              "(3) Replace the outputs in psData (outputs only).\n");
+            printOutTS(PL_INFO, 
+              "(4) Finally, restart psuade with this file (psData).\n");
             delete [] sampleInputs;
             delete [] sampleOutputs;
             delete [] sampleStates;
@@ -3008,15 +3432,16 @@ int PsuadeBase::runAdaptiveErrBasedG()
                }
                else sampleStates[ss]++;
 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime))
                {
                   sampleStates[ss] = 0;
                   parallelJobCount--;
                   ss--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE adaptive(G): sample %6d to be restarted.\n",
-                            ss+1);
+                     printOutTS(PL_INFO, 
+                          "PSUADE adaptive(G): sample %6d to be restarted.\n",
+                          ss+1);
                }
             }
          }
@@ -3041,7 +3466,7 @@ int PsuadeBase::runAdaptiveErrBasedG()
 #endif
          }
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "PSUADE adaptive(G): jobs completed = %d(of %d)\n",
+            printOutTS(PL_INFO,"PSUADE adaptive(G): jobs completed = %d(of %d)\n",
                    jobsCompleted, currNJobs);
       }
 
@@ -3053,11 +3478,9 @@ int PsuadeBase::runAdaptiveErrBasedG()
       samplerAux->initialize(1);
       samplerAux->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
                               sampleOutputs, sampleStates);
-      sparam.clear();
-      sparam.append("changeInfoName");
+      strcpy(sparam, "changeInfoName");
       samplerAux->setParam(sparam);
-      sparam.clear();
-      sparam.append("setUniformRefinement");
+      strcpy(sparam, "setUniformRefinement");
       samplerAux->setParam(sparam);
       samplerAux->refine(refineRatio,randomize,0,0,NULL);
       nSamples2 = samplerAux->getNumSamples();
@@ -3069,19 +3492,19 @@ int PsuadeBase::runAdaptiveErrBasedG()
                              samOutputs2, samStates2);
 
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "PSUADE adaptive(G): response surface analysis.\n");
-      printOutTS(PL_INFO, "PSUADE adaptive(G): current level     = %d (of %d)\n",
-             refineLevel, nRefinements);
-      printOutTS(PL_INFO, "                    training nSamples = %d\n",
+      printOutTS(PL_INFO,"PSUADE adaptive(G): response surface analysis.\n");
+      printOutTS(PL_INFO,"PSUADE adaptive(G): current level     = %d (of %d)\n",
+             refineLevel,nRefinements);
+      printOutTS(PL_INFO,"                    training nSamples = %d\n",
              nSamples+auxNSamples);
-      printOutTS(PL_INFO, "                    test set nSamples = %d\n",
+      printOutTS(PL_INFO,"                    test set nSamples = %d\n",
              nSamples2-nSamples);
 
       faPtr = genFA(rstype, nInputs, nOutputs, nSamples+auxNSamples);
       faPtr->setNPtsPerDim(nPtsPerDim);
       faPtr->setBounds(iLowerB, iUpperB);
       faPtr->setOutputLevel(outputLevel_);
-      if (psRSExpertMode_ == 0 && rstype == PSUADE_RS_MARSB)
+      if ((psRSExpertMode_ == 0) && (rstype == PSUADE_RS_MARSB))
       {
          strcpy(cString, "mars_params");
          targv[0] = (char *) cString;
@@ -3130,11 +3553,16 @@ int PsuadeBase::runAdaptiveErrBasedG()
       errL2 = sqrt(errL2 / (nSamples2 - nSamples));
       totalSum /= (nSamples2 - nSamples);
       errAvg  = errAvg / (nSamples2 - nSamples);
-      printOutTS(PL_INFO, "     response surface unscaled max error = %e\n",errMax);
-      printOutTS(PL_INFO, "     response surface   scaled max error = %e\n",errMax/totalSum);
-      printOutTS(PL_INFO, "     response surface unscaled rms error = %e\n",errL2);
-      printOutTS(PL_INFO, "     response surface   scaled rms error = %e\n",errL2/totalSum);
-      printOutTS(PL_INFO, "     response surface unscaled avg error = %e\n",errAvg);
+      printOutTS(PL_INFO, 
+           "     response surface unscaled max error = %e\n",errMax);
+      printOutTS(PL_INFO, 
+           "     response surface   scaled max error = %e\n",errMax/totalSum);
+      printOutTS(PL_INFO, 
+           "     response surface unscaled rms error = %e\n",errL2);
+      printOutTS(PL_INFO, 
+           "     response surface   scaled rms error = %e\n",errL2/totalSum);
+      printOutTS(PL_INFO, 
+           "     response surface unscaled avg error = %e\n",errAvg);
       printOutTS(PL_INFO, "     response surface   scaled avg error = %e\n",
              errAvg/totalSum);
       if (tstNSamples > 0)
@@ -3155,11 +3583,16 @@ int PsuadeBase::runAdaptiveErrBasedG()
          errL2 = sqrt(errL2 / tstNSamples);
          totalSum /= (double) tstNSamples;
          errAvg  = errAvg / tstNSamples;
-         printOutTS(PL_INFO, "     test sample RS unscaled max error = %e\n",errMax);
-         printOutTS(PL_INFO, "     test sample RS   scaled max error = %e\n",errMax/totalSum);
-         printOutTS(PL_INFO, "     test sample RS unscaled rms error = %e\n",errL2);
-         printOutTS(PL_INFO, "     test sample RS   scaled rms error = %e\n",errL2/totalSum);
-         printOutTS(PL_INFO, "     test sample RS unscaled avg error = %e\n",errAvg);
+         printOutTS(PL_INFO, 
+           "     test sample RS unscaled max error = %e\n",errMax);
+         printOutTS(PL_INFO, 
+           "     test sample RS   scaled max error = %e\n",errMax/totalSum);
+         printOutTS(PL_INFO, 
+           "     test sample RS unscaled rms error = %e\n",errL2);
+         printOutTS(PL_INFO, 
+           "     test sample RS   scaled rms error = %e\n",errL2/totalSum);
+         printOutTS(PL_INFO, 
+           "     test sample RS unscaled avg error = %e\n",errAvg);
          printOutTS(PL_INFO, "     test sample RS   scaled avg error = %e\n",
                 errAvg/totalSum);
          if (outputLevel_ > 0)
@@ -3185,8 +3618,9 @@ int PsuadeBase::runAdaptiveErrBasedG()
                fprintf(fp, "m = mean(E);\n");
                fprintf(fp, "std  = sqrt(sum((E - m) .* (E - m)) / length(E))\n");
                fclose(fp);
-               printOutTS(PL_INFO,"PSUADE adaptive(G): error distribution plot is in %s.\n",
-                          cString);
+               printOutTS(PL_INFO,
+                   "PSUADE adaptive(G): error distribution plot is in %s.\n",
+                   cString);
             }
          }
          delete [] tstOutputs;
@@ -3197,7 +3631,8 @@ int PsuadeBase::runAdaptiveErrBasedG()
                             sampleOutputs, sampleStates);
       if (errL2 < anaThreshold)
       {
-         printOutTS(PL_INFO, "PSUADE adapive(G): threshold reached (based on unscaled L2).\n");
+         printOutTS(PL_INFO, 
+              "PSUADE adapive(G): threshold reached (based on unscaled L2).\n");
          delete [] sampleInputs;
          delete [] sampleOutputs;
          delete [] sampleStates;
@@ -3225,8 +3660,9 @@ int PsuadeBase::runAdaptiveErrBasedG()
       }
       if (refineLevel > nRefinements)
       {
-         printOutTS(PL_INFO, "PSUADE adapive(G): number of refinements %d reached.\n",
-                nRefinements);
+         printOutTS(PL_INFO, 
+              "PSUADE adapive(G): number of refinements %d reached.\n",
+              nRefinements);
          delete [] sampleInputs;
          delete [] sampleOutputs;
          delete [] sampleStates;
@@ -3281,9 +3717,8 @@ int PsuadeBase::runAdaptivePRA()
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, *tempY;
    double refineThreshold=1.0, anaThreshold, curVal=1.0, lastVal, relMax;
    double relMin, *sampErrors, ddata;
-   char   cString[100];
+   char   cString[100], sparam[501];
    pData  pPtr, pLowerB, pUpperB, pPDFs;
-   string sparam;
    FunctionInterface *funcIO=NULL;
 
    psuadeIO_->getParameter("input_pdfs", pPDFs);
@@ -3294,8 +3729,10 @@ int PsuadeBase::runAdaptivePRA()
    for (ss = 0; ss < nInputs; ss++) iSum += inputPDFs[ss];
    if (iSum)
    {
-      printOutTS(PL_ERROR, "PSUADE adaptivePRA ERROR: does not currently allow \n");
-      printOutTS(PL_ERROR, "       non-uniform probability distribution to be\n");
+      printOutTS(PL_ERROR, 
+           "PSUADE adaptivePRA ERROR: does not currently allow \n");
+      printOutTS(PL_ERROR, 
+           "       non-uniform probability distribution to be\n");
       printOutTS(PL_ERROR, "       defined in the INPUT SECTION.\n");
       printOutTS(PL_ERROR, "       Please fix it and then run again.\n");
       exit(1);
@@ -3307,7 +3744,8 @@ int PsuadeBase::runAdaptivePRA()
    samMethod = pPtr.intData_;
    if (samMethod != PSUADE_SAMP_METIS)
    {
-      printOutTS(PL_INFO, "PSUADE adaptivePRA: sampling defaulted to METIS.\n");
+      printOutTS(PL_INFO, 
+           "PSUADE adaptivePRA: sampling defaulted to METIS.\n");
       samMethod = PSUADE_SAMP_METIS; 
       psuadeIO_->updateMethodSection(samMethod,-1,-1,-1,-1);
       initFlag = 1;
@@ -3363,19 +3801,16 @@ int PsuadeBase::runAdaptivePRA()
       nSamples = sampler_->getNumSamples();
       psuadeIO_->updateMethodSection(-1,nSamples,-1,-1,-1);
    }
-   sparam.clear();
    if (refineType == 0)
    {
-      sparam.append("setUniformRefinement");
+      strcpy(sparam, "setUniformRefinement");
       refineSize = 100000;
    }
-   else sparam.append("setAdaptiveRefinementBasedOnOutputs");
+   else strcpy(sparam, "setAdaptiveRefinementBasedOnOutputs");
    sampler_->setParam(sparam);
    if (refineSize > 0)
    {
-      sparam.clear();
-      sprintf(cString, "setRefineSize %d", refineSize);
-      sparam.append(cString);
+      sprintf(sparam, "setRefineSize %d", refineSize);
       sampler_->setParam(sparam);
       printOutTS(PL_INFO, "PSUADE adaptivePRA: refineSize = %d\n",refineSize);
    }
@@ -3384,14 +3819,22 @@ int PsuadeBase::runAdaptivePRA()
 
    funcIO = createFunctionInterface(psuadeIO_);
 
-   printOutTS(PL_INFO, "PSUADE adaptivePRA: initial nSamples = %d\n", nSamples);
-   printOutTS(PL_INFO, "PSUADE adaptivePRA: number of refinements = %d\n", nRefinements);
-   printOutTS(PL_INFO, "This function finds the first division between fail/no fail\n");
-   printOutTS(PL_INFO, "and focuses the adaptive sampling on the interface. Hence, it\n");
-   printOutTS(PL_INFO, "is important that the initial nSamples is sufficient large to\n");
-   printOutTS(PL_INFO, "uncover all fail/no fail interfaces. Alternatively, you can\n");
-   printOutTS(PL_INFO, "enforce the number of uniform refinements before adaptive\n");
-   printOutTS(PL_INFO, "sampling is applied. You have the opportunity to do it now.\n");
+   printOutTS(PL_INFO, 
+        "PSUADE adaptivePRA: initial nSamples = %d\n", nSamples);
+   printOutTS(PL_INFO, 
+        "PSUADE adaptivePRA: number of refinements = %d\n", nRefinements);
+   printOutTS(PL_INFO, 
+        "This function finds the first division between fail/no fail\n");
+   printOutTS(PL_INFO, 
+        "and focuses the adaptive sampling on the interface. Hence, it\n");
+   printOutTS(PL_INFO, 
+        "is important that the initial nSamples is sufficient large to\n");
+   printOutTS(PL_INFO, 
+        "uncover all fail/no fail interfaces. Alternatively, you can\n");
+   printOutTS(PL_INFO, 
+        "enforce the number of uniform refinements before adaptive\n");
+   printOutTS(PL_INFO, 
+        "sampling is applied. You have the opportunity to do it now.\n");
    sprintf(cString,"Number of initial uniform refinements : (0 - %d): ",
            nRefinements);
    nUniform = getInt(0, nRefinements, cString);
@@ -3411,9 +3854,11 @@ int PsuadeBase::runAdaptivePRA()
       if (outputLevel_ > 1)
       {
          printAsterisks(PL_INFO, 0);
-         printOutTS(PL_INFO, "PSUADE adaptivePRA: current level    = %d (of %d)\n",
-                refineLevel, nRefinements);
-         printOutTS(PL_INFO, "PSUADE adaptivePRA: current nSamples = %d\n",nSamples);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptivePRA: current level    = %d (of %d)\n",
+              refineLevel, nRefinements);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptivePRA: current nSamples = %d\n",nSamples);
       }
       sampleInputs  = new double[nSamples * nInputs];
       sampleOutputs = new double[nSamples * nOutputs];
@@ -3495,15 +3940,16 @@ int PsuadeBase::runAdaptivePRA()
                }
                else sampleStates[ss]++;
 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime))
                {
                   sampleStates[ss] = 0;
                   parallelJobCount--;
                   ss--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE adaptivePRA: sample %6d to be restarted.\n",
-                            ss+1);
+                     printOutTS(PL_INFO, 
+                          "PSUADE adaptivePRA: sample %6d to be restarted.\n",
+                          ss+1);
                }
             }
          }
@@ -3528,7 +3974,7 @@ int PsuadeBase::runAdaptivePRA()
 #endif
          }
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "\nPSUADE adaptivePRA: jobs completed = %d(of %d)\n",
+            printOutTS(PL_INFO,"\nPSUADE adaptivePRA: jobs completed = %d(of %d)\n",
                    jobsCompleted, currNJobs);
       }
 
@@ -3539,13 +3985,14 @@ int PsuadeBase::runAdaptivePRA()
       tempY = NULL;
       for (ss = 0; ss < nSamples; ss++)
       {
-         if (sampleOutputs[ss] != 0 && sampleOutputs[ss] != 1)
+         if ((sampleOutputs[ss] != 0) && (sampleOutputs[ss] != 1))
             break;
       }
 
       if (ss != nSamples)
       {
-         printOutTS(PL_INFO, "PSUADE adaptivePRA: non 0/1 outputs (transform to 0/1).\n");
+         printOutTS(PL_INFO, 
+              "PSUADE adaptivePRA: non 0/1 outputs (transform to 0/1).\n");
          if (askFlag == 0)
          {
             while (relMin >= relMax)
@@ -3571,23 +4018,21 @@ int PsuadeBase::runAdaptivePRA()
                                tempY, sampleStates);
       }
 
-      sparam.clear();
-      sparam.append("calVolumes");
+      strcpy(sparam, "calVolumes");
       curVol = sampler_->setParam(sparam);
-      sparam.clear();
-      sparam.append("totalVolumes");
+      strcpy(sparam, "totalVolumes");
       totVol = sampler_->setParam(sparam);
       lastVal = curVal;
       curVal = 1.0 * curVol / totVol;
       if (refineLevel == 1) lastVal = curVal;
       printOutTS(PL_INFO, "Current reliability = %8.5f%% (%d/%d*100)\n",
                 100*curVal,curVol,totVol);
-      if (refineLevel > 1 && curVal != 1.0 && curVal != 0.0)
+      if ((refineLevel > 1) && (curVal != 1.0) && (curVal != 0.0))
          printOutTS(PL_INFO, "Convergence check = %e (%e), trial %d (of 2)\n",
                 PABS(2.0*(curVal-lastVal)/(curVal+lastVal)),anaThreshold,
                 numSuccess+1);
-      if (refineLevel > 1 && curVal != 1.0 && curVal != 0.0 &&
-          PABS(2.0*(lastVal-curVal)/(lastVal+curVal)) < anaThreshold)
+      if ((refineLevel > 1) && (curVal != 1.0) && (curVal != 0.0) &&
+          (PABS(2.0*(lastVal-curVal)/(lastVal+curVal)) < anaThreshold))
       {
          if (curVal != 1.0)
          {
@@ -3612,15 +4057,16 @@ int PsuadeBase::runAdaptivePRA()
 
       if (refineLevel <= nUniform)
       {
-         printOutTS(PL_INFO, "PSUADE adaptivePRA INFO: user requested uniform refinement.\n");
-         sparam.clear();
-         sparam.append("setUniformRefinement");
+         printOutTS(PL_INFO,
+              "PSUADE adaptivePRA INFO: user requested uniform refinement.\n");
+         strcpy(sparam, "setUniformRefinement");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,0,NULL);
       }
-      else if (relMax != relMin && (curVal == 0.0 || curVal == 1.0))
+      else if ((relMax != relMin) && ((curVal == 0.0) || (curVal == 1.0)))
       {
-         printOutTS(PL_INFO, "INFO: outputs != 0/1, reliability = 0/1 => error adaptive.\n");
+         printOutTS(PL_INFO, 
+              "INFO: outputs != 0/1, reliability = 0/1 => error adaptive.\n");
          sampErrors = new double[nSamples];
          for (ss = 0; ss < nSamples; ss++) 
          {
@@ -3632,16 +4078,16 @@ int PsuadeBase::runAdaptivePRA()
             else                      ddata = 1.0 / PABS(ddata - relMin);
             sampErrors[ss] = ddata;
          }
-         sparam.clear();
-         sparam.append("setAdaptiveRefinementBasedOnErrors");
+         strcpy(sparam, "setAdaptiveRefinementBasedOnErrors");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,
                           nSamples,sampErrors);
          delete [] sampErrors;
       }
-      else if (relMax != relMin && curVal != 0.0 && curVal != 1.0)
+      else if ((relMax != relMin) && (curVal != 0.0) && (curVal != 1.0))
       {
-         printOutTS(PL_INFO, "INFO: outputs != 0/1, reliability != 0/1 => adaptive.\n");
+         printOutTS(PL_INFO, 
+              "INFO: outputs != 0/1, reliability != 0/1 => adaptive.\n");
          tempY = new double[nSamples];
          for (ss = 0; ss < nSamples; ss++)
          {
@@ -3651,17 +4097,12 @@ int PsuadeBase::runAdaptivePRA()
          }
          sampler_->loadSamples(nSamples, nInputs, nOutputs, sampleInputs, 
                                tempY, sampleStates);
-         sparam.clear();
-         sparam.append("setAdaptiveRefinementBasedOnOutputs");
+         strcpy(sparam, "setAdaptiveRefinementBasedOnOutputs");
          sampler_->setParam(sparam);
-         sparam.clear();
-         sprintf(cString, "setRefineSize 100000");
-         sparam.append(cString);
+         sprintf(sparam, "setRefineSize 100000");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,0,NULL);
-         sparam.clear();
-         sprintf(cString, "setRefineSize %d", refineSize);
-         sparam.append(cString);
+         sprintf(sparam, "setRefineSize %d", refineSize);
          sampler_->setParam(sparam);
          delete [] tempY;
          tempY = sampleOutputs;
@@ -3679,25 +4120,23 @@ int PsuadeBase::runAdaptivePRA()
                                sampleOutputs, sampleStates);
          delete [] tempY;
       }
-      else if (relMax == relMin && (curVal == 0.0 || curVal == 1.0))
+      else if ((relMax == relMin) && ((curVal == 0.0) || (curVal == 1.0)))
       {
-         printOutTS(PL_INFO, "INFO: outputs = 0/1, reliability = 0 or 1 => uniform\n");
+         printOutTS(PL_INFO, 
+              "INFO: outputs = 0/1, reliability = 0 or 1 => uniform\n");
          printOutTS(PL_INFO, "      refinement (refinement size not limited)\n");
-         sparam.clear();
-         sparam.append("setUniformRefinement");
+         strcpy(sparam, "setUniformRefinement");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,0,NULL);
       }
       else
       {
-         printOutTS(PL_INFO, "INFO: outputs = 0/1, reliability != 0 or 1 => adaptive\n");
+         printOutTS(PL_INFO, 
+              "INFO: outputs = 0/1, reliability != 0 or 1 => adaptive\n");
          printOutTS(PL_INFO, "      refinement (refinement size not limited)\n");
-         sparam.clear();
-         sparam.append("setAdaptiveRefinementBasedOnOutputs");
+         strcpy(sparam, "setAdaptiveRefinementBasedOnOutputs");
          sampler_->setParam(sparam);
-         sparam.clear();
-         sprintf(cString, "setRefineSize 100000");
-         sparam.append(cString);
+         sprintf(sparam, "setRefineSize 100000");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,
                           nSamples,sampErrors);
@@ -3729,9 +4168,8 @@ int PsuadeBase::runAdaptiveOpt()
    int    nUniform, iSum, *inputPDFs, nMins=1, *sortList;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, *tempY;
    double refineThreshold=1.0, *sampErrors, dmin;
-   char   cString[100];
+   char   cString[100], sparam[501];
    pData  pPtr, pLowerB, pUpperB, pPDFs;
-   string sparam;
    FunctionInterface *funcIO=NULL;
 
    psuadeIO_->getParameter("input_pdfs", pPDFs);
@@ -3742,8 +4180,10 @@ int PsuadeBase::runAdaptiveOpt()
    for (ss = 0; ss < nInputs; ss++) iSum += inputPDFs[ss];
    if (iSum)
    {
-      printOutTS(PL_ERROR, "PSUADE ERROR: adaptiveOpt does not currently allow \n");
-      printOutTS(PL_ERROR, "       non-uniform probability distribution to be \n");
+      printOutTS(PL_ERROR, 
+           "PSUADE ERROR: adaptiveOpt does not currently allow \n");
+      printOutTS(PL_ERROR, 
+           "       non-uniform probability distribution to be \n");
       printOutTS(PL_ERROR, "       defined in the INPUT SECTION.\n");
       printOutTS(PL_ERROR, "       Please fix it and then run again.\n");
       exit(1);
@@ -3755,7 +4195,8 @@ int PsuadeBase::runAdaptiveOpt()
    samMethod = pPtr.intData_;
    if (samMethod != PSUADE_SAMP_METIS)
    {
-      printOutTS(PL_INFO, "PSUADE adaptiveOpt: sampling defaulted to METIS.\n");
+      printOutTS(PL_INFO, 
+           "PSUADE adaptiveOpt: sampling defaulted to METIS.\n");
       samMethod = PSUADE_SAMP_METIS; 
       psuadeIO_->updateMethodSection(samMethod,-1,-1,-1,-1);
       initFlag = 1;
@@ -3809,19 +4250,16 @@ int PsuadeBase::runAdaptiveOpt()
       nSamples = sampler_->getNumSamples();
       psuadeIO_->updateMethodSection(-1,nSamples,-1,-1,-1);
    }
-   sparam.clear();
    if (refineType == 0)
    {
-      sparam.append("setUniformRefinement");
+      strcpy(sparam, "setUniformRefinement");
       refineSize = 100000;
    }
-   else sparam.append("setAdaptiveRefinementBasedOnOutputs");
+   else strcpy(sparam, "setAdaptiveRefinementBasedOnOutputs");
    sampler_->setParam(sparam);
    if (refineSize > 0)
    {
-      sparam.clear();
-      sprintf(cString, "setRefineSize %d", refineSize);
-      sparam.append(cString);
+      sprintf(sparam, "setRefineSize %d", refineSize);
       sampler_->setParam(sparam);
       printOutTS(PL_INFO, "PSUADE adaptiveOpt: refineSize = %d\n",refineSize);
    }
@@ -3830,14 +4268,22 @@ int PsuadeBase::runAdaptiveOpt()
 
    funcIO = createFunctionInterface(psuadeIO_);
 
-   printOutTS(PL_INFO, "PSUADE adaptiveOpt: initial nSamples = %d\n", nSamples);
-   printOutTS(PL_INFO, "PSUADE adaptiveOpt: number of refinements = %d\n", nRefinements);
-   printOutTS(PL_INFO, "This function focuses the adaptive sampling on the regions\n");
-   printOutTS(PL_INFO, "where most of the small objective function values are located.\n");
-   printOutTS(PL_INFO, "It is important that the initial nSamples is sufficient large\n");
-   printOutTS(PL_INFO, "to uncover all potential troughs. Alternatively, you can\n");
-   printOutTS(PL_INFO, "enforce the number of uniform refinements before adaptive\n");
-   printOutTS(PL_INFO, "sampling is applied. You have the opportunity to do it now.\n");
+   printOutTS(PL_INFO, 
+        "PSUADE adaptiveOpt: initial nSamples = %d\n", nSamples);
+   printOutTS(PL_INFO, 
+        "PSUADE adaptiveOpt: number of refinements = %d\n", nRefinements);
+   printOutTS(PL_INFO, 
+        "This function focuses the adaptive sampling on the regions\n");
+   printOutTS(PL_INFO, 
+        "where most of the small objective function values are located.\n");
+   printOutTS(PL_INFO, 
+        "It is important that the initial nSamples is sufficient large\n");
+   printOutTS(PL_INFO, 
+        "to uncover all potential troughs. Alternatively, you can\n");
+   printOutTS(PL_INFO, 
+        "enforce the number of uniform refinements before adaptive\n");
+   printOutTS(PL_INFO, 
+        "sampling is applied. You have the opportunity to do it now.\n");
    sprintf(cString,"Number of initial uniform refinements : (0 - %d): ",
            nRefinements);
    nUniform = getInt(0, nRefinements, cString);
@@ -3858,9 +4304,11 @@ int PsuadeBase::runAdaptiveOpt()
       if (outputLevel_ > 1)
       {
          printAsterisks(PL_INFO, 0);
-         printOutTS(PL_INFO, "PSUADE adaptiveOpt: current level    = %d (of %d)\n",
-                refineLevel, nRefinements);
-         printOutTS(PL_INFO, "PSUADE adaptiveOpt: current nSamples = %d\n",nSamples);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptiveOpt: current level    = %d (of %d)\n",
+              refineLevel, nRefinements);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptiveOpt: current nSamples = %d\n",nSamples);
       }
       sampleInputs  = new double[nSamples * nInputs];
       sampleOutputs = new double[nSamples * nOutputs];
@@ -3946,15 +4394,16 @@ int PsuadeBase::runAdaptiveOpt()
                }
                else sampleStates[ss]++;
 
-               if (minJobWaitTime > 0 &&
-                   (sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime)
+               if ((minJobWaitTime > 0) &&
+                   ((sampleStates[ss]-2)*minJobWaitTime>maxJobWaitTime))
                {
                   sampleStates[ss] = 0;
                   parallelJobCount--;
                   ss--; /* roll back to the sample to be restarted */
                   if (outputLevel_ > 0) 
-                     printOutTS(PL_INFO, "PSUADE adaptiveOpt: sample %6d to be restarted.\n",
-                            ss+1);
+                     printOutTS(PL_INFO, 
+                          "PSUADE adaptiveOpt: sample %6d to be restarted.\n",
+                          ss+1);
                }
             }
          }
@@ -3979,8 +4428,9 @@ int PsuadeBase::runAdaptiveOpt()
 #endif
          }
          if (outputLevel_ > 0) 
-            printOutTS(PL_INFO, "\nPSUADE adaptiveOpt: jobs completed = %d(of %d)\n",
-                   jobsCompleted, currNJobs);
+            printOutTS(PL_INFO, 
+                 "\nPSUADE adaptiveOpt: jobs completed = %d(of %d)\n",
+                 jobsCompleted, currNJobs);
       }
 
       refineLevel++;
@@ -3993,7 +4443,8 @@ int PsuadeBase::runAdaptiveOpt()
       for (ss = 0; ss < nSamples; ss++) sortList[ss] = ss;
       sortDbleList2a(nSamples, tempY, sortList);
       for (ss = 0; ss < nMins; ss++)
-         printOutTS(PL_INFO, "PSUADE adaptiveOpt: min %2d = %e\n", ss+1, tempY[ss]);
+         printOutTS(PL_INFO, 
+              "PSUADE adaptiveOpt: min %2d = %e\n", ss+1, tempY[ss]);
       printOutTS(PL_INFO, "PSUADE adaptiveOpt: min at \n");
       for (ii = 0; ii < nInputs; ii++)
          printOutTS(PL_INFO, "   Input %2d = %e\n", ii+1,
@@ -4007,8 +4458,7 @@ int PsuadeBase::runAdaptiveOpt()
       if (refineLevel <= nUniform)
       {
          printOutTS(PL_INFO, "INFO: user requested uniform refinement.\n");
-         sparam.clear();
-         sparam.append("setUniformRefinement");
+         strcpy(sparam,"setUniformRefinement");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,0,NULL);
       }
@@ -4024,8 +4474,7 @@ int PsuadeBase::runAdaptiveOpt()
             if (sampleOutputs[ss] == 0.0) sampErrors[ss] = PSUADE_UNDEFINED;
             else                          sampErrors[ss] = 1.0 / sampErrors[ss];
          }
-         sparam.clear();
-         sparam.append("setAdaptiveRefinementBasedOnErrors");
+         strcpy(sparam,"setAdaptiveRefinementBasedOnErrors");
          sampler_->setParam(sparam);
          sampler_->refine(refineRatio,randomize,refineThreshold,
                           nSamples,sampErrors);
@@ -4085,7 +4534,7 @@ void PsuadeBase::pgPlotResponseSurface()
       faPtr = genFAInteractive(psuadeIO_, 0);
       if (faPtr == NULL)
       {
-         printOutTS(PL_INFO, "INFO: cannot create function approximator.\n");
+         printOutTS(PL_INFO,"INFO: cannot create function approximator.\n");
          return;
       }
       faPtr->setNPtsPerDim(nPtsPerDim);
@@ -4114,7 +4563,7 @@ void PsuadeBase::pgPlotResponseSurface()
                iplot2 = getInt(1, nInputs, pString);
                iplot2--;
                if ((iplot2 < 0) || (iplot2 >= nInputs) || (iplot1 == iplot2))
-                  printOutTS(PL_ERROR, "ERROR : wrong input number %d.\n", iplot2+1);
+                  printOutTS(PL_ERROR,"ERROR : wrong input number %d.\n", iplot2+1);
             }
             if (nInputs == 3)
             {
@@ -4125,7 +4574,7 @@ void PsuadeBase::pgPlotResponseSurface()
             else
             {
                iplot3 = iplot2;
-               sprintf(pString, "Enter the time axis number (1 - %d), not %d %d : ",
+               sprintf(pString,"Enter the time axis number (1 - %d), not %d %d : ",
                        nInputs, iplot1+1, iplot2+1);
                while (iplot3 < 0 || iplot3 >= nInputs || 
                       iplot3 == iplot1 || iplot3 == iplot2)
@@ -4134,7 +4583,7 @@ void PsuadeBase::pgPlotResponseSurface()
                   iplot3--;
                   if ((iplot3 < 0) || (iplot3 >= nInputs) || 
                       (iplot3 == iplot1) || (iplot3 == iplot2))
-                     printOutTS(PL_ERROR, "ERROR : wrong input number %d.\n", iplot3+1);
+                     printOutTS(PL_ERROR,"ERROR : wrong input number %d.\n",iplot3+1);
                }
             }
             for (ii = 0; ii < nInputs; ii++)
@@ -4159,8 +4608,9 @@ void PsuadeBase::pgPlotResponseSurface()
             jplot--;
          }
          if (nInputs > 2) 
-            printOutTS(PL_INFO, "\nPSUADE: plot input %d in 10 increment in time.\n",
-                   iplot3); 
+            printOutTS(PL_INFO, 
+                 "\nPSUADE: plot input %d in 10 increment in time.\n",
+                 iplot3); 
          faYIn = new double[nSamples];
          for (ss = 0; ss < nSamples; ss++) 
             faYIn[ss] = sampleOutputs[ss*nOutputs+jplot];
@@ -4190,11 +4640,11 @@ void PsuadeBase::pgPlotResponseSurface()
             }
             printOutTS(PL_INFO, "PSUADE: X at YMIN = %16.8e %16.8e\n",
                    faXOut[2*minIndex], faXOut[2*minIndex+1]);
-            printOutTS(PL_INFO, "PSUADE: YMIN, YMAX = %16.8e %16.8e\n", Ymin, Ymax);
+            printOutTS(PL_INFO,"PSUADE: YMIN, YMAX = %16.8e %16.8e\n",Ymin,Ymax);
             if ((Ymax - Ymin) < 1.0E-6)
             {
-               printOutTS(PL_INFO, "The surface is almost flat ===> \n");
-               printOutTS(PL_INFO, "   lift one corner to enable proper plotting.\n");
+               printOutTS(PL_INFO,"The surface is almost flat ===> \n");
+               printOutTS(PL_INFO,"   lift one corner to enable proper plotting.\n");
                faYOut[faLeng-1] = 1.001 * faYOut[faLeng-1];
             }
             threshFlag = 0;
@@ -4266,6 +4716,7 @@ void PsuadeBase::pgPlotResponseSurface()
 // ------------------------------------------------------------------------
 void PsuadeBase::cleanUp()
 {
+   int ii;
    if (sampler_  != NULL) SamplingDestroy(sampler_); 
    if (psuadeIO_ != NULL) delete psuadeIO_;
    if (optimalXData_  != NULL) delete optimalXData_; 
@@ -4275,6 +4726,44 @@ void PsuadeBase::cleanUp()
    optimalXData_ = NULL;
    optimalYData_ = NULL;
    optimalCount_ = 0;
+   if (sampleInputs_  != NULL) delete [] sampleInputs_;
+   if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
+   if (sampleStates_  != NULL) delete [] sampleStates_;
+   if (iLowerB_       != NULL) delete [] iLowerB_;
+   if (iUpperB_       != NULL) delete [] iUpperB_;
+   if (inputPDFs_     != NULL) delete [] inputPDFs_;
+   if (inputMeans_    != NULL) delete [] inputMeans_;
+   if (inputStds_     != NULL) delete [] inputStds_;
+   if (inputCMat_     != NULL) delete inputCMat_;
+   if (inputNames_ != NULL)
+   {
+      for (ii = 0; ii < nInputs_; ii++)
+         if (inputNames_[ii] != NULL) delete [] inputNames_[ii];
+      delete [] inputNames_;
+   }
+   inputNames_ = NULL;
+   if (outputNames_ != NULL)
+   {
+      for (ii = 0; ii < nOutputs_; ii++)
+         if (outputNames_[ii] != NULL) delete [] outputNames_[ii];
+      delete [] outputNames_;
+   }
+   if (tagArray_ != NULL) delete [] tagArray_;
+   if (dataReg_ != NULL) delete [] dataReg_;
+   sampleInputs_  = NULL;
+   sampleOutputs_ = NULL;
+   sampleStates_  = NULL;
+   iLowerB_       = NULL;
+   iUpperB_       = NULL;
+   inputPDFs_     = NULL;
+   inputMeans_    = NULL;
+   inputStds_     = NULL;
+   inputCMat_     = NULL;
+   inputNames_    = NULL;
+   outputNames_   = NULL;
+   tagArray_      = NULL;
+   dataReg_       = NULL;
+   nInputs_ = nSamples_ = nOutputs_ = 0;
 }
 
 // ************************************************************************
@@ -4307,7 +4796,8 @@ int PsuadeBase::fillInSamples(int nSamples, int nOutputs,
 // ------------------------------------------------------------------------
 PsuadeBase& PsuadeBase::operator=(const PsuadeBase &)
 {
-   printOutTS(PL_ERROR, "PsuadeBase operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,
+        "PsuadeBase operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

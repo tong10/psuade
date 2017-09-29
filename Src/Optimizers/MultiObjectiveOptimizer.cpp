@@ -29,6 +29,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+using namespace std;
 
 #include "MultiObjectiveOptimizer.h"
 #include "Sampling.h"
@@ -594,7 +595,7 @@ int MultiObjectiveOptimizer::GenPermutations(int nInputs, int pOrder,
 MultiObjectiveOptimizer& MultiObjectiveOptimizer::operator=(const 
                                                  MultiObjectiveOptimizer &)
 {
-   printf("MultiObjectiveOptimzer operator= ERROR: operation not allowed.\n");
+   printf("MultiObjectiveOptimizer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

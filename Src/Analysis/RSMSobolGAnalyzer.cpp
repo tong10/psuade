@@ -28,9 +28,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <iostream>
-#include <fstream>
-#include <string>
 
 #include "PsuadeUtil.h"
 #include "sysdef.h"
@@ -78,10 +75,9 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    double     *inputMeans, *inputStdevs, vce, dmean, ecv, *mSamplePts;
    double     *inputMeansG, *inputMeansN, *inputStdevsG, *inputStdevsN;
    PsuadeData *ioPtr;
-   ifstream   ifile;
+   FILE       *fp=NULL;
    char       cfname[1001], pString[1001], *cString, winput1[1001];
-   char       winput2[1001];
-   string     iline;
+   char       winput2[1001], lineIn[1001];
    RSConstraints *constrPtr;
    FuncApprox    *faPtr;
    Vector        vecIn, vecOut, vecUB, vecLB;
@@ -97,7 +93,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    printOutTS(PL_INFO,"*\n");
    printOutTS(PL_INFO,"* - ana_expert mode to finetune RSMSobolG parameters, \n");
    printOutTS(PL_INFO,"*   (e.g. sample size for integration can be adjusted).\n");
-   printOutTS(PL_INFO,"* - rs_expert to mode finetune response surface for RSMSobolG,\n");
+   printOutTS(PL_INFO,"* - rs_expert to finetune response surface for RSMSobolG,\n");
    printOutTS(PL_INFO,"* - printlevel to 1 or higher to display more information.\n");
    printEquals(PL_INFO, 0);
 
@@ -123,7 +119,8 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
       {
          if (pdfFlags[ii] == PSUADE_PDF_USER)
          {
-            printOutTS(PL_ERROR,"* RSMSobolG ERROR: S PDF type currently not supported.\n");
+            printOutTS(PL_ERROR,
+                 "* RSMSobolG ERROR: S PDF type currently not supported.\n");
             return PSUADE_UNDEFINED;
          }
       }
@@ -131,8 +128,8 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    if (noPDF == 1) printOutTS(PL_INFO,"RSMSobolG INFO: all uniform distributions.\n");
    else
    {
-      printOutTS(PL_INFO,"RSMSobolG INFO: non-uniform distributions detected, which\n");
-      printOutTS(PL_INFO,"                will be used in this analysis.\n");
+      printOutTS(PL_INFO,"RSMSobolG INFO: non-uniform distributions detected,\n");
+      printOutTS(PL_INFO,"                which will be used in this analysis.\n");
    }
 
    if (nInputs <= 1 || nSamples <= 0 || nOutputs <= 0)
@@ -182,36 +179,40 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    {
       printOutTS(PL_INFO,"Enter the group file : ");
       scanf("%s", cfname);
-      ifile.open(cfname);
-      if   (ifile.is_open()) break;
+      fp = fopen(cfname, "r");
+      if   (fp != NULL)  break;
       else printOutTS(PL_ERROR,"ERROR : file not found (or file name too long).\n");
    }
-   if (ifile.is_open())
+   fp = fopen(cfname, "r");
+   if (fp != NULL)
    {
-      getline (ifile, iline);
-      compFlag = iline.compare("PSUADE_BEGIN");
-      if (compFlag == 0)
+      fgets(lineIn, 1000, fp);
+      sscanf(lineIn, "%s", pString);
+      if (!strcmp(pString, "PSUADE_BEGIN"))
       {
-         ifile >> nGroups;
+         fscanf(fp, "%d", &nGroups);
          if (nGroups <= 0)
          {
             printOutTS(PL_ERROR, "RSMSobolG ERROR: nGroups <= 0.\n");
+            fclose(fp);
             exit(1);
          }
          groupMembers = new int*[nGroups];
          for (ii = 0; ii < nGroups; ii++)
          {
-            ifile >> groupID;
+            fscanf(fp, "%d", &groupID);
             if (groupID != ii+1)
             {
                printOutTS(PL_ERROR,"RSMSobolG ERROR: invalid groupID %d",groupID);
                printOutTS(PL_ERROR," should be %d\n", ii+1);
+               fclose(fp);
                exit(1);
             }
-            ifile >> length;
+            fscanf(fp, "%d", &length);
             if (length <= 0 || length >= nInputs)
             {
                printOutTS(PL_ERROR, "RSMSobolG ERROR: invalid group length.\n");
+               fclose(fp);
                exit(1);
             }
             groupMembers[ii] = new int[nInputs];
@@ -219,30 +220,33 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             sCnt = 1;
             for (jj = 0; jj < length; jj++)
             {
-               ifile >> index;
+               fscanf(fp, "%d", &index);
                if (index <= 0 || index > nInputs)
                {
                   printOutTS(PL_ERROR, "RSMSobolG ERROR: invalid group member.\n");
+                  fclose(fp);
                   exit(1);
                }
                groupMembers[ii][index-1] = sCnt++;
             }
          }
-         getline(ifile, iline);
-         getline(ifile, iline);
-         compFlag = iline.compare("PSUADE_END");
-         if (compFlag != 0)
+         fgets(lineIn, 1000, fp);
+         fgets(lineIn, 1000, fp);
+         sscanf(lineIn, "%s", pString);
+         if (strcmp(pString, "PSUADE_END"))
          {
             printOutTS(PL_ERROR, "RSMSobolG ERROR: PSUADE_END not found.\n");
+            fclose(fp);
             exit(1);
          }
       }
       else
       {
          printOutTS(PL_ERROR, "RSMSobolG ERROR: PSUADE_BEGIN not found.\n");
+         fclose(fp);
          exit(1);
       }
-      ifile.close();
+      fclose(fp);
    }
 
    ioPtr->getParameter("input_cor_matrix", pCorMat);

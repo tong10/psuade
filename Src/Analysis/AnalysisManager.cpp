@@ -57,6 +57,7 @@
 #include "EtaAnalyzer.h"
 #include "GowerAnalyzer.h"
 #include "PrintingTS.h"
+
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------ 
@@ -127,7 +128,7 @@ int AnalysisManager::setup(PsuadeData *psuadeIO)
 
    if (psuadeIO == NULL)
    {
-      printOutTS(PL_ERROR, "AnalysisManager: setup ERROR: no psuadeIO given.\n");
+      printOutTS(PL_ERROR,"AnalysisManager setup ERROR: missing psuadeIO.\n");
       exit(1);
    }
    psuadeIO->getParameter("ana_method", pPtr);
@@ -231,7 +232,8 @@ int AnalysisManager::loadLogXsformFlags(int n, int *flags)
 {
    if (n <= 0)
    {
-      printOutTS(PL_ERROR, "AnalysisManager::loadLogXsformFlags ERROR: n <= 0.\n");
+      printOutTS(PL_ERROR,
+           "AnalysisManager::loadLogXsformFlags ERROR: n <= 0.\n");
       exit(1);
    }
    // Bill Oliver setting new data member
@@ -249,8 +251,8 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
                              int *levelSeps, int analysisOutputID)
 {
    int    anaMethod, nInputs, nOutputs, nSamples, samplingMethod, nReps, ii;
-   int    refineFlag=1, jj, analysisTransform, wgtID, *xsforms;
-   int    outputLevel, *states, errCnt, *auxPDFs, pdfFlag;
+   int    refineFlag=1, jj, analysisTransform, wgtID, *xsforms, nActive;
+   int    outputLevel, *states, errCnt, *auxPDFs, pdfFlag, onlyMCMC;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;
    double *auxMeans, *auxStds;
    double analysisThreshold, analysisData, *tempX, *tempY;
@@ -259,8 +261,12 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
    pData  pStates;
    aData  aPtr;
 
-   for (ii = 0; ii < numAnalyzers_; ii++) if (analyzers_[ii] != NULL) break;
-   if (ii == numAnalyzers_) return 0;
+   nActive = 0;
+   for (ii = 0; ii < numAnalyzers_; ii++) 
+      if (analyzers_[ii] != NULL) nActive++;
+   if (nActive == 0) return 0;
+   onlyMCMC = 0;
+   if (nActive == 1 && analyzers_[22] != NULL) onlyMCMC = 1;
 
    if (psuadeIO == NULL)
    {
@@ -293,9 +299,16 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
    analysisThreshold = pPtr.dbleData_;
    psuadeIO->getParameter("ana_transform", pPtr);
    analysisTransform = pPtr.intData_;
-   if (tempX == NULL || tempY == NULL)
+   if (tempX == NULL)
    {
-      printOutTS(PL_WARN, "AnalysisManager WARNING: no sample data found.\n");
+      printOutTS(PL_WARN,
+           "AnalysisManager WARNING: missing sample input data.\n");
+      nSamples = 0;
+   }
+   if (tempY == NULL)
+   {
+      printOutTS(PL_WARN,
+           "AnalysisManager WARNING: missing sample output data.\n");
       nSamples = 0;
    }
    if (analysisOutputID < 0)
@@ -304,7 +317,7 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       analysisOutputID = pPtr.intData_;
       if (analysisOutputID < 0)
       {
-         printOutTS(PL_ERROR, "AnalysisManager ERROR: output ID <= 0.\n");
+         printOutTS(PL_ERROR,"AnalysisManager ERROR: output ID <= 0.\n");
          return -1;
       }
    }
@@ -329,33 +342,36 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
    }
    if (analysisTransform == 0)
    {
-      printOutTS(PL_INFO, "No transformation (e.g. log) on sample inputs nor outputs.\n");
+      printOutTS(PL_INFO,
+           "No transformation (e.g. log) on sample inputs nor outputs.\n");
       sampleInputs = tempX;
       sampleOutputs = tempY;
    }
    else
    {
-      if (analysisTransform & 1)
+      if ((analysisTransform & 1) && tempX != NULL)
       {
          for (ii = 0; ii < nInputs*nSamples; ii++)
          {
             if (tempX[ii] < 0.0)
             {
                for (jj = 0; jj < nInputs; jj++) xsforms[jj] = 0;
-               printOutTS(PL_INFO, "Some inputs are < 0. Turn off all input transformation.\n");
+               printOutTS(PL_INFO,
+                 "Some inputs are < 0 ==> Turn off input transformation.\n");
                analysisTransform &= 2;
                break;
             }
          }
       }
-      if (analysisTransform & 2)
+      if ((analysisTransform & 2) && tempY != NULL)
       {
          for (ii = 0; ii < nSamples*nOutputs; ii++)
          {
             if (tempY[ii] < 0.0)
             {
                analysisTransform &= 1;
-               printOutTS(PL_ERROR, "Some outputs are < 0. Turn off all output transformation.\n");
+               printOutTS(PL_ERROR, 
+                 "Some outputs are < 0 ==> Turn off output transformation.\n");
                break;
             }
          }
@@ -369,7 +385,8 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       {
          sampleInputs = new double[nSamples*nInputs];
          sampleOutputs = new double[nSamples*nOutputs];
-         if (analysisTransform & 1) printOutTS(PL_INFO, "Log transformation on inputs.\n");
+         if (analysisTransform & 1) 
+            printOutTS(PL_INFO, "Log transformation on inputs.\n");
          for (ii = 0; ii < nInputs; ii++)
          {
             if (xsforms[ii] == 1)
@@ -379,22 +396,27 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
                for (jj = 0; jj < nSamples; jj++)
                   sampleInputs[jj*nInputs+ii] = tempX[jj*nInputs+ii];
          }
-         if (analysisTransform & 2) printOutTS(PL_INFO, "Log transformation on outputs.\n");
-         if (analysisTransform & 2)
+         if (analysisTransform & 2) 
+            printOutTS(PL_INFO, "Log transformation on outputs.\n");
+         if ((analysisTransform & 2) && tempY != NULL)
             for (ii = 0; ii < nSamples*nOutputs; ii++)
                sampleOutputs[ii] = log(tempY[ii]);
-         else
+         else if (tempY != NULL)
             for (ii = 0; ii < nSamples*nOutputs; ii++)
                sampleOutputs[ii] = tempY[ii];
       }
    }
    errCnt = 0;
-   for (ii = 0; ii < nSamples*nOutputs; ii++)
-      if (sampleOutputs[ii] == PSUADE_UNDEFINED) errCnt++;
+   if (sampleOutputs != NULL)
+   {
+      for (ii = 0; ii < nSamples*nOutputs; ii++)
+         if (sampleOutputs[ii] == PSUADE_UNDEFINED) errCnt++;
+   }
    if (errCnt > 0)
    {
-      printOutTS(PL_WARN, "AnalysisManager WARNING: undefined data found (%d).\n",
-             errCnt);
+      printOutTS(PL_WARN, 
+           "AnalysisManager WARNING: undefined data found (%d).\n",
+           errCnt);
    }
 
    aPtr.ioPtr_ = psuadeIO;
@@ -448,8 +470,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[1] != NULL)
@@ -463,8 +486,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager : analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager : analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[2] != NULL)
@@ -476,8 +500,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[3] != NULL)
@@ -489,8 +514,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[4] != NULL)
@@ -502,8 +528,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[5] != NULL)
@@ -515,8 +542,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[6] != NULL)
@@ -528,8 +556,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[7] != NULL)
@@ -541,8 +570,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[8] != NULL)
@@ -562,8 +592,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[9] != NULL)
@@ -575,8 +606,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[10] != NULL)
@@ -585,8 +617,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[11] != NULL)
@@ -597,8 +630,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-               analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[12] != NULL)
@@ -606,8 +640,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       analysisData = analyzers_[12]->analyze(aPtr);
       if (analysisData < analysisThreshold) refineFlag = 0;
       if (outputLevel > 0 && analysisData > 0.0)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
       if (aPtr.nOutputs_ < nOutputs)
       {
          names = new char*[nOutputs];
@@ -634,8 +669,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       analysisData = analyzers_[13]->analyze(aPtr);
       if (analysisData < analysisThreshold) refineFlag = 0;
       if (outputLevel > 0 && analysisData > 0.0)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
       psuadeIO->updateOutputSection(nSamples, aPtr.nOutputs_,
                                aPtr.sampleOutputs_, states, NULL);
       if (analysisSampleErrors_ != NULL) delete [] analysisSampleErrors_;
@@ -650,8 +686,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[15] != NULL)
@@ -661,8 +698,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[16] != NULL)
@@ -672,8 +710,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[17] != NULL)
@@ -683,8 +722,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[18] != NULL)
@@ -694,8 +734,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[19] != NULL)
@@ -705,8 +746,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[20] != NULL)
@@ -716,8 +758,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[21] != NULL)
@@ -727,8 +770,9 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
 
    if (analyzers_[22] != NULL)
@@ -738,51 +782,57 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       if (analysisData < analysisThreshold || 
           analysisData == PSUADE_UNDEFINED) refineFlag = 0;
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                analysisData, analysisThreshold);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+              analysisData, analysisThreshold);
    }
    
    if (analyzers_[23] != NULL)
    {
       analysisData = analyzers_[23]->analyze(aPtr);
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis metric = %8.2e\n",
-                analysisData);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis metric = %8.2e\n",
+              analysisData);
    }
 
    if (analyzers_[24] != NULL)
    {
       analysisData = analyzers_[24]->analyze(aPtr);
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis metric = %8.2e\n",
-                analysisData);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis metric = %8.2e\n",
+              analysisData);
    }
 
    if (analyzers_[25] != NULL)
    {
       analysisData = analyzers_[25]->analyze(aPtr);
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis metric = %8.2e\n",
-                analysisData);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis metric = %8.2e\n",
+              analysisData);
    }
 
    if (analyzers_[26] != NULL)
    {
       analysisData = analyzers_[26]->analyze(aPtr);
       if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, "AnalysisManager: analysis metric = %8.2e\n",
-                analysisData);
+         printOutTS(PL_INFO, 
+              "AnalysisManager: analysis metric = %8.2e\n",
+              analysisData);
    }
 #ifdef HAVE_PYTHON
    for (ii = 0; ii < numAnalyzers_; ii++)
       if (analyzers_[ii] != NULL)
-	 PyList_Append( AnalysisDataList, analyzers_[ii]->AnalysisDataDict );
+	 PyList_Append(AnalysisDataList, 
+                       analyzers_[ii]->AnalysisDataDict);
 #endif
 
    if (analysisTransform != 0)
    {
-      delete [] sampleInputs;
-      delete [] sampleOutputs;
+      if (sampleInputs  != NULL) delete [] sampleInputs;
+      if (sampleOutputs != NULL) delete [] sampleOutputs;
    }
    delete [] xsforms;
    aPtr.sampleInputs_ = NULL;
@@ -847,8 +897,9 @@ int AnalysisManager::analyze(int anaMethod, int nSamples, Vector &vLower,
          if (analysisData < analysisThreshold || 
              analysisData == PSUADE_UNDEFINED) refineFlag = 0;
          if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-            printOutTS(PL_INFO, "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-                   analysisData, analysisThreshold);
+            printOutTS(PL_INFO, 
+                 "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+                 analysisData, analysisThreshold);
       }
    }
 
@@ -875,7 +926,8 @@ int AnalysisManager::analyze(int anaMethod)
         analyzers_[21]->analyze(aPtr);
    else
    {
-      printOutTS(PL_INFO, "AnalysisManager ERROR: this analyze call is not valid.\n");
+      printOutTS(PL_INFO, 
+           "AnalysisManager ERROR: this analyze call is not valid.\n");
       return 1;
    }
    return 0;
@@ -956,7 +1008,8 @@ int AnalysisManager::specialRequest(int anaMethod, int narg, char **argv)
 // ------------------------------------------------------------------------
 AnalysisManager& AnalysisManager::operator=(const AnalysisManager &)
 {
-   printOutTS(PL_ERROR, "AnalysisManager operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, 
+        "AnalysisManager operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -966,5 +1019,6 @@ AnalysisManager& AnalysisManager::operator=(const AnalysisManager &)
 // ------------------------------------------------------------------------
 MOATAnalyzer *AnalysisManager::getMOATAnalyzer()
 {
-	return reinterpret_cast<MOATAnalyzer *>(analyzers_[5]);
+   return reinterpret_cast<MOATAnalyzer *>(analyzers_[5]);
 }
+

@@ -100,14 +100,17 @@ double DeltaAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printOutTS(PL_WARN, "DeltaTest INFO: some inputs have non-uniform PDFs, but\n");
-         printOutTS(PL_WARN, "          they are not relevant in this analysis.\n");
+         printOutTS(PL_WARN, 
+              "DeltaTest INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_WARN,
+              "          they are not relevant in this analysis.\n");
       }
    }
 
    if (nSamples <= 1)
    {
-      printOutTS(PL_ERROR, "DeltaTest INFO: test not meaningful for nSamples <= 1.\n");
+      printOutTS(PL_ERROR, 
+           "DeltaTest INFO: test not meaningful for nSamples <= 1.\n");
       return PSUADE_UNDEFINED;
    }
    if (X == NULL || YY == NULL)
@@ -139,13 +142,17 @@ double DeltaAnalyzer::analyze(aData &adata)
    minDeltas_ = NULL;
  
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "DeltaTest for variable selection\n");
-   printOutTS(PL_INFO, "This test has the characteristics that the more important\n");
-   printOutTS(PL_INFO, "a parameter is relative to the others, the smaller the \n");
-   printOutTS(PL_INFO, "subset is at the end of the test (sharp zoom into the most\n");
-   printOutTS(PL_INFO, "important subset).\n");
-   printOutTS(PL_INFO, "Note: If both nInputs and nSamples are large, this test\n");
-   printOutTS(PL_INFO, "      may take a long time to run. So, be patient.)\n");
+   printOutTS(PL_INFO,"DeltaTest for variable selection\n");
+   printOutTS(PL_INFO,
+        "This test has the characteristics that the more important\n");
+   printOutTS(PL_INFO,
+        "a parameter is relative to the others, the smaller the \n");
+   printOutTS(PL_INFO,
+        "subset is at the end of the test (sharp zoom into the most\n");
+   printOutTS(PL_INFO,"important subset).\n");
+   printOutTS(PL_INFO,
+        "Note: If both nInputs and nSamples are large, this test\n");
+   printOutTS(PL_INFO,"      may take a long time to run. So, be patient.)\n");
    printEquals(PL_INFO, 0);
    auxBins = new int[nInputs];
    inputBins = new int[nInputs];
@@ -160,8 +167,9 @@ double DeltaAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO, "DeltaTest Option: set the number of neighbors K.\n");
-      printOutTS(PL_INFO, "The larger K is, the larger the distinguishing power is.\n");
+      printOutTS(PL_INFO,"DeltaTest Option: set the number of neighbors K.\n");
+      printOutTS(PL_INFO, 
+           "The larger K is, the larger the distinguishing power is.\n");
       sprintf(pString, "What is K (>= 1, <= 20, default=3)? ");
       nIndex = getInt(1, 20, pString);
       sprintf(pString,"How many inputs to select FOR SURE? (0 if not sure) ");
@@ -282,7 +290,6 @@ double DeltaAnalyzer::analyze(aData &adata)
    auxMin = - PSUADE_UNDEFINED;
    while (count <= 3*iter*nInputs)
    {
-      //if ((count % (3*nInputs) == 0)) printOutTS(PL_WARN, "%d%% ", count/(3*nInputs));
       fflush(stdout);
       count++;
 
@@ -385,8 +392,10 @@ double DeltaAnalyzer::analyze(aData &adata)
       delta /= (2.0 * nSamples);
       if ((count % (3*nInputs) == 0))
       {
-         for (ii = 0; ii < nInputs; ii++) printOutTS(PL_INFO, "%d ", deltaBins[nBins-1][ii]);
-         printOutTS(PL_INFO, " = %e (%d of %d)\n", bestDelta, count/(3*nInputs), iter);
+         for (ii = 0; ii < nInputs; ii++) 
+            printOutTS(PL_INFO, "%d ", deltaBins[nBins-1][ii]);
+         printOutTS(PL_INFO,
+              " = %e (%d of %d)\n", bestDelta, count/(3*nInputs), iter);
       }
 
       if (delta < minDeltas[0])
@@ -428,7 +437,8 @@ double DeltaAnalyzer::analyze(aData &adata)
       }
       if (converged > stagnate*3*nInputs)
       {
-         printOutTS(PL_INFO, "DeltaTest: stagnate for %d iterations, ", stagnate);
+         printOutTS(PL_INFO, "DeltaTest: stagnate for %d iterations, ", 
+                    stagnate);
          printOutTS(PL_INFO, "considered converged.\n");
          break;
       }
@@ -492,7 +502,8 @@ double DeltaAnalyzer::analyze(aData &adata)
       if (minDeltas[nBins-kk-1] < 0.99 * PSUADE_UNDEFINED)
       {
          printOutTS(PL_INFO, "Rank %2d => ", kk+1);
-         for (ii = 0; ii < nInputs; ii++) printOutTS(PL_INFO, "%d ", deltaBins[nBins-kk-1][ii]);
+         for (ii = 0; ii < nInputs; ii++) 
+            printOutTS(PL_INFO, "%d ", deltaBins[nBins-kk-1][ii]);
          printOutTS(PL_INFO, ": delta = %11.4e\n", minDeltas[nBins-kk-1]);
       }
    }
@@ -535,17 +546,17 @@ double DeltaAnalyzer::analyze(aData &adata)
       fwritePlotYLabel(fp, "Delta Metric (normalized)");
       fclose(fp);
       if (psPlotTool_ == 1) 
-           printOutTS(PL_INFO, "Delta test ranking is now in scilabdelta.sci.\n");
-      else printOutTS(PL_INFO, "Delta test ranking is now in matlabdelta.m.\n");
+           printOutTS(PL_INFO,"Delta test ranking is now in scilabdelta.sci.\n");
+      else printOutTS(PL_INFO,"Delta test ranking is now in matlabdelta.m.\n");
    }
 
    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
    sortIntList2a(nInputs, ranks, dOrder);
-   printOutTS(PL_INFO, "Order of importance (based on %d best configurations): \n",
-          nConfig);
+   printOutTS(PL_INFO,"Order of importance (based on %d best configurations):\n",
+              nConfig);
    for (ii = 0; ii < nInputs; ii++)
-      printOutTS(PL_INFO, "(D)Rank %4d : input %4d (score = %d )\n", ii+1, (int)
-             dOrder[nInputs-ii-1]+1, ranks[nInputs-ii-1]);
+      printOutTS(PL_INFO, "(D)Rank %4d : input %4d (score = %d )\n", ii+1, 
+                 (int) dOrder[nInputs-ii-1]+1, ranks[nInputs-ii-1]);
    printAsterisks(PL_INFO, 0);
 
    //save dOrder and ranks
@@ -554,7 +565,8 @@ double DeltaAnalyzer::analyze(aData &adata)
 	   dOrder_[ii] = dOrder[ii];
 	   ranks_[ii] = ranks[ii];
    }
-   printOutTS(PL_INFO, "Final test using the most important parameters incrementally:\n");
+   printOutTS(PL_INFO, 
+        "Final test using the most important parameters incrementally:\n");
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++) inputBins[ii] = 0;
    for (ii = 1; ii >= 0; ii--)
@@ -689,7 +701,8 @@ double DeltaAnalyzer::analyze(aData &adata)
          for (kk = 0; kk < nInputs; kk++) printOutTS(PL_INFO, "0 ");
          printOutTS(PL_INFO, " = %e\n", deltaSave);
       }
-      for (kk = 0; kk < nInputs; kk++) printOutTS(PL_INFO, "%d ", inputBins[kk]);
+      for (kk = 0; kk < nInputs; kk++) 
+         printOutTS(PL_INFO, "%d ", inputBins[kk]);
       printOutTS(PL_INFO, " = %e\n", delta);
       minDeltas[ii] = delta;
       if (delta < minDelta) minDelta = delta;
@@ -725,7 +738,7 @@ int DeltaAnalyzer::setParams(int argc, char **argv)
 // ------------------------------------------------------------------------
 DeltaAnalyzer& DeltaAnalyzer::operator=(const DeltaAnalyzer &)
 {
-   printOutTS(PL_ERROR, "DeltaTest operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"DeltaTest operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

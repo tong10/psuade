@@ -3,16 +3,16 @@ import sys
 import string
 infile  = open(sys.argv[1], "r")
 lineIn  = infile.readline()
-ncols   = string.split(lineIn)
+ncols   = lineIn.split()
 nSamp   = eval(ncols[0])
 nInps   = eval(ncols[1])
 outfile = open(sys.argv[2], "w")
 for ii in range(nSamp):
    lineIn  = infile.readline()
-   ncols   = string.split(lineIn)
+   ncols   = lineIn.split()
    id = eval(ncols[0])
    if (id != ii+1):
-      print "error"
+      write("error")
    X1 = eval(ncols[1])
    X2 = eval(ncols[2])
    X3 = eval(ncols[3])

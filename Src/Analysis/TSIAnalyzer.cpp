@@ -26,7 +26,6 @@
 // ************************************************************************
 #include <stdio.h>
 #include <assert.h>
-#include <sstream>
 
 #include "Psuade.h"
 #include "TSIAnalyzer.h"

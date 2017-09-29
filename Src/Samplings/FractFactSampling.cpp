@@ -25,8 +25,6 @@
 // DATE   : 2005
 // ************************************************************************
 #include <stdio.h>
-#include <sstream>
-
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "FractFactSampling.h"
@@ -183,17 +181,13 @@ int FractFactSampling::refine(int refineRatio, int randomize, double thresh,
 // ************************************************************************
 // set internal scheme
 // ------------------------------------------------------------------------
-int FractFactSampling::setParam(string sparam)
+int FractFactSampling::setParam(char *sparam)
 {
-   istringstream buffer;
-   int           pos = sparam.find("setResolution");
-   string        substr;
-                                                                                
-   if (pos >= 0)
+   char winput[1001];
+   sscanf(sparam, "%s", winput);
+   if (!strcmp(winput, "setResolution"))
    {
-      substr = sparam.substr(14);
-      buffer.str(substr);
-      buffer >> resolution_;
+      sscanf(sparam, "%s %d", winput, &resolution_);
       if (resolution_ != 4 && resolution_ != 5) resolution_ = 4;
       if (resolution_ == 4) samplingID_ = PSUADE_SAMP_FF4;
       else                  samplingID_ = PSUADE_SAMP_FF5;

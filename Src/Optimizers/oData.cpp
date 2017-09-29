@@ -43,6 +43,7 @@ oData::oData()
    upperBounds_ = NULL;
    optimalX_ = NULL;
    funcIO_ = NULL;
+   psIO_ = NULL;
    intData_ = -1;
 }
 

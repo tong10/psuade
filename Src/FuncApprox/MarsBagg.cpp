@@ -43,7 +43,7 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
 #ifdef HAVE_MARS
    int  ii, itmp;
-   char pString[500], *targv[3];
+   char pString[500], *cString, *targv[3], winput1[100], winput2[100];
 
    faID_ = PSUADE_RS_MARSB;
 
@@ -59,20 +59,71 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    if (nInputs >= 8) varPerBasis_ = 8;
    else              varPerBasis_ = nInputs;
 
+   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
+   {
+      cString = psConfig_->getParameter("MARS_num");
+      if (cString != NULL)
+      {
+         sscanf(cString, "%s %s %d", winput1, winput2, &itmp);
+         if (itmp < 2)
+         {
+            printf("MarsBag INFO: numMars from config file not valid.\n");
+            printf("              numMars kept at %d.\n", numMars_);
+         }
+         else
+         {
+            numMars_ = itmp;
+            printf("MarsBag INFO: number of instantiations set to %d.\n",
+                   numMars_);
+         }
+      }
+      cString = psConfig_->getParameter("MARS_num_bases");
+      if (cString != NULL)
+      {
+         sscanf(cString, "%s %s %d", winput1, winput2, &itmp);
+         if (itmp < 10 || itmp > nSamples)
+         {
+            printf("MarsBag INFO: nbasis from config file not valid.\n");
+            printf("              nbasis kept at %d.\n", maxBasis_);
+         }
+         else
+         {
+            maxBasis_ = itmp;
+            printf("MarsBag INFO: number of basis set to %d (config).\n",
+                   maxBasis_);
+         }
+      }
+      cString = psConfig_->getParameter("MARS_interaction");
+      if (cString != NULL)
+      {
+         sscanf(cString, "%s %s %d", winput1, winput2, &itmp);
+         if (itmp > nInputs || itmp < 1)
+         {
+            printf("MarsBag INFO: interaction from config file not valid.\n");
+            printf("              interaction kept at %d.\n", varPerBasis_);
+         }
+         else
+         {
+            varPerBasis_ = itmp;
+            printf("MarsBag INFO: interaction set to %d (config).\n",varPerBasis_);
+         }
+      }
+   }
+
    if (outputLevel_ > 1)
    {
       printAsterisks(PL_INFO, 0);
       printf("*                MarsBag Analysis\n");
       printDashes(PL_INFO, 0);
       printf("Default mode = mean (options: mean, median).\n");
-      printf("Number of instantiations   = 51\n");
+      printf("Number of instantiations   = %d\n",numMars_);
       printf("No. of basis functions     = %d\n",maxBasis_);
       printf("No. of variables per basis = %d\n",varPerBasis_);
       printf("* Turn on rs_expert mode to select internal parameters.\n");
       printf("* Set print level to 5 to print out ranking information.\n");
       printEquals(PL_INFO, 0);
    }
-   if (psRSExpertMode_ == 1)
+   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
       sprintf(pString, "MARS with bagging: mean (0) or median (1) mode ? ");
       mode_ = getInt(0, 1, pString);
@@ -104,14 +155,14 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    itmp = psRSExpertMode_;
    psRSExpertMode_ = 0;
    marsObjs_ = new Mars*[numMars_];
+   PsuadeConfig *tmpConfig = psConfig_;
+   psConfig_ = NULL;
    for (ii = 0; ii < numMars_; ii++) 
    {
       marsObjs_[ii] = new Mars(nInputs_, nSamples_);
       marsObjs_[ii]->setParams(3, targv);
    }
-   //strcpy(pString, "no_gen");
-   //targv[0] = (char *) pString;
-   //for (ii = 0; ii < numMars_; ii++) marsObjs_[ii]->setParams(1, targv);
+   psConfig_ = tmpConfig;
    psRSExpertMode_ = itmp;
 
    dataSetX_ = NULL;
@@ -500,7 +551,8 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
                YB[ss] = Y[index]; 
             }
             index = 0;
-            for (ss = 0; ss < nSamples_; ss++) if (iCnts[ss] < usageIndex_*2) index++;
+            for (ss = 0; ss < nSamples_; ss++) 
+               if (iCnts[ss] < usageIndex_*2) index++;
             if (outputLevel_ >= 2)
                printf("     Number of sample points used = %d (out of %d)\n",
                       index,nSamples_);
@@ -662,6 +714,7 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
    else
    {
       expertFlag = psRSExpertMode_;
+      psRSExpertMode_ = 0;
       totPts = nPtsPerDim_;
       for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
       (*XX2) = new double[nInputs_ * totPts];
@@ -776,6 +829,7 @@ int MarsBagg::gen1DGridData(double *X, double *Y, int ind1,
    double *XB, *YB, *XXt, *Yt, **YM;
 
    expertFlag = psRSExpertMode_;
+   psRSExpertMode_ = 0;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_;
@@ -863,6 +917,7 @@ int MarsBagg::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    double *XB, *YB, *XXt, *Yt, **YM;
 
    expertFlag = psRSExpertMode_;
+   psRSExpertMode_ = 0;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_ * nPtsPerDim_;
@@ -955,6 +1010,7 @@ int MarsBagg::gen3DGridData(double *X, double *Y, int ind1, int ind2,
    double *XB, *YB, *XXt, *Yt, **YM;
 
    expertFlag = psRSExpertMode_;
+   psRSExpertMode_ = 0;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
@@ -1044,6 +1100,7 @@ int MarsBagg::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    double *XB, *YB, *XXt, *Yt, **YM;
 
    expertFlag = psRSExpertMode_;
+   psRSExpertMode_ = 0;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
@@ -1315,7 +1372,7 @@ double MarsBagg::setParams(int targc, char **targv)
       }
       numMars_ = *(int *) targv[1];
       if (numMars_ < 2) numMars_ = 2;
-      printf("MARS with bagging: no. of MARs set to = %d.\n", numMars_);
+      printf("MARS with bagging: no. of MARS set to = %d.\n", numMars_);
       strcpy(cString, "mars_params");
       argv[0] = (char *) cString;
       argv[1] = (char *) &maxBasis_;

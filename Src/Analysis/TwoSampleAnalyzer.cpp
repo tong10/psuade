@@ -375,6 +375,7 @@ double TwoSampleAnalyzer::TAnalyze(int length1, double *Y1, int length2,
       printOutTS(PL_INFO, " SIZE OF DATASET 1        = %d\n", length1);
       printOutTS(PL_INFO, " SIZE OF DATASET 2        = %d\n", length2);
       printOutTS(PL_INFO, " T-statistic (mu1-mu2)/sd = %e\n", tval);
+      printOutTS(PL_INFO, "    mu1, mu2, sd = %e %e %e\n",mean1,mean2,stdev);
       printEquals(PL_INFO, 0);
       printOutTS(PL_INFO, " What ALPHA means: larger ALPHA ==> wider acceptance interval\n");
       printEquals(PL_INFO, 0);

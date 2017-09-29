@@ -86,9 +86,9 @@ LegendreRegression::LegendreRegression(int nInputs,int nSamples):
          sscanf(cString, "%s %s %d", winput1, winput2, &ii);
          if (ii < 0)
          {
-            pOrder_ = 0;
             printf("Legendre INFO: polynomial order %d not valid.\n",ii);
-            printf("               polynomial order set to 0.\n");
+            printf("               polynomial order unchanged at %d.\n",
+                   pOrder_);
          }
          else
          {
@@ -97,7 +97,7 @@ LegendreRegression::LegendreRegression(int nInputs,int nSamples):
          }
       }
    }
-   if (psRSExpertMode_ == 1)
+   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
       printf("Normalize the input parameters to [-1, 1]? (y - yes) ");
       fgets(line, 100, stdin);
@@ -159,7 +159,7 @@ int LegendreRegression::initialize(double *X, double *Y)
    {
       X2 = new double[nInputs_*nSamples_];
       initInputScaling(X, X2, 1);
-      status = analyze(X, Y);
+      status = analyze(X2, Y);
       delete [] X2;
    }
    else status = analyze(X, Y);
@@ -695,7 +695,7 @@ int LegendreRegression::analyze(double *X, double *Y)
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
    if (SStotal == 0) R2 = 1.0;
-   else              R2  = 1.0 - SSresid / SStotal;
+   else              R2 = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
    if (var < 0)
@@ -1145,11 +1145,15 @@ int LegendreRegression::computeSS(int N, double *XX, double *Y,
    }
    for (mm = 0; mm < nSamples_; mm++)
       SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   printf("* LegendreRegression: SStot  = %24.16e\n", SStotal);
-   printf("* LegendreRegression: SSreg  = %24.16e\n", SSreg);
-   printf("* LegendreRegression: SSres  = %24.16e\n", SSresid);
-   printf("* LegendreRegression: SSres  = %24.16e (true)\n", SSresidCheck);
-   if (nSamples_ != N)
+   if (outputLevel_ > 0)
+   {
+      printf("* LegendreRegression: SStot  = %24.16e\n", SStotal);
+      printf("* LegendreRegression: SSreg  = %24.16e\n", SSreg);
+      printf("* LegendreRegression: SSres  = %24.16e\n", SSresid);
+      printf("* LegendreRegression: SSres  = %24.16e (true)\n", SSresidCheck);
+   }
+   SSresid = SSresidCheck;
+   if (outputLevel_ > 0 && nSamples_ != N)
    {
       printf("* LegendreRegression: eps(Y) = %24.16e\n", 
              SSresidCheck/(nSamples_-N));
@@ -1466,7 +1470,7 @@ int LegendreRegression::GenPermutations()
       printf("* Legendre polynomial maximum order = %d\n", pOrder_);
       if (psConfig_ != NULL)
       {
-         cString = psConfig_->getParameter("LEGENDRE_order");
+         cString = psConfig_->getParameter("Legendre_order");
          if (cString != NULL)
          {
             sscanf(cString, "%s %s %d",winput1,winput2,&orderTmp);

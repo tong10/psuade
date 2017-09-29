@@ -9,7 +9,7 @@ set (PROJECT_NAME psuade)
 # The version number.
 set (psuade_VERSION_MAJOR 1)
 set (psuade_VERSION_MINOR 7)
-set (psuade_VERSION_PATCH 2)
+set (psuade_VERSION_PATCH 4)
 
 set (PROJECT_INCLUDE_DIR "${PROJECT_BINARY_DIR}/include")
 set (PROJECT_BIN_DIR "${PROJECT_BINARY_DIR}/bin}")
@@ -36,6 +36,9 @@ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
 add_definitions(-DWINDOWS)
 
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+add_definitions(-DMACOS)
+
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
 add_definitions(-DMACOS)
 
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "cygwin")
@@ -85,6 +88,12 @@ LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib"
 IF("${isSystemDir}" STREQUAL "-1")
    SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 ENDIF("${isSystemDir}" STREQUAL "-1")
+IF("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+   SET(CMAKE_MACOSX_RPATH 0)
+ENDIF("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+IF("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+   SET(CMAKE_MACOSX_RPATH 0)
+ENDIF("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
 
 endif(BUILD_SHARED)
 #########################################################
@@ -141,7 +150,10 @@ set( PDF_SRC
   "Src/PDFLib/PDFMVLogNormal.cpp"
   "Src/PDFLib/PDFGamma.cpp"
   "Src/PDFLib/PDFSpecial.cpp"
+  "Src/PDFLib/PDFSpecial2.cpp"
+  "Src/PDFLib/PDFHistogram.cpp"
   "Src/PDFLib/PDFExponential.cpp"
+  "Src/PDFLib/PDFF.cpp"
   "Src/PDFLib/PDFManager.cpp"
   "Src/PDFLib/pdfData.cpp"
 )
@@ -261,16 +273,16 @@ if (USE_BOBYQA)
 endif (USE_BOBYQA)
 
 #COBYLA
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/COBYLA")
-  option (USE_COBYLA
-        "Build and use the COBYLA library." OFF)
-endif() 
-if (USE_COBYLA)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/COBYLA")
-  add_subdirectory (External/COBYLA) 
-  set (EXTRA_LIBS ${EXTRA_LIBS} cobyla2c)
-  add_definitions(-DHAVE_COBYLA)
-endif (USE_COBYLA)
+#if(EXISTS "${PROJECT_SOURCE_DIR}/External/COBYLA")
+#  option (USE_COBYLA
+#        "Build and use the COBYLA library." OFF)
+#endif() 
+#if (USE_COBYLA)
+#  include_directories ("${PROJECT_SOURCE_DIR}/External/COBYLA")
+#  add_subdirectory (External/COBYLA) 
+#  set (EXTRA_LIBS ${EXTRA_LIBS} cobyla2c)
+#  add_definitions(-DHAVE_COBYLA)
+#endif (USE_COBYLA)
 
 
 #EARTH
@@ -459,11 +471,16 @@ endif()
 ###################################################
 
 target_link_libraries (psuade-lib ${EXTRA_LIBS})
-if("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+#if("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+#  target_link_libraries (psuade-bin psuade-lib)  #I think OSX doesn't have "whole-archive?"  Linux and Windows need it
+#else("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+#  target_link_libraries (psuade-bin -Wl,-whole-archive psuade-lib  -Wl,-no-whole-archive)
+#endif("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
   target_link_libraries (psuade-bin psuade-lib)  #I think OSX doesn't have "whole-archive?"  Linux and Windows need it
-else("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+else("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
   target_link_libraries (psuade-bin -Wl,-whole-archive psuade-lib  -Wl,-no-whole-archive)
-endif("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+endif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
 
 
 ###################################################

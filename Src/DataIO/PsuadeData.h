@@ -101,12 +101,14 @@ public:
 class psuadeApplicationSection
 {
 public:
-   char   appDriver_[200];
-   char   rsDriver_[200];
-   char   optDriver_[200];
-   char   auxOptDriver_[200];
-   char   inputTemplate_[200];
-   char   outputTemplate_[200];
+   char   appDriver_[2000];
+   char   rsDriver_[2000];
+   char   optDriver_[2000];
+   char   auxOptDriver_[2000];
+   char   ensembleDriver_[2000];
+   char   ensembleOptDriver_[2000];
+   char   inputTemplate_[2000];
+   char   outputTemplate_[2000];
    int    maxParallelJobs_;
    int    maxJobWaitTime_;
    int    minJobWaitTime_;
@@ -164,6 +166,13 @@ public:
    char   rsIndexFile_[200];
    int    useInputPDFs_;
    int    legendreOrder_;
+   int    marsNbasis_;
+   int    marsNdegrees_;
+   int    marsNum_;
+   int    kriMode_;
+   double kriTol_;
+   int    optSaveHistory_;
+   int    optUseHistory_;
    psuadeFilter **RSFilters_;
    psuadeFilter **MOATFilters_;
 
@@ -177,7 +186,6 @@ public:
 // main class definition 
 // ************************************************************************
 // ************************************************************************
-
 class PsuadeData 
 {
 
@@ -266,9 +274,13 @@ public:
    // Update information about the application section
    // @param appDriver - appDriver name
    // @param optDriver - optDriver name
+   // @param optAuxDriver - optAuxDriver name
+   // @param ensembleDriver - ensembleDriver name
+   // @param ensembleOptDriver - ensembleOptDriver name
    // @param maxJobs - maximum number of parallel jobs
    void updateApplicationSection(char *appDriver, char *optDriver,
-                                 int maxJobs);
+                  char *auxOptDriver, char *ensembleDriver,
+                  char *ensembleOptDriver, int maxJobs);
 
    // @param methods - analysis method bitmask
    // @param transform - input/output transform
@@ -281,8 +293,10 @@ public:
 
    // Update information about the optimization section
    // @param methods   - opt method 
+   // @param nLocalMin - number of local minima
    // @param tolerance - opt tolerance 
-   void updateOptimizationSection(int methods, double tolerance);
+   void updateOptimizationSection(int methods, int nLocalMin,
+                                  double tolerance);
 
    // get sample information 
    // @param session   - place holder
@@ -295,7 +309,7 @@ public:
    void setOutputLevel(int);
 
    // read in sample data from the PSUADE_IO section of a psuadeData file
-   void readPsuadeIO(const char *);
+   int readPsuadeIO(const char *);
 
    // assignment operator override
    PsuadeData& operator=(const PsuadeData &);
@@ -344,6 +358,8 @@ public:
    char* getApplication_rsDriver();
    char* getApplication_optDriver();
    char* getApplication_auxOptDriver();
+   char* getApplication_ensembleDriver();
+   char* getApplication_ensembleOptDriver();
    char* getApplication_inputTemplate();
    char* getApplication_outputTemplate();
    int getApplication_maxParallelJobs();
@@ -358,6 +374,13 @@ public:
    int getAnalysis_fileWriteFlag();
    int getAnalysis_useInputPDFs();
    int getAnalysis_legendreOrder();
+   int getAnalysis_marsNbasis();
+   int getAnalysis_marsNdegrees();
+   int getAnalysis_marsNum();
+   int getAnalysis_kriMode();
+   double getAnalysis_kriTol();
+   int getAnalysis_optSaveHistory();
+   int getAnalysis_optUseHistory();
 
    //Returns an array of length 10 with the following values:
    //  analysisIntOptions[0] = analysis method
@@ -398,16 +421,16 @@ public:
    //psuadeFilter **MOATFilters_;
 
 private:
-    void readInputSection(FILE *);
-    void readOutputSection(FILE *);
-    void readMethodSection(FILE *);
-    void readApplicationSection(FILE *);
-    void readAnalysisSection(FILE *);
-    int  getInputParameter(const char *, pData &);
-    int  getOutputParameter(const char *, pData &);
-    int  getMethodParameter(const char *, pData &);
-    int  getApplicationParameter(const char *, pData &);
-    int  getAnalysisParameter(const char *, pData &);
+    int readInputSection(FILE *);
+    int readOutputSection(FILE *);
+    int readMethodSection(FILE *);
+    int readApplicationSection(FILE *);
+    int readAnalysisSection(FILE *);
+    int getInputParameter(const char *, pData &);
+    int getOutputParameter(const char *, pData &);
+    int getMethodParameter(const char *, pData &);
+    int getApplicationParameter(const char *, pData &);
+    int getAnalysisParameter(const char *, pData &);
 
 public:
     void writePsuadeIO(FILE *, int);

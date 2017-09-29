@@ -1430,11 +1430,15 @@ int Regression::computeSS(int N, double *XX, double *Y,
    }
    for (mm = 0; mm < nSamples_; mm++)
       SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   printf("* Regression: SStot  = %24.16e\n", SStotal);
-   printf("* Regression: SSreg  = %24.16e\n", SSreg);
-   printf("* Regression: SSres  = %24.16e\n", SSresid);
-   printf("* Regression: SSres  = %24.16e (true)\n", SSresidCheck);
-   if (nSamples_ != N)
+   if (outputLevel_ > 0)
+   {
+      printf("* Regression: SStot  = %24.16e\n", SStotal);
+      printf("* Regression: SSreg  = %24.16e\n", SSreg);
+      printf("* Regression: SSres  = %24.16e\n", SSresid);
+      printf("* Regression: SSres  = %24.16e (true)\n", SSresidCheck);
+   }
+   SSresid = SSresidCheck;
+   if (outputLevel_ > 0 && nSamples_ != N)
    {
       printf("* Regression: eps(Y) = %24.16e\n",
              SSresidCheck/(nSamples_-N));

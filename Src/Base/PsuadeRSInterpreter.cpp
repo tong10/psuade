@@ -96,9 +96,120 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
    iLowerB = session->inputLBounds_;
    iUpperB = session->inputUBounds_;
    
+   // +++ rsadd 
+   // ----------------------------------------------------------------
+   if (!strcmp(command, "rsadd"))
+   {
+      sscanf(lineIn,"%s %s",command,winput);
+      if (!strcmp(winput, "-h"))
+      {
+         printf("rsadd: add the outputs of two sample files.\n");
+         printf("syntax: rsadd (no argument needed)\n");
+         printf("This command merges two sample files by creating a new file\n");
+         printf("with its outputs the sum of the outputs of the samples. The\n");
+         printf("two samples do not need to have the same set of sample inputs.\n");
+         printf("but they need to have the same number of outputs.\n");
+         printf("If they have different number of inputs, rs_index_file has to\n");
+         printf("be provided inside the second sample to match.\n");
+         printf("This command may be useful to combine the simulation sample and\n");
+         printf("discrepancy sample produced by MCMC.\n");
+         return 0;
+      }
+
+      int    nInps1, nOuts1, nInps2, nOuts2, nSamp1;
+      char   filename1[1001], filename2[1001];
+      PsuadeData *pd1=NULL, *pd2=NULL;
+      
+      printf("Please provide two sample files. Make sure the second sample has the\n");
+      printf("target response surface type in it. If the second sample has different\n");
+      printf("number of inputs from the first (primary) sample, make sure to use the\n");
+      printf("rs_index_file feature to set things up properly.\n");
+      printf("The final sample will have the same set of sample inputs as the primary\n");
+      printf("sample but different output values.\n");
+      printf("Enter the name of the primary sample (in PSUADE data format): ");
+      scanf("%s", filename1);
+      printf("Enter the name of the second sample (in PSUADE data format): ");
+      scanf("%s", filename2);
+      fgets(lineIn2, 500, stdin);
+      pd1 = new PsuadeData();
+      status = pd1->readPsuadeFile(filename1);
+      if (status != 0)
+      {
+         printf("ERROR: cannot read sample file %s.\n", filename1);
+         delete pd1;
+         return -1;
+      }
+      pd2 = new PsuadeData();
+      status = pd2->readPsuadeFile(filename2);
+      if (status != 0)
+      {
+         printf("ERROR: cannot read sample file %s.\n", filename2);
+         delete pd1;
+         delete pd2;
+         return -1;
+      }
+      pd1->getParameter("input_ninputs", pPtr);
+      nInps1 = pPtr.intData_;
+      pd2->getParameter("input_ninputs", pPtr);
+      nInps2 = pPtr.intData_;
+      if (nInps1 != nInps2)
+      {
+         printf("WARNING: The two sample files have different nInputs.\n");
+         printf("         Make sure to use rs_index_file.\n"); 
+      }
+      pd1->getParameter("output_noutputs", pPtr);
+      nOuts1 = pPtr.intData_;
+      pd2->getParameter("output_noutputs", pPtr);
+      nOuts2 = pPtr.intData_;
+      if (nOuts1 != 1 || nOuts2 != 1)
+      {
+         printf("ERROR: the two sample files have nOutputs != 1.\n");
+         delete pd1;
+         delete pd2;
+         return -1;
+      }
+      printf("** Creating response surface for second sample.\n");
+      pd1->updateApplicationSection(filename2,NULL,NULL,NULL,NULL,-1);
+      FunctionInterface *funcIO = createFunctionInterface(pd1);
+      if (funcIO == NULL)
+      {
+         printf("ERROR: fail to create response surface.\n");
+         delete pd1;
+         delete pd2;
+         return -1;
+      }
+
+      pd1->getParameter("method_nsamples", pPtr);
+      nSamp1 = pPtr.intData_;
+      pd1->getParameter("input_sample", pPtr);
+      double *samInputs = pPtr.dbleArray_;
+      pPtr.dbleArray_ = NULL;
+      pd1->getParameter("output_sample", pPtr);
+      double *samOuts1 = pPtr.dbleArray_;
+      pPtr.dbleArray_ = NULL;
+      pd1->getParameter("output_states", pPtr);
+      int *samStates = pPtr.intArray_;
+      pPtr.intArray_ = NULL;
+      double *samOuts2 = new double[nSamp1];
+      for (ss = 0; ss < nSamp1; ss++) 
+         funcIO->evaluate(ss+1,nInps1,&samInputs[ss*nInps1],nOuts1,&samOuts2[ss],0);
+      for (ss = 0; ss < nSamp1; ss++) samOuts1[ss] += samOuts2[ss];
+      pd1->updateOutputSection(nSamp1,nOuts1,samOuts1,samStates,NULL);
+      strcpy(filename1, "psuade_rsadd_sample");
+      pd1->writePsuadeFile(filename1,0);
+      delete pd1;
+      delete pd2;
+      delete funcIO;
+      delete [] samInputs;
+      delete [] samOuts2;
+      delete [] samStates;
+      delete [] samOuts1;
+      printf("New sample has been stored in psuade_rsadd_sample.\n");
+   }
+
    // +++ rsua 
    // ----------------------------------------------------------------
-   if (!strcmp(command, "rsua"))
+   else if (!strcmp(command, "rsua"))
    {
       sscanf(lineIn,"%s %s",command,winput);
       if (!strcmp(winput, "-h"))
@@ -116,7 +227,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      Turn on master mode to select average case analysis.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -225,7 +336,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
 
       // perform UA
       int    userNSams, uaMethod=0;
-      double *userSamInps, *userSamOuts, *userSamStds;
+      double *userSamInps, *userSamOuts, *userSamStds, *samOuts;
       sampleIO->getParameter("method_nsamples", pPtr);
       userNSams = pPtr.intData_;
       sampleIO->getParameter("input_sample", pPtr);
@@ -267,7 +378,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          }
          faPtrsRsEval[0]->setBounds(iLowerB, iUpperB);
          faPtrsRsEval[0]->setOutputLevel(0);
-         status = faPtrsRsEval[0]->initialize(sampleInputs,sampleOutputs);
+         samOuts = new double[nSamples];
+         for (ss = 0; ss < nSamples; ss++)
+            samOuts[ss] = sampleOutputs[ss*nOutputs+outputID];
+         status = faPtrsRsEval[0]->initialize(sampleInputs,samOuts);
+         delete [] samOuts;
          if (status != 0)
          {
             printf("ERROR: cannot initialize response surface.\n");
@@ -513,7 +628,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          }
          faPtrsRsEval[0]->setBounds(iLowerB, iUpperB);
          faPtrsRsEval[0]->setOutputLevel(0);
-         status = faPtrsRsEval[0]->initialize(sampleInputs,sampleOutputs);
+         samOuts = new double[nSamples];
+         for (ss = 0; ss < nSamples; ss++)
+            samOuts[ss] = sampleOutputs[ss*nOutputs+outputID];
+         status = faPtrsRsEval[0]->initialize(sampleInputs,samOuts);
+         delete [] samOuts;
          if (status != 0)
          {
             printf("ERROR: cannot initialize response surface.\n");
@@ -706,7 +825,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("NOTE: Turn on master mode to finetune bootstrap selections.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -727,7 +846,10 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       faPtrsRsEval = new FuncApprox*[2];
       faPtrsRsEval[0] = NULL;
       faPtrsRsEval[1] = NULL;
-      printf("Use discrepancy model (in PSUADE data format)? ('y' or 'n') ");
+      printf("You have the option to add a correction (discrepancy) to\n");
+      printf("your sample. The discrepancy model will be constructed\n");
+      printf("from another sample (in PSUADE data format).\n");
+      printf("Use discrepancy model? ('y' or 'n') ");
       scanf("%s", winput);
       fgets(lineIn2, 500, stdin);
       if (winput[0] == 'y')
@@ -770,6 +892,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          discIO = NULL;
       }
 
+      printf("A sample is needed to be propagated through the response\n");
+      printf("surface. This sample can be created via the gensample\n");
+      printf("command.\n");
       printf("Enter UA sample file name (in PSUADE data format): ");
       scanf("%s", uaFileName);
       fgets(lineIn2, 500, stdin);
@@ -938,7 +1063,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       faPtrsRsEval[0] = genFA(rsMethod, nInputs, -1, nSamples);
       faPtrsRsEval[0]->setBounds(iLowerB, iUpperB);
       faPtrsRsEval[0]->setOutputLevel(0);
-      status = faPtrsRsEval[0]->initialize(sampleInputs,sampleOutputs);
+      for (ss = 0; ss < nSamples; ss++)
+         bsSamOuts[ss] = sampleOutputs[ss*nOutputs+outputID];
+      status = faPtrsRsEval[0]->initialize(sampleInputs,bsSamOuts);
       faPtrsRsEval[0]->evaluatePoint(userNSams,userSamInps,userSamOuts);
       delete faPtrsRsEval[0];
       faPtrsRsEval[0] = NULL;
@@ -1030,7 +1157,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      ana_expert mode and set ntimes to 100.\n");
          return -1;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -1193,7 +1320,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rssobol2 (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -1366,7 +1493,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      ana_expert mode and set ntimes to 100.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -1402,7 +1529,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rssobolg (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -1435,10 +1562,10 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("Note: This command differs from rssobol1 and 'me'\n");
          printf("      in that it uses bootstrapped samples multiple\n");
          printf("      times to get the errors in Sobol' indices due\n");
-         printf("      response surface errors.\n");
+         printf("      to response surface errors.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -1475,10 +1602,13 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
 
       int saveMode = psAnaExpertMode_;
       psAnaExpertMode_ = 0;
-      int saveRSMode = psRSExpertMode_;
-      psRSExpertMode_ = 0;
-      printf("rssobol1b INFO: RS expert mode disabled.\n");
-      printf("                Use config file to set special RS options.\n");
+      if (psRSExpertMode_ == 1)
+      {
+         printf("rssobol1b INFO: since RS expert mode has been enabled,\n");
+         printf("     you should expect to be asked to set RS parameters\n");
+         printf("     many times. If you would not prefer to be asked so\n");
+         printf("     many times, use config file to set RS parameters.\n");
+      }
 
       double *tempX = new double[nSamples*nInputs];
       double *tempY = new double[nSamples];
@@ -1623,6 +1753,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          fprintf(fp, "  Str  = Str(I2);\n");
          fprintf(fp, "end\n");
          fprintf(fp, "ymin = min(Means-Stds);\n");
+         fprintf(fp, "if ymin < 0 \n");
+         fprintf(fp, "   ymin = 0;\n");
+         fprintf(fp, "end;\n");
          fprintf(fp, "ymax = max(Means+Stds);\n");
          fprintf(fp, "h2 = 0.05 * (ymax - ymin);\n");
          if (psPlotTool_ == 1) fprintf(fp, "drawlater\n");
@@ -1681,7 +1814,6 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       psAnaExpertMode_ = saveMode;
       if (saveRS == PSUADE_RS_MARSB)
          psuadeIO->updateAnalysisSection(-1,-1,saveRS,-3,-1,-1);
-      psRSExpertMode_ = saveRSMode;
       psuadeIO->updateAnalysisSection(-1,-1,-1,saveDiag,-1,-1);
    }
 
@@ -1728,10 +1860,13 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       psuadeIO->updateAnalysisSection(-1,-1,-1,-2,-1,-1);
       int saveMode = psAnaExpertMode_;
       psAnaExpertMode_ = 0;
-      int saveRSMode = psRSExpertMode_;
-      psRSExpertMode_ = 0;
-      printf("rssobol2b INFO: RS expert mode disabled.\n");
-      printf("                Use config file to set special RS options.\n");
+      if (psRSExpertMode_ == 1)
+      {
+         printf("rssobol2b INFO: since RS expert mode has been enabled,\n");
+         printf("     you should expect to be asked to set RS parameters\n");
+         printf("     many times. If you would not prefer to be asked so\n");
+         printf("     many times, use config file to set RS parameters.\n");
+      }
 
       psuadeIO->getParameter("ana_rstype", pPtr);
       int saveRS = pPtr.intData_;
@@ -2059,7 +2194,6 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       if (saveRS == PSUADE_RS_MARSB)
          psuadeIO->updateAnalysisSection(-1,-1,saveRS,-3,-1,-1);
       psuadeIO->updateAnalysisSection(-1,-1,-1,saveDiag,-1,-1);
-      psRSExpertMode_ = saveRSMode;
       delete [] tempT;
    }
 
@@ -2109,10 +2243,13 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       psuadeIO->updateAnalysisSection(-1,-1,-1,-2,-1,-1);
       int saveMode = psAnaExpertMode_;
       psAnaExpertMode_ = 0;
-      int saveRSMode = psRSExpertMode_;
-      psRSExpertMode_ = 0;
-      printf("rssoboltsib INFO: RS expert mode disabled.\n");
-      printf("                  Use config file to set special RS options.\n");
+      if (psRSExpertMode_ == 1)
+      {
+         printf("rssoboltsib INFO: since RS expert mode has been enabled,\n");
+         printf("     you should expect to be asked to set RS parameters\n");
+         printf("     many times. If you would not prefer to be asked so\n");
+         printf("     many times, use config file to set RS parameters.\n");
+      }
 
       psuadeIO->getParameter("ana_rstype", pPtr);
       int saveRS = pPtr.intData_;
@@ -2286,6 +2423,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          fprintf(fp, "  Str  = Str(I2);\n");
          fprintf(fp, "end\n");
          fprintf(fp, "ymin = min(Means-Stds);\n");
+         fprintf(fp, "if ymin < 0 \n");
+         fprintf(fp, "    ymin = 0;\n");
+         fprintf(fp, "end;\n");
          fprintf(fp, "ymax = max(Means+Stds);\n");
          fprintf(fp, "h2 = 0.05 * (ymax - ymin);\n");
          if (psPlotTool_ == 1) fprintf(fp, "drawlater\n");
@@ -2296,6 +2436,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          fprintf(fp, "   end;\n");
          fprintf(fp, "   XX = [ii ii];\n");
          fprintf(fp, "   YY = [Means(ii)-Stds(ii) Means(ii)+Stds(ii)];\n");
+         fprintf(fp, "   if YY(1) < 0 \n");
+         fprintf(fp, "      YY(1) = 0;\n");
+         fprintf(fp, "   end;\n");
          fprintf(fp, "   plot(XX,YY,'-ko','LineWidth',3.0,'MarkerEdgeColor',");
          fprintf(fp, "'k','MarkerFaceColor','g','MarkerSize',12)\n");
          fprintf(fp, "end;\n");
@@ -2341,7 +2484,6 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       if (saveRS == PSUADE_RS_MARSB)
          psuadeIO->updateAnalysisSection(-1,-1,saveRS,-3,-1,-1);
       psuadeIO->updateAnalysisSection(-1,-1,-1,saveDiag,-1,-1);
-      psRSExpertMode_ = saveRSMode;
    }
 
    // +++ rs_ua 
@@ -2364,7 +2506,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("NOTE: This analysis will be replaced by rsua in the future.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -2703,7 +2845,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("NOTE: This analysis will be replaced by rsua + rsuab.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -3492,7 +3634,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      the data file and turn on use_input_pdfs in ANALYSIS.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -3742,7 +3884,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rs_uab (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -4119,7 +4261,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rs_uap (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -4258,6 +4400,17 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                   delete [] faPtrsRsEval;
                   return -1;
                }
+               fgets(lineIn2, 500, fp);
+               while (1)
+               {
+                  kk = getc(fp);
+                  if (kk != '#')
+                  {
+                     ungetc(kk, fp);
+                     break;
+                  }
+                  else fgets(lineIn2, 500, fp);
+               }
                inputVals = new double[dnSamp*dnInps];
                outVals = new double[dnSamp];
                for (jj = 0; jj < dnSamp; jj++)
@@ -4279,12 +4432,12 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                   for (ii = 0; ii < nInputs; ii++)
                      fscanf(fp, "%lg", &(inputVals[jj*dnInps+ii]));
                }
-               fscanf(fp, "%s", winput);
+               fgets(lineIn2, 500, fp);
                fscanf(fp, "%s", winput);
                if (strcmp(winput, "PSUADE_END"))
                {
                   fclose(fp);
-                  printf("ERROR: file must end with PSUADE_END\n");
+                  printf("ERROR: file must end with PSUADE_END (%s)\n",winput);
                   delete [] inputVals;
                   delete [] outVals;
                   if (faPtrsRsEval[0] != NULL) delete faPtrsRsEval[0];
@@ -4377,7 +4530,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      indices due to response surface errors.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -4577,7 +4730,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rs1 (no argument needed)\n");
          return -1;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -4752,7 +4905,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rs2 (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -4834,6 +4987,8 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       for (sInd = 0; sInd < nSamples; sInd++)
          faYIn[sInd] = sampleOutputs[sInd*nOutputs+jplot];
 
+      if (outputLevel_ > 1)
+         printf("Please wait while generating RS ....\n");
       faPtr->gen2DGridData(sampleInputs,faYIn,iplot1,iplot2,
                     inputSettings, &faLeng, &faXOut,&faYOut);
 
@@ -5022,6 +5177,11 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          fprintf(fp, "subplot(1,2,2)\n");
          fprintf(fp, "end\n");
          fprintf(fp, "contourf(x,y,B)\n");
+         if (nInputs == 2)
+         {
+            fwriteHold(fp,1);
+            fprintf(fp,"plot(xx,yy,'k*','markersize',13);\n");
+         } 
          fwritePlotAxes(fp);
          fwritePlotXLabel(fp, inputNames[iplot1]);
          fwritePlotYLabel(fp, inputNames[iplot2]);
@@ -5050,7 +5210,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rs3 (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -5372,7 +5532,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rs3m (no argument needed)\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -5911,7 +6071,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rssd (no argument needed.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -6492,7 +6652,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rsi2 (no argument needed).\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -6773,7 +6933,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rsi3 (no argument needed).\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -7105,7 +7265,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rsi3m (no argument needed).\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -7424,7 +7584,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("syntax: rssd_ua (no argument needed).\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data to analyze (load data first).\n");
          return -1;
@@ -7535,7 +7695,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      the data file and turn on use_input_pdfs in ANALYSIS.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;
@@ -7627,9 +7787,14 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       adata.printLevel_ = 0;
       adata.ioPtr_ = psuadeIO;
       int saveAnaMode = psAnaExpertMode_;
-      int saveRSMode = psRSExpertMode_;
       psAnaExpertMode_ = 0;
-      psRSExpertMode_ = 0;
+      if (psRSExpertMode_ == 1)
+      {
+         printf("rsmeb INFO: since RS expert mode has been enabled,\n");
+         printf("     you should expect to be asked to set RS parameters\n");
+         printf("     many times. If you would not prefer to be asked so\n");
+         printf("     many times, use config file to set RS parameters.\n");
+      }
       for (kk = 0; kk < numBS; kk++)
       {
          printf("rsmeb: iteration %d (of %d)\n", kk+1, numBS);
@@ -7800,7 +7965,6 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
       delete [] LHSOutputs;
       delete [] meStore;
       psAnaExpertMode_ = saveAnaMode;
-      psRSExpertMode_ = saveRSMode;
    }
  
    // +++ rsieb 
@@ -7820,7 +7984,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          printf("      a different algorithm.\n");
          return 0;
       }
-      if (nInputs <= 0 || psuadeIO == NULL)
+      if (psuadeIO == NULL || sampleOutputs == NULL)
       {
          printf("ERROR: no data (load data first).\n");
          return -1;

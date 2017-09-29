@@ -45,21 +45,25 @@ class FunctionInterface
    int    nOutputs_;
    char   **inputNames_;
    char   **outputNames_;
-   char   appDriver_[200];
-   char   optDriver_[200];
-   char   auxOptDriver_[200];
-   char   appInputTemplate_[200];
-   char   appOutputTemplate_[200];
+   char   appDriver_[2000];
+   char   optDriver_[2000];
+   char   auxOptDriver_[2000];
+   char   ensembleDriver_[2000];
+   char   ensembleOptDriver_[2000];
+   char   appInputTemplate_[2000];
+   char   appOutputTemplate_[2000];
    int    executionMode_;
    int    launchInterval_;
    int    appOptFlag_;
    int    useRSModel_;
    FuncApprox **rsPtrs_;
    int    printLevel_;
+   int    rsRanFlag_;
+
+public:
    int    *rsIndices_;
    double *rsValues_;
-   int    rsRanFlag_;
-   int    nInps_;
+   int    rsnInps_;
 
 public:
 
@@ -113,6 +117,9 @@ public:
    /** This function calls the simulation runs */
    int  evaluate(int,int,double *,int,double *,int);
 
+   /** This function calls ensemble simulation runs */
+   int ensembleEvaluate(int,int,double *,int, double *, int);
+
    /** This function extracts the number of inputs */
    int  getNumInputs();
 
@@ -141,11 +148,8 @@ public:
    FunctionInterface& operator=(const FunctionInterface &);
 
 private :
-   int createInputFile(int, double *dinputs);
-   int removePattern(char *, char *, char *);
-   int substitutePattern(char *, char *, char *, double);
-   int getPatternData(char *, char *, double*);
    int psLocalFunction(int, double *, int, double *);
+   int psEnsembleLocalFunction(int, int, double *, int, double *);
    void *genRSModel(char *);
 };
 

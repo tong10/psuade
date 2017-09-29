@@ -80,18 +80,31 @@ C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% calfun.f %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION X(*)
       COMMON FMODE
-      IF (FMODE == 9999) THEN
+      IF (FMODE .EQ. 9999) THEN
          CALL MOOBobyqaEvalFunc(N, X, F);
-      ELSE IF (FMODE == 8888) THEN
+      ELSE IF (FMODE .EQ. 8888) THEN
          CALL KRIBobyqaEvalFunc(N, X, F);
-      ELSE IF (FMODE == 7777) THEN
+      ELSE IF (FMODE .EQ. 7777) THEN
          CALL BobyqaEvalFunc(N, X, F);
-      ELSE IF (FMODE == 6666) THEN
+      ELSE IF (FMODE .EQ. 6666) THEN
          CALL EvaluateFunctionMM(N, X, F);
-      ELSE IF (FMODE == 5555) THEN
+      ELSE IF (FMODE .EQ. 5555) THEN
          CALL EvaluateFunctionSM(N, X, F);
+      ELSE IF (FMODE .EQ. 4444) THEN
+         CALL PKRIBobyqaEvalFunc(N, X, F);
+      ELSE IF (FMODE .EQ. 3333) THEN
+         CALL OUU1EvalFunc(N, X, F);
+      ELSE IF (FMODE .EQ. 2222) THEN
+         CALL OUU2EvalFunc(N, X, F);
+      ELSE IF (FMODE .EQ. 2223) THEN
+         CALL OUU2EvalFunc2(N, X, F);
+      ELSE IF (FMODE .EQ. 1111) THEN
+         CALL OUUEvalFunc(N, X, F);
+      ELSE IF (FMODE .EQ. 1112) THEN
+         CALL OUUEvalFunc2(N, X, F);
       ELSE
          PRINT *, 'BOBYQA CALFUN : NO FUNCTION PROVIDED.'
+         PRINT *, 'CODE = ', FMODE
          F = 0.0
       END IF
       RETURN
@@ -113,13 +126,34 @@ C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% bobyqa.f %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
          IPRINT = 0;
       ELSEIF (IPRINT .EQ. 7777) THEN
          FMODE = 7777
+         IPRINT = 0;
       ELSEIF (IPRINT .EQ. 6666) THEN
          FMODE = 6666
          IPRINT = 0;
       ELSEIF (IPRINT .EQ. 5555) THEN
          FMODE = 5555
          IPRINT = 0;
+      ELSEIF (IPRINT .EQ. 4444) THEN
+         FMODE = 4444
+         IPRINT = 0;
+      ELSEIF (IPRINT .EQ. 3333) THEN
+         FMODE = 3333
+         IPRINT = 0;
+      ELSE IF (IPRINT .EQ. 2222) THEN
+         FMODE = 2222
+         IPRINT = 0;
+      ELSE IF (IPRINT .EQ. 2223) THEN
+         FMODE = 2223
+         IPRINT = 0;
+      ELSE IF (IPRINT .EQ. 1111) THEN
+         FMODE = 1111
+         IPRINT = 0;
+      ELSE IF (IPRINT .EQ. 1112) THEN
+         FMODE = 1112
+         IPRINT = 0;
       ELSE
+         PRINT *, 'BOBYQA : FUNCTION CODE NOT INVALID.'
+         PRINT *, 'CODE = ', FMODE
          FMODE = -1
          IPRINT = 0;
       END IF
@@ -218,27 +252,27 @@ C
       JSU=JSL+N
       W(JSL)=XL(J)-X(J)
       W(JSU)=XU(J)-X(J)
-      IF (W(JSL) .GE. -RHOBEG) THEN
-          IF (W(JSL) .GE. ZERO) THEN
-              X(J)=XL(J)
-              W(JSL)=ZERO
-              W(JSU)=TEMP
-          ELSE
-              X(J)=XL(J)+RHOBEG
-              W(JSL)=-RHOBEG
-              W(JSU)=DMAX1(XU(J)-X(J),RHOBEG)
-          END IF
-      ELSE IF (W(JSU) .LE. RHOBEG) THEN
-          IF (W(JSU) .LE. ZERO) THEN
-              X(J)=XU(J)
-              W(JSL)=-TEMP
-              W(JSU)=ZERO
-          ELSE
-              X(J)=XU(J)-RHOBEG
-              W(JSL)=DMIN1(XL(J)-X(J),-RHOBEG)
-              W(JSU)=RHOBEG
-          END IF
-      END IF
+C     IF (W(JSL) .GE. -RHOBEG) THEN
+C         IF (W(JSL) .GE. ZERO) THEN
+C             X(J)=XL(J)
+C             W(JSL)=ZERO
+C             W(JSU)=TEMP
+C         ELSE
+C             X(J)=XL(J)+RHOBEG
+C             W(JSL)=-RHOBEG
+C             W(JSU)=DMAX1(XU(J)-X(J),RHOBEG)
+C         END IF
+C     ELSE IF (W(JSU) .LE. RHOBEG) THEN
+C         IF (W(JSU) .LE. ZERO) THEN
+C             X(J)=XU(J)
+C             W(JSL)=-TEMP
+C             W(JSU)=ZERO
+C         ELSE
+C             X(J)=XU(J)-RHOBEG
+C             W(JSL)=DMIN1(XL(J)-X(J),-RHOBEG)
+C             W(JSU)=RHOBEG
+C         END IF
+C     END IF
    30 CONTINUE
 C
 C     Make the call of BOBYQB.

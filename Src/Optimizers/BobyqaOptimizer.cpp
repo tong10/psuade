@@ -29,24 +29,32 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+using namespace std;
 
 #include "BobyqaOptimizer.h"
 #include "Psuade.h"
 #include "PsuadeUtil.h"
 
+// ************************************************************************
+// External functions
+// ------------------------------------------------------------------------
 extern "C" void bobyqa_(int *,int *, double *, double *, double *, double *,
                         double *, int *, int *, double*);
 
+// ************************************************************************
+// Internal global variables
+// ------------------------------------------------------------------------
 #define psBobyqaMaxSaved_ 10000
 int     psBobyqaNSaved_=0;
 double  psBobyqaSaveX_[psBobyqaMaxSaved_*10];
-double  psBobyqaSaveY_[psBobyqaMaxSaved_];
+double  psBobyqaSaveY_[psBobyqaMaxSaved_*10];
 void    *psBobyqaObj_=NULL;
 int     psNumBOVars_=0;
 int     psNumBLVars_=0;
 int     *psBOVars_=NULL;
 int     *psBLVars_=NULL;
-int     psBCurrDriver_ = -1;
+int     psBCurrDriver_=-1;
+int     psBobyqaSaveHistory_=0;
 double  *psBOWghts_=NULL;
 double  *psBLWghts_=NULL;
 double  *psBLVals_=NULL;
@@ -70,64 +78,6 @@ extern "C"
       FILE   *infile;
 
       nInputs = (*nInps);
-#if 0
-      if (psOptExpertMode_ != 0 && psBobyqaNSaved_ == 0)
-      {
-         infile = fopen("psuade_bobyqa_history","r");
-         if (infile != NULL)
-         {
-            fscanf(infile, "%s", pString);
-            if (!strcmp(pString, "PSUADE_BEGIN"))
-            {
-               fscanf(infile, "%d", &kk);
-               if (kk != *nInps)
-               {
-                  printf("Bobyqa: history file found but with mismatched nInputs.\n");
-               }
-               else
-               {
-                  fgets(lineIn,500,stdin);
-                  sscanf(infile, "%s", pString);
-                  if (!strcmp(pString, "PSUADE_END"))
-
-             
-            fscanf(infile, "%d %d", &psBobyqaNSaved_, &kk);
-            if ((psBobyqaNSaved_ <= 0) ||
-                (psBobyqaNSaved_+1 > psBobyqaMaxSaved_*10/nInputs) ||
-                (psBobyqaNSaved_ > psBobyqaMaxSaved_))
-            {
-               printf("PSUADE Bobyqa: history file has too much data.\n");
-               printf("               Ask PSUADE developer for help.\n"); 
-               fclose(infile);
-               psBobyqaNSaved_ = 0;
-            }
-            else if (kk != nInputs)
-            {
-               printf("PSUADE Bobyqa: history file has invalid input count.\n");
-               fclose(infile);
-               psBobyqaNSaved_ = 0;
-            }
-            else
-            {
-               for (ii = 0; ii < psBobyqaNSaved_; ii++)
-               {
-                  fscanf(infile, "%d", &kk);
-                  if (kk != ii+1)
-                  {
-                     printf("PSUADE Bobyqa save: data index mismatch (%d).\n",ii+1);
-                     psBobyqaNSaved_ = 0;
-                     break;
-                  }
-                  for (jj = 0; jj < nInputs; jj++)
-                     fscanf(infile, "%lg", &psBobyqaSaveX_[ii*nInputs+jj]);
-                  fscanf(infile, "%lg", &psBobyqaSaveY_[ii]);
-               }
-               fclose(infile);
-            }
-         }
-      }
-#endif
-
       odata    = (oData *) psBobyqaObj_;
       nOutputs = odata->nOutputs_;
       localY   = (double *) malloc(nOutputs * sizeof(double));
@@ -150,6 +100,14 @@ extern "C"
       if (found == 0)
       {
          odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         if (odata->outputLevel_ > 4)
+         {
+            printf("BobyqaOptimizer %6d : \n", odata->numFuncEvals_);
+            for (ii = 0; ii < nInputs; ii++)
+               printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
+            for (ii = 0; ii < nOutputs; ii++) 
+               printf("    Y %6d = %16.8e\n", ii+1, localY[ii]);
+         }
          funcID = odata->numFuncEvals_++;
          if (psNumBOVars_ + psNumBLVars_ > 0)
          {
@@ -169,6 +127,8 @@ extern "C"
             (*YValue) += ddata;
          }
          else (*YValue) = localY[outputID];
+         if (odata->outputLevel_ > 4)
+            printf("    ==> Objective function value = %16.8e\n", (*YValue));
       }
       else
       {
@@ -176,7 +136,7 @@ extern "C"
          (*YValue) = localY[outputID];
       }
 
-      if ((psOptExpertMode_ != 0 && found == 0 &&
+      if ((psBobyqaSaveHistory_ == 1 && found == 0 &&
           (psBobyqaNSaved_+1)*nInputs < psBobyqaMaxSaved_*10) && 
           psBobyqaNSaved_ < psBobyqaMaxSaved_)
       {
@@ -184,6 +144,18 @@ extern "C"
             psBobyqaSaveX_[psBobyqaNSaved_*nInputs+jj] = XValues[jj];
          psBobyqaSaveY_[psBobyqaNSaved_] = (*YValue);
          psBobyqaNSaved_++;
+         infile = fopen("psuade_bobyqa_history","w");
+         if (infile != NULL)
+         {
+            for (ii = 0; ii < psBobyqaNSaved_; ii++)
+            {
+               fprintf(infile, "999 %d ", nInputs);
+               for (kk = 0; kk < nInputs; kk++)
+                  fprintf(infile, "%24.16e ", psBobyqaSaveX_[ii*nInputs+kk]);
+               fprintf(infile, "%24.16e\n", psBobyqaSaveY_[ii]);
+            }
+            fclose(infile);
+         }
       }
 
       if ((*YValue) < odata->optimalY_)
@@ -195,9 +167,13 @@ extern "C"
             printf("BobyqaOptimizer %6d : \n", odata->numFuncEvals_);
             for (ii = 0; ii < nInputs; ii++)
                printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
-            printf("    Ymin  = %16.8e\n", odata->optimalY_);
-            for (ii = 0; ii < nOutputs; ii++) 
-               printf("    Y %6d = %16.8e\n", ii+1, localY[ii]);
+            if (found == 0)
+            {
+               for (ii = 0; ii < nOutputs; ii++) 
+                  printf("    Y %6d = %16.8e\n", ii+1, localY[ii]);
+            }
+            printf("    *** Current optimal Objective function value = %16.8e\n", 
+                   odata->optimalY_);
          }
       }
       free(localY);
@@ -212,6 +188,51 @@ extern "C"
 // ------------------------------------------------------------------------
 BobyqaOptimizer::BobyqaOptimizer()
 {
+   printAsterisks(PL_INFO, 0);
+   printf("*    BOBYQA Optimizer Usage Information\n");
+   printEquals(PL_INFO, 0);
+   printf("* - To run this optimizer, first make sure opt_driver has been\n");
+   printf("*   initialized to point to your optimization objective function\n");
+   printf("*   evalutor\n");
+   printf("* - Set optimization tolerance in PSUADE file\n");
+   printf("* - Set maximum number of iterations in PSUADE file\n");
+   printf("* - Set num_local_minima to perform multistart optimization\n");
+   printf("* - Set optimization print_level to give additonal outputs\n");
+   printf("* - In Opt EXPERT mode, the optimization history log will be\n");
+   printf("*   turned on automatically. Previous psuade_bobyqa_history\n");
+   printf("*   file will also be reused.\n");
+   printf("* - If your opt_driver is a response surface which has more inputs\n");
+   printf("*   than the number of optimization inputs, you can fix some driver\n");
+   printf("*   inputs by creating a (analyzer) rs_index_file.\n");
+   printf("* - In Opt EXPERT mode, you can specialize the objective function\n");
+   printf("*   creating a file called psuade_bobyqa_special in your current\n");
+   printf("*   directory. This will allow you to create your own objective\n");
+   printf("*   function is in the following form: \n");
+   printf("\n");
+   printf("*        sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2\n");
+   printf("*\n");
+   printf("*   where\n");
+   printf("*   m   - number of outputs to be used to form linear sum.\n");
+   printf("*   n   - number of outputs to form the squared term.\n");
+   printf("*   w_i - weight of output i.\n");
+   printf("*   C_j - constraint for output j.\n\n");
+   printf("* psuade_bobyqa_special should have the following format: \n");
+   printf("*\n");
+   printf("\tPSUADE_BEGIN\n");
+   printf("\t<m>         /* m in the above formula */\n");
+   printf("\t1  <value>  /* the value of w_1 */\n");
+   printf("\t3  <value>  /* the value of w_3 */\n");
+   printf("\t...\n");
+   printf("\t<n>         /* n in the above formula */\n");
+   printf("\t2  <value>  /* the value of C_2 */\n");
+   printf("\t...\n");
+   printf("\tPSUADE_END\n");
+   printEquals(PL_INFO, 0);
+   printf("To reuse the simulations (e.g. restart due to abrupt termination),\n");
+   printf("turn on save_history and use_history optimization options in the\n");
+   printf("ANALYSIS section (e.g. optimization save_history). You will see\n");
+   printf("a file created called 'psuade_bobyqa_history' afterward.\n");
+   printAsterisks(PL_INFO, 0);
 }
 
 // ************************************************************************
@@ -229,7 +250,7 @@ void BobyqaOptimizer::optimize(oData *odata)
    int    nInputs, printLevel=0, ii, kk, maxfun, nPts=0;
    int    nOutputs, outputID, cmpFlag, bobyqaFlag=7777;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp, *workArray;
-   char   filename[500], cinput[500];;
+   char   filename[500], cinput[500], *cString;
    FILE   *infile=NULL;
    string   iLine;
    ifstream iFile;
@@ -256,128 +277,108 @@ void BobyqaOptimizer::optimize(oData *odata)
    }
    nOutputs = odata->nOutputs_;
    outputID = odata->outputID_;
-   if (nOutputs > 1)
+   if (psOptExpertMode_ == 1)
    {
-      printAsterisks(PL_INFO, 0);
-      if (psOptExpertMode_ == 1)
+      strcpy(filename, "psuade_bobyqa_special");
+      iFile.open(filename);
+      if (iFile.is_open())
       {
-         printf("* You have multiple outputs in your problem definition.\n");
-         printf("* Minimization will be performed with respect to output %d.\n",
-                outputID+1);
-         printf("* NOTE: However, by turning on the Opt EXPERT mode, \n");
-         printf("* You may specialize the objective function by creating a\n");
-         printf("* file called psuadeBobyqaSpecial in your current directory.\n");
-         printf("*\n");
-         printf("* The objective function is in the form: \n");
-         printf("*\n");
-         printf("*  sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2\n");
-         printf("*\n");
-         printf("* where\n");
-         printf("*   m - number of outputs to be used to form linear sum.\n");
-         printf("*   n - number of outputs to form Lagrange multiplier.\n");
-         printf("*   w_i - weight of output i.\n");
-         printf("*   C_j - constraint for output j.\n");
-         printf("* The psuadeBobyqaSpecial should have the following format: \n");
-         printf("*\n");
-         printf("\tPSUADE_BEGIN\n");
-         printf("\t<m>          /* m in the above formula */\n");
-         printf("\t1  <double>  /* w_1 if output 1 is used. */\n");
-         printf("\t3  <double>  /* w_3 if output 3 is used (and O2 not used)*/\n");
-         printf("\t...\n");
-         printf("\t<n>          /* n in the above formula */\n");
-         printf("\t2  <double>  /* C_2 if output 2 is used in Lagrange */\n");
-         printf("\t...\n");
-         printf("\tPSUADE_END\n");
-         printAsterisks(PL_INFO, 0);
-      }
-      if (psOptExpertMode_ == 1)
-      {
-         strcpy(filename, "psuadeBobyqaSpecial");
-         iFile.open(filename);
-         if (iFile.is_open())
+         printf("INFO: *** psuade_bobyqa_special file found ***.\n");
+         getline (iFile, iLine);
+         cmpFlag = iLine.compare("PSUADE_BEGIN");
+         if (cmpFlag != 0)
          {
-            printf("INFO: psuadeBobyqaSpecial file found ***.\n");
-            getline (iFile, iLine);
-            cmpFlag = iLine.compare("PSUADE_BEGIN");
-            if (cmpFlag != 0)
+            printf("Bobyqa ERROR: PSUADE_BEGIN not found.\n");
+            iFile.close();
+            return;
+         }
+         iFile >> psNumBOVars_;
+         if (psNumBOVars_ < 0)
+         {
+            printf("Bobyqa ERROR: numOVars <= 0\n");
+            iFile.close();
+            return;
+         }
+         if (psNumBOVars_ > nOutputs)
+         {
+            printf("Bobyqa ERROR: numOVars > %d\n", nOutputs);
+            iFile.close();
+            return;
+         }
+         psBOVars_  = new int[psNumBOVars_];
+         psBOWghts_ = new double[psNumBOVars_];
+         for (ii = 0; ii < psNumBOVars_; ii++)
+         {
+            iFile >> psBOVars_[ii];
+            if (psBOVars_[ii] <= 0 || psBOVars_[ii] > nOutputs)
             {
-               printf("Bobyqa ERROR: PSUADE_BEGIN not found.\n");
+               printf("Bobyqa ERROR: invalid variable index %d.\n",
+                      psBOVars_[ii]);
                iFile.close();
                return;
             }
-            iFile >> psNumBOVars_;
-            if (psNumBOVars_ <= 0)
+            psBOVars_[ii]--;
+            iFile >> psBOWghts_[ii];
+         }
+         printf("%d linear-term outputs selected: \n", psNumBOVars_);
+         for (ii = 0; ii < psNumBOVars_; ii++)
+            printf("%4d   weight = %16.8e\n",psBOVars_[ii]+1,psBOWghts_[ii]);
+         iFile >> psNumBLVars_;
+         if (psNumBLVars_ < 0)
+         {
+            printf("Bobyqa ERROR: numLVars < 0\n");
+            iFile.close();
+            return;
+         }
+         if (psNumBLVars_ > nOutputs)
+         {
+            printf("Bobyqa ERROR: numLVars > %d\n", nOutputs);
+            iFile.close();
+            return;
+         }
+         if (psNumBLVars_ > 0)
+         {
+            psBLVars_  = new int[psNumBLVars_];
+            psBLWghts_ = new double[psNumBLVars_];
+            psBLVals_  = new double[psNumBLVars_];
+         }
+         for (ii = 0; ii < psNumBLVars_; ii++)
+         {
+            iFile >> psBLVars_[ii];
+            if (psBLVars_[ii] <= 0 || psBLVars_[ii] > nOutputs)
             {
-               printf("Bobyqa ERROR: numOVars <= 0\n");
+               printf("Bobyqa ERROR: invalid variable index %d.\n",
+                      psBLVars_[ii]);
                iFile.close();
                return;
             }
-            psBOVars_  = new int[psNumBOVars_];
-            psBOWghts_ = new double[psNumBOVars_];
-            for (ii = 0; ii < psNumBOVars_; ii++)
-            {
-               iFile >> psBOVars_[ii];
-               if (psBOVars_[ii] <= 0 || psBOVars_[ii] > nOutputs)
-               {
-                  printf("Bobyqa ERROR: invalid variable index %d.\n",
-                         psBOVars_[ii]);
-                  iFile.close();
-                  return;
-               }
-               psBOVars_[ii]--;
-               iFile >> psBOWghts_[ii];
-            }
-            printf("%d outputs selected: \n", psNumBOVars_);
-            for (ii = 0; ii < psNumBOVars_; ii++)
-               printf("%4d   weight = %16.8e\n",
-                      psBOVars_[ii]+1,psBOWghts_[ii]);
-            iFile >> psNumBLVars_;
-            if (psNumBLVars_ < 0)
-            {
-               printf("Bobyqa ERROR: numLVars < 0\n");
-               iFile.close();
-               return;
-            }
-            if (psNumBLVars_ > 0)
-            {
-               psBLVars_  = new int[psNumBLVars_];
-               psBLWghts_ = new double[psNumBLVars_];
-               psBLVals_  = new double[psNumBLVars_];
-            }
-            for (ii = 0; ii < psNumBLVars_; ii++)
-            {
-               iFile >> psBLVars_[ii];
-               if (psBLVars_[ii] <= 0 || psBLVars_[ii] > nOutputs)
-               {
-                  printf("Bobyqa ERROR: invalid variable index %d.\n",
-                         psBLVars_[ii]);
-                  iFile.close();
-                  return;
-               }
-               psBLVars_[ii]--;
-               iFile >> psBLVals_[ii];
-               iFile >> psBLWghts_[ii];
-            }
-            printf("%d Lagrange outputs selected: \n", psNumBLVars_);
-            for (ii = 0; ii < psNumBLVars_; ii++)
-               printf("%4d   value = %16.8e, weight = %16.8e\n", 
-                      psBLVars_[ii]+1, psBLVals_[ii], psBLWghts_[ii]);
+            psBLVars_[ii]--;
+            iFile >> psBLVals_[ii];
+            iFile >> psBLWghts_[ii];
+         }
+         printf("%d squared-term outputs selected: \n", psNumBLVars_);
+         for (ii = 0; ii < psNumBLVars_; ii++)
+            printf("%4d   value = %16.8e, weight = %16.8e\n", 
+                   psBLVars_[ii]+1, psBLVals_[ii], psBLWghts_[ii]);
+         getline (iFile, iLine);
+         cmpFlag = iLine.compare("PSUADE_END");
+         if (cmpFlag != 0)
+         {
             getline (iFile, iLine);
             cmpFlag = iLine.compare("PSUADE_END");
             if (cmpFlag != 0)
             {
-               getline (iFile, iLine);
-               cmpFlag = iLine.compare("PSUADE_END");
-               if (cmpFlag != 0)
-               {
-                  printf("Bobyqa ERROR: PSUADE_END not found.\n");
-                  iFile.close();
-                  return;
-               }
+               printf("Bobyqa ERROR: PSUADE_END not found.\n");
+               iFile.close();
+               return;
             }
          }
+         iFile.close();
       }
    }
+   if (psNumBOVars_ + psNumBLVars_ == 0)
+      printf("Bobyqa optimizer: selected output for optimization = %d\n", 
+             outputID+1);
 
    maxfun = odata->maxFEval_;
    if ((odata->setOptDriver_ & 1))
@@ -392,38 +393,43 @@ void BobyqaOptimizer::optimize(oData *odata)
    printf("Bobyqa optimizer: tolerance  = %e\n", odata->tolerance_);
    if (printLevel > 1)
       printf("Bobyqa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
-   if (psNumBOVars_ + psNumBLVars_ == 0)
-      printf("Bobyqa optimizer: selected output = %d\n", outputID+1);
    printEquals(PL_INFO, 0);
 
    nPts = (nInputs + 1) * (nInputs + 2) / 2;
    workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
 
 #ifdef HAVE_BOBYQA
-   if (psOptExpertMode_ != 0)
+   if (psConfig_ != NULL)
    {
-      infile = fopen("psuade_bobyqa_history","r");
-      if (infile != NULL)
+      cString = psConfig_->getParameter("opt_save_history");
+      if (cString != NULL) psBobyqaSaveHistory_ = 1;
+      cString = psConfig_->getParameter("opt_use_history");
+      if (cString != NULL)
       {
-         psBobyqaNSaved_ = 0;
-         while (feof(infile) == 0)
+         printf("Bobyqa: use history has been turned on.\n");
+         infile = fopen("psuade_bobyqa_history","r");
+         if (infile != NULL)
          {
-            fscanf(infile, "%d %d", &ii, &kk);
-            if (ii != 999 || kk != nInputs)
+            psBobyqaNSaved_ = 0;
+            while (feof(infile) == 0)
             {
-               break;
-            }
-            else
-            {
-               for (ii = 0; ii < nInputs; ii++) 
-                  fscanf(infile, "%lg",&psBobyqaSaveX_[psBobyqaNSaved_*nInputs+ii]);
-               fscanf(infile, "%lg",&psBobyqaSaveY_[psBobyqaNSaved_]);
-               psBobyqaNSaved_++;
-            }
-            if (((psBobyqaNSaved_+1)*nInputs > psBobyqaMaxSaved_*10) ||
-                psBobyqaNSaved_ > psBobyqaMaxSaved_) break;
-         } 
-         fclose(infile);
+               fscanf(infile, "%d %d", &ii, &kk);
+               if (ii != 999 || kk != nInputs)
+               {
+                  break;
+               }
+               else
+               {
+                  for (ii = 0; ii < nInputs; ii++) 
+                     fscanf(infile, "%lg",&psBobyqaSaveX_[psBobyqaNSaved_*nInputs+ii]);
+                  fscanf(infile, "%lg",&psBobyqaSaveY_[psBobyqaNSaved_]);
+                  psBobyqaNSaved_++;
+               }
+               if (((psBobyqaNSaved_+1)*nInputs > psBobyqaMaxSaved_*10) ||
+                   psBobyqaNSaved_ > psBobyqaMaxSaved_) break;
+            } 
+            fclose(infile);
+         }
       }
    }
    for (ii = 0; ii < nInputs; ii++) 
@@ -434,7 +440,7 @@ void BobyqaOptimizer::optimize(oData *odata)
    printf("Bobyqa optimizer: total number of evaluations = %d\n",
            odata->numFuncEvals_);
 
-   if (psOptExpertMode_ != 0 && psBobyqaNSaved_ > 0)
+   if (psBobyqaSaveHistory_ == 1 && psBobyqaNSaved_ > 0)
    {
       infile = fopen("psuade_bobyqa_history","w");
       if (infile != NULL)
@@ -455,11 +461,11 @@ void BobyqaOptimizer::optimize(oData *odata)
    exit(1);
 #endif
 
-   if (odata->setOptDriver_ & 2)
-   {
-      printf("Bobyla: setting back to original simulation driver.\n");
-      odata->funcIO_->setDriver(psBCurrDriver_);
-   }
+   //if (odata->setOptDriver_ & 2)
+   //{
+   //   printf("Bobyla INFO: reverting to original simulation driver.\n");
+   //   odata->funcIO_->setDriver(psBCurrDriver_);
+   //}
    delete [] XValues;
    delete [] workArray;
    if (psBOVars_  != NULL) delete [] psBOVars_;

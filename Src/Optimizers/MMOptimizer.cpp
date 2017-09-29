@@ -153,7 +153,7 @@ extern "C"
          if (jj == nInputs)
          {
             found = 1;
-            printf("MMOptimzer: simulation results found in archive (fine).\n");
+            printf("MMOptimizer: simulation results found in archive (fine).\n");
             index = ii;
             break;
          }
@@ -334,7 +334,12 @@ void MMOptimizer::optimize(oData *odata)
       {
          psData = new PsuadeData();
          status = psData->readPsuadeFile(auxDriverName);
-         if (status != 0) exit(1);
+         if (status != 0) 
+         {
+            printf("MMOptimizer ERROR: cannot read aux opt data file %s.\n",
+                   auxDriverName);
+            exit(1);
+         }
          psData->getParameter("input_ninputs", pPtr);
          auxNInputs = pPtr.intData_;
          psData->getParameter("output_noutputs", pPtr);
@@ -945,10 +950,9 @@ void MMOptimizer::optimize(oData *odata)
 // ************************************************************************
 // set parameter
 // ------------------------------------------------------------------------
-void MMOptimizer::setParam(string sparam)
+void MMOptimizer::setParam(char *sparam)
 {
-   int pos = sparam.find("setAdaptive");
-   if (pos >= 0) adaptive_ = 1;
+   if (!strcmp(sparam, "setAdaptive")) adaptive_ = 1;
    return;
 }
 
@@ -1018,7 +1022,7 @@ int MMOptimizer::fineSolve(oData *odata, int nInputs, double *X0,
       if (jj == nInputs)
       {
          found = 1;
-         printf("MMOptimzer: simulation results found in archive (fine).\n");
+         printf("MMOptimizer: simulation results found in archive (fine).\n");
          break;
       }
    }

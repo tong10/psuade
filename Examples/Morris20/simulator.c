@@ -44,6 +44,9 @@ main(int argc, char **argv)
             for (m = k+1; m < 20; m++)
                if (m < 4) Y += 5.0 * W[i] * W[j] * W[k] * W[m];
    fprintf(fOut, "%24.16e\n", Y);
+   fprintf(fOut, "%24.16e\n", 2*Y);
+   fprintf(fOut, "%24.16e\n", 5*Y);
+   fprintf(fOut, "%24.16e\n", 10*Y);
    fclose(fIn);   
    fclose(fOut);   
 }

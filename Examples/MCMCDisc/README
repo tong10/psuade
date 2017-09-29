@@ -20,24 +20,31 @@ Ye = X1 + X2 + X2 * X1
 
 where the uncertain (calibration) parameter is X2 = 0.9
 
-Ye = X1 + 0.9 + 0.9 * X1
+Ye = X1 + 0.9 + 0.9 * X1 = 1.9 * X1 + 0.9
 ------------------------------------------------------------------
 The simulation model is: 
 
 Ys = X1 + X2
 
-where X1 is assumed to be 0.6 (but it is actually
-   varying so the discrepancy function is a function of X1)
-so
-
-Ys = 0.6 + X2
 ------------------------------------------------------------------
 Discrepancy function: (set X2 to mid point)
 
 d1 = Ye - Ys 
-   = X1 + 0.9 + 0.9 * X1 - 0.6 - X2
-   = 0.3 + 1.9 * X1 - X2
-   = -0.2 + 1.9 * X1     
+   = 1.9 * X1 + 0.9 - X1 - X2
+   = 0.9 * X1 + 0.9 - X2
+
+Set X2 at midpoint = 0.5
+
+d1 = 0.9 * X1 + 0.4
+
+---------------
+add d1 to Ys gives
+
+hat(Ys) = X1 + X2 + 0.9 * X1 + 0.4 = 1.9 * X1 + X2 + 0.4
+
+If the posterior of X2 centers around 0.5, then 
+
+hat(Ys) = 1.9 * X1 + 0.9
 
 ******************************************************************
                  Steps
