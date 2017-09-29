@@ -35,6 +35,7 @@
 
 #include "BinomialAnalyzer.h"
 #include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
@@ -99,6 +100,7 @@ double BinomialAnalyzer::analyze(aData &adata)
    BinomialCDF_ = NULL;
    
    Ybin_ = new double[nSamples_];
+   checkAllocate(Ybin_, "Ybin in BinomialAnalyzer::analyze");
    for (ss = 0; ss < nSamples_; ss++)
    {
       if (PABS(Y[ss]) <= thresh) Ybin_[ss] = 1.0;
@@ -133,6 +135,7 @@ double *BinomialAnalyzer::setupBinomialCDF(int n, double p0)
 
    nFact = factorial(n);
    retValues = new double[n+1];
+   checkAllocate(retValues,"retValues in Binomial::setupBinomialCDF");
    for (k = 0; k <= n; k++)
    {
       kFact  = factorial(k);
@@ -182,6 +185,7 @@ double *BinomialAnalyzer::get_Ybin()
    if (Ybin_)
    {
       retVal = new double[nSamples_];
+      checkAllocate(retVal,"retVal in Binomial::get_nSamples");
       std::copy(Ybin_, Ybin_+nSamples_, retVal);
    }
    return retVal;
@@ -196,6 +200,7 @@ double *BinomialAnalyzer::get_BinomialCDF()
    if (Ybin_)
    {
       retVal = new double[nSamples_+1];
+      checkAllocate(retVal,"retVal in Binomial::get_BinomialCDF");
       std::copy(BinomialCDF_, BinomialCDF_+nSamples_+1, retVal);
    }
    return retVal;

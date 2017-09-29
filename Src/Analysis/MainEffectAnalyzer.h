@@ -65,12 +65,10 @@ public:
 
    double analyzeOAT(aData &);
 
-private:
+public:
    int computeMeanVariance(int,int,int,double*,double *,double *,int);
    int computeVCECrude(int,int,double *,double *,double *,double *,
                        double,double *);
-
-public:
    int computeVCE(int, int, int, double *, double *, int, FILE *,
                   double *, double *, double *, double *);
 

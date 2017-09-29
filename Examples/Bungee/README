@@ -23,7 +23,7 @@ sig ~0.54
 
 ===============================================
 To run:
-                                                                                
+
 cd to this directory
 cc -o simulator simulator.c -lm
 psuade psuade.in
@@ -59,7 +59,8 @@ psuade psuade.in
 
     - psuade
       > load psSave
-      > <use rs1, rs2, or rs3 for response surfaces, or iplot1, iplot2 .. for scatter plots>
+      > <use rs1, rs2, or rs3 for response surfaces, or 
+         iplot1, iplot2 .. for scatter plots>
 
 ===============================================
 To experiment with user regression:
@@ -73,7 +74,46 @@ psuade
 > rscheck
   choose user regression
 
-  enter number of terms = 9 (see user_regression.py file)
+  enter number of terms = 10 (see user_regression.py file)
   enter executable = user_regression.py
+
+for codegen: edit the user function 
+===============================================
+To experiment with selective regression:
+cc -o simulator simulator.c -lm
+psuade psuade.in
+mv psuadeData psd
+
+psuade
+> load psd
+> rscheck
+  choose selective regression
+  (selective_regression_file will be detected automatically
+
+===============================================
+To experiment with Legendre regression:
+cc -o simulator simulator.c -lm
+psuade psuade.in
+
+psuade
+> load psd
+> rscheck
+  choose Legendre regression
+  enter order
+
+===============================================
+To experiment with GradLegendre regression:
+cc -o simulator simulator.c -lm
+psuade psuadeDeriv.in
+mv psuadeData psd
+
+psuade
+> load psd
+> odelete (then choose output 1 to delete)
+> write deriv
+> load psd
+> rscheck
+  choose gradLegendre
+  enter deriv as derivative file
 
 

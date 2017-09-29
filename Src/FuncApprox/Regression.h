@@ -29,18 +29,16 @@
 
 #include "FuncApprox.h"
 #include "Matrix.h"
+#include "Vector.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
 class Regression : public FuncApprox 
 {
-   int    order_;
-   int    numTerms_;
-   double *regCoeffs_;
-   double *regStdevs_;
-   double **fuzzyC_;
-   psMatrix covMatrix_;
+   int      order_;
+   psVector regCoeffs_;
+   psMatrix invCovMat_;
  
 public:
    Regression(int, int);
@@ -65,9 +63,8 @@ public:
 private:
    int    analyze(double *, double *);
    int    loadXMatrix(double *, double **);
-   int    computeXTX(int, double *, double **);
    int    computeSS(int, double *, double *, double *, double &, double &);
-   int    computeCoeffVariance(int, double *, double, double *);
+   int    computeCoeffVariance(psMatrix&, psVector&, double);
    int    printRC(int, double *, double *, double *, double *);
    int    printCoefs(int, double *);
    int    printSRC(double *, double *, double);

@@ -160,12 +160,14 @@ double SobolAnalyzer::analyze(aData &adata)
    }
    
    Y = new double[nSamples];
+   checkAllocate(Y, "Y in Sobol::analyze");
    for (ss = 0; ss < nSamples; ss++) Y[ss] = yIn[nOutputs*ss+outputID];
    means = new double[nInputs];
    modifiedMeans = new double[nInputs];
    stds = new double[nInputs];
    modifiedMeans_ = new double[nInputs_];
    stds_ = new double[nInputs_];
+   checkAllocate(stds_, "stds_ in Sobol::analyze");
    for (ii = 0; ii < nInputs; ii++)
       means[ii]=modifiedMeans[ii]=modifiedMeans_[ii]=stds[ii]=stds_[ii]=0.0;
 
@@ -221,6 +223,7 @@ double SobolAnalyzer::analyze(aData &adata)
    S_  = new double[nInputs_];
    ST_ = new double[nInputs_];
    PE_ = new double[nInputs_];
+   checkAllocate(PE_, "PE_ in Sobol::analyze");
    for (ii = 0; ii < nInputs; ii++)
    {
       tau = 0.0;
@@ -348,6 +351,7 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
    }
 
    counts = new int[nInputs];
+   checkAllocate(counts, "counts in Sobol::MOATAnalyze");
    for (ii = 0; ii < nInputs; ii++) counts[ii] = 0;
    for (ss = 0; ss < nSamples; ss+=(nInputs+2))
    {
@@ -439,6 +443,7 @@ double *SobolAnalyzer::get_modifiedMeans()
    if (modifiedMeans_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in Sobol::get_modifiedMeans");
       for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = modifiedMeans_[ii];
    }
    return retVal;
@@ -449,6 +454,7 @@ double *SobolAnalyzer::get_stds()
    if (stds_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in Sobol::get_stds");
       for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = stds_[ii];
    }
    return retVal;
@@ -459,6 +465,7 @@ double *SobolAnalyzer::get_S()
    if (S_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in Sobol::get_S");
       for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = S_[ii];
    }
    return retVal;
@@ -469,6 +476,7 @@ double *SobolAnalyzer::get_ST()
    if (ST_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in Sobol::get_ST");
       for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = ST_[ii];
    }
    return retVal;
@@ -479,6 +487,7 @@ double *SobolAnalyzer::get_PE()
    if (PE_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in Sobol::get_PE");
       for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = PE_[ii];
    }
    return retVal;

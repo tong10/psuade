@@ -56,6 +56,7 @@ public:
    FunctionInterface *funcIO_;
    char targetFile_[200];
    PsuadeData *psIO_;
+   void   (*optFunction_)(int, double *, int, double *);
 
    /** constructor */
    oData();

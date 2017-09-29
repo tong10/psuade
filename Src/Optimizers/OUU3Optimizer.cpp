@@ -648,11 +648,11 @@ OUU3Optimizer::~OUU3Optimizer()
 void OUU3Optimizer::optimize(oData *odata)
 {
    int    nInputs, printLevel=0, ii, kk, maxfun, nPts=0, bobyqaFlag=1111;
-   int    M1, M2, M3, M4, index, iOne=1, iZero=0, printHeader=1;
-   int    currDriver, count;
+   int    M1, M2, M3, M4, index, iOne=1, iZero=0, printHeader=1, count;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, ddata, *workArray;
    char   pString[1000], lineIn[1000], filename[1000];
    FILE   *fp=NULL;
+   static int currDriver=-1;
 
    psMasterMode_ = 0;
    nInputs = odata->nInputs_;
@@ -1240,7 +1240,7 @@ void OUU3Optimizer::optimize(oData *odata)
 #endif
    if (psOUU3Parallel_ == 1) odata->funcIO_->setSynchronousMode();
 
-   if (odata->setOptDriver_ & 2)
+   if ((odata->setOptDriver_ & 2) && currDriver >= 0)
    {
       printf("OUU3Optimizer INFO: reverting to original simulation driver.\n");
       odata->funcIO_->setDriver(currDriver);

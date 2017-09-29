@@ -26,6 +26,7 @@
 // ************************************************************************
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFCauchy.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -60,12 +61,15 @@ int PDFCauchy::getPDF(int length, double *inData, double *outData)
    int    ii;
    double mult, xdata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFCauchy: getPDF begins (length = %d)\n",length);
    mult = 1.0 / (PS_PI * gamma_);
    for (ii = 0; ii < length; ii++)
    {
       xdata = (inData[ii] - X0_) / gamma_;
       outData[ii] = mult / (1.0 + xdata * xdata);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFCauchy: getPDF ends.\n");
    return 0;
 }
 
@@ -77,11 +81,14 @@ int PDFCauchy::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFCauchy: getCDF begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       ddata = (inData[ii] - X0_) / gamma_;
       outData[ii] = atan(ddata) / PS_PI + 0.5;
    }
+   if (psPDFDiagMode_ == 1) printf("PDFCauchy: getCDF ends.\n");
    return 0;
 }
 
@@ -105,6 +112,8 @@ int PDFCauchy::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFCauchy: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    for (ii = 0; ii < length; ii++)
    {
@@ -146,6 +155,7 @@ int PDFCauchy::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFCauchy: invCDF ends.\n");
    return 0;
 }
 
@@ -171,7 +181,8 @@ int PDFCauchy::genSample(int length, double *outData, double *lowers,
       exit(1);
    }
 
-   //printf("PDFCauchy: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFCauchy: genSample begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -206,7 +217,7 @@ int PDFCauchy::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFCauchy: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFCauchy: genSample ends.\n");
    return 0;
 }
 

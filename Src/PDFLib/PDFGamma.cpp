@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFGamma.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -60,6 +61,8 @@ int PDFGamma::getPDF(int length, double *inData, double *outData)
    int    ii;
    double mult, xdata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFGamma: genSample begins (length = %d)\n",length);
    mult = pow(beta_, alpha_) / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -72,6 +75,7 @@ int PDFGamma::getPDF(int length, double *inData, double *outData)
       outData[ii] = pow(xdata, alpha_-1.0) * exp(-beta_ * xdata);
       outData[ii] *= mult;
    }
+   if (psPDFDiagMode_ == 1) printf("PDFGamma: getPDF ends.\n");
    return 0;
 }
 
@@ -83,6 +87,8 @@ int PDFGamma::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata, mult;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFGamma: getCDF begins (length = %d)\n",length);
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -90,6 +96,7 @@ int PDFGamma::getCDF(int length, double *inData, double *outData)
       if   (ddata < 0) outData[ii] = 0;
       else outData[ii] = mult*Incomplete_Gamma_Function(beta_*ddata,alpha_);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFGamma: getCDF ends.\n");
    return 0;
 }
 
@@ -113,6 +120,8 @@ int PDFGamma::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFGamma: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
@@ -152,6 +161,7 @@ int PDFGamma::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFGamma: invCDF ends.\n");
    return 0;
 }
 
@@ -182,7 +192,8 @@ int PDFGamma::genSample(int length, double *outData, double *lowers,
       exit(1);
    }
 
-   //printf("PDFGamma: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFGamma: genSample begins (length = %d)\n",length);
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -215,7 +226,7 @@ int PDFGamma::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFGamma: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFGamma: genSample ends.\n");
    return 0;
 }
 

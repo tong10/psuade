@@ -53,10 +53,10 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
    if (kk < leng)
    {
       printf("READ_CSV: the first line contains non-numerics.\n");
-      printf("Use the first line as the header line? (y or n) ");
-      scanf("%s", line1);
-      if (line1[0] == 'y') nclines++;
-      fgets(line1,5000,stdin);
+      printf("Use the first line as the variable definition line? (y or n) ");
+      scanf("%s", cword);
+      if (cword[0] == 'y') nclines++;
+      fgets(cword,10,stdin);
    }
    if (kk < leng && nclines > 0)
    {

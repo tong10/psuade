@@ -153,11 +153,12 @@ SMOptimizer::~SMOptimizer()
 // ------------------------------------------------------------------------
 void SMOptimizer::optimize(oData *odata)
 {
-   int    nInputs, nOutputs, i,j, maxfun=1000;
+   int    nInputs, nOutputs, i, j, kk, maxfun=1000;
+   int    nIter = 1, nIterMAX = 10, ncevals = 0, nfevals = 0;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp;
    double *zstar, *px1, *B1, *x1, *B0h;
-   int    nIter = 1, nIterMAX = 10, ncevals = 0, nfevals = 0;
    double Fx, h = 1e50, tolX = 1e-4;
+   FILE   *fspecs;
    extern double *px0, *B0, *x0, *fx, *y, normy;
    extern int coarseoptimtype;
 
@@ -178,17 +179,20 @@ void SMOptimizer::optimize(oData *odata)
    if (!strcmp(odata->targetFile_,"NONE"))
    {
       printf("SMOptimizer ERROR : no target file.\n");
-      exit(1);
+      y = new double[nOutputs];
+      for (i = 0; i < nOutputs; i++) y[i] = 0;
    }
-   FILE *fspecs = fopen(odata->targetFile_, "r");
-
-   y = new double[nOutputs];
-   for (i = 0; i < nOutputs; i++) fscanf(fspecs, "%lg", &y[i]);
-   fclose(fspecs);
-
+   else
+   {
+      fspecs = fopen(odata->targetFile_, "r");
+      y = new double[nOutputs];
+      for (i = 0; i < nOutputs; i++) fscanf(fspecs, "%lg", &y[i]);
+      fclose(fspecs);
+   }
    normy = 0.0;
    for (i=0; i < nOutputs; i++) normy = normy+ y[i]*y[i];
    normy = sqrt(normy);
+   if (normy == 0) normy = 1;
 
    printf("\n\n");
    printAsterisks(PL_INFO, 0);
@@ -258,7 +262,8 @@ void SMOptimizer::optimize(oData *odata)
    maxfun = 1000;
    int    printLevel=5555;
    int    nPts = (nInputs + 1) * (nInputs + 2) / 2;
-   double *workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
+   kk = (nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1;
+   double *workArray = new double[kk];
    bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_, odata->upperBounds_,
            &rhobeg, &rhoend, &printLevel, &maxfun, workArray);
    delete [] workArray;

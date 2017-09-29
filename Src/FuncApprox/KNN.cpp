@@ -55,6 +55,7 @@ KNN::KNN(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    kfold_ = (nSamples < 20) ? nSamples : 20;
    Distances_ = new double[kmax_];
    YStored_ = new double[kmax_];
+   checkAllocate(YStored_, "YStored_ in KNN::constructor");
 
    // display banner and additonal information
    printAsterisks(PL_INFO, 0);
@@ -118,6 +119,7 @@ int KNN::initialize(double *X, double *Y)
    if (iRanges_ != NULL) delete [] iRanges_;
    XNormalized_ = new double[nSamples_*nInputs_];
    YNormalized_ = new double[nSamples_];
+   checkAllocate(YNormalized_, "YNormalized_ in KNN::initialize");
    for (ii = 0; ii < nInputs_; ii++)
    {
       range = 1.0 / (upperBounds_[ii] - lowerBounds_[ii]);
@@ -127,6 +129,7 @@ int KNN::initialize(double *X, double *Y)
    }
    for (ss = 0; ss < nSamples_; ss++) YNormalized_[ss] = Y[ss];
    iRanges_ = new double[nInputs_];
+   checkAllocate(iRanges_, "iRanges in KNN::initialize");
    for (ii = 0; ii < nInputs_; ii++)
       iRanges_[ii] = 1.0 / (upperBounds_[ii] - lowerBounds_[ii]);
 
@@ -135,6 +138,7 @@ int KNN::initialize(double *X, double *Y)
       iArray = new int[nSamples_];
       XX = new double[nSamples_*nInputs_];
       YY = new double[nSamples_];
+      checkAllocate(YY, "YY in KNN::initialize");
       generateRandomIvector(nSamples_, iArray);
       for (ii = 0; ii < nInputs_; ii++)
       {
@@ -145,6 +149,7 @@ int KNN::initialize(double *X, double *Y)
 
       X2 = new double[nSamples_*nInputs_];
       Y2 = new double[nSamples_];
+      checkAllocate(Y2, "Y2 in KNN::initialize");
       nSubSamples = nSamples_ / kfold_;
       if (nSubSamples == 0) nSubSamples = 1;
       errMin = 1e35;
@@ -465,6 +470,7 @@ int KNN::genNDGridData(double *X,double *Y,int *N2,double **X2,double **Y2)
    totPts = (*N2);
 
    (*Y2) = new double[totPts];
+   checkAllocate(*Y2, "Y2 in KNN::genNDGridData");
    evaluatePoint(totPts, *X2, *Y2);
 
    return 0;
@@ -491,6 +497,7 @@ int KNN::gen1DGridData(double *X, double *Y, int ind1, double *settings,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in KNN::gen1DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -530,6 +537,7 @@ int KNN::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in KNN::gen2DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -576,6 +584,7 @@ int KNN::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in KNN::gen3DGridData");
    for (ss = 0; ss < totPts; ss++)
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii];
 
@@ -629,6 +638,7 @@ int KNN::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in KNN::gen4DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     

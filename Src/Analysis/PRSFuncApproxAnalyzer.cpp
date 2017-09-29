@@ -123,6 +123,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    }
    
    YLocal = new double[nSamples];
+   checkAllocate(YLocal, "YLocal in PRSFuncApprox::analyze");
    for (ss = 0; ss < nSamples; ss++) YLocal[ss] = Y[ss*nOutputs+outputID];
    ymax = 0.0;
    ymin = PSUADE_UNDEFINED;
@@ -153,6 +154,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    if (mypid_ == 0)
    {
       YT = new double[nSamples];
+      checkAllocate(YT, "YT in PRSFuncApprox::analyze");
       faPtr = genFA(rsType_, nInputs, iOne, nSamples);
       if (faPtr == NULL)
       {
@@ -173,6 +175,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       if (wgtID >= 0 && wgtID < nOutputs)
       {
          wgts = new double[nSamples];
+         checkAllocate(wgts, "wgts in PRSFuncApprox::analyze");
          for (ss = 0; ss < nSamples; ss++) wgts[ss] = Y[ss*nOutputs+wgtID];
          faPtr->loadWeights(nSamples, wgts);
          delete [] wgts;
@@ -225,9 +228,12 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       sumErr2s = sqrt(sumErr2s / (double) nSamples);
       printOutTS(PL_INFO,"PRSA: Interpolation error on training set \n");
       printOutTS(PL_INFO,"      avg error far from 0 ==> systematic bias.\n");
-      printOutTS(PL_INFO,"      rms error large      ==> average   error large.\n");
-      printOutTS(PL_INFO,"      max error large      ==> pointwise error large.\n");
-      printOutTS(PL_INFO,"      R-square may not always be a reliable measure.\n");
+      printOutTS(PL_INFO,
+         "      rms error large      ==> average   error large.\n");
+      printOutTS(PL_INFO,
+         "      max error large      ==> pointwise error large.\n");
+      printOutTS(PL_INFO,
+         "      R-square may not always be a reliable measure.\n");
       printOutTS(PL_INFO,"  avg error   = %11.3e (unscaled)\n", sumErr11);
       printOutTS(PL_INFO,"  avg error   = %11.3e (scaled)\n", sumErr11s);
       printOutTS(PL_INFO,"  rms error   = %11.3e (unscaled)\n", sumErr2);
@@ -236,7 +242,8 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
                  maxErr, maxBase);
       printOutTS(PL_INFO,"  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
                  maxErrs, maxBases);
-      printOutTS(PL_INFO,"  R-square    = %16.8e\n",1.0-sumErr2*sumErr2*nSamples/yvar);
+      printOutTS(PL_INFO,
+         "  R-square    = %16.8e\n",1.0-sumErr2*sumErr2*nSamples/yvar);
       printOutTS(PL_INFO,"Based on %d training points.\n",nSamples);
       delete faPtr;
       delete [] YT;
@@ -286,8 +293,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       if (nSubSamples * numCVGroups < nSamples)
       {
          numCVGroups++;
-         printOutTS(PL_INFO,"INFO: number of CV groups has been adjusted to %d.\n",
-                    numCVGroups);
+         printOutTS(PL_INFO,
+            "INFO: number of CV groups has been adjusted to %d.\n",
+            numCVGroups);
          printOutTS(PL_INFO,"      Each CV group has <= %d sample points\n",
                     nSubSamples);
       }
@@ -322,6 +330,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    WW = new double[nSamples];
    iArray  = new int[nSamples];
    iArray2 = new int[nSamples];
+   checkAllocate(iArray2, "iArray2 in PRSFuncApprox::analyze");
    for (ss = 0; ss < nSamples; ss++) iArray[ss] = ss;
    if (ranFlag == 1) generateRandomIvector(nSamples, iArray);
    commMgr_->bcast((void *) iArray, nSamples, INT, 0);
@@ -343,6 +352,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    YT = new double[nSamples];
    ST = new double[nSamples];
    wgts = new double[nSamples];
+   checkAllocate(wgts, "wgts in PRSFuncApprox::analyze");
    for (ss = 0; ss < nSamples; ss+=nSubSamples)
    {
       pindex = ss / nSubSamples;
@@ -406,6 +416,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       eArray = new double[nSamples];
       sArray = new double[nSamples];
       sigmas = new double[nSamples];
+      checkAllocate(sigmas, "sigmas in PRSFuncApprox::analyze");
       cvErr1 = cvErr1s = cvErr2 = cvErr2s = cvMax = cvMaxs = 0.0;
       cvMaxBase = cvMaxBases = 0.0;
       for (ss = 0; ss < nSamples; ss++)
@@ -435,14 +446,20 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       cvErr1s = cvErr1s / (double) nSamples;
       cvErr2  = sqrt(cvErr2 / nSamples);
       cvErr2s = sqrt(cvErr2s / nSamples);
-      printOutTS(PL_INFO,"PRSA: final CV error  = %11.3e (avg unscaled)\n",cvErr1);
-      printOutTS(PL_INFO,"PRSA: final CV error  = %11.3e (avg   scaled)\n",cvErr1s);
-      printOutTS(PL_INFO,"PRSA: final CV error  = %11.3e (rms unscaled)\n",cvErr2);
-      printOutTS(PL_INFO,"PRSA: final CV error  = %11.3e (rms   scaled)\n",cvErr2s);
-      printOutTS(PL_INFO,"PRSA: final CV error  = %11.3e (max unscaled,BASE=%9.3e)\n",
-                 cvMax, cvMaxBase);
-      printOutTS(PL_INFO,"PRSA: final CV error  = %11.3e (max   scaled,BASE=%9.3e)\n",
-                 cvMaxs, cvMaxBases);
+      printOutTS(PL_INFO,
+           "PRSA: final CV error  = %11.3e (avg unscaled)\n",cvErr1);
+      printOutTS(PL_INFO,
+           "PRSA: final CV error  = %11.3e (avg   scaled)\n",cvErr1s);
+      printOutTS(PL_INFO,
+           "PRSA: final CV error  = %11.3e (rms unscaled)\n",cvErr2);
+      printOutTS(PL_INFO,
+           "PRSA: final CV error  = %11.3e (rms   scaled)\n",cvErr2s);
+      printOutTS(PL_INFO,
+           "PRSA: final CV error  = %11.3e (max unscaled,BASE=%9.3e)\n",
+           cvMax, cvMaxBase);
+      printOutTS(PL_INFO,
+           "PRSA: final CV error  = %11.3e (max   scaled,BASE=%9.3e)\n",
+           cvMaxs, cvMaxBases);
       if (psPlotTool_ == 1)
       {
          fpData = fopen("RSFA_CV_err.sci", "w");
@@ -564,8 +581,8 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
             if (psPlotTool_ == 1) fprintf(fpData,"drawnow\n");
             else
             {
-               fprintf(fpData,"text(0.1,0.9,'RED: predicion outside +/- 1 std ");
-               fprintf(fpData,"dev','sc','fontSize',11,'fontweight','bold')\n");
+              fprintf(fpData,"text(0.1,0.9,'RED: prediction outside +/-1 std ");
+              fprintf(fpData,"dev','sc','fontSize',11,'fontweight','bold')\n");
             }
          }
          fwriteHold(fpData, 0);

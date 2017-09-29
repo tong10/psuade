@@ -24,11 +24,12 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "sysdef.h"
 #include "Vector.h"
+#include "PsuadeUtil.h"
 
 //#define PS_DEBUG
 
@@ -189,9 +190,60 @@ double *psVector::getDVector()
 }
 
 // ************************************************************************
+// find max 
+// ------------------------------------------------------------------------
+double psVector::max()
+{
+   int    ii;
+   double dmax = -PSUADE_UNDEFINED;
+   for (ii = 0; ii < length_; ii++) 
+      if (Vec_[ii] > dmax) dmax = Vec_[ii];
+   return dmax;
+}
+   
+// ************************************************************************
+// find min 
+// ------------------------------------------------------------------------
+double psVector::min()
+{
+   int    ii;
+   double dmin = PSUADE_UNDEFINED;
+   for (ii = 0; ii < length_; ii++) 
+      if (Vec_[ii] < dmin) dmin = Vec_[ii];
+   return dmin;
+}
+   
+// ************************************************************************
+// compute vector sum 
+// ------------------------------------------------------------------------
+double psVector::sum()
+{
+   int    ii;
+   double dsum=0.0;
+   for (ii = 0; ii < length_; ii++) dsum += Vec_[ii];
+   return dsum;
+}
+
+// ************************************************************************
+// scale vector 
+// ------------------------------------------------------------------------
+void psVector::scale(double alpha)
+{
+   for (int ii = 0; ii < length_; ii++) Vec_[ii] *= alpha;
+}
+
+// ************************************************************************
+// sort 
+// ------------------------------------------------------------------------
+void psVector::sort()
+{
+   sortDbleList(length_, Vec_);
+}
+   
+// ************************************************************************
 // add to vector
 // ------------------------------------------------------------------------
-int psVector::add(int leng, double *data)
+int psVector::addElements(int leng, double *data)
 {
 #ifdef PS_DEBUG
    printf("psVector add, length = %d\n", leng);

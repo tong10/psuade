@@ -219,7 +219,7 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
              inputPDFs[ii] != PSUADE_PDF_NORMAL && ii != jj && 
              corMat_.getEntry(ii,jj) != 0.0)
          {
-            printf("PDFManager ERROR: correlation != 0 for non-normal PDFs.\n");
+            printf("PDFManager ERROR: correlation != 0 for non-normal PDFs\n");
             errFlag = 1;
          }
          //*/ check that correlation cannot be less than -1 or > 1
@@ -256,6 +256,11 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
       usrPDFFlags_[ii] = -1;
       if (inputPDFs[ii] == PSUADE_PDF_SAMPLE)
       {
+         if (snames == NULL)
+         {
+            printf("PDFManager ERROR: no sample file provided.\n"); 
+            exit(1);
+         }
          for (jj = 0; jj < ii; jj++)
          {
             if (!strcmp(snames[ii],snames[jj]))
@@ -268,6 +273,11 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
       }
       if (inputPDFs[ii] == PSUADE_PDF_SAMPLEHIST)
       {
+         if (snames == NULL)
+         {
+            printf("PDFManager ERROR: no sample file provided.\n"); 
+            exit(1);
+         }
          for (jj = 0; jj < ii; jj++)
          {
             if (!strcmp(snames[ii],snames[jj]))
@@ -369,6 +379,11 @@ int PDFManager::initialize(int nInputs, int *inputPDFs,
       {
          if (usrPDFFlags_[ii] == ii)
          {
+            if (indices == NULL)
+            {
+              printf("PDFManager ERROR: null index array.\n"); 
+              exit(1);
+            }
             indices2 = new int[nInputs_];
             scount = 0;
             for (jj = 0; jj < nInputs_; jj++)
@@ -734,6 +749,7 @@ int PDFManager::genSample(int nSamples, psVector &vecOut,
    outData    = vecOut.getDVector();
    normalFlag = lognormalFlag = 0;
    localData  = new double[nSamples*nInputs];
+   checkAllocate(localData, "localData in PDFManager::genSample");
    for (ii = 0; ii < nInputs_; ii++)
    {
       if (pdfMap_[ii] == PSUADE_PDF_UNIFORM)

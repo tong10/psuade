@@ -213,43 +213,46 @@ int OALHSampling::initialize(int initLevel)
    delete [] permute;
 
 
-   offset = 0;
-   for (repID = 0; repID < nReps; repID++)
+   if (nSamples_ < 1000)
    {
-      OA_strength(nSubSamples,nSubSamples,nInputs_,
-                  &(OAMatrix[nSubSamples*repID]),&strength,0);
-      if (strength != 1)
-      {
-         printf("OALHSampling ERROR: failed strength 1 test.\n");
-         printf("   ==> Please consult PSUADE developers.\n");
-         exit(1);
-      }
-      offset += nSubSamples;
-   }
+     offset = 0;
+     for (repID = 0; repID < nReps; repID++)
+     {
+        OA_strength(nSubSamples,nSubSamples,nInputs_,
+                    &(OAMatrix[nSubSamples*repID]),&strength,0);
+        if (strength != 1)
+        {
+           printf("OALHSampling ERROR: failed strength 1 test.\n");
+           printf("   ==> Please consult PSUADE developers.\n");
+           exit(1);
+        }
+        offset += nSubSamples;
+     }
 
-   iMatrix = new int*[nSamples_];
-   for (sampleID = 0; sampleID < nSamples_; sampleID++) 
-      iMatrix[sampleID] = new int[nInputs_];
-   offset = 0;
+     iMatrix = new int*[nSamples_];
+     for (sampleID = 0; sampleID < nSamples_; sampleID++) 
+        iMatrix[sampleID] = new int[nInputs_];
+     offset = 0;
 
-   for (repID = 0; repID < nReps; repID++)
-   {
-      for (sampleID = 0; sampleID < nSubSamples; sampleID++)
-         for (inputID = 0; inputID < nInputs_; inputID++)
-            iMatrix[sampleID][inputID] = 
-                    OAMatrix[offset+sampleID][inputID] / nSymbols_;
-      OA_strength(nSymbols_, nSubSamples, nInputs_, iMatrix, &strength, 0);
-      if (strength != 2)
-      {
-         printf("OALHSampling ERROR: failed strength 2 test.\n");
-         printf("   ==> Please consult PSUADE developers.\n");
-         exit(1);
-      }
-      offset += nSubSamples;
+     for (repID = 0; repID < nReps; repID++)
+     {
+        for (sampleID = 0; sampleID < nSubSamples; sampleID++)
+           for (inputID = 0; inputID < nInputs_; inputID++)
+              iMatrix[sampleID][inputID] = 
+                      OAMatrix[offset+sampleID][inputID] / nSymbols_;
+        OA_strength(nSymbols_, nSubSamples, nInputs_, iMatrix, &strength, 0);
+        if (strength != 2)
+        {
+           printf("OALHSampling ERROR: failed strength 2 test.\n");
+           printf("   ==> Please consult PSUADE developers.\n");
+           exit(1);
+        }
+        offset += nSubSamples;
+     }
+     for (sampleID = 0; sampleID < nSamples_; sampleID++) 
+        delete [] iMatrix[sampleID];
+     delete [] iMatrix;
    }
-   for (sampleID = 0; sampleID < nSamples_; sampleID++) 
-      delete [] iMatrix[sampleID];
-   delete [] iMatrix;
 
    ranges = new double[nInputs_];
    for (inputID = 0; inputID < nInputs_; inputID++) 
@@ -297,7 +300,6 @@ int OALHSampling::initialize(int initLevel)
             }
          }
       }
-
    }
    for (sampleID = 0; sampleID < nSamples_; sampleID++)
       delete [] OAMatrix[sampleID];

@@ -150,6 +150,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
    
    X = sampleInputs;
    Y = new double[nSamples];
+   checkAllocate(Y, "Y in MainEffect::analyze");
+
    ncount = 0;
    for (ss = 0; ss < nSamples; ss++)
    {
@@ -220,6 +222,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
    varVCEVar     = new double[nInputs];
    txArray       = new double[nSamples];
    tyArray       = new double[nSamples];
+   checkAllocate(tyArray, "tyArray in MainEffect::analyze");
 
    for (ss = 0; ss < nSamples; ss++) tyArray[ss] = Y[ss];
    for (ii = 0; ii < nInputs; ii++)
@@ -235,8 +238,10 @@ double MainEffectAnalyzer::analyze(aData &adata)
       }
       if (nReplications <= 5)
       {
-         printOutTS(PL_INFO,"* MainEffect INFO: nReps <= 5 for input %d.\n",ii+1);
-         printOutTS(PL_INFO,"*     ==> probably not replicated Latin hypercube\n");
+         printOutTS(PL_INFO,
+           "* MainEffect INFO: nReps <= 5 for input %d.\n",ii+1);
+         printOutTS(PL_INFO,
+           "*     ==> probably not replicated Latin hypercube\n");
          printOutTS(PL_INFO,"*     ==> crude main effect analysis.\n");
          computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
                          aVariance, vce);
@@ -538,10 +543,11 @@ double MainEffectAnalyzer::analyze(aData &adata)
       {
          sprintf(pString,"Number of bootstrap samples to use (>=100): ");
          ncount = getInt(100, 2000, pString);
-         XX = new double[nInputs*nSamples];
-         YY = new double[nSamples];
          bsVCEs = new double*[ncount];
          for (ii = 0; ii < ncount; ii++) bsVCEs[ii] = new double[nInputs];
+         XX = new double[nInputs*nSamples];
+         YY = new double[nSamples];
+         checkAllocate(YY, "YY in MainEffect::analyze");
          nReplications = nSamples / nSubSamples;
          winput1[0] = 'n';
          fp1 = fopen(".ME_bootstrap_indset", "r");
@@ -794,6 +800,7 @@ int MainEffectAnalyzer::computeVCE(int nInputs, int nSamples, int nSubSamples,
    tyArray = new double[nSamples];
    vceMean     = new double[nSubSamples];
    vceVariance = new double[nSubSamples];
+   checkAllocate(vceVariance, "vceVariance in MainEffect::computeVCE");
 
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -928,39 +935,47 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
    double *vceMean, *vceVariance, aMean, ddata, hstep;
    char   pString[500];
 
+   nInputs_ = nInputs;
    if (nSize < 10) nSize = 10;
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO,"*                Crude Main Effect\n");
-   printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, 
+   if (isScreenDumpModeOn())
+   {
+     printAsterisks(PL_INFO, 0);
+     printOutTS(PL_INFO,"*                Crude Main Effect\n");
+     printEquals(PL_INFO, 0);
+     printOutTS(PL_INFO, 
        "* For small to moderate sample sizes, this method gives rough\n");
-   printOutTS(PL_INFO, 
+     printOutTS(PL_INFO, 
        "* estimates of main effect (first order sensitivity). These\n");
-   printOutTS(PL_INFO, 
+     printOutTS(PL_INFO, 
        "* estimates can vary with different choices of internal settings.\n");
-   printOutTS(PL_INFO, 
+     printOutTS(PL_INFO, 
        "* For example, try different number of levels to assess sensitivity\n");
-   printOutTS(PL_INFO, 
+     printOutTS(PL_INFO, 
        "* of the computed measures with respect to it.\n");
-   printOutTS(PL_INFO, 
+     printOutTS(PL_INFO, 
        "* Turn on analysis expert mode to change the settings.\n");
+   }
    nIntervals = (int) sqrt(1.0 * nSamples);
    nSize = nSamples / nIntervals;
-   printOutTS(PL_INFO,"* MainEffect: number of levels   = %d\n", nIntervals);
-   printOutTS(PL_INFO,"* MainEffect: sample size/levels = %d\n", nSize);
-   if (psAnaExpertMode_ == 1)
+   if (isScreenDumpModeOn())
+   {
+     printOutTS(PL_INFO,"* MainEffect: number of levels   = %d\n", nIntervals);
+     printOutTS(PL_INFO,"* MainEffect: sample size/levels = %d\n", nSize);
+   }
+   if (psAnaExpertMode_ == 1 && isInteractiveModeOn())
    {
       sprintf(pString,"number of levels (>5, default = %d): ", nIntervals);
       nIntervals = getInt(5, nSamples/2, pString);
       nSize = nSamples / nIntervals;
    }
-   printEquals(PL_INFO, 0);
+   if (isScreenDumpModeOn()) printEquals(PL_INFO, 0);
    bins = new int[nIntervals];
    tags = new int[nSamples];
    vceMean     = new double[nIntervals];
    vceVariance = new double[nIntervals];
 
    inputVCE_ = new double[nInputs_];
+   checkAllocate(inputVCE_, "inputVCE in MainEffect::computeVCECrude");
    for (ii = 0; ii < nInputs; ii++)
    {
       hstep = (iUpperB[ii] - iLowerB[ii]) / nIntervals;
@@ -1028,19 +1043,27 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
    }
 
    ddata = 0.0;
-   if (aVariance == 0) printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
-   else
+   if (isScreenDumpModeOn()) 
    {
-      for (ii = 0; ii < nInputs; ii++)
-      {
+     if (aVariance == 0) printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
+     else
+     {
+       for (ii = 0; ii < nInputs; ii++)
+       {
          ddata += vce[ii] / aVariance;
          printOutTS(PL_INFO, 
               "Input %4d, normalized 1st-order effect = %9.2e (raw = %9.2e)\n",
               ii+1, vce[ii]/aVariance, vce[ii]);
-      }
-      printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
+       }
+       printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
+     }
+     printAsterisks(PL_INFO, 0);
    }
-   printAsterisks(PL_INFO, 0);
+   else
+   {
+     if (aVariance != 0) 
+       for (ii = 0; ii < nInputs; ii++) ddata += vce[ii] / aVariance;
+   }
    totalInputVCE_ = ddata;
 
 
@@ -1185,6 +1208,7 @@ double *MainEffectAnalyzer::get_inputVCE()
    if (inputVCE_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in MainEffect::get_inputVCE");
       std::copy(inputVCE_, inputVCE_+nInputs_, retVal);
    }
    return retVal;

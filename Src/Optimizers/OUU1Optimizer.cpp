@@ -381,10 +381,10 @@ void OUU1Optimizer::optimize(oData *odata)
 {
    int    nInputs, printLevel=0, M1, M2, ii, kk, maxfun, nPts=0, iOne=1;
    int    iZero=0, nOutputs, bobyqaFlag=3333, printHeader=1, method=1;
-   int    currDriver;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, ddata, *workArray;
    char   lineIn[1000], pString[500];
    FILE   *fp=NULL;
+   static int currDriver=-1;
 
    printLevel = odata->outputLevel_;
    psOUU1PrintLevel_ = printLevel;
@@ -772,7 +772,7 @@ void OUU1Optimizer::optimize(oData *odata)
    exit(1);
 #endif
 
-   if (odata->setOptDriver_ & 2)
+   if ((odata->setOptDriver_ & 2) && currDriver >= 0)
    {
       if (printLevel >= 0)
          printf("Bobyla INFO: reverting to original simulation driver.\n");

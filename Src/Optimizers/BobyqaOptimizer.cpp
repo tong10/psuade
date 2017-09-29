@@ -71,17 +71,17 @@ extern "C"
 #endif
    void *bobyqaevalfunc_(int *nInps, double *XValues, double *YValue)
    {
-      int    ii, jj, kk, funcID, nInputs, nOutputs, outputID, found;
+      int    ii, jj, kk, funcID, nInputs, nOutputs, outputID, found, iOne=1;
       double *localY, ddata;
       char   pString[1000], lineIn[1000];
       oData  *odata;
       FILE   *infile;
 
-      nInputs = (*nInps);
+      nInputs  = (*nInps);
       odata    = (oData *) psBobyqaObj_;
       nOutputs = odata->nOutputs_;
-      localY   = (double *) malloc(nOutputs * sizeof(double));
       outputID = odata->outputID_;
+      localY   = (double *) malloc(nOutputs * sizeof(double));
 
       found = 0;
       for (ii = 0; ii < psBobyqaNSaved_; ii++)
@@ -99,7 +99,15 @@ extern "C"
       funcID = odata->numFuncEvals_;
       if (found == 0)
       {
-         odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         if (odata->optFunction_ != NULL)
+            odata->optFunction_(nInputs, XValues, iOne, localY);
+         else if (odata->funcIO_ != NULL)
+            odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         else
+         {
+            printf("BobyqaOptimizer ERROR: no function evaluator.\n");
+            exit(1);
+         }
          if (odata->outputLevel_ > 4)
          {
             printf("BobyqaOptimizer %6d : \n", odata->numFuncEvals_);
@@ -188,51 +196,56 @@ extern "C"
 // ------------------------------------------------------------------------
 BobyqaOptimizer::BobyqaOptimizer()
 {
-   printAsterisks(PL_INFO, 0);
-   printf("*   BOBYQA Optimizer Usage Information\n");
-   printEquals(PL_INFO, 0);
-   printf("* - To run this optimizer, first make sure opt_driver has\n");
-   printf("*   been initialized to point to your optimization objective\n");
-   printf("*   function evaluator\n");
-   printf("* - Set optimization tolerance in PSUADE file\n");
-   printf("* - Set maximum number of iterations in PSUADE file\n");
-   printf("* - Set num_local_minima to perform multistart optimization\n");
-   printf("* - Set optimization print_level to give additonal outputs\n");
-   printf("* - In Opt EXPERT mode, the optimization history log will be\n");
-   printf("*   turned on automatically. Previous psuade_bobyqa_history\n");
-   printf("*   file will also be reused.\n");
-   printf("* - If your opt_driver is a response surface which has more\n");
-   printf("*   inputs than the number of optimization inputs, you can fix\n");
-   printf("*   some driver inputs by creating a (analyzer) rs_index_file.\n");
-   printf("* - In Opt EXPERT mode, you can specialize the objective \n");
-   printf("*   function by creating a file called psuade_bobyqa_special\n");
-   printf("*   in your work directory. This will allow you to create\n");
-   printf("*   your own objective function is in the following form: \n");
-   printf("\n");
-   printf("*        sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2\n");
-   printf("*\n");
-   printf("*   where\n");
-   printf("*   m   - number of outputs to be used to form linear sum.\n");
-   printf("*   n   - number of outputs to form the squared term.\n");
-   printf("*   w_i - weight of output i.\n");
-   printf("*   C_j - constraint for output j.\n\n");
-   printf("* psuade_bobyqa_special should have the following format: \n");
-   printf("*\n");
-   printf("\tPSUADE_BEGIN\n");
-   printf("\t<m>         /* m in the above formula */\n");
-   printf("\t1  <value>  /* the value of w_1 */\n");
-   printf("\t3  <value>  /* the value of w_3 */\n");
-   printf("\t...\n");
-   printf("\t<n>         /* n in the above formula */\n");
-   printf("\t2  <value>  /* the value of C_2 */\n");
-   printf("\t...\n");
-   printf("\tPSUADE_END\n");
-   printEquals(PL_INFO, 0);
-   printf("To reuse the simulation results (e.g. restart due to abrupt\n");
-   printf("termination), turn on save_history and use_history optimization\n");
-   printf("options in the ANALYSIS section. You will see a file created\n");
-   printf("called 'psuade_bobyqa_history' afterward.\n");
-   printAsterisks(PL_INFO, 0);
+  if (isScreenDumpModeOn())
+  {
+    printAsterisks(PL_INFO, 0);
+    printf("*   BOBYQA Optimizer Usage Information\n");
+    printEquals(PL_INFO, 0);
+    printf("* - To run this optimizer in batch mode, first make sure\n");
+    printf("*   opt_driver (in your PSUADE input file) has been set\n");
+    printf("*   to point to your objective function evaluator.\n");
+    printf("* - Set optimization tolerance in psuade.in file\n");
+    printf("* - Set maximum number of iterations in psuade.in file\n");
+    printf("* - Set num_local_minima to perform multistart optimization\n");
+    printf("* - Set optimization print_level to give more screen outputs\n");
+    printf("* - If opt_expert mode is turned on, the optimization history\n");
+    printf("*   log will be turned on automatically. Previous history file\n");
+    printf("*   (psuade_bobyqa_history) will also be reused.\n");
+    printf("* - If your opt_driver is a response surface which has more\n");
+    printf("*   inputs than the number of optimization inputs, you can fix\n");
+    printf("*   some driver inputs by creating an rs_index_file and point\n");
+    printf("*   to it in the ANALYSIS section (see user manual).\n");
+    printf("* - In opt_expert mode, you can specialize the objective \n");
+    printf("*   function by creating a file called psuade_bobyqa_special\n");
+    printf("*   in your work directory. This will allow you to create\n");
+    printf("*   your own objective function is in the following form: \n");
+    printf("\n");
+    printf("*        sum_{i=1}^m w_i O_i + sum_{j=1}^n (O_j - C_j)^2\n");
+    printf("*\n");
+    printf("*   where\n");
+    printf("*   m   - number of outputs to be used to form linear sum.\n");
+    printf("*   n   - number of outputs to form the squared term.\n");
+    printf("*   w_i - weight of output i.\n");
+    printf("*   C_j - constraint for output j.\n\n");
+    printf("* psuade_bobyqa_special should have the following format: \n");
+    printf("*\n");
+    printf("\tPSUADE_BEGIN\n");
+    printf("\t<m>         /* m in the above formula */\n");
+    printf("\t1  <value>  /* the value of w_1 */\n");
+    printf("\t3  <value>  /* the value of w_3 */\n");
+    printf("\t...\n");
+    printf("\t<n>         /* n in the above formula */\n");
+    printf("\t2  <value>  /* the value of C_2 */\n");
+    printf("\t...\n");
+    printf("\tPSUADE_END\n");
+    printEquals(PL_INFO, 0);
+    printf("To reuse the simulation results (e.g. restart due to abrupt\n");
+    printf("termination), turn on save_history and use_history optimization\n");
+    printf("options in the ANALYSIS section. You will see a file created\n");
+    printf("called 'psuade_bobyqa_history' afterward.\n");
+    printAsterisks(PL_INFO, 0);
+  }
+  objFunction_ = NULL;
 }
 
 // ************************************************************************
@@ -240,6 +253,47 @@ BobyqaOptimizer::BobyqaOptimizer()
 // ------------------------------------------------------------------------
 BobyqaOptimizer::~BobyqaOptimizer()
 {
+}
+
+// ************************************************************************
+// optimize (this function should be used in the library mode)
+// ------------------------------------------------------------------------
+void BobyqaOptimizer::optimize(int nInputs, double *XValues, double *lbds,
+                               double *ubds, int maxfun, double tol)
+{
+   double *optimalX;
+   if (nInputs <= 0)
+   {
+      printf("BobyqaOptimizer ERROR: nInputs <= 0.\n");
+      exit(1);
+   }
+   oData *odata = new oData();
+   odata->outputLevel_ = 0;
+   odata->nInputs_ = nInputs;
+   optimalX = new double[nInputs];
+   odata->optimalX_ = optimalX;
+   odata->initialX_ = XValues;
+   odata->lowerBounds_ = lbds;
+   odata->upperBounds_ = ubds;
+   odata->tolerance_ = tol;
+   if (odata->tolerance_ <= 0) odata->tolerance_ = 1e-6;
+   odata->nOutputs_ = 1;
+   odata->outputID_ = 0;
+   odata->maxFEval_ = maxfun;
+   odata->numFuncEvals_ = 0;
+   odata->tolerance_ = tol;
+   odata->setOptDriver_ = 0;
+   odata->optFunction_ = objFunction_;
+   odata->funcIO_ = NULL;
+   optimize(odata);
+   odata->initialX_ = NULL;
+   odata->lowerBounds_ = NULL;
+   odata->upperBounds_ = NULL;
+   odata->optFunction_ = NULL;
+   for (int ii = 0; ii < nInputs; ii++) 
+      XValues[ii] = optimalX_[ii] = odata->optimalX_[ii];
+   delete [] optimalX;
+   odata->optimalX_ = NULL;
 }
 
 // ************************************************************************
@@ -277,6 +331,7 @@ void BobyqaOptimizer::optimize(oData *odata)
    }
    nOutputs = odata->nOutputs_;
    outputID = odata->outputID_;
+
    if (psOptExpertMode_ == 1)
    {
       strcpy(filename, "psuade_bobyqa_special");
@@ -376,7 +431,7 @@ void BobyqaOptimizer::optimize(oData *odata)
          iFile.close();
       }
    }
-   if (psNumBOVars_ + psNumBLVars_ == 0)
+   if (isScreenDumpModeOn() && (psNumBOVars_ + psNumBLVars_ == 0))
       printf("Bobyqa optimizer: selected output for optimization = %d\n", 
              outputID+1);
 
@@ -388,13 +443,15 @@ void BobyqaOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(1);
    }
    psBobyqaObj_= (void *) odata;
-   printAsterisks(PL_INFO, 0);
-   printf("Bobyqa optimizer: max fevals = %d\n", odata->maxFEval_);
-   printf("Bobyqa optimizer: tolerance  = %e\n", odata->tolerance_);
-   if (printLevel > 1)
-      printf("Bobyqa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
-   printEquals(PL_INFO, 0);
-
+   if (isScreenDumpModeOn())
+   {
+      printAsterisks(PL_INFO, 0);
+      printf("Bobyqa optimizer: max fevals = %d\n", odata->maxFEval_);
+      printf("Bobyqa optimizer: tolerance  = %e\n", odata->tolerance_);
+      if (printLevel > 1)
+         printf("Bobyqa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
+      printEquals(PL_INFO, 0);
+   }
 #ifdef HAVE_BOBYQA
    if (psConfig_ != NULL)
    {
@@ -433,13 +490,20 @@ void BobyqaOptimizer::optimize(oData *odata)
 
    nPts = (nInputs + 1) * (nInputs + 2) / 2;
    workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
-   for (ii = 0; ii < nInputs; ii++) 
-      printf("Bobyqa initial X %3d = %e\n", ii+1, XValues[ii]);
+   if (isScreenDumpModeOn())
+      for (ii = 0; ii < nInputs; ii++) 
+         printf("Bobyqa initial X %3d = %e\n", ii+1, XValues[ii]);
    bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_,
            odata->upperBounds_, &rhobeg, &rhoend, &bobyqaFlag, &maxfun, 
            workArray);
-   printf("Bobyqa optimizer: total number of evaluations = %d\n",
-           odata->numFuncEvals_);
+   if (isScreenDumpModeOn())
+      printf("Bobyqa optimizer: total number of evaluations = %d\n",
+              odata->numFuncEvals_);
+   if (optimalX_ != NULL) delete [] optimalX_;
+   optimalX_ = new double[nInputs];
+   for (ii = 0; ii < nInputs; ii++) optimalX_[ii] = odata->optimalX_[ii];
+   optimalY_ = odata->optimalY_;
+   numEvals_ = odata->numFuncEvals_;
 
    if (psBobyqaSaveHistory_ == 1 && psBobyqaNSaved_ > 0)
    {
@@ -462,11 +526,11 @@ void BobyqaOptimizer::optimize(oData *odata)
    exit(1);
 #endif
 
-   //if (odata->setOptDriver_ & 2)
-   //{
-   //   printf("Bobyla INFO: reverting to original simulation driver.\n");
-   //   odata->funcIO_->setDriver(psBCurrDriver_);
-   //}
+   if ((odata->setOptDriver_ & 2) && psBCurrDriver_ >= 0)
+   {
+      printf("Bobyla INFO: reverting to original simulation driver.\n");
+      odata->funcIO_->setDriver(psBCurrDriver_);
+   }
    delete [] XValues;
    delete [] workArray;
    if (psBOVars_  != NULL) delete [] psBOVars_;

@@ -92,38 +92,48 @@ double GradStatAnalyzer::analyze(aData &adata)
    inputStdevs_ = adata.inputStdevs_;
    if (inputPDFs_ != NULL)
    {
-      printOutTS(PL_INFO,"GradStatAnalyzer INFO: non-uniform distributions\n");
-      printOutTS(PL_INFO,"    detected. Analysis will use these distributions.\n");
+      printOutTS(PL_INFO,
+           "GradStatAnalyzer INFO: non-uniform distributions\n");
+      printOutTS(PL_INFO,
+           "    detected. Analysis will use these distributions.\n");
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printOutTS(PL_ERROR,  "GradStatAnalyzer ERROR: invalid arguments.\n");
-      printOutTS(PL_ERROR,  "    nInputs  = %d\n", nInputs);
-      printOutTS(PL_ERROR,  "    nOutputs = %d\n", nOutputs);
-      printOutTS(PL_ERROR,  "    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR,"GradStatAnalyzer ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR,"    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR,"    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR,"    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    whichOutput = outputID;
    if (whichOutput >= nOutputs || whichOutput < 0) whichOutput = 0;
    if ((whichOutput + nInputs) > nOutputs)
    {
-      printOutTS(PL_ERROR,  "GradStatAnalyzer ERROR: not enough outputs.\n");
-      printOutTS(PL_ERROR,  "                        nOutpus should be nInputs+1.\n");
+      printOutTS(PL_ERROR,"GradStatAnalyzer ERROR: not enough outputs.\n");
+      printOutTS(PL_ERROR,
+           "                        nOutpus should be nInputs+1.\n");
       return PSUADE_UNDEFINED;
    } 
    
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO,  "            Gradient-based Uncertainty Analysis\n");
+   printOutTS(PL_INFO,
+      "            Gradient-based Uncertainty Analysis\n");
    printDashes(PL_INFO, 0);
-   printOutTS(PL_INFO,  " This analysis is for models that produce derviative\n");
-   printOutTS(PL_INFO,  " information in addition to typical outputs. Thus, the\n");
-   printOutTS(PL_INFO,  " number of outputs is expected to be nInputs+1. The\n");
-   printOutTS(PL_INFO,  " outputs and derivatives are used to construct a respone\n");
-   printOutTS(PL_INFO,  " surface which will be probed to compute basic statistics\n");
-   printOutTS(PL_INFO,  " based on the given distributions.\n");
+   printOutTS(PL_INFO,
+      " This analysis is for models that produce derviative\n");
+   printOutTS(PL_INFO,
+      " information in addition to typical outputs. Thus, the\n");
+   printOutTS(PL_INFO,
+      " number of outputs is expected to be nInputs+1. The\n");
+   printOutTS(PL_INFO,
+      " outputs and derivatives are used to construct a respone\n");
+   printOutTS(PL_INFO,
+      " surface which will be probed to compute basic statistics\n");
+   printOutTS(PL_INFO," based on the given distributions.\n");
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO,  "GradStatAnalyzer: non-Gradient-based analysis\n");
+   printOutTS(PL_INFO,
+      "GradStatAnalyzer: non-Gradient-based analysis\n");
    computeMeanVariance(nInputs,nOutputs,nSamples,Y,&sampleMean,
                        &sampleStdDev,whichOutput);
    printDashes(PL_INFO, 0);
@@ -188,6 +198,7 @@ double GradStatAnalyzer::analyze(aData &adata)
    LHSampleInputs = new double[nSamples*nInputs];
    LHSampleOutputs = new double[nSamples*nOutputs];
    LHSampleStates = new int[nSamples];
+   checkAllocate(LHSampleStates, "LHSampleStates in GradStat::analyze");
    sampler_->getSamples(nSamples, nInputs, nOutputs, LHSampleInputs,
                         LHSampleOutputs, LHSampleStates);
    sampler_->loadSamples(nSamples, nInputs, nOutputs, LHSampleInputs,
@@ -210,11 +221,13 @@ double GradStatAnalyzer::analyze(aData &adata)
    LHSampleInputs = new double[nLHSamples*nInputs];
    LHSampleOutputs = new double[nLHSamples*nOutputs];
    LHSampleStates = new int[nLHSamples];
+   checkAllocate(LHSampleStates, "LHSampleStates(2) in GradStat::analyze");
    sampler_->getSamples(nLHSamples, nInputs, nOutputs, LHSampleInputs,
                         LHSampleOutputs, LHSampleStates);
 
    localData1 = new double[nLHSamples];
    localData2 = new double[nLHSamples];
+   checkAllocate(localData2, "localData2 in GradStat::analyze");
    normalPDFs = new PDFBase*[nInputs];
    for (inputID = 0; inputID < nInputs; inputID++)
    {
@@ -311,7 +324,8 @@ int GradStatAnalyzer::computeMeanVariance(int nInputs, int nOutputs,
 // ------------------------------------------------------------------------
 GradStatAnalyzer& GradStatAnalyzer::operator=(const GradStatAnalyzer &)
 {
-   printOutTS(PL_ERROR,"GradStatAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,
+        "GradStatAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

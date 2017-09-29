@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "sysdef.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFNormal.h"
 #include "PDFMVLogNormal.h"
@@ -105,7 +106,7 @@ int PDFMVLogNormal::genSample(int length, psVector &vecOut, psVector &lower,
 {
    int    ii, jj, nInputs, flag, count, total;
    double One=1.0, Zero=0.0, *localData1, *localData2, d1, d2;
-   psVector localVec;
+   psVector localVec1, localVec2;
    PDFNormal *normalPtr;
 
    if (length <= 0)
@@ -122,6 +123,8 @@ int PDFMVLogNormal::genSample(int length, psVector &vecOut, psVector &lower,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFMVLogNormal: genSample begins (length = %d)\n",length);
    normalPtr  = new PDFNormal(Zero, One);
    localData1 = new double[length];
    localData2 = new double[length*nInputs];
@@ -138,10 +141,10 @@ int PDFMVLogNormal::genSample(int length, psVector &vecOut, psVector &lower,
       }
       for (ii = 0; ii < length; ii++)
       {
-         localVec.load(nInputs, &(localData2[ii*nInputs]));
-         covMat_.CholMatvec(localVec);
+         localVec1.load(nInputs, &(localData2[ii*nInputs]));
+         covMat_.CholLMatvec(localVec1, localVec2);
          for (jj = 0; jj < nInputs; jj++)
-            vecOut[count*nInputs+jj] = exp(means_[jj] + localVec[jj]);
+            vecOut[count*nInputs+jj] = exp(means_[jj] + localVec2[jj]);
          flag = 0;
          for (jj = 0; jj < nInputs; jj++)
             if (vecOut[count*nInputs+jj] < lower[jj] ||
@@ -160,9 +163,13 @@ int PDFMVLogNormal::genSample(int length, psVector &vecOut, psVector &lower,
          exit(1);
       }
    }
-   if (total > length)
-      printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
-             total,length);
+   if (psPDFDiagMode_ == 1)
+   {
+      printf("PDFMVLogNormal: genSample ends.\n");
+      if (total > length)
+         printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
+                total,length);
+   }
    delete normalPtr;
    delete [] localData1;
    delete [] localData2;

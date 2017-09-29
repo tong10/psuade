@@ -26,6 +26,7 @@
 // ************************************************************************
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFF.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -59,6 +60,8 @@ int PDFF::getPDF(int length, double *inData, double *outData)
    int    ii;
    double ddata, xdata, d2d2, d1d2, beta;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFF: getPDF begins (length = %d)\n",length);
    d2d2 = pow(d2_, d2_);
    d1d2 = d1_ + d2_;
    beta = Beta_Function(0.5*d1_,0.5*d2_);
@@ -74,6 +77,7 @@ int PDFF::getPDF(int length, double *inData, double *outData)
       ddata = sqrt(ddata / pow(d1_ * xdata + d2_, d1d2));
       outData[ii] = ddata / (xdata * beta);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFF: getPDF ends.\n");
    return 0;
 }
 
@@ -85,6 +89,8 @@ int PDFF::getCDF(int length, double *inData, double *outData)
    int    ii;
    double xdata, mult;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFF: getCDF begins (length = %d)\n",length);
    mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
    for (ii = 0; ii < length; ii++)
    {
@@ -96,6 +102,7 @@ int PDFF::getCDF(int length, double *inData, double *outData)
          outData[ii] = mult*Incomplete_Beta_Function(xdata,0.5*d1_,0.5*d2_);
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFF: getCDF ends.\n");
    return 0;
 }
 
@@ -126,6 +133,8 @@ int PDFF::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFF: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
    for (ii = 0; ii < length; ii++)
@@ -166,6 +175,7 @@ int PDFF::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFF: invCDF ends.\n");
    return 0;
 }
 
@@ -198,7 +208,8 @@ int PDFF::genSample(int length, double *outData, double *lowers,
       exit(1);
    }
 
-   //printf("PDFF: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFF: genSample begins (length = %d)\n",length);
    mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
    for (ii = 0; ii < length; ii++)
    {
@@ -234,7 +245,7 @@ int PDFF::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFF: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFF: genSample ends.\n");
    return 0;
 }
 

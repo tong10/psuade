@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFInvGamma.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -60,6 +61,8 @@ int PDFInvGamma::getPDF(int length, double *inData, double *outData)
    int    ii;
    double mult, xdata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFInvGamma: getPDF begins (length = %d)\n",length);
    mult = pow(beta_, alpha_) / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -72,6 +75,7 @@ int PDFInvGamma::getPDF(int length, double *inData, double *outData)
       outData[ii] = pow(xdata, -alpha_-1.0) * exp(-beta_ / xdata);
       outData[ii] *= mult;
    }
+   if (psPDFDiagMode_ == 1) printf("PDFInvGamma: getPDF ends.\n");
    return 0;
 }
 
@@ -83,6 +87,8 @@ int PDFInvGamma::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata, mult;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFInvGamma: getCDF begins (length = %d)\n",length);
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -90,6 +96,7 @@ int PDFInvGamma::getCDF(int length, double *inData, double *outData)
       if   (ddata <= 0) outData[ii] = 0;
       else outData[ii] = mult*Incomplete_Gamma_Function(beta_/ddata,alpha_);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFInvGamma: getCDF ends.\n");
    return 0;
 }
 
@@ -107,12 +114,14 @@ int PDFInvGamma::invCDF(int length, double *inData, double *outData,
       printf("PDFInvGamma invCDF ERROR - lower bound >= upper bound.\n");
       exit(1);
    }
-   if (lower <= 0.0)
+   if (lower < 0.0)
    {
       printf("PDFInvGamma invCDF ERROR - lower bound <= 0.\n");
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFInvGamma: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
@@ -152,6 +161,7 @@ int PDFInvGamma::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFInvGamma: invCDF ends.\n");
    return 0;
 }
 
@@ -176,16 +186,19 @@ int PDFInvGamma::genSample(int length, double *outData, double *lowers,
       printf("PDFInvGamma genSample ERROR - lower bound >= upper bound.\n");
       exit(1);
    }
-   if (lower <= 0.0)
+   if (lower < 0.0)
    {
       printf("PDFInvGamma genSample ERROR - lower bound < 0.\n");
       exit(1);
    }
 
-   //printf("PDFInvGamma: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFInvGamma: genSample begins (length = %d)\n",length);
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
+      if ((length > 10000) && (ii % 1000 == 0))
+         printf("InvGamma genSample: %d out of %d generated\n",ii,length);
       UU = PSUADE_drand();
       xlo = lower;
       ylo = mult * Incomplete_Gamma_Function(beta_/xlo,alpha_);
@@ -215,7 +228,7 @@ int PDFInvGamma::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFInvGamma: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFInvGamma: genSample ends.\n");
    return 0;
 }
 

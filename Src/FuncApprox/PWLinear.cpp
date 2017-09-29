@@ -135,6 +135,7 @@ int PWLinear::genNDGridData(double *X, double *Y, int *N2, double **X2,
    totPts = (*N2);
 
    (*Y2) = new double[totPts];
+   checkAllocate(*Y2, "Y2 in PWLinear::genNDGridData");
    for (mm = 0; mm < totPts; mm++)
       (*Y2)[mm] = evaluatePoint(&((*X2)[mm*nInputs_]));
 
@@ -161,6 +162,7 @@ int PWLinear::gen1DGridData(double *X, double *Y, int ind1,
    (*XX) = new double[totPts];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PWLinear::gen1DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn];
 
    for (mm = 0; mm < nPtsPerDim_; mm++)
@@ -196,6 +198,7 @@ int PWLinear::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    (*XX) = new double[totPts * 2];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PWLinear::gen2DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn];
 
    for (mm = 0; mm < nPtsPerDim_; mm++)
@@ -239,6 +242,7 @@ int PWLinear::gen3DGridData(double *X, double *Y, int ind1, int ind2,
    (*XX) = new double[totPts * 3];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PWLinear::gen3DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn];
 
    for (mm = 0; mm < nPtsPerDim_; mm++)
@@ -288,6 +292,7 @@ int PWLinear::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    (*XX) = new double[totPts * 4];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PWLinear::gen4DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn];
 
    for (mm = 0; mm < nPtsPerDim_; mm++)
@@ -464,11 +469,13 @@ double PWLinear::setParams(int targc, char **targv)
       }
       psIO->getParameter("input_sample", pInputs);
       ROMStorePts_ = new double[nROMs_*nInputs_];
+      checkAllocate(ROMStorePts_,"ROMStorePts_ in PWLinear::setParams");
       for (iR = 0; iR < nROMs_*nInputs_; iR++)
          ROMStorePts_[iR] = pInputs.dbleArray_[iR];
       psIO->getParameter("output_sample", pOutputs);
       ROMStoreVals_ = new double[nROMs_];
       ROMStoreGrads_ = new double[nROMs_*nInputs_];
+      checkAllocate(ROMStoreGrads_,"ROMStoreGrads_ in PWLinear::setParams");
       for (iR = 0; iR < nROMs_; iR++)
       {
          ROMStoreVals_[iR] = pOutputs.dbleArray_[iR*nOutputs];
@@ -477,6 +484,7 @@ double PWLinear::setParams(int targc, char **targv)
                                  pOutputs.dbleArray_[iR*nOutputs+ii+1];
       }
       ROMStoreEigens_ = new double[nROMs_];
+      checkAllocate(ROMStoreEigens_,"ROMStoreEigens_ in PWLinear::setParams");
       for (iR = 0; iR < nROMs_; iR++)
          ROMStoreEigens_[iR] = pOutputs.dbleArray_[(iR+1)*nOutputs-1];
       psIO->getParameter("ana_threshold", pPtr);
@@ -503,10 +511,12 @@ double PWLinear::setParams(int targc, char **targv)
          exit(1);
       }
       ROMStorePts_ = new double[nROMs_*nInputs_];
+      checkAllocate(ROMStorePts_,"ROMStorePts_ in PWLinear::setParams");
       for (iR = 0; iR < nROMs_*nInputs_; iR++)
          ROMStorePts_[iR] = sampleInputs[iR];
       ROMStoreVals_ = new double[nROMs_];
       ROMStoreGrads_ = new double[nROMs_*nInputs_];
+      checkAllocate(ROMStoreGrads_,"ROMStoreGrads_ in PWLinear::setParams");
       for (iR = 0; iR < nROMs_; iR++)
       {
          ROMStoreVals_[iR] = sampleOutputs[iR*nOutputs];
@@ -515,6 +525,7 @@ double PWLinear::setParams(int targc, char **targv)
                                  sampleOutputs[iR*nOutputs+ii+1];
       }
       ROMStoreEigens_ = new double[nROMs_];
+      checkAllocate(ROMStoreEigens_,"ROMStoreEigens_ in PWLinear::setParams");
       for (iR = 0; iR < nROMs_; iR++)
          ROMStoreEigens_[iR] = sampleOutputs[(iR+1)*nOutputs-1];
       if (threshold_ <= 0.0 || threshold_ >= 1.0)

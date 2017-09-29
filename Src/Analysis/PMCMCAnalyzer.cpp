@@ -374,6 +374,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
          if (dnInputs > 0)
          {
             designParams = new int[nInputs];
+            checkAllocate(designParams, "designParams in PMCMC::analyze");
             for (ii = 0; ii < nInputs; ii++) designParams[ii] = 0;
             cnt = 0;
             for (ii = 0; ii < dnInputs; ii++)
@@ -408,6 +409,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
          }
          dSamMeans = new double[dnSamples*nOutputs];
          dSamStdevs = new double[dnSamples*nOutputs];
+         checkAllocate(dSamStdevs, "dSamStdevs in PMCMC::analyze");
          for (ii = 0; ii < dnSamples; ii++)
          {
             fscanf(fp, "%d", &kk);
@@ -498,6 +500,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
       }
       dSamMeans = new double[dnSamples*nOutputs];
       dSamStdevs = new double[dnSamples*nOutputs];
+      checkAllocate(dSamStdevs, "dSamStdevs(2) in PMCMC::analyze");
    }
    if (dnInputs > 0)
    {
@@ -572,6 +575,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
             }
             rsIndices = new int[nInputs];
             rsValues = new double[nInputs];
+            checkAllocate(rsValues, "rsValues in PMCMC::analyze");
             for (ii = 0; ii < nInputs; ii++) rsIndices[ii] = 0;
             for (ii = 0; ii < nInputs; ii++)
             {
@@ -647,6 +651,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
    {
       rsIndices = new int[nInputs];
       rsValues  = new double[nInputs];
+      checkAllocate(rsValues, "rsValues(2) in PMCMC::analyze");
    }
    if (commFlag == 1)
    {
@@ -661,6 +666,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
    psRSExpertMode_ = 0;
    faPtrs = new FuncApprox*[nOutputs];
    YY = new double[nSamples];
+   checkAllocate(YY, "YY in PMCMC::analyze");
    for (ii = 0; ii < nOutputs; ii++)
    {
       faType = -1;
@@ -716,6 +722,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
       printOutTS(PL_INFO,"histogram bar graph\n");
    }
    plotIndices = new int[nInputs];
+   checkAllocate(plotIndices, "plotIndices in PMCMC::analyze");
    nPlots = 0;
    for (ii = 0; ii < nInputs; ii++) 
    {
@@ -895,9 +902,13 @@ double PMCMCAnalyzer::analyze(aData &adata)
       ExpSamStates  = new int[ExpNSamples];
       discFuncConstantMeans = new double[nOutputs];
       discFuncConstantStds  = new double[nOutputs];
+      checkAllocate(discFuncConstantStds,
+                    "discFuncConstantStds in PMCMC::analyze");
       for (ii2 = 0; ii2 < nOutputs; ii2++)
-         discFuncConstantMeans[ii2] = discFuncConstantStds[ii2] = PSUADE_UNDEFINED;
-
+      {
+         discFuncConstantMeans[ii2] = PSUADE_UNDEFINED;
+         discFuncConstantStds[ii2] = PSUADE_UNDEFINED;
+      }
       if (mypid_ == 0)
       {
          printOutTS(PL_INFO,
@@ -913,6 +924,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
       commMgr_->bcast((void *) &dfaType, iOne, INT, 0);
 
       settings = new double[nInputs];
+      checkAllocate(settings, "settings in PMCMC::analyze");
       for (ii2 = 0; ii2 < nInputs; ii2++)
       {
          //if (inputPDFs == NULL || (inputPDFs != NULL && inputPDFs[ii2] == NULL))
@@ -932,6 +944,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
       double     *tUppers = new double[nInputs];
       PsuadeData *dataPtr = new PsuadeData(); 
       char       **iNames;
+      checkAllocate(tUppers, "tUppers in PMCMC::analyze");
       for (ii = 0; ii < nOutputs; ii++)
       {
          for (kk = 0; kk < dnSamples; kk++)
@@ -1110,6 +1123,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
    Xmax = new double[nInputs];
    means_ = new double[nInputs];
    sigmas_ = new double[nInputs];
+   checkAllocate(sigmas_, "sigmas_ in PMCMC::analyze");
    for (ii = 0; ii < nInputs; ii++) Xmax[ii] = means_[ii] = sigmas_[ii] = 0;
    Ymax = -PSUADE_UNDEFINED;
    Ivec = new int[nInputs];
@@ -1120,10 +1134,11 @@ double PMCMCAnalyzer::analyze(aData &adata)
    chainMeans = new double[numChains];
    chainStdevs = new double[numChains];
    chainStatus  = new int[numChains];
-   assert(chainStatus);
+   checkAllocate(chainStatus, "chainStatus in PMCMC::analyze");
    for (ii = 0; ii < numChains; ii++) chainMeans[ii] = chainStdevs[ii] = 0.0;
    for (ii = 0; ii < numChains; ii++) chainStatus[ii] = 0;
    psrfs = new double[nInputs];
+   checkAllocate(psrfs, "psrfs in PMCMC::analyze");
    for (ii = 0; ii < nInputs; ii++) psrfs[ii] = 0.0;
    bins = new int*[nbins];
    for (ii = 0; ii < nbins; ii++)
@@ -1157,6 +1172,7 @@ double PMCMCAnalyzer::analyze(aData &adata)
    double *mcmcSeeds = new double[numChains*nInputs];
    double *tmpOuts = new double[numChains];
    int    *tmpStates = new int[numChains];
+   checkAllocate(tmpStates, "tmpStates in PMCMC::analyze");
    sampler->getSamples(numChains,nInputs,1,mcmcSeeds,tmpOuts,tmpStates);
    delete [] tmpOuts;
    delete [] tmpStates;
@@ -2371,6 +2387,7 @@ int PMCMCAnalyzer::genPostLikelihood(int nInputs, double *lower,
    XDesignS = new double[dnSamples * nInputs];
    YGuessS  = new double[dnSamples * nOutputs];
    YDesignS = new double[dnSamples * nOutputs];
+   checkAllocate(YDesignS, "YDesignS in PMCMC::genPostLikelihood");
    fprintf(fp, "A = [\n");
    for (iChain = 0; iChain < numChains; iChain++)
    {

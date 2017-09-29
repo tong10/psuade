@@ -82,6 +82,7 @@ Earth::Earth(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    dirs_    = new int[maxTerms_ * nInputs];
    cuts_    = new double[maxTerms_ * nInputs];
    betas_   = new double[maxTerms_];
+   checkAllocate(betas_, "betas in Earth::constructor");
    wgts_    = NULL;
   
 #else
@@ -114,6 +115,7 @@ int Earth::initialize(double *X, double *Y)
    Residuals = new double[nSamples_];
    BX = new double[nSamples_ * maxTerms_];
    LinPreds = new int[nInputs_];
+   checkAllocate(LinPreds, "LinPreds in Earth::initialize");
    for (jj = 0; jj < nInputs_; jj++) LinPreds[jj] = 0;
 
    XX = new double[nSamples_ * nInputs_];
@@ -164,6 +166,7 @@ int Earth::genNDGridData(double *X, double *Y, int *N, double **X2,
    totPts = (*N);
 
    (*Y2) = new double[totPts];
+   checkAllocate(*Y2, "Y2 in Earth::genNDGridData");
    (*N) = totPts;
 
    if (outputLevel_ >= 2) printf("Entering Earth prediction\n");
@@ -199,6 +202,7 @@ int Earth::gen1DGridData(double *X, double *Y, int ind1, double *settings,
    (*X2) = new double[totPts];
    (*Y2) = new double[totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in Earth::gen1DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XX[ss*nInputs_+ii] = settings[ii]; 
     
@@ -246,6 +250,7 @@ int Earth::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    (*X2) = new double[totPts*2];
    (*Y2) = new double[totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in Earth::gen2DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XX[ss*nInputs_+ii] = settings[ii]; 
     
@@ -300,6 +305,7 @@ int Earth::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    (*X2) = new double[totPts*3];
    (*Y2) = new double[totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in Earth::gen3DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XX[ss*nInputs_+ii] = settings[ii]; 
     
@@ -361,6 +367,7 @@ int Earth::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    (*X2) = new double[totPts*4];
    (*Y2) = new double[totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in Earth::gen4DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XX[ss*nInputs_+ii] = settings[ii]; 
 

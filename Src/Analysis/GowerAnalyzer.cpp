@@ -83,6 +83,7 @@ double GowerAnalyzer::analyze(aData &adata)
    upperB     = adata.iUpperB_;
 
    Y2 = new double[nSamples];
+   checkAllocate(Y2, "Y2 in Gower::analyze");
    for (ii = 0; ii < nSamples; ii++) Y2[ii] = Y[ii*nOutputs+outputID];
 
    faPtr = genFA(PSUADE_RS_MARS, nInputs, iOne, nSamples);
@@ -97,6 +98,7 @@ double GowerAnalyzer::analyze(aData &adata)
    X2 = new double[nLHSample*nInputs];
    Y2 = new double[nLHSample];
    S2 = new int[nLHSample];
+   checkAllocate(S2, "S2 in Gower::analyze");
    sampPtr->getSamples(nLHSample, nInputs, 1, X2, Y2, S2);
    faPtr->evaluatePoint(nLHSample, X2, Y2);
 
@@ -105,6 +107,7 @@ double GowerAnalyzer::analyze(aData &adata)
    vvm = new double[nInputs];
    vvv = new double[nInputs];
    mvv = new double[nInputs];
+   checkAllocate(mvv, "mvv in Gower::analyze");
    mePtr->computeVCE((int) nInputs, (int) nLHSample, (int) nLHSSub, 
                      (double *) X2, (double *) Y2, (int) iZero, 
                      (FILE *) NULL, (double *) vvm, (double *) mvv, 
@@ -171,6 +174,7 @@ double GowerAnalyzer::analyze(aData &adata)
       return PSUADE_UNDEFINED;
    }
    ranges = new double[nInputs];
+   checkAllocate(ranges, "ranges in Gower::analyze");
    for (ii = 0; ii < nInputs; ii++)
    {
       dmax = - PSUADE_UNDEFINED;
@@ -308,6 +312,7 @@ double GowerAnalyzer::analyze(aData &adata)
    fprintf(fp, "M = [\n");
    dmeans = new double[nInputs];
    dvars  = new double[nInputs];
+   checkAllocate(dvars, "dvars in Gower::analyze");
    for (ii = 0; ii < nInputs; ii++)
    {
       dmeans[ii] = 0.0;

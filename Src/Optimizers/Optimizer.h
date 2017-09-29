@@ -43,11 +43,19 @@ class Optimizer
 {
 public:
 
+   double *optimalX_;
+   double optimalY_;
+   int    numEvals_;
+   void   (*objFunction_)(int, double *, int, double *);
+
    /** constructor */
    Optimizer();
 
    /** destructor */
    virtual ~Optimizer();
+
+   /** send in the function to compute the objective */
+   void setObjectiveFunction(void (*func)(int,double*,int,double*));
 
    /** run optimization 
      @param odata - an object that contains all needed data
@@ -58,6 +66,15 @@ public:
      @param sparam - string that contains the parameter information
      */
    void setParam(char *sparam);
+
+   /** set optimal input values */
+   double *getOptimalX();
+
+   /** set optimal output */
+   double getOptimalY();
+
+   /** set number of function evaluations */
+   int    getNumFuncEvals();
 
    /** assign operator override */
    Optimizer& operator=(const Optimizer &);

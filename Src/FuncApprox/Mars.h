@@ -43,6 +43,7 @@ class Mars : public FuncApprox
    float  *wgts_;
    int    chooseWght_;
    int    noGen_;
+   int    normalizeY_;
  
 public:
 

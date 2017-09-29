@@ -100,11 +100,13 @@ double FORMAnalyzer::analyze(aData &adata)
    }
    
    YY = new double[nSamples];
+   checkAllocate(YY, "YY in FORM::analyze");
    for (sInd = 0; sInd < nSamples; sInd++)
       YY[sInd] = Y[sInd*nOutputs+outputID];
    if (wgtID >= 0)
    {
       wgts = new double[nSamples];
+      checkAllocate(wgts, "wgts in FORM::analyze");
       for (sInd = 0; sInd < nSamples; sInd++)
          wgts[sInd] = Y[sInd*nOutputs+wgtID];
    }
@@ -138,9 +140,11 @@ double FORMAnalyzer::analyze(aData &adata)
 
 
    currZ = new double[nInputs];
+   checkAllocate(currZ, "currZ in FORM::analyze");
    for (ii = 0; ii < nInputs; ii++)
       currZ[ii] = 0.5 * (xUpper[ii] + xLower[ii]);
    alphas = new double[nInputs];
+   checkAllocate(alphas, "alphas in FORM::analyze");
    beta = 0.0;
    for (ii = 0; ii < nInputs; ii++) beta += currZ[ii] * currZ[ii];
    beta = sqrt(beta);
@@ -196,6 +200,7 @@ double FORMAnalyzer::analyze(aData &adata)
 int FORMAnalyzer::setParams(int argc, char **argv)
 {
    char  *request = (char *) argv[0];
+   Analyzer::setParams(argc, argv);
    if (!strcmp(request, "rstype"))
    {
       if (argc != 2) printOutTS(PL_INFO,"FORMAnalyzer WARNING: setParams.\n");

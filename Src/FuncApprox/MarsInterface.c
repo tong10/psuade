@@ -25,7 +25,6 @@
 // DATE   : 2003
 // ************************************************************************
 */
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -66,12 +65,18 @@ void mars_process(int nsamples, int ninputs, double **x, double *y,
    length = nsamples * (nk + 4) + 6 * nsamples + 2 * ninputs + 4 * nk; 
    fws = (float*)  malloc(length * 2 * sizeof(float));
    length = 2 * ((nsamples + 1) * (nk + 1) + 10 * nk);
+   length = (nsamples + 1) * (nk + 1) + (nk + 2) * (nsamples + 3) + 4 * nk;
    dws = (double*) malloc(length * sizeof(double));
    length = nsamples * ninputs + 2 * nsamples;
    iws  = (int*)   malloc(length * sizeof(int));
 
    xlocal = (float*) malloc(nsamples * ninputs * sizeof(float));
    ylocal = (float*) malloc(nsamples * sizeof(float));
+   if (ylocal == NULL)
+   {
+     printf("Memory allocation ERROR in: ylocal in MarsInterface\n");
+     exit(1);
+   }
 
    for (sampleID = 0; sampleID < nsamples; sampleID++) 
    {

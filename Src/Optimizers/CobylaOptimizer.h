@@ -35,6 +35,7 @@
 // ************************************************************************
 class CobylaOptimizer : public Optimizer
 {
+
 public:
 
    /** constructor */
@@ -42,6 +43,18 @@ public:
 
    /** destructor */
    ~CobylaOptimizer();
+
+   /** run optimization in library mode (called by user directly)
+     @param nInps - number of inputs
+     @param XVals - initial guess and solution
+     @param lbnds - lower bounds
+     @param ubnds - upper bounds
+     @param nOuts - number of outputs
+     @param maxfe - maximum number of function evaluations
+     @param tol   - tolerance
+   */
+   void optimize(int nInps, double *XVals, double *lbnds,
+                 double *ubnds, int nOuts, int maxfe, double tol);
 
    /** run optimization 
      @param odata - an object that contains all needed data

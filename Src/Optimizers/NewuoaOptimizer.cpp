@@ -91,14 +91,21 @@ extern "C"
       funcID = odata->numFuncEvals_;
       if (found == 0)
       {
-         odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         if (odata->optFunction_ != NULL)
+            odata->optFunction_(nInputs, XValues, nOutputs, localY);
+         else if (odata->funcIO_ != NULL)
+            odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         else
+         {
+            printf("NewuoaOptimizer ERROR: no function evaluator.\n");
+            exit(1);
+         }
          if (odata->outputLevel_ > 4)
          {
             printf("NewuoaOptimizer %6d : \n", odata->numFuncEvals_);
             for (ii = 0; ii < nInputs; ii++)
                printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
-            for (ii = 0; ii < nOutputs; ii++) 
-               printf("    Y %6d = %16.8e\n", ii+1, localY[ii]);
+            printf("    Y = %16.8e\n", localY[outputID]);
          }
          funcID = odata->numFuncEvals_++;
          (*YValue) = localY[outputID];
@@ -142,11 +149,7 @@ extern "C"
             printf("NewuoaOptimizer %6d : \n", odata->numFuncEvals_);
             for (ii = 0; ii < nInputs; ii++)
                printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
-            if (found == 0)
-            {
-               for (ii = 0; ii < nOutputs; ii++) 
-                  printf("    Y %6d = %16.8e\n", ii+1, localY[ii]);
-            }
+            if (found == 0) printf("    Y = %16.8e\n", localY[outputID]);
             printf("    *** Current best objective function value = %16.8e\n", 
                    odata->optimalY_);
          }
@@ -163,38 +166,41 @@ extern "C"
 // ------------------------------------------------------------------------
 NewuoaOptimizer::NewuoaOptimizer()
 {
-   printAsterisks(PL_INFO, 0);
-   printf("*    NEWUOA Optimizer Usage Information\n");
-   printEquals(PL_INFO, 0);
-   printf("* NEWUOA is an optimization software developed by Professor\n");
-   printf("* Michael Powell to solve unconstrained optimization problems\n");
-   printf("* without derrivatives suitable for problems with hundreds\n");
-   printf("* of variables. The formulation of the problem is as follow:\n");
-   printf("\n*                min_X F(X)\n");
-   printf("*\n");
-   printf("* To run this optimizer, do the following: \n");
-   printf("* (1) Prepare a PSUADE input file with all variable defined.\n");
-   printf("* (2) In the PSUADE input file, make sure opt_driver has been\n");
-   printf("*     initialized to point your optimization objective function\n");
-   printf("*      evaluator\n");
-   printf("* (3) Since it is unconstrained, you must provide an initial\n");
-   printf("      guess in the PSUADE_IO section, or you can generate an\n");
-   printf("      initial guess using one of the sampling methods.\n");
-   printf("* (4) Set optimization tolerance in PSUADE input file\n");
-   printf("* (5) Set maximum number of iterations in PSUADE input file\n");
-   printf("* (6) Set optimization print_level to give additonal outputs\n");
-   printf("* (7) In Opt EXPERT mode, the optimization history log will be\n");
-   printf("*     turned on automatically. Previous psuade_newuoa_history\n");
-   printf("*     file will also be reused to save evaluations.\n");
-   printf("* (8) If your opt_driver is a response surface which has more\n");
-   printf("*     input than the number of optimization inputs, you can fix\n");
-   printf("*     some driver inputs by creating a (analyzer) rs_index_file.\n");
-   printEquals(PL_INFO, 0);
-   printf("To reuse the simulations (e.g. restart from abrupt termination),\n");
-   printf("turn on save_history and use_history optimization options in the\n");
-   printf("ANALYSIS section (e.g. optimization save_history). You will see\n");
-   printf("a file created called 'psuade_newuoa_history' afterward.\n");
-   printAsterisks(PL_INFO, 0);
+  if (isScreenDumpModeOn())
+  {
+    printAsterisks(PL_INFO, 0);
+    printf("*    NEWUOA Optimizer Usage Information\n");
+    printEquals(PL_INFO, 0);
+    printf("* NEWUOA is an optimization software developed by Professor\n");
+    printf("* Michael Powell to solve unconstrained optimization problems\n");
+    printf("* without derrivatives suitable for problems with hundreds\n");
+    printf("* of variables. The formulation of the problem is as follow:\n");
+    printf("\n*                min_X F(X)\n");
+    printf("*\n");
+    printf("* To run this optimizer, do the following: \n");
+    printf("* (1) Prepare a PSUADE input file with all variable defined.\n");
+    printf("* (2) In the PSUADE input file, make sure opt_driver has been\n");
+    printf("*     initialized to point your optimization objective function\n");
+    printf("*      evaluator\n");
+    printf("* (3) Since it is unconstrained, you must provide an initial\n");
+    printf("      guess in the PSUADE_IO section, or you can generate an\n");
+    printf("      initial guess using one of the sampling methods.\n");
+    printf("* (4) Set optimization tolerance in PSUADE input file\n");
+    printf("* (5) Set maximum number of iterations in PSUADE input file\n");
+    printf("* (6) Set optimization print_level to give additonal outputs\n");
+    printf("* (7) In Opt EXPERT mode, the optimization history log will be\n");
+    printf("*     turned on automatically. Previous psuade_newuoa_history\n");
+    printf("*     file will also be reused to save evaluations.\n");
+    printf("* (8) If your opt_driver is a response surface which has more\n");
+    printf("*     input than the number of optimization inputs, you can fix\n");
+    printf("*     some driver inputs by using a rs_index_file (ANALYSIS).\n");
+    printEquals(PL_INFO, 0);
+    printf("To reuse the results (e.g. restart from abrupt termination),\n");
+    printf("turn on save_history and use_history optimization options in\n");
+    printf("the ANALYSIS section (e.g. optimization save_history). You will\n");
+    printf("see a file created called 'psuade_newuoa_history' afterward.\n");
+    printAsterisks(PL_INFO, 0);
+  }
 }
 
 // ************************************************************************
@@ -202,6 +208,44 @@ NewuoaOptimizer::NewuoaOptimizer()
 // ------------------------------------------------------------------------
 NewuoaOptimizer::~NewuoaOptimizer()
 {
+}
+
+// ************************************************************************
+// optimize (this function should be used in the library call mode)
+// ------------------------------------------------------------------------
+void NewuoaOptimizer::optimize(int nInputs, double *XValues, double *lbds,
+                               double *ubds, int maxfun, double tol)
+{
+   double *optimalX;
+   if (nInputs <= 0)
+   {
+      printf("NewuoaOptimizer ERROR: nInputs <= 0.\n");
+      exit(1);
+   }
+   oData *odata = new oData();
+   odata->outputLevel_ = 0;
+   odata->nInputs_ = nInputs;
+   optimalX = new double[nInputs];
+   odata->optimalX_ = optimalX;
+   odata->initialX_ = XValues;
+   odata->lowerBounds_ = lbds;
+   odata->upperBounds_ = ubds;
+   odata->tolerance_ = tol;
+   if (odata->tolerance_ <= 0) odata->tolerance_ = 1e-6;
+   odata->nOutputs_ = 1;
+   odata->outputID_ = 0;
+   odata->maxFEval_ = maxfun;
+   odata->numFuncEvals_ = 0;
+   odata->tolerance_ = tol;
+   odata->setOptDriver_ = 0;
+   odata->optFunction_ = objFunction_;
+   odata->funcIO_ = NULL;
+   optimize(odata);
+   odata->initialX_ = NULL;
+   odata->lowerBounds_ = NULL;
+   odata->upperBounds_ = NULL;
+   odata->optFunction_ = NULL;
+   delete [] optimalX;
 }
 
 // ************************************************************************
@@ -245,12 +289,15 @@ void NewuoaOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(1);
    }
    psNewuoaObj_= (void *) odata;
-   printAsterisks(PL_INFO, 0);
-   printf("Newuoa optimizer: max fevals = %d\n", odata->maxFEval_);
-   printf("Newuoa optimizer: tolerance  = %e\n", odata->tolerance_);
-   if (printLevel > 1)
-      printf("Newuoa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
-   printEquals(PL_INFO, 0);
+   if (isScreenDumpModeOn())
+   {
+      printAsterisks(PL_INFO, 0);
+      printf("Newuoa optimizer: max fevals = %d\n", odata->maxFEval_);
+      printf("Newuoa optimizer: tolerance  = %e\n", odata->tolerance_);
+      if (printLevel > 1)
+         printf("Newuoa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
+      printEquals(PL_INFO, 0);
+   }
 
    nPts = (nInputs + 1) * (nInputs + 2) / 2;
    kk   = (nPts + 13) * (nPts + nInputs) + 3*nInputs*(nInputs+3)/2;
@@ -291,8 +338,11 @@ void NewuoaOptimizer::optimize(oData *odata)
          }
       }
    }
-   for (ii = 0; ii < nInputs; ii++) 
-      printf("Newuoa initial X %3d = %e\n", ii+1, XValues[ii]);
+   if (isScreenDumpModeOn())
+   {
+      for (ii = 0; ii < nInputs; ii++) 
+         printf("Newuoa initial X %3d = %e\n", ii+1, XValues[ii]);
+   }
    newuoaFlag = 7777;
 #ifdef HAVE_NEWUOA
    newuoa_(&nInputs, &nPts, XValues, &rhobeg, &rhoend, &newuoaFlag, 
@@ -302,10 +352,17 @@ void NewuoaOptimizer::optimize(oData *odata)
       exit(1);
 #endif
 
-   printf("Newuoa optimizer: total number of evaluations = %d\n",
-           odata->numFuncEvals_);
+   if (isScreenDumpModeOn())
+   {
+      printf("Newuoa optimizer: total number of evaluations = %d\n",
+              odata->numFuncEvals_);
+   }
    for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = XValues[ii];
-   odata->optimalY_ = workArray[0];
+   if (optimalX_ != NULL) delete [] optimalX_;
+   optimalX_ = new double[nInputs];
+   for (ii = 0; ii < nInputs; ii++) optimalX_[ii] = odata->optimalX_[ii];
+   optimalY_ = odata->optimalY_;
+   numEvals_ = odata->numFuncEvals_;
 
    if (psNewuoaSaveHistory_ == 1 && psNewuoaNSaved_ > 0)
    {
@@ -328,6 +385,11 @@ void NewuoaOptimizer::optimize(oData *odata)
    exit(1);
 #endif
 
+   if ((odata->setOptDriver_ & 2) && psNCurrDriver_ >= 0)
+   {
+      printf("Newuoa: setting back to original simulation driver.\n");
+      odata->funcIO_->setDriver(psNCurrDriver_);
+   }
    delete [] XValues;
    delete [] workArray;
 }

@@ -169,6 +169,7 @@ double DeltaAnalyzer::analyze(aData &adata)
    rangesInv2 = new double[nInputs];
    distPairs = new double[nSamples*(nSamples-1)/2];
    Y = new double[nSamples];
+   checkAllocate(Y, "Y in DeltaTest::analyze");
    for (ii = 0; ii < nSamples; ii++) Y[ii] = YY[ii*nOutputs+outputID];
 
    if (psAnaExpertMode_ == 1)
@@ -215,10 +216,11 @@ double DeltaAnalyzer::analyze(aData &adata)
       deltaBins_[ii] = new int[nInputs];
       for (jj = 0; jj < nInputs; jj++) deltaBins[ii][jj] = 0;
    }
-   minDeltas = new double[nBins];
    minDeltas_ = new double[nBins_];
-   for (ii = 0; ii < nBins; ii++) minDeltas[ii] = PSUADE_UNDEFINED;
    minIndices = new int[nIndex];
+   minDeltas  = new double[nBins];
+   checkAllocate(minDeltas, "minDeltas in DeltaTest::analyze");
+   for (ii = 0; ii < nBins; ii++) minDeltas[ii] = PSUADE_UNDEFINED;
 
    if (nSelected == 0)
       for (ii = 0; ii < nInputs;ii++) inputBins[ii]=PSUADE_rand()%2;
@@ -496,7 +498,8 @@ double DeltaAnalyzer::analyze(aData &adata)
    }
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "Final Selections (based on %d neighbors) = \n", nIndex);
+   printOutTS(PL_INFO, 
+        "Final Selections (based on %d neighbors) = \n", nIndex);
 
    //save minDeltas and deltaBins
    for (ii=0; ii < nBins_; ii++)
@@ -555,14 +558,16 @@ double DeltaAnalyzer::analyze(aData &adata)
       fwritePlotYLabel(fp, "Delta Metric (normalized)");
       fclose(fp);
       if (psPlotTool_ == 1) 
-           printOutTS(PL_INFO,"Delta test ranking is now in scilabdelta.sci.\n");
+           printOutTS(PL_INFO,
+              "Delta test ranking is now in scilabdelta.sci.\n");
       else printOutTS(PL_INFO,"Delta test ranking is now in matlabdelta.m.\n");
    }
 
    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
    sortIntList2a(nInputs, ranks, dOrder);
-   printOutTS(PL_INFO,"Order of importance (based on %d best configurations):\n",
-              nConfig);
+   printOutTS(PL_INFO,
+        "Order of importance (based on %d best configurations):\n",
+        nConfig);
    for (ii = 0; ii < nInputs; ii++)
       printOutTS(PL_INFO, "(D)Rank %4d : input %4d (score = %d )\n", ii+1, 
                  (int) dOrder[nInputs-ii-1]+1, ranks[nInputs-ii-1]);
@@ -738,6 +743,7 @@ double DeltaAnalyzer::analyze(aData &adata)
 int DeltaAnalyzer::setParams(int argc, char **argv)
 {
    char *request = (char *) argv[0];
+   Analyzer::setParams(argc, argv);
    if (!strcmp(request, "gdelta")) mode_ = 1;
    return 0;
 }
@@ -777,6 +783,7 @@ double *DeltaAnalyzer::get_minDeltas()
    if (minDeltas_)
    {
       retVal = new double[nBins_];
+      checkAllocate(retVal, "retVal in DeltaTest::get_minDeltas");
       std::copy(minDeltas_, minDeltas_+nBins_+1, retVal);
    }
    return retVal;
@@ -787,9 +794,11 @@ int **DeltaAnalyzer::get_deltaBins()
    if (deltaBins_)
    {
       retVal = new int*[nBins_];
+      checkAllocate(retVal, "retVal in DeltaTest::get_deltaBins");
       for (int i=0; i<nBins_; i++)
       {
     	  retVal[i] = new int[nInputs_];
+          checkAllocate(retVal[i],"retVal in DeltaTest::get_deltaBins");
     	  std::copy(deltaBins_[i], deltaBins_[i]+nInputs_, retVal[i]);
       }
    }
@@ -801,6 +810,7 @@ double *DeltaAnalyzer::get_dOrder()
    if (dOrder_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in DeltaTest::get_dOrder");
       std::copy(dOrder_, dOrder_+nInputs_+1, retVal);
    }
    return retVal;
@@ -811,6 +821,7 @@ int *DeltaAnalyzer::get_ranks()
    if (ranks_)
    {
       retVal = new int[nInputs_];
+      checkAllocate(retVal, "retVal in DeltaTest::get_ranks");
       std::copy(ranks_, ranks_+nInputs_+1, retVal);
    }
    return retVal;

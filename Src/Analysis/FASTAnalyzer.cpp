@@ -139,6 +139,7 @@ double FASTAnalyzer::analyze(aData &adata)
    fourierCoefs_ = NULL;
    
    YY = new double[nSamples];
+   checkAllocate(YY, "YY in FAST::analyze");
    for (ss = 0; ss < nSamples; ss++) YY[ss] = Y[ss*nOutputs+outputID];
    M = computeCoefficents(nSamples, nInputs, YY, &fourierCoefs,
                           printLevel);
@@ -162,9 +163,9 @@ double FASTAnalyzer::analyze(aData &adata)
 
    //save Fourier coefficients
    fourierCoefs_ = new double[nInputs_];
+   checkAllocate(fourierCoefs_, "fourierCoefs in FAST::analyze");
    M_ = M;
-   for (ii=0; ii<nInputs_; ii++)
-	   fourierCoefs_[ii] = fourierCoefs[ii];
+   for (ii=0; ii<nInputs_; ii++) fourierCoefs_[ii] = fourierCoefs[ii];
    FASTvariance_ = fourierCoefs[nInputs];
 
    if (M % 2 == 0)
@@ -253,6 +254,7 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
    
    fourierReal = new double[M*nInputs];
    fourierImag = new double[M*nInputs];
+   checkAllocate(fourierImag, "fourierImag in FAST::analyze");
    for (ii = 0; ii < M*nInputs; ii++)
       fourierReal[ii] = fourierImag[ii] = 0.0;
    ds = ps_pi / (double) nSamples;
@@ -386,6 +388,7 @@ double *FASTAnalyzer::get_fourierCoefs()
    if (fourierCoefs_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in FAST::get_fourierCoefs");
       std::copy(fourierCoefs_, fourierCoefs_+nInputs_, retVal);
    }
    return retVal;

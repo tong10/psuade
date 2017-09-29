@@ -29,6 +29,7 @@
 
 #include "FuncApprox.h"
 #include "Matrix.h"
+#include "Vector.h"
 
 // ************************************************************************
 // class definition
@@ -37,15 +38,13 @@ class UserRegression : public FuncApprox
 {
    int    numTerms_;
    int    noAnalysis_;
-   double *regCoeffs_;
-   double *regStdevs_;
-   double **fuzzyC_;
    double *XNShift_;
    double *XNScale_;
    int    *XScales_;
    int    **coefTerms_;
    char   regFile_[1001];
-   psMatrix covMatrix_;
+   psVector regCoeffs_;
+   psMatrix invCovMat_;
    int    numArgs_;
    char   auxArg_[501];
  
@@ -73,9 +72,8 @@ public:
 private:
    int    analyze(double *, double *);
    int    loadXMatrix(double *, double **);
-   int    computeXTX(int, double *, double **);
    int    computeSS(int, double *, double *, double *, double &, double &);
-   int    computeCoeffVariance(int, double *, double, double *);
+   int    computeCoeffVariance(psMatrix&, psVector&, double);
    int    printRC(int, double *, double *, double *, double *);
 
 };

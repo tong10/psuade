@@ -27,6 +27,7 @@
 // ************************************************************************
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFWeibull.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -60,6 +61,8 @@ int PDFWeibull::getPDF(int length, double *inData, double *outData)
    int    ii;
    double xdata, ddata, mult;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFWeibull: getPDF begins (length = %d)\n",length);
    mult = k_ / lambda_;
    for (ii = 0; ii < length; ii++)
    {
@@ -71,6 +74,7 @@ int PDFWeibull::getPDF(int length, double *inData, double *outData)
          outData[ii] = mult * pow(ddata,k_-1) * exp(-pow(ddata,k_));
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFWeibull: getPDF ends.\n");
    return 0;
 }
 
@@ -82,6 +86,8 @@ int PDFWeibull::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFWeibull: getCDF begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       ddata = inData[ii];
@@ -92,6 +98,7 @@ int PDFWeibull::getCDF(int length, double *inData, double *outData)
       }
       outData[ii] = 1.0 - exp(-pow(ddata/lambda_,k_));
    }
+   if (psPDFDiagMode_ == 1) printf("PDFWeibull: getCDF ends.\n");
    return 0;
 }
 
@@ -110,6 +117,8 @@ int PDFWeibull::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFWeibull: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    for (ii = 0; ii < length; ii++)
    {
@@ -148,6 +157,7 @@ int PDFWeibull::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFWeibull: invCDF ends.\n");
    return 0;
 }
 
@@ -173,7 +183,8 @@ int PDFWeibull::genSample(int length, double *outData, double *lowers,
       exit(1);
    }
 
-   //printf("PDFWeibull: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFWeibull: genSample begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -205,7 +216,7 @@ int PDFWeibull::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFWeibull: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFWeibull: genSample ends.\n");
    return 0;
 }
 

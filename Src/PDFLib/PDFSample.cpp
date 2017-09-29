@@ -27,9 +27,11 @@
 #include <stdio.h>
 #include <math.h>
 #include "sysdef.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFSample.h"
 #include "PrintingTS.h"
+#include "Psuade.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
 
 // ************************************************************************
@@ -39,7 +41,7 @@ PDFSample::PDFSample(int scount, char *fname, int *indices)
 {
    int    ii, jj, nn, nInps;
    double *oneSample, ddata, dmin, dmax;
-   char   pString[1001], filename[1001];
+   char   pString[1001], filename[1001], *cString;
    FILE   *fp=NULL;
 
    if (fname == NULL || !strcmp(fname, "NONE"))
@@ -160,7 +162,13 @@ PDFSample::PDFSample(int scount, char *fname, int *indices)
       fgets(pString, 1000, fp);
    }
    fscanf(fp, "%s", pString);
-   if (strcmp(pString, "#perturb")) perturb_ = 1;
+   if (!strcmp(pString, "#perturb")) perturb_ = 1;
+   if (perturb_ == 0 && psConfig_ != NULL)
+   {
+      cString = psConfig_->getParameter("randomize");
+      if (cString != NULL) perturb_ = 1;
+   }
+
    fclose(fp);
    delete [] oneSample;
    printOutTS(PL_INFO,"PDFSample INFO: sample file '%s' has been read.\n", 
@@ -171,6 +179,8 @@ PDFSample::PDFSample(int scount, char *fname, int *indices)
    {
       printOutTS(PL_INFO,"   Perturbation has been turned on ");
       printOutTS(PL_INFO,"(sample drawn will be perturbed).\n");
+      printOutTS(PL_INFO,
+           "   The amount of perturbation is 0.01 of input range.\n");
    }
    if (indices != NULL)
    {
@@ -239,6 +249,8 @@ int PDFSample::genSample(int length,double *outData,double *, double *)
 {
    int    ii, jj, ind;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFSample: genSample begins (length = %d)\n",length);
    if (perturb_ == 0)
    {
       for (ii = 0; ii < length; ii++)
@@ -255,9 +267,10 @@ int PDFSample::genSample(int length,double *outData,double *, double *)
          ind = PSUADE_rand() % nSamples_;
          for (jj = 0; jj < nInputs_; jj++)
             outData[ii*nInputs_+jj] = samples_[ind*nInputs_+jj] +
-                                      0.01 * PSUADE_drand() * ranges_[jj];
+                       0.01 * (PSUADE_drand() - 0.5) * ranges_[jj];
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFSample: genSample ends.\n");
    return 0;
 }
 

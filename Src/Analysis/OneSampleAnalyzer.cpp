@@ -307,6 +307,7 @@ double OneSampleAnalyzer::analyze(aData &adata)
       return PSUADE_UNDEFINED;
    }
    Y = new double[length];
+   checkAllocate(Y, "Y in OneSample::analyze");
    for (ss = 0; ss < length; ss++) fscanf(file, "%lg", &Y[ss]);
    fclose(file);
 
@@ -439,7 +440,7 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
       scanf("%lg", &meanL);
       printf("Enter the upper bound of mean to search : ");
       scanf("%lg", &meanU);
-      printf("Enter the number of points for the mean (e.g., 100): ");
+      printf("Enter number of points for the mean search (e.g., 100): ");
       scanf("%d", &meanNpts);
       if (meanL >= meanU) 
          printOutTS(PL_INFO, "lower bound %e >= upper bound %e\n",meanL,meanU);
@@ -457,7 +458,7 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
       scanf("%lg", &stdevL);
       printf("Enter the upper bound of std dev to search : ");
       scanf("%lg", &stdevU);
-      printf("Enter the number of points for the std dev (e.g., 100): ");
+      printf("Enter number of points for std dev search (e.g., 100): ");
       scanf("%d", &stdevNpts);
       if (stdevL >= stdevU) 
          printOutTS(PL_INFO, "lower bound %e >= upper bound %e\n",stdevL,stdevU);
@@ -533,12 +534,14 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
    pdfman->genSample(nSamp, vecOut, vecLower, vecUpper);
    delete pdfman;
    sInputs = vecOut.getDVector();
-   retval = tsPtr->KSAnalyze(length, Y, nSamp, sInputs, 1);
+   retval = tsPtr->KSAnalyze(length, Y, nSamp, sInputs, 0);
 
    if (pLevel > 0)
    {
-      printOutTS(PL_INFO, "Distribution fitting: best mean    = %e\n", targetMean);
-      printOutTS(PL_INFO, "Distribution fitting: best std dev = %e\n", targetStdev);
+      printOutTS(PL_INFO, 
+         "Distribution fitting: best mean    = %e\n", targetMean);
+      printOutTS(PL_INFO, 
+         "Distribution fitting: best std dev = %e\n", targetStdev);
    }
    if (fp != NULL)
    {
@@ -562,7 +565,8 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
       fprintf(fp, "xlabel('target means')\n");
       fprintf(fp, "ylabel('target standard deviations')\n");
       fprintf(fp, "zlabel('Excess KS D-statistic')\n");
-      printOutTS(PL_INFO, "The response surface for excess D-statistic is in matlabdf.m.\n");
+      printOutTS(PL_INFO, 
+         "The response surface for excess D-statistic is in matlabdf.m.\n");
    }
 
    delete tsPtr;
@@ -768,7 +772,8 @@ int OneSampleAnalyzer::iterate(double gamma, double delta, double gamma2,
 // ------------------------------------------------------------------------
 OneSampleAnalyzer& OneSampleAnalyzer::operator=(const OneSampleAnalyzer &)
 {
-   printOutTS(PL_ERROR, "OneSampleAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, 
+        "OneSampleAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

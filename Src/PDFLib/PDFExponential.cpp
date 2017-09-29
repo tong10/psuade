@@ -26,6 +26,7 @@
 // ************************************************************************
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFExponential.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -58,6 +59,8 @@ int PDFExponential::getPDF(int length, double *inData, double *outData)
    int    ii;
    double xdata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFExponential: getPDF begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       xdata   = inData[ii];
@@ -68,6 +71,7 @@ int PDFExponential::getPDF(int length, double *inData, double *outData)
       }
       outData[ii] = lambda_ * exp(-lambda_ * xdata);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFExponential: getPDF ends.\n");
    return 0;
 }
 
@@ -79,6 +83,8 @@ int PDFExponential::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFExponential: getCDF begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       ddata = inData[ii];
@@ -89,6 +95,7 @@ int PDFExponential::getCDF(int length, double *inData, double *outData)
       }
       outData[ii] = 1.0 - exp(-lambda_ * ddata);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFExponential: getCDF ends.\n");
    return 0;
 }
 
@@ -117,6 +124,8 @@ int PDFExponential::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFExponential: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    for (ii = 0; ii < length; ii++)
    {
@@ -155,6 +164,7 @@ int PDFExponential::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFExponential: invCDF ends.\n");
    return 0;
 }
 
@@ -167,7 +177,8 @@ int PDFExponential::genSample(int length, double *outData, double *lowers,
    int    ii;
    double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
 
-   //printf("PDFExp: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFExponential: genSample begins (length = %d)\n",length);
    if (lowers == NULL || uppers == NULL)
    {
       printf("PDFExp genSample ERROR - lower/upper bound not available.\n"); 
@@ -206,7 +217,7 @@ int PDFExponential::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFExponential: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFExponential: genSample ends.\n");
    return 0;
 }
 

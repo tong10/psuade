@@ -69,8 +69,6 @@ AnalysisManager::AnalysisManager()
    sampler_ = NULL;
    analysisSampleErrors_ = NULL;
    logXsformFlags_ = NULL;
-   // Bill Oliver initializing new data member
-   sizelogX = 0;
 
 #ifdef HAVE_PYTHON
    AnalysisDataList = PyList_New(0);
@@ -128,7 +126,8 @@ int AnalysisManager::setup(PsuadeData *psuadeIO)
 
    if (psuadeIO == NULL)
    {
-      printOutTS(PL_ERROR,"AnalysisManager setup ERROR: missing psuadeIO.\n");
+      printOutTS(PL_ERROR,
+                 "AnalysisManager setup ERROR: missing psuadeIO.\n");
       exit(1);
    }
    psuadeIO->getParameter("ana_method", pPtr);
@@ -236,8 +235,6 @@ int AnalysisManager::loadLogXsformFlags(int n, int *flags)
            "AnalysisManager::loadLogXsformFlags ERROR: n <= 0.\n");
       exit(1);
    }
-   // Bill Oliver setting new data member
-   sizelogX = n;
    if (logXsformFlags_ != NULL) delete [] logXsformFlags_;
    logXsformFlags_ = new int[n];
    for (int ii = 0; ii < n; ii++) logXsformFlags_[ii] = flags[ii]; 
@@ -250,9 +247,9 @@ int AnalysisManager::loadLogXsformFlags(int n, int *flags)
 int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels, 
                              int *levelSeps, int analysisOutputID)
 {
-   int    anaMethod, nInputs, nOutputs, nSamples, samplingMethod, nReps, ii;
+   int    anaMethod, nInputs, nOutputs, nSamples, samplingMethod, nReps;
    int    refineFlag=1, jj, analysisTransform, wgtID, *xsforms, nActive;
-   int    outputLevel, *states, errCnt, *auxPDFs, pdfFlag, onlyMCMC;
+   int    ii, outputLevel, *states, errCnt, *auxPDFs, pdfFlag, onlyMCMC;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;
    double *auxMeans, *auxStds;
    double analysisThreshold, analysisData, *tempX, *tempY;
@@ -268,7 +265,7 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
    onlyMCMC = 0;
    if (nActive == 1 && analyzers_[22] != NULL) onlyMCMC = 1;
 
-   if (psuadeIO == NULL)
+   if (psuadeIO == NULL && onlyMCMC == 0)
    {
       printOutTS(PL_ERROR, "AnalysisManager ERROR: no DataIO.\n");
       return -1;
@@ -353,27 +350,27 @@ int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels,
       {
          for (ii = 0; ii < nInputs*nSamples; ii++)
          {
-            if (tempX[ii] < 0.0)
-            {
-               for (jj = 0; jj < nInputs; jj++) xsforms[jj] = 0;
-               printOutTS(PL_INFO,
-                 "Some inputs are < 0 ==> Turn off input transformation.\n");
-               analysisTransform &= 2;
-               break;
-            }
+           if (tempX[ii] < 0.0)
+           {
+             for (jj = 0; jj < nInputs; jj++) xsforms[jj] = 0;
+             printOutTS(PL_INFO,
+               "Some inputs are < 0 => Turn off input transformation.\n");
+             analysisTransform &= 2;
+             break;
+           }
          }
       }
       if ((analysisTransform & 2) && tempY != NULL)
       {
          for (ii = 0; ii < nSamples*nOutputs; ii++)
          {
-            if (tempY[ii] < 0.0)
-            {
-               analysisTransform &= 1;
-               printOutTS(PL_ERROR, 
-                 "Some outputs are < 0 ==> Turn off output transformation.\n");
-               break;
-            }
+           if (tempY[ii] < 0.0)
+           {
+             analysisTransform &= 1;
+             printOutTS(PL_ERROR, 
+               "Some outputs are < 0 => Turn off output transformation.\n");
+             break;
+           }
          }
       }
       if (analysisTransform == 0)
@@ -922,7 +919,8 @@ int AnalysisManager::analyze(int anaMethod)
 
    if ((anaMethod & PSUADE_ANA_1SAMPLE) != 0 && (analyzers_[20] != NULL))
         analyzers_[20]->analyze(aPtr);
-   else if ((anaMethod & PSUADE_ANA_2SAMPLE) != 0 && (analyzers_[21] != NULL))
+   else if ((anaMethod & PSUADE_ANA_2SAMPLE) != 0 && 
+            (analyzers_[21] != NULL))
         analyzers_[21]->analyze(aPtr);
    else
    {
@@ -950,7 +948,8 @@ int AnalysisManager::specialRequest(int anaMethod, int narg, char **argv)
       analyzers_[0]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_GLSA) != 0) && (analyzers_[1] != NULL))
       analyzers_[1]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_CORRELATION) != 0) && (analyzers_[2] != NULL))
+   if (((anaMethod & PSUADE_ANA_CORRELATION) != 0) && 
+        (analyzers_[2] != NULL))
       analyzers_[2]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_ME) != 0) && (analyzers_[3] != NULL))
       analyzers_[3]->setParams(narg, argv);
@@ -964,7 +963,8 @@ int AnalysisManager::specialRequest(int anaMethod, int narg, char **argv)
       analyzers_[7]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_RSFA) != 0) && (analyzers_[8] != NULL))
       analyzers_[8]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_INTEGRATION) != 0) && (analyzers_[9] != NULL))
+   if (((anaMethod & PSUADE_ANA_INTEGRATION) != 0) && 
+        (analyzers_[9] != NULL))
       analyzers_[9]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_FAST) != 0) && (analyzers_[10] != NULL))
       analyzers_[10]->setParams(narg, argv);
@@ -972,19 +972,24 @@ int AnalysisManager::specialRequest(int anaMethod, int narg, char **argv)
       analyzers_[11]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_PCA) != 0) && (analyzers_[12] != NULL))
       analyzers_[12]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_ONESIGMA) != 0) && (analyzers_[13] != NULL))
+   if (((anaMethod & PSUADE_ANA_ONESIGMA) != 0) && 
+        (analyzers_[13] != NULL))
       analyzers_[13]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_FORM) != 0) && (analyzers_[14] != NULL))
       analyzers_[14]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_RSSOBOL1) != 0) && (analyzers_[15] != NULL))
+   if (((anaMethod & PSUADE_ANA_RSSOBOL1) != 0) && 
+        (analyzers_[15] != NULL))
       analyzers_[15]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_RSSOBOL2) != 0) && (analyzers_[16] != NULL))
+   if (((anaMethod & PSUADE_ANA_RSSOBOL2) != 0) && 
+        (analyzers_[16] != NULL))
       analyzers_[16]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_RSSOBOLTSI) != 0) && (analyzers_[17] != NULL))
+   if (((anaMethod & PSUADE_ANA_RSSOBOLTSI) != 0) && 
+        (analyzers_[17] != NULL))
       analyzers_[17]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_BSTRAP) != 0) && (analyzers_[18] != NULL))
       analyzers_[18]->setParams(narg, argv);
-   if (((anaMethod & PSUADE_ANA_RSSOBOLG) != 0) && (analyzers_[19] != NULL))
+   if (((anaMethod & PSUADE_ANA_RSSOBOLG) != 0) && 
+        (analyzers_[19] != NULL))
       analyzers_[19]->setParams(narg, argv);
    if (((anaMethod & PSUADE_ANA_1SAMPLE) != 0) && (analyzers_[20] != NULL))
       analyzers_[20]->setParams(narg, argv);
@@ -1015,7 +1020,7 @@ AnalysisManager& AnalysisManager::operator=(const AnalysisManager &)
 }
 
 // ************************************************************************
-// return the MOAT analyzer
+// return the MOAT analyzer (this function is for library call to MOAT)
 // ------------------------------------------------------------------------
 MOATAnalyzer *AnalysisManager::getMOATAnalyzer()
 {

@@ -41,7 +41,7 @@ HUQ_GL[HUQ_nLevels_][HUQ_nTerms_] =
    {7.8867513459481287e-1, 0.0, 0.0, 0.0},
    {5.0e-01, 8.8729833462074170e-1, 0.0, 0.0},
    {6.6999052179242813e-1, 9.3056815579702623e-1, 0.0, 0.0},
-   {0.5, 7.6923465505284150e-1, 9.5308992296933193e-1},
+   {0.5, 7.6923465505284150e-1, 9.5308992296933193e-1, 0.0},
    {6.1930959304159849e-1, 8.3060469323313235e-1, 9.6623475710157603e-1, 0},
    {0.5, 7.0292257568869854e-1, 8.7076559279969723e-1, 9.7455395617137919e-1},
    {5.9171732124782495e-1, 7.6276620495816450e-1, 8.9833323870681348e-1, 9.8014492824876809e-1}
@@ -60,7 +60,7 @@ static double HUQ_GLW[HUQ_nLevels_][HUQ_nTerms_] =
 };
 static int HUQ_GLn[HUQ_nLevels_] =
 {
-   1, 1, 2, 2, 3, 3, 4
+   1, 1, 2, 2, 3, 3, 4, 4
 };
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
@@ -76,9 +76,10 @@ SparseGridSampling::SparseGridSampling() : Sampling()
 }
 
 // ************************************************************************
-// copy constructor added by Bill Oliver
+// copy constructor added by Oliver
 // ------------------------------------------------------------------------
-SparseGridSampling::SparseGridSampling(const SparseGridSampling &gs) : Sampling()
+SparseGridSampling::SparseGridSampling(const SparseGridSampling &gs) : 
+                                 Sampling()
 {
    pOrder_ = gs.pOrder_;
    nSamples_ = gs.nSamples_;
@@ -160,8 +161,8 @@ int SparseGridSampling::initialize(int initLevel)
          } 
          total += counts[jj];
       }
-      for (kk = 0; kk < nInputs_; kk++) Vnodes[kk].add(total, NULL);
-      Vweights.add(total,NULL);
+      for (kk = 0; kk < nInputs_; kk++) Vnodes[kk].addElements(total, NULL);
+      Vweights.addElements(total,NULL);
       for (jj = 0; jj < nPerms; jj++)
       {
          for (kk = 0; kk < nInputs_; kk++)
@@ -171,7 +172,6 @@ int SparseGridSampling::initialize(int initLevel)
          }
 
          size = KronProd(nInputs_, midx, &newn, &neww);
-         // Bill Oliver added check on value of size
          if (size <= 0)
          {
 	    printf("size variable is <= 0 in file %s line %d\n",
@@ -229,8 +229,9 @@ int SparseGridSampling::initialize(int initLevel)
       }
       if (numNew > 0)
       {
-         for (jj = 0; jj < nInputs_; jj++) Vnodes[jj].add(numNew, NULL);
-         Vweights.add(numNew,NULL);
+         for (jj = 0; jj < nInputs_; jj++) 
+            Vnodes[jj].addElements(numNew,NULL);
+         Vweights.addElements(numNew,NULL);
          for (jj = 0; jj < nInputs_; jj++)
          {
             numNew = 0;
@@ -385,7 +386,6 @@ int SparseGridSampling::GenSequence(int nn, int rsum, int ***perms)
    else                     
       nPerms = computeNumPCEPermutations(nn, idata) - 
                computeNumPCEPermutations(nn, idata-1);
-   // Bill Oliver added defensive programming by checking the value of nPerms
    if(nPerms <= 0)
    {
       printf("Problem in SparseGridSampling::GenSequence with calculation\n");
@@ -426,11 +426,8 @@ int SparseGridSampling::GenSequence(int nn, int rsum, int ***perms)
 // ------------------------------------------------------------------------
 int SparseGridSampling::nChooseK(int n, int k)
 {
-   int ii, idata=n;
-
-   idata = 1;
-   for (ii = n; ii > k; ii--) idata *= ii;
-   for (ii = 2; ii <= n-k; ii++) idata /= ii;
+   int ii, idata=1;
+   for (ii = n; ii > n-k; ii--) idata = idata * ii / (n - ii + 1);
    return idata;
 }
 

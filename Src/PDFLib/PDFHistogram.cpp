@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "sysdef.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFHistogram.h"
 #include "PrintingTS.h"
@@ -391,6 +392,8 @@ int PDFHistogram::getPDF(int length, double *inData, double *outData)
 {
    int    ss, ii, jj;
    double ddata;
+   if (psPDFDiagMode_ == 1)
+      printf("PDFHistogram: getPDF begins (length = %d)\n",length);
    for (ss = 0; ss < length; ss++)
    {
       for (ii = 0; ii < nInputs_; ii++) 
@@ -403,6 +406,7 @@ int PDFHistogram::getPDF(int length, double *inData, double *outData)
       }
       outData[ss] = findProbability(indexSet_);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFHistogram: getPDF ends.\n");
    return 0;
 }
 
@@ -436,6 +440,8 @@ int PDFHistogram::genSample(int length,double *outData, double *lowers,
    int    ii, kk, ind, count;
    double ddata, dtemp;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFHistogram: genSample begins (length = %d)\n",length);
    if (lowers == NULL || uppers == NULL)
    {
       printf("PDFHist genSample ERROR - lower/upper bound unavailable.\n"); 
@@ -463,6 +469,7 @@ int PDFHistogram::genSample(int length,double *outData, double *lowers,
       }
       count++;
    }
+   if (psPDFDiagMode_ == 1) printf("PDFHistogram: genSample ends.\n");
    return 0;
 }
 
@@ -613,7 +620,6 @@ void PDFHistogram::finalizeHistogram()
       histCDF_[ss] = 1.0 * histCnts_[ss] / nSamples_; 
    for (ss = 1; ss < nHist_; ss++)
       histCDF_[ss] += histCDF_[ss-1];
-printf("his = %e\n",histCDF_[nHist_-1]);
 }
 
 // ************************************************************************

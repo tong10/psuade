@@ -53,6 +53,25 @@ MomentAnalyzer::~MomentAnalyzer()
 }
 
 // ************************************************************************
+// perform analysis (library call mode)
+// ------------------------------------------------------------------------
+void MomentAnalyzer::analyze(int nInps, int nSamp, double *lbs,
+                             double *ubs, double *X, double *Y)
+{
+   aData adata;
+   adata.nInputs_ = nInps;
+   adata.nOutputs_ = 1;
+   adata.nSamples_ = nSamp;
+   adata.iLowerB_ = lbs;
+   adata.iUpperB_ = ubs;
+   adata.sampleInputs_ = X;
+   adata.sampleOutputs_ = Y;
+   adata.outputID_ = 0;
+   adata.printLevel_ = 0;
+   analyze(adata);
+}
+
+// ************************************************************************
 // perform analysis
 // ------------------------------------------------------------------------
 double MomentAnalyzer::analyze(aData &adata)
@@ -85,7 +104,7 @@ double MomentAnalyzer::analyze(aData &adata)
    {
       cnt = 0;
       for (ii = 0; ii < nInputs; ii++) cnt += adata.inputPDFs_[ii];
-      if (cnt > 0)
+      if (cnt > 0 && isScreenDumpModeOn())
       {
          printOutTS(PL_INFO, 
             "MomentAnalyzer INFO: non-uniform probability distributions\n");
@@ -99,7 +118,8 @@ double MomentAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0)
    {
-      printOutTS(PL_ERROR,"MomentAnalyzer ERROR: invalid nInputs or nOutputs.\n");
+      printOutTS(PL_ERROR,
+           "MomentAnalyzer ERROR: invalid nInputs or nOutputs.\n");
       printOutTS(PL_ERROR,"   nInputs  = %d\n", nInputs);
       printOutTS(PL_ERROR,"   nOutputs = %d\n", nOutputs);
       return PSUADE_UNDEFINED;
@@ -110,14 +130,14 @@ double MomentAnalyzer::analyze(aData &adata)
       printOutTS(PL_ERROR,"    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
-   if (nSubSamples <= 0)
+   if (psScreenOutput_ == 1 && nSubSamples <= 0)
    {
       printOutTS(PL_INFO,"MomentAnalyzer INFO: nSubSamples = 0.\n");
       printOutTS(PL_INFO,"    This affects additional group analysis only.\n");
       printOutTS(PL_INFO,"    Set nSubSamples to nSamples.\n");
       nSubSamples = nSamples;
    } 
-   if (nSamples/nSubSamples*nSubSamples != nSamples)
+   if (isScreenDumpModeOn() && (nSamples/nSubSamples*nSubSamples != nSamples))
    {
       printOutTS(PL_INFO,"MomentAnalyzer INFO: nSamples != k*nSubSamples.\n");
       printOutTS(PL_ERROR,"   nSamples    = %d\n", nSamples);
@@ -153,8 +173,11 @@ double MomentAnalyzer::analyze(aData &adata)
    else
    {
       printOutTS(PL_INFO,"MomentAnalyzer INFO: Some outputs are undefined,\n");
-      printOutTS(PL_INFO,"               which are purged before processing.\n");
+      printOutTS(PL_INFO,
+           "               which are purged before processing.\n");
       Y = new double[nSamples*nOutputs];
+      checkAllocate(Y, "Y in Moment::analyze");
+
       cnt = 0;
       for (ss = 0; ss < nSamples; ss++)
       {
@@ -168,11 +191,13 @@ double MomentAnalyzer::analyze(aData &adata)
          } 
       }
       if (nSubSamples == nSamples) nSubSamples = cnt;
-      printOutTS(PL_INFO,"MomentAnalyzer INFO: original sample size = %d\n",
-                 nSamples);
+      if (isScreenDumpModeOn())
+         printOutTS(PL_INFO,"MomentAnalyzer INFO: original sample size = %d\n",
+                    nSamples);
       nSamples = cnt;
-      printOutTS(PL_INFO,"MomentAnalyzer INFO: purged   sample size = %d\n",
-                 nSamples);
+      if (isScreenDumpModeOn())
+         printOutTS(PL_INFO,"MomentAnalyzer INFO: purged   sample size = %d\n",
+                    nSamples);
    }
    if (nSamples <= 0) 
    {
@@ -193,7 +218,7 @@ double MomentAnalyzer::analyze(aData &adata)
       if (outputID < 0 || outputID >= nOutputs)
       {
          printOutTS(PL_INFO,
-             "MomentAnalyzer: Generate output distribution plot\n");
+              "MomentAnalyzer: Generate output distribution plot\n");
          sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
          outID = getInt(1, nOutputs, pString);
          outID--;
@@ -201,10 +226,15 @@ double MomentAnalyzer::analyze(aData &adata)
       else outID = outputID;
       if (psPlotTool_ == 1) strcpy(filename, "scilabua.sci");
       else                  strcpy(filename, "matlabua.m");
-      fp = fopen(filename, "w");
-      if (fp == NULL)
-         printOutTS(PL_ERROR, "ERROR: cannot open file %s.\n", filename);
+      fp = NULL;
+      if (psScreenOutput_ == 1)
+      {
+         fp = fopen(filename, "w");
+         if (fp == NULL)
+            printOutTS(PL_ERROR, "ERROR: cannot open file %s.\n", filename);
+      }
       Y2 = new double[nSamples];
+      checkAllocate(Y2, "Y2 in Moment::analyze");
       nValid = 0;
       if (fp != NULL) fprintf(fp, "Y = [\n");
       for (ss = 0; ss < nSamples; ss++)
@@ -271,88 +301,112 @@ double MomentAnalyzer::analyze(aData &adata)
          fclose(fp);
       }
       computeMeanVariance(nInputs,1,nValid,Y2,&mean,&variance,0);
-      printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO, "*       Sample mean          = %12.4e\n",mean);
-      printOutTS(PL_INFO, "*       Sample std dev       = %12.4e\n",
-                 sqrt(variance));
-      printOutTS(PL_INFO, "*       Based on nSamples    = %d\n",nValid);
-      printOutTS(PL_INFO, "*       Output number        = %d\n", outID+1);
-
+      if (psScreenOutput_ == 1)
+      {
+         printAsterisks(PL_INFO, 0);
+         printOutTS(PL_INFO, "*       Sample mean          = %12.4e\n",mean);
+         printOutTS(PL_INFO, "*       Sample std dev       = %12.4e\n",
+                    sqrt(variance));
+         printOutTS(PL_INFO, "*       Based on nSamples    = %d\n",nValid);
+         printOutTS(PL_INFO, "*       Output number        = %d\n", outID+1);
+      }
       delete [] Y2;
       delete constrPtr;
       if (errFlag != 0 && Y != NULL) delete [] Y;
       return sqrt(variance/nValid);
    }
 
+   if (nSubSamples <= 0) nSubSamples = nSamples;
    nGroups    = nSamples / nSubSamples;
    gMeans     = new double[nGroups];
    gVariances = new double[nGroups];
+   checkAllocate(gVariances, "gVariances in Moment::analyze");
 
-   printOutTS(PL_INFO, "\n");
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "*             Basic Output Statistics\n");
-   printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "* nSamples = %10d\n",nSamples);
-   printOutTS(PL_INFO, "* nGroups  = %10d\n",nGroups);
-   printOutTS(PL_INFO, "* nInputs  = %10d\n",nInputs);
-   printOutTS(PL_INFO, "* nOutputs = %10d\n",nOutputs);
-   printDashes(PL_INFO, 0);
-
+   if (isScreenDumpModeOn())
+   {
+      printOutTS(PL_INFO, "\n");
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "*             Basic Output Statistics\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, "* nSamples = %10d\n",nSamples);
+      printOutTS(PL_INFO, "* nGroups  = %10d\n",nGroups);
+      printOutTS(PL_INFO, "* nInputs  = %10d\n",nInputs);
+      printOutTS(PL_INFO, "* nOutputs = %10d\n",nOutputs);
+      printDashes(PL_INFO, 0);
+   }
    if (outputID == -1)
    {
       for (ss = 0; ss < nOutputs; ss++)
       {
-         printOutTS(PL_INFO, "* outputID = %10d\n", ss+1);
+         if (isScreenDumpModeOn())
+            printOutTS(PL_INFO, "* outputID = %10d\n", ss+1);
          computeMeanVariance(nInputs,nOutputs,nSubSamples, Y,
                              gMeans,gVariances,ss);
-         printOutTS(PL_INFO, "*       Sample mean          = %12.4e\n",
-                    gMeans[0]);
-         printOutTS(PL_INFO, "*       Sample std dev       = %12.4e\n",
-                    sqrt(gVariances[0]));
-
+         if (isScreenDumpModeOn())
+         {
+            printOutTS(PL_INFO, "*       Sample mean          = %12.4e\n",
+                       gMeans[0]);
+            printOutTS(PL_INFO, "*       Sample std dev       = %12.4e\n",
+                       sqrt(gVariances[0]));
+         }
          if (gVariances[0] > 0)
          {
             computeSkewnessKurtosis(nInputs,nOutputs,nSubSamples, Y, 
                          sqrt(gVariances[0]), &skewness,&kurtosis,ss);
-            printOutTS(PL_INFO,"*       Sample skewness      = %12.4e\n", 
-                       skewness);
-            printOutTS(PL_INFO,"*       Sample kurtosis      = %12.4e\n", 
+            if (isScreenDumpModeOn())
+            {
+               printOutTS(PL_INFO,"*       Sample skewness      = %12.4e\n", 
+                          skewness);
+               printOutTS(PL_INFO,"*       Sample kurtosis      = %12.4e\n", 
                        kurtosis);
+            }
          }
          else
          {
-            printOutTS(PL_INFO,
-                 "*       Std dev=0, skeweness/kurtosis set to 0.\n");
+            if (isScreenDumpModeOn())
+               printOutTS(PL_INFO,
+                    "*       Std dev=0, skeweness/kurtosis set to 0.\n");
             skewness = kurtosis = 0.0;
          }
-         if (ss < nOutputs-1 && printLevel >= 0) printEquals(PL_INFO, 0);
+         if (isScreenDumpModeOn() && ss < nOutputs-1 && printLevel >= 0) 
+            printEquals(PL_INFO, 0);
       }
       variance = gVariances[0];
    }
    else
    {
-      printOutTS(PL_INFO,"* outputID = %10d\n", outputID+1);
+      if (isScreenDumpModeOn())
+         printOutTS(PL_INFO,"* outputID = %10d\n", outputID+1);
       computeMeanVariance(nInputs,nOutputs,nSubSamples,Y,gMeans,
                           gVariances,outputID);
-      printOutTS(PL_INFO,"*       Sample mean          = %12.4e\n",gMeans[0]);
-      printOutTS(PL_INFO,"*       Sample std dev       = %12.4e\n",
-                 sqrt(gVariances[0]));
-
+      if (isScreenDumpModeOn())
+      {
+         printOutTS(PL_INFO,"*       Sample mean          = %12.4e\n",
+                    gMeans[0]);
+         printOutTS(PL_INFO,"*       Sample std dev       = %12.4e\n",
+                    sqrt(gVariances[0]));
+      }
       if (gVariances[0] > 0)
       {
          computeSkewnessKurtosis(nInputs,nOutputs,nSubSamples, Y, 
                       sqrt(gVariances[0]), &skewness,&kurtosis,outputID);
-         printOutTS(PL_INFO,"*       Sample skewness      = %12.4e\n", 
-                    skewness);
-         printOutTS(PL_INFO,"*       Sample kurtosis      = %12.4e\n", 
-                    kurtosis);
+         if (isScreenDumpModeOn())
+         {
+            printOutTS(PL_INFO,"*       Sample skewness      = %12.4e\n", 
+                       skewness);
+            printOutTS(PL_INFO,"*       Sample kurtosis      = %12.4e\n", 
+                       kurtosis);
+         }
       }
       else
       {
-         printOutTS(PL_INFO,"*       Std dev=0, skeweness/kurtosis set to 0.\n");
+         if (isScreenDumpModeOn())
+            printOutTS(PL_INFO,
+                 "*       Std dev=0, skeweness/kurtosis set to 0.\n");
          skewness = kurtosis = 0.0;
       }
       variance = gVariances[0];
+
       pData *pPtr=NULL;
       if (ioPtr != NULL)
       {
@@ -363,18 +417,21 @@ double MomentAnalyzer::analyze(aData &adata)
             pPtr->dbleArray_ = new double[4];
             pPtr->dbleArray_[0] = gMeans[0];
             pPtr->dbleArray_[1] = sqrt(gVariances[0]);
-            pPtr->dbleArray_[2] = sqrt(skewness);
-            pPtr->dbleArray_[3] = sqrt(kurtosis);
+            pPtr->dbleArray_[2] = skewness;
+            pPtr->dbleArray_[3] = kurtosis;
          }
-
-         //save moments
-         moments_ = new double[4];
-         for (int mm = 0; mm< 4; mm++)
-    	     moments_[mm] = pPtr->dbleArray_[mm];
       }
 
    }
-   if (printLevel >= 0)
+   //save moments
+   moments_ = new double[4];
+   moments_[0] = gMeans[0];
+   moments_[1] = sqrt(gVariances[0]);
+   moments_[2] = skewness;
+   moments_[3] = kurtosis;
+   if (outputID == -1) 
+      printf("INFO: calls to get moments return only the last output info.\n");
+   if (isScreenDumpModeOn() && printLevel >= 0)
    {
       printDashes(PL_INFO, 0);
       printAsterisks(PL_INFO, 0);
@@ -416,15 +473,24 @@ double MomentAnalyzer::analyze(aData &adata)
 
    if (outputID < 0 || outputID >= nOutputs)
    {
-      printf("MomentAnalyzer: Generating output distribution plot\n");
-      sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
-      outID = getInt(1, nOutputs, pString);
-      outID--;
+      if (psInteractive_ == 1)
+      {
+         printf("MomentAnalyzer: Generating output distribution plot\n");
+         sprintf(pString, "Enter output number (1 - %d) : ", nOutputs);
+         outID = getInt(1, nOutputs, pString);
+         outID--;
+      }
+      else
+      {
+         outID = 0;
+         printOutTS(PL_INFO,"Invalid output ID. Set to default output 1.\n");
+      }
    }
    else outID = outputID;
    if (psPlotTool_ == 1) strcpy(filename, "scilabua.sci");
    else                  strcpy(filename, "matlabua.m");
-   fp = fopen(filename, "w");
+   fp = NULL;
+   if (psScreenOutput_ == 1) fp = fopen(filename, "w");
    if (fp != NULL)
    {
       fprintf(fp, "Y = [\n");
@@ -487,17 +553,21 @@ double MomentAnalyzer::analyze(aData &adata)
       printOutTS(PL_INFO,"Output distribution plot is now in %s.\n",filename);
       fclose(fp);
    }
-   else printOutTS(PL_ERROR,"ERROR: cannot open file %s.\n", filename);
+   else 
+   {
+      if (psScreenOutput_ == 1)
+         printOutTS(PL_ERROR,"ERROR: cannot open file %s.\n", filename);
+   }
 
    if (outputID >= 0)
    {
       if (nGroups == 1)
       {
-         printAsterisks(PL_INFO, 0);
+         if (isScreenDumpModeOn()) printAsterisks(PL_INFO, 0);
          variance2 = gVariances[0];
          delete [] gMeans;
          delete [] gVariances;
-         if (printLevel >= 0)
+         if (isScreenDumpModeOn() && printLevel >= 0)
          {
             printOutTS(PL_INFO,"*       std error of mean       = %16.8e\n",
                    sqrt(variance2/(double) nSamples));
@@ -513,7 +583,8 @@ double MomentAnalyzer::analyze(aData &adata)
                 &Y[nSubSamples*groupID*nOutputs],
                 &gMeans[groupID],&gVariances[groupID],whichOutput);
       }
-      printOutTS(PL_INFO, "Output %d\n", whichOutput+1);
+      if (isScreenDumpModeOn())
+         printOutTS(PL_INFO, "Output %d\n", whichOutput+1);
 
       mean = 0.0;
       for (groupID = 0; groupID < nGroups; groupID++)
@@ -525,10 +596,12 @@ double MomentAnalyzer::analyze(aData &adata)
                       (gVariances[groupID] - mean));
       variance2 = variance2 / (double) nGroups;
 
-      printOutTS(PL_INFO, "*       Mean of group variances = %16.8e\n",mean);
-      printOutTS(PL_INFO, "*       Std error of variance   = %16.8e\n",
-                 variance2);
-
+      if (isScreenDumpModeOn())
+      {
+         printOutTS(PL_INFO, "*       Mean of group variances = %16.8e\n",mean);
+         printOutTS(PL_INFO, "*       Std error of variance   = %16.8e\n",
+                    variance2);
+      }
       mean = 0.0;
       for (groupID = 0; groupID < nGroups; groupID++)
          mean += gMeans[groupID];
@@ -537,13 +610,16 @@ double MomentAnalyzer::analyze(aData &adata)
       for (groupID = 0; groupID < nGroups; groupID++)
          variance2 += ((gMeans[groupID] - mean) * (gMeans[groupID] - mean));
       variance2 = variance2 / (double) nGroups;
-      printOutTS(PL_INFO, "*       Mean of group means     = %16.8e\n",mean);
-      printOutTS(PL_INFO, "*       Std error of mean       = %16.8e\n", 
-                 variance2);
-      printAsterisks(PL_INFO, 0);
+      if (isScreenDumpModeOn())
+      {
+         printOutTS(PL_INFO, "*       Mean of group means     = %16.8e\n",mean);
+         printOutTS(PL_INFO, "*       Std error of mean       = %16.8e\n", 
+                    variance2);
+         printAsterisks(PL_INFO, 0);
+      }
    }
 
-   if (printLevel > 1 && outputID >= 0)
+   if (isScreenDumpModeOn() && printLevel > 1 && outputID >= 0)
       analyzeMore(nInputs, nOutputs, nSamples, nSubSamples, Y, outputID);
 
    delete [] gMeans;
@@ -631,6 +707,7 @@ int MomentAnalyzer::analyzeMore(int nInputs, int nOutputs, int nSamples,
       nGroups    = nSamples / myNSubSamples;
       gMeans     = new double[nGroups];
       gVariances = new double[nGroups];
+      checkAllocate(gVariances, "gVariances in Moment::analyzeMore");
 
 
       for (groupID = 0; groupID < nGroups; groupID++)
@@ -688,14 +765,24 @@ int MomentAnalyzer::get_nOutputs()
 {
    return nOutputs_;
 }
-double *MomentAnalyzer::get_moments()
+double MomentAnalyzer::get_mean()
 {
-   double* retVal = NULL;
-   if (moments_)
-   {
-      retVal = new double[4];
-      for (int ii = 0; ii < 4; ii++) retVal[ii] = moments_[ii];
-   }
-   return retVal;
+   if (moments_) return moments_[0];
+   else          return 0.0;
+}
+double MomentAnalyzer::get_stdev()
+{
+   if (moments_) return moments_[1];
+   else          return 0.0;
+}
+double MomentAnalyzer::get_skewness()
+{
+   if (moments_) return moments_[2];
+   else          return 0.0;
+}
+double MomentAnalyzer::get_kurtosis()
+{
+   if (moments_) return moments_[3];
+   else          return 0.0;
 }
 

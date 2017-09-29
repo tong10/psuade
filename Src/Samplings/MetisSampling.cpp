@@ -257,8 +257,10 @@ int MetisSampling::initialize(int initLevel)
          printf("MetisSampling INFO: a partition file is found but\n");
          printf("      the data is not consistent with this setup\n");
          printf("      (The file name is psuadeMetisInfo).\n");
-         printf("      nSamples : %d != %d.\n", nSamples_, itmp);
-         printf("      nInputs  : %d != %d.\n", nInputs_, jtmp);
+         if (itmp != nSamples_ || jj != nSamples_)
+            printf("      nSamples : %d != %d.\n", nSamples_, itmp);
+         if (jtmp != nInputs_)
+            printf("      nInputs  : %d != %d.\n", nInputs_, jtmp);
          sprintf(pString,"Would you like to provide another file? (y or n) ");
          getString(pString, response);
          if (response[0] == 'y')
@@ -274,7 +276,7 @@ int MetisSampling::initialize(int initLevel)
          }
          else
          {
-            printf("MetisSampling INFO: delete psuadeGMetisInfo file and.\n");
+            printf("MetisSampling INFO: delete psuadeMetisInfo file and.\n");
             printf("                    re-launch.\n");
             exit(1);
          }

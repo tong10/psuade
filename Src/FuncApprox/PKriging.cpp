@@ -292,6 +292,7 @@ PKriging::PKriging(int nInputs,int nSamples, CommManager *comm) :
    dataStdDevs_ = NULL;
    optTolerance_ = 1.0e-4;
    Thetas_ = new double[nInputs_+1];
+   checkAllocate(Thetas_, "Thetas_ in PKriging::constructor");
    for (ii = 0; ii <= nInputs_; ii++) Thetas_[ii] = 0.01;
 
    // display banner and additonal information
@@ -329,6 +330,8 @@ PKriging::PKriging(int nInputs,int nSamples, CommManager *comm) :
             else
             {
                dataStdDevs_ = new double[nSamples_];
+               checkAllocate(dataStdDevs_,
+                             "dataStdDevs_ in PKriging::constructor");
                for (ii = 0; ii < nSamples_; ii++)
                {
                   fscanf(fp, "%d %lg", &jj, &dataStdDevs_[ii]); 
@@ -481,8 +484,10 @@ double PKriging::train(double *X, double *Y)
 
    // normalize the input and outputs 
    XNormalized_ = new double[nSamples_*nInputs_];
+   checkAllocate(XNormalized_,"XNormalized_ in PKriging::train");
    initInputScaling(X, XNormalized_, 1);
    YNormalized_ = new double[nSamples_];
+   checkAllocate(YNormalized_,"YNormalized_ in PKriging::train");
    initOutputScaling(Y, YNormalized_);
    PKRI_YStd = YStd_;
 
@@ -517,6 +522,7 @@ double PKriging::train(double *X, double *Y)
 
    TUppers = new double[nInputs_+1];
    TLowers = new double[nInputs_+1];
+   checkAllocate(TLowers,"TLowers in PKriging::train");
    for (ii = 0; ii < nInputs_; ii++)
    {
       if (XMeans_[ii] == 0 && XStds_[ii] == 1.0)
@@ -571,6 +577,7 @@ double PKriging::train(double *X, double *Y)
    TValues = new double[nInputs_+1];
    nPts = (nInputs_ + 1) * (nInputs_ + 2) / 2;
    work = new double[(nPts+5)*(nPts+nInputs_)+3*nInputs_*(nInputs_+5)/2+1];
+   checkAllocate(work,"work in PKriging::train");
    if (mypid_ == 0)
    {
       printEquals(PL_INFO, 0);
@@ -603,6 +610,7 @@ double PKriging::train(double *X, double *Y)
    samInputs  = new double[nSamOpt * nInputs_];
    samOutputs = new double[nSamOpt];
    samStates  = new int[nSamOpt];
+   checkAllocate(samStates,"samStates in PKriging::train");
    sampler->getSamples(nSamOpt, nInputs_, iOne, samInputs,
                        samOutputs, samStates);
    delete [] samOutputs;
@@ -625,6 +633,7 @@ double PKriging::train(double *X, double *Y)
    FMatrix = new double[nSamples_*nBasis];
    FMatTmp = new double[nSamples_*nBasis];
    MMatrix = new double[nBasis*nBasis];
+   checkAllocate(MMatrix,"MMatrix in PKriging::train");
    PKRI_SMatrix = SMatrix;
    PKRI_FMatrix = FMatrix;
    PKRI_FMatTmp = FMatTmp;
@@ -632,6 +641,7 @@ double PKriging::train(double *X, double *Y)
    int    proc, csize;
    double dmean, dstd;
    double *commBuffer = new double[nInputs_+1];
+   checkAllocate(commBuffer,"commBuffer in PKriging::train");
 
    for (kk = 0; kk < nSamOpt; kk++)
    {
@@ -759,11 +769,7 @@ int PKriging::computeDistances(double **XDists, int *length)
    double *LDists, dist;
 
    LDists = new double[(nSamples_*(nSamples_-1)/2)*nInputs_];
-   if (LDists == NULL) 
-   {
-      printf("PKriging ERROR: allocation problem.\n");
-      exit(1);
-   }
+   checkAllocate(LDists,"LDists in PKriging::computeDistances");
    count = 0;
    for (jj = 0; jj < nSamples_; jj++)
    {

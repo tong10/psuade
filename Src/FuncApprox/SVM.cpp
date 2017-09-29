@@ -32,6 +32,7 @@
 
 #include "sysdef.h"
 #include "Psuade.h"
+#include "PsuadeUtil.h"
 #include "SVM.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
@@ -164,7 +165,9 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 SVM::~SVM()
 {
+#ifndef HAVE_SVM
    printf("PSUADE ERROR : SVM not installed.\n");
+#endif
 }
 
 // ************************************************************************
@@ -177,6 +180,7 @@ int SVM::initialize(double *X, double *Y)
    double *stds;
 
    stds = new double[nSamples_];
+   checkAllocate(stds, "stds in SVM::initialize");
    if (outputLevel_ >= 1)
    {
       printf("SVM training begins....\n");
@@ -222,6 +226,7 @@ int SVM::genNDGridData(double *X, double *Y, int *N2, double **X2,
 
    // generate the data points 
    (*Y2) = new double[totPts];
+   checkAllocate(*Y2, "Y2 in SVM::genNDGridData");
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
    SVMInterp(totPts, nInputs_, *X2, *Y2, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
@@ -251,6 +256,7 @@ int SVM::gen1DGridData(double *X, double *Y, int ind1,
 
    (*X2) = new double[2*totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in SVM::gen1DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (kk = 0; kk < nInputs_; kk++) 
@@ -260,6 +266,7 @@ int SVM::gen1DGridData(double *X, double *Y, int ind1,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in SVM::gen1DGridData");
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
    SVMInterp(totPts, nInputs_, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
@@ -293,6 +300,7 @@ int SVM::gen2DGridData(double *X, double *Y, int ind1, int ind2,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[2*totPts];
+   checkAllocate(*X2, "X2 in SVM::gen2DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -308,6 +316,7 @@ int SVM::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in SVM::gen2DGridData");
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
    SVMInterp(totPts, nInputs_, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
@@ -343,6 +352,7 @@ int SVM::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[3*totPts];
+   checkAllocate(*X2, "X2 in SVM::gen3DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -363,6 +373,7 @@ int SVM::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in SVM::gen3DGridData");
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
    SVMInterp(totPts, nInputs_, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
@@ -400,6 +411,7 @@ int SVM::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[4*totPts];
+   checkAllocate(*X2, "X2 in SVM::gen4DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -426,6 +438,7 @@ int SVM::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in SVM::gen4DGridData");
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
    SVMInterp(totPts, nInputs_, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");

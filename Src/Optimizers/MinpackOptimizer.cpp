@@ -463,7 +463,7 @@ void MinpackOptimizer::optimize(oData *odata)
    odata->numFuncEvals_ = M_nFuncEvals;
    for (i = 0; i < nInputs; i++) odata->optimalX_[i] = M_optimalX[i];
 
-   if ((odata->setOptDriver_ & 2))
+   if ((odata->setOptDriver_ & 2) && psMCurrDriver_ >= 0)
    {
       printf("Minpack: resetting optimization simulation driver.\n");
       M_funcIO->setDriver(psMCurrDriver_);

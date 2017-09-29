@@ -41,20 +41,17 @@ private:
    int    nInputs_;
    double outputMean_;
    double outputStd_;
-   struct record
-   {
-      int index1;
-      int index2;
-      double value;
-   };
-   std::vector<record> vces_;  //length is nInputs_ * (nInputs_-1)/2
-   std::vector<record> ecvs_;	//length is nInputs_ * (nInputs_-1)/2
+   double *vces_;
+   double *ecvs_;
 
 public:
 
    RSMSobol2Analyzer();
 
    ~RSMSobol2Analyzer();
+
+   void analyze(int nInps, int nSamp, double *ilbs,
+                double *iubs, double *sInps, double *sOuts);
 
    double analyze(aData &adata);
 
@@ -66,8 +63,8 @@ public:
    int    get_nInputs();
    double get_outputMean();
    double get_outputStd();
-   std::vector<record>  get_vces();
-   std::vector<record>  get_ecvs();
+   double get_vce(int, int);
+   double get_ecv(int, int);
 };
 
 #endif // __RSMSOBOL2ANALYZERH__

@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFLogNormal.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -60,6 +61,8 @@ int PDFLogNormal::getPDF(int length, double *inData, double *outData)
    int    ii;
    double denom, coef, xdata, expo;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFLogNormal: getPDF begins (length = %d)\n", length);
    denom = 2.0 * stdev_ * stdev_;
    coef  = 1.0 / (stdev_ * sqrt(2.0*M_PI));
    for (ii = 0; ii < length; ii++)
@@ -73,6 +76,7 @@ int PDFLogNormal::getPDF(int length, double *inData, double *outData)
       expo = - (log(xdata) - mean_) * (log(xdata) - mean_) / denom;
       outData[ii] = coef * exp(expo) / xdata;
    }
+   if (psPDFDiagMode_ == 1) printf("PDFLogNormal: getPDF ends\n");
    return 0;
 }
 
@@ -84,6 +88,8 @@ int PDFLogNormal::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata, iroot2;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFLogNormal: getCDF begins (length = %d)\n", length);
    iroot2 = sqrt(0.5)/stdev_;
    for (ii = 0; ii < length; ii++)
    {
@@ -97,6 +103,7 @@ int PDFLogNormal::getCDF(int length, double *inData, double *outData)
       else
          outData[ii] = 0.5 * (1.0 + erf((log(ddata)-mean_)*iroot2));
    }
+   if (psPDFDiagMode_ == 1) printf("PDFLogNormal: getCDF ends\n");
    return 0;
 }
 
@@ -109,7 +116,6 @@ int PDFLogNormal::invCDF(int length, double *inData, double *outData,
    int    ii;
    double ddata, scale, xlo, xhi, ylo, yhi, xmi, ymi, iroot2;
 
-   printf("LogNormal invCDF : mean, stdev = %e %e\n", mean_, stdev_);
    if (lower < 0.0)
    {
       printf("PDFLogNormal invCDF ERROR - lower bound < 0.\n");
@@ -124,6 +130,8 @@ int PDFLogNormal::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFLogNormal: invCDF begins (length = %d)\n", length);
    scale = upper - lower;
    iroot2 = sqrt(0.5)/stdev_;
    for (ii = 0; ii < length; ii++)
@@ -163,6 +171,7 @@ int PDFLogNormal::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFLogNormal: invCDF ends.\n");
    return 0;
 }
 
@@ -183,7 +192,6 @@ int PDFLogNormal::genSample(int length, double *outData, double *lowers,
    }
    lower = lowers[0];
    upper = uppers[0];
-   printf("LogNormal genSample : mean, stdev = %e %e\n", mean_, stdev_);
    if (length <= 0)
    {
       printf("PDFLogNormal genSample ERROR - length <= 0.\n");
@@ -205,7 +213,7 @@ int PDFLogNormal::genSample(int length, double *outData, double *lowers,
 
    if (stdev_ == 0)
    {
-      printf("PDFLognormal: genSample WARNING - std. dev. = 0\n");
+      printf("PDFLogNormal: genSample WARNING - std. dev. = 0\n");
       for (ii = 0; ii < length; ii++) outData[ii] = exp(mean_);
       return 0;
    }
@@ -217,7 +225,8 @@ int PDFLogNormal::genSample(int length, double *outData, double *lowers,
    else             low = 0.5 * (1.0 + erf((log(lower2)-mean_)*iroot2));
    range = 0.5 * (1.0 + erf((log(upper2)-mean_)*iroot2)) - low;
    count = total = 0;
-   //printf("PDFLognormal: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1) 
+      printf("PDFLogNormal: genSample begins (length = %d)\n",length);
    while (count < length)
    {
       U1 = PSUADE_drand() * range + low;
@@ -247,10 +256,13 @@ int PDFLogNormal::genSample(int length, double *outData, double *lowers,
          exit(1);
       }
    }
-   if (total > length)
-      printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
-             total,length);
-   //printf("PDFLognormal: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) 
+   {
+      printf("PDFLogNormal: genSample ends.\n");
+      if (total > length)
+         printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
+                total,length);
+   }
    return 0;
 }
 

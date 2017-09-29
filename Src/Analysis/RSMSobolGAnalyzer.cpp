@@ -87,14 +87,19 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    Sampling      *sampler;
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO,"*          RS-based Group First Order Sobol' Indices \n");
+   printOutTS(PL_INFO,
+        "*          RS-based Group First Order Sobol' Indices \n");
    printEquals(PL_INFO, 0);
    printOutTS(PL_INFO,"* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET\n");
    printOutTS(PL_INFO,"*\n");
-   printOutTS(PL_INFO,"* - ana_expert mode to finetune RSMSobolG parameters, \n");
-   printOutTS(PL_INFO,"*   (e.g. sample size for integration can be adjusted).\n");
-   printOutTS(PL_INFO,"* - rs_expert to finetune response surface for RSMSobolG,\n");
-   printOutTS(PL_INFO,"* - printlevel to 1 or higher to display more information.\n");
+   printOutTS(PL_INFO,
+        "* - ana_expert mode to finetune RSMSobolG parameters, \n");
+   printOutTS(PL_INFO,
+        "*   (e.g. sample size for integration can be adjusted).\n");
+   printOutTS(PL_INFO,
+        "* - rs_expert to finetune response surface for RSMSobolG,\n");
+   printOutTS(PL_INFO,
+        "* - printlevel to 1 or higher to display more information.\n");
    printEquals(PL_INFO, 0);
 
    printLevel = adata.printLevel_;
@@ -124,11 +129,14 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
          }
       }
    }
-   if (noPDF == 1) printOutTS(PL_INFO,"RSMSobolG INFO: all uniform distributions.\n");
+   if (noPDF == 1) 
+        printOutTS(PL_INFO,"RSMSobolG INFO: all uniform distributions.\n");
    else
    {
-      printOutTS(PL_INFO,"RSMSobolG INFO: non-uniform distributions detected,\n");
-      printOutTS(PL_INFO,"                which will be used in this analysis.\n");
+      printOutTS(PL_INFO,
+           "RSMSobolG INFO: non-uniform distributions detected,\n");
+      printOutTS(PL_INFO,
+           "                which will be used in this analysis.\n");
    }
 
    if (nInputs <= 1 || nSamples <= 0 || nOutputs <= 0)
@@ -142,12 +150,14 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    if (nInputs <= 2)
    {
       printOutTS(PL_ERROR, "RSMSobolG INFO: nInputs == 2.\n");
-      printOutTS(PL_ERROR, "   You do not need to perform this when nInputs = 2.\n");
+      printOutTS(PL_ERROR, 
+           "   You do not need to perform this when nInputs = 2.\n");
       return PSUADE_UNDEFINED;
    }
    if (outputID >= nOutputs || outputID < 0)
    {
-      printOutTS(PL_ERROR,"RSMSobolG ERROR: invalid output ID (%d).\n",outputID);
+      printOutTS(PL_ERROR,
+           "RSMSobolG ERROR: invalid output ID (%d).\n",outputID);
       return PSUADE_UNDEFINED;
    }
    if (ioPtr == NULL)
@@ -160,11 +170,14 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
       if (Y2[nOutputs*ii+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
    if (status == 1)
    {
-      printOutTS(PL_ERROR,"RSMSobolG ERROR: Some outputs are undefined. Prune\n");
-      printOutTS(PL_ERROR,"                 the undefined sample points first.\n");
+      printOutTS(PL_ERROR,
+           "RSMSobolG ERROR: Some outputs are undefined. Prune\n");
+      printOutTS(PL_ERROR,
+           "                 the undefined sample points first.\n");
       return PSUADE_UNDEFINED;
    }
    Y = new double[nSamples];
+   checkAllocate(Y, "Y in RSMSobolG::analyze");
    for (ii = 0; ii < nSamples; ii++) Y[ii] = Y2[ii*nOutputs+outputID];
 
    printAsterisks(PL_INFO, 0);
@@ -172,15 +185,19 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    printOutTS(PL_INFO,"specifying group information, in the form of : \n");
    printOutTS(PL_INFO,"line 1: PSUADE_BEGIN\n");
    printOutTS(PL_INFO,"line 2: <d> specifying the number of groups\n");
-   printOutTS(PL_INFO,"line 3 to line <d>+2: group number, size, input numbers\n");
+   printOutTS(PL_INFO,
+           "line 3 to line <d>+2: group number, size, input numbers\n");
    printOutTS(PL_INFO,"last line: PSUADE_END\n");
    while (1)
    {
       printOutTS(PL_INFO,"Enter the group file : ");
       scanf("%s", cfname);
       fp = fopen(cfname, "r");
-      if   (fp != NULL)  break;
-      else printOutTS(PL_ERROR,"ERROR : file not found (or file name too long).\n");
+      if (fp != NULL)  
+         break;
+      else 
+         printOutTS(PL_ERROR,
+              "ERROR : file not found (or file name too long).\n");
    }
    fp = fopen(cfname, "r");
    if (fp != NULL)
@@ -197,12 +214,14 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             exit(1);
          }
          groupMembers = new int*[nGroups];
+         checkAllocate(groupMembers,"groupMembers in RSMSobolG::analyze");
          for (ii = 0; ii < nGroups; ii++)
          {
             fscanf(fp, "%d", &groupID);
             if (groupID != ii+1)
             {
-               printOutTS(PL_ERROR,"RSMSobolG ERROR: invalid groupID %d",groupID);
+               printOutTS(PL_ERROR,
+                    "RSMSobolG ERROR: invalid groupID %d",groupID);
                printOutTS(PL_ERROR," should be %d\n", ii+1);
                fclose(fp);
                exit(1);
@@ -210,11 +229,13 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             fscanf(fp, "%d", &length);
             if (length <= 0 || length >= nInputs)
             {
-               printOutTS(PL_ERROR, "RSMSobolG ERROR: invalid group length.\n");
+               printOutTS(PL_ERROR, 
+                    "RSMSobolG ERROR: invalid group length.\n");
                fclose(fp);
                exit(1);
             }
             groupMembers[ii] = new int[nInputs];
+            checkAllocate(groupMembers[ii],"gMembers in RSMSobolG::analyze");
             for (jj = 0; jj < nInputs; jj++) groupMembers[ii][jj] = 0;
             sCnt = 1;
             for (jj = 0; jj < length; jj++)
@@ -222,7 +243,8 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
                fscanf(fp, "%d", &index);
                if (index <= 0 || index > nInputs)
                {
-                  printOutTS(PL_ERROR, "RSMSobolG ERROR: invalid group member.\n");
+                  printOutTS(PL_ERROR, 
+                    "RSMSobolG ERROR: invalid group member.\n");
                   fclose(fp);
                   exit(1);
                }
@@ -280,26 +302,26 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    printAsterisks(PL_INFO, 0);
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO,"* RSMSobolG creates a sample of size M1 for each\n");
-      printOutTS(PL_INFO,"* subgroup of inputs and M2 for the other inputs.\n");
-      printOutTS(PL_INFO,"* The total sample size is thus:\n");
-      printOutTS(PL_INFO,"* N = M1 * M2 * nGroups.\n");
+      printOutTS(PL_INFO,
+           "* RSMSobolG creates a sample of size M1 for each subgroup\n");
+      printOutTS(PL_INFO,
+           "* of inputs and M2 for the other inputs when computing\n");
+      printOutTS(PL_INFO,
+           "* group sensitivity indices. The total sample size is thus:\n");
+      printOutTS(PL_INFO,"*     N = M1 * M2 * nGroups.\n");
+      nSubSamplesG = 50000;
+      nSubSamplesN = 100;
+      printOutTS(PL_INFO,"  default M1 = %d.\n", nSubSamplesG);
+      printOutTS(PL_INFO,"  default M2 = %d.\n", nSubSamplesN);
       printOutTS(PL_INFO,"* Please select your desired M1 and M2.\n");
+      printOutTS(PL_INFO,"* Recommendation: M1 > M2.\n");
+      printOutTS(PL_INFO,"* Note: large M1 and M2 can take a long time.\n");
       printEquals(PL_INFO, 0);
-
-      sprintf(pString,"Enter M1 (suggestion: 10000 - 100000, default = 50000) : ");
+      sprintf(pString,
+             "Enter M1 (suggestion: 10000 - 100000, default = 50000) : ");
       nSubSamplesG = getInt(10000, 200000, pString);
-      if (nSubSamplesG > 100000)
-         printOutTS(PL_INFO,"An nSubSamples of %d may take very long time.\n",
-                    nSubSamplesG);
-
       sprintf(pString, "Enter M2 (suggestion: 100 - 500, default = 100) : ");
       nSubSamplesN = getInt(100, 1000, pString);
-      if (nSubSamplesN > 500)
-      {
-         printOutTS(PL_INFO, "An nLevels of %d may take very long time.\n",
-                    nSubSamplesN);
-      }
       printAsterisks(PL_INFO, 0);
    }
    else
@@ -314,13 +336,15 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamplesG);
             if (nSubSamplesG < 10000)
             {
-               printOutTS(PL_INFO,"RSMSobolG INFO: nSubSamplesG should be >= 10000.\n");
+               printOutTS(PL_INFO,
+                    "RSMSobolG INFO: nSubSamplesG should be >= 10000.\n");
                nSubSamplesG = 10000;
             }
             else
             {
-               printOutTS(PL_INFO,"RSMSobolG INFO: nSubSamplesG = %d (config).\n",
-                          nSubSamplesG);
+               printOutTS(PL_INFO,
+                    "RSMSobolG INFO: nSubSamplesG = %d (config).\n",
+                    nSubSamplesG);
             }
          }
          cString = psConfig_->getParameter("RSMSobolG_nsubsamples_outgroup");
@@ -329,32 +353,38 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamplesN);
             if (nSubSamplesN < 100)
             {
-               printOutTS(PL_INFO,"RSMSobolG INFO: nSubSamplesN should be >= 100.\n");
+               printOutTS(PL_INFO,
+                    "RSMSobolG INFO: nSubSamplesN should be >= 100.\n");
                nSubSamplesN = 100;
             }
             else
             {
-               printOutTS(PL_INFO,"RSMSobolG INFO: nSubSamplesN = %d (config).\n",
-                          nSubSamplesN);
+               printOutTS(PL_INFO,
+                    "RSMSobolG INFO: nSubSamplesN = %d (config).\n",
+                    nSubSamplesN);
             }
          }
       }
       printOutTS(PL_INFO,"RSMSobolG: default M1 = %d.\n", nSubSamplesG);
       printOutTS(PL_INFO,"RSMSobolG: default M2 = %d.\n", nSubSamplesN);
-      printOutTS(PL_INFO,"To change these settings, re-run with ana_expert mode on.\n");
+      printOutTS(PL_INFO,
+           "To change these settings, re-run with ana_expert mode on.\n");
    }
    printEquals(PL_INFO, 0);
 
    nSamp = 25000;
-   printOutTS(PL_INFO,"RSMSobolG INFO: creating a sample for basic statistics.\n");
+   printOutTS(PL_INFO,
+        "RSMSobolG INFO: creating a sample for basic statistics.\n");
    printOutTS(PL_INFO,"                sample size = %d\n", nSamp);
 
    XX = new double[nSamp*8*nInputs];
    YY = new double[nSamp*8];
+   checkAllocate(YY,"YY in RSMSobolG::analyze");
 
    for (ir = 0; ir < 3; ir++)
    {
-      printOutTS(PL_INFO, "RSMSobolG: compute statistics,sample size = %d\n",nSamp);
+      printOutTS(PL_INFO, 
+           "RSMSobolG: compute statistics,sample size = %d\n",nSamp);
        
       if (noPDF == 0)
       {
@@ -379,16 +409,19 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
          sampler->setSamplingParams(nSamp, 1, 1);
          sampler->initialize(0);
          SS = new int[nSamp];
+         checkAllocate(SS,"SS in RSMSobolG::analyze");
          sampler->getSamples(nSamp, nInputs, 1, XX, YY, SS);
          delete [] SS;
          delete sampler;
       }
 
       if (ir < 3 && printLevel > 1)
-         printOutTS(PL_INFO,"RSMSobolG: running the sample with response surface...\n");
+         printOutTS(PL_INFO,
+              "RSMSobolG: running the sample with response surface...\n");
       faPtr->evaluatePoint(nSamp, XX, YY);
       if (ir < 3 && printLevel > 1)
-         printOutTS(PL_INFO,"RSMSobolG: done running the sample with response surface.\n");
+         printOutTS(PL_INFO,
+              "RSMSobolG: done running the sample with response surface.\n");
 
       for (ii = 0; ii < nSamp; ii++)
       {
@@ -410,8 +443,9 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
       if (sCnt > 1) dmean /= (double) sCnt;
       else
       {
-         printOutTS(PL_ERROR, "RSMSobolG ERROR: too few samples that satisify\n");
-         printOutTS(PL_ERROR, "the constraints (%d out of %d)\n", sCnt, nSamp);
+         printOutTS(PL_ERROR, 
+              "RSMSobolG ERROR: too few samples that satisify the\n");
+         printOutTS(PL_ERROR,"constraints (%d out of %d)\n",sCnt,nSamp);
          delete [] XX;
          delete [] YY;
          delete faPtr;
@@ -426,10 +460,12 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
       variance /= (double) sCnt;
       if (printLevel > 3 || ir == 2)
       {
-         printOutTS(PL_INFO,"RSMSobolG: sample mean    (based on N = %d) = %10.3e\n",
-                sCnt, dmean);
-         printOutTS(PL_INFO,"RSMSobolG: sample std dev (based on N = %d) = %10.3e\n",
-                sCnt, sqrt(variance));
+         printOutTS(PL_INFO,
+              "RSMSobolG: sample mean    (based on N = %d) = %10.3e\n",
+              sCnt, dmean);
+         printOutTS(PL_INFO,
+              "RSMSobolG: sample std dev (based on N = %d) = %10.3e\n",
+              sCnt, sqrt(variance));
       }
       nSamp *= 2;
    }
@@ -453,6 +489,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    inputStdevsN = new double[nInputs];
    pdfFlagsG    = new int[nInputs];
    pdfFlagsN    = new int[nInputs];
+   checkAllocate(pdfFlagsN,"pdfFlagsN in RSMSobolG::analyze");
 
    printAsterisks(PL_INFO, 0);
    for (ii = 0; ii < nGroups; ii++)
@@ -518,6 +555,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
          sampler->setSamplingParams(nSubSamplesN, 1, 1);
          sampler->initialize(0);
          SS = new int[nSubSamplesN];
+         checkAllocate(SS,"SS(2) in RSMSobolG::analyze");
          sampler->getSamples(nSubSamplesN,nInputsN,1,XXN,YY,SS);
          delete [] SS;
          delete sampler;
@@ -585,6 +623,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             sampler->setSamplingParams(nSubSamplesG, 1, 1);
             sampler->initialize(0);
             SS = new int[nSubSamplesG];
+            checkAllocate(SS,"SS(3) in RSMSobolG::analyze");
             sampler->getSamples(nSubSamplesG,nInputsG,1,XXG,YY,SS);
             delete [] SS;
             delete sampler;
@@ -656,7 +695,8 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
             printOutTS(PL_DUMP, "RSMSobolG: Group %d\n", ii+1);
             printOutTS(PL_DUMP, "  refinement = %d, size = %d (%d),", ir, sCnt,
                       nSubSamplesN);
-            printOutTS(PL_DUMP, " mean = %12.4e, var = %12.4e\n", means[ii2], vars[ii2]);
+            printOutTS(PL_DUMP, 
+                 " mean = %12.4e, var = %12.4e\n", means[ii2], vars[ii2]);
          }
 
          totalCnt = 0;
@@ -695,8 +735,9 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
          printOutTS(PL_DETAIL, "Unnormalized ECV (refinement=%3d) ", ir);
          printOutTS(PL_DETAIL, "for input group %3d = %12.4e\n", ii+1, ecv);
          if (ir == 3)
-            printOutTS(PL_INFO, "** Normalized VCE for input group %3d = %12.4e\n",
-                   ii+1, vce/variance);
+            printOutTS(PL_INFO,
+                 "** Normalized VCE for input group %3d = %12.4e\n",
+                 ii+1, vce/variance);
          currNSamples *= 2;
       }
    }

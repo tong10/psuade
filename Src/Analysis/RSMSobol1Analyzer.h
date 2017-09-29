@@ -48,6 +48,9 @@ public:
 
    ~RSMSobol1Analyzer();
 
+   void analyze(int nInps, int nSamp, double *ilbs,
+                double *iubs, double *sInps, double *sOuts);
+
    double analyze(aData &adata);
 
    double analyze2(aData &adata);
@@ -60,7 +63,7 @@ public:
    int    get_nInputs();
    double get_outputMean();
    double get_outputStd();
-   double *get_vces();
+   double get_vce(int);
 };
 
 #endif // __RSMSOBOL1ANALYZERH__

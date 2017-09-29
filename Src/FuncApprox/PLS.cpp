@@ -130,6 +130,8 @@ int PLS::genNDGridData(double *X, double *Y, int *NN, double **XX,
    totPts = (*NN);
 
    (*YY) = new double[totPts];
+   checkAllocate(*YY, "YY in PLS::genNDGridData");
+
    (*NN) = totPts;
    for (mm = 0; mm < totPts; mm++)
       (*YY)[mm] = evaluatePoint(&((*XX)[mm*nInputs_]));
@@ -164,6 +166,7 @@ int PLS::gen1DGridData(double *X, double *Y, int ind1, double *settings,
    (*XX) = new double[totPts];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PLS::gen1DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -206,6 +209,7 @@ int PLS::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    (*XX) = new double[totPts * 2];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PLS::gen2DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -256,6 +260,7 @@ int PLS::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    (*XX) = new double[totPts * 3];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PLS::gen3DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -313,6 +318,7 @@ int PLS::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    (*XX) = new double[totPts * 4];
    (*YY) = new double[totPts];
    Xloc  = new double[nInputs_];
+   checkAllocate(Xloc, "Xloc in PLS::gen4DGridData");
    for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
     
    for (mm = 0; mm < nPtsPerDim_; mm++) 
@@ -391,6 +397,7 @@ double PLS::evaluatePointFuzzy(double *X, double &std)
    }
  
    Ys = new double[nTimes];
+   checkAllocate(Ys, "Ys in PLS::evaluatePointFuzzy");
 
    mean = 0.0;
    for (cc = 0; cc < nTimes; cc++)
@@ -451,6 +458,7 @@ int PLS::analyze(double *Xin, double *Y)
    YStd_ = 1.0;
 
    S = new double[nInputs_];
+   checkAllocate(S, "S in PLS::analyze");
    for (ii = 0; ii < nInputs_; ii++)
    {
       ddata = 0.0;
@@ -475,6 +483,7 @@ int PLS::analyze(double *Xin, double *Y)
    T = new double[nSamples_*nInputs_];
    P = new double[nInputs_*nInputs_];
    D = new double[nInputs_];
+   checkAllocate(D, "D in PLS::analyze");
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < nInputs_; jj++)
@@ -624,6 +633,7 @@ int PLS::analyze(double *Xin, double *Y)
       printf("      D is pxp\n");
    }
    B = new double[nInputs_];
+   checkAllocate(B, "B in PLS::analyze");
    for (ii = 0; ii < numTerms_; ii++)
    {
       ddata = 0.0;
@@ -647,6 +657,7 @@ int PLS::analyze(double *Xin, double *Y)
    delete [] D;
 
    WW = new double[nSamples_];
+   checkAllocate(WW, "WW in PLS::analyze");
    esum = ymax = 0.0;
    for (ii = 0; ii < nSamples_; ii++)
    {
@@ -676,6 +687,7 @@ int PLS::analyze(double *Xin, double *Y)
    }
 
    Bstd = new double[nInputs_];
+   checkAllocate(Bstd, "Bstd in PLS::analyze");
    computeXTX(nInputs_, X, &XTX);
    computeCoeffVariance(nInputs_, XTX, var, Bstd);
    regCoeffs_ = B;
@@ -688,6 +700,7 @@ int PLS::analyze(double *Xin, double *Y)
    double *inStds = new double[nInputs_];
    double *inUppers = new double[nInputs_];
    double *inLowers = new double[nInputs_];
+   checkAllocate(inLowers, "inLowers in PLS::analyze");
    for (nn = 0; nn < nInputs_; nn++)
    {
       inPDFs[nn] = PSUADE_PDF_NORMAL;
@@ -712,9 +725,11 @@ int PLS::analyze(double *Xin, double *Y)
    vOut.setLength(nInputs_*nTimes);
    pdfman->genSample(nTimes, vOut, vLower, vUpper);
    fuzzyC_ = new double*[nInputs_];
+   checkAllocate(fuzzyC_, "fuzzyC_ in PLS::analyze");
    for (nn = 0; nn < nInputs_; nn++)
    {
       fuzzyC_[nn] = new double[nTimes];
+      checkAllocate(fuzzyC_[nn], "fuzzyC_[nn] in PLS::analyze");
       for (cc = 0; cc < nTimes; cc++)
          fuzzyC_[nn][cc] = vOut[cc*nInputs_+nn];
    }
@@ -794,6 +809,7 @@ int PLS::computeCoeffVariance(int N,double *XX,double var,double *B)
    XT = new double[N*N];
    lwork = 2 * N * N;
    work  = new double[lwork];
+   checkAllocate(work, "work in PLS::computeCoeffVariance");
    for (nn = 0; nn < N; nn++)
    {
       for (nn2 = 0; nn2 < N*N; nn2++) XT[nn2] = XX[nn2];
@@ -818,6 +834,7 @@ int PLS::computeCoeffVariance(int N,double *XX,double var,double *B)
    int    *ipiv = new int[N+1];
    double *invA = new double[lwork];
    double ddata, ddata2;
+   checkAllocate(invA, "invA in PLS::computeCoeffVariance");
    for (nn = 0; nn < N*N; nn++) invA[nn] = XX[nn];
    dgetrf_(&N, &N, invA, &N, ipiv, &info);
    if (info != 0)
@@ -955,6 +972,7 @@ int PLS::printCoefs(int N, double *B)
 
    indexTable = new int*[N];
    for (ii = 0; ii < N; ii++) indexTable[ii] = new int[nInputs_];
+   checkAllocate(indexTable[N-1], "indexTable in PLS::printCoefs");
    for (ii = 0; ii < nInputs_; ii++) indexTable[0][ii] = 0; 
    for (ii = 0; ii < nInputs_; ii++) 
    {
@@ -979,6 +997,7 @@ int PLS::printCoefs(int N, double *B)
    for (ii = 0; ii < N; ii++) trueCoefs[ii] = 0.0;
    trueCoefs[0] = B[0];
    indices = new int[nInputs_];
+   checkAllocate(indices, "indices in PLS::printCoefs");
    for (nn1 = 1; nn1 <= nInputs_; nn1++)
    {
       trueCoefs[nn1] = B[nn1] / XStds_[nn1-1];
@@ -1014,6 +1033,7 @@ int PLS::computeXTX(int N, double *X, double **XXOut)
    double *XX, coef;
 
    XX = new double[nSamples_*N];
+   checkAllocate(XX, "XX in PLS::computeXTX");
    for (nn = 0; nn < N; nn++)
    {
       for (nn2 = nn; nn2 < N; nn2++)

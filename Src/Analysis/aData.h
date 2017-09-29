@@ -35,31 +35,40 @@
 class aData 
 {
 public:
+
    int    printLevel_;
+
    int    nSamples_;
    int    nInputs_;
    int    nOutputs_;
    int    outputID_;
-   int    currRefineLevel_;
-   int    *refineSeparators_;   
    int    *sampleStates_;
    double *sampleInputs_;
    double *sampleOutputs_;
    double *iLowerB_;
    double *iUpperB_;
-   double analysisThreshold_;
+   int    nSubSamples_;
+   int    *inputXsforms_;
+
    int    *inputPDFs_;
    double *inputMeans_;
    double *inputStdevs_;
-   int    nSubSamples_;
+
    int    samplingMethod_;
    void   *sampler_;
-   int    cvFlag_;
+
+   int    currRefineLevel_;
+   int    *refineSeparators_;   
+
+   double analysisThreshold_;
    double *sampleErrors_;
-   int    *inputXsforms_;
+
+   int    cvFlag_;
    int    regWgtID_;
    int    faType_;
+
    PsuadeData *ioPtr_;
+
    double *retValues_;
 
    aData();

@@ -176,9 +176,9 @@ public:
 #ifdef HAVE_PARALLEL
           parallelMode = 1;
 #else
-          printf("ERROR: PARALLEL run requested with %s, but psuade was not built\n", 
+          printf("ERROR: PARALLEL run requested with %s, but psuade was\n", 
                  argv[argp]);
-          printf("        with PARALLEL_BUILD.\n");
+          printf("       not built with PARALLEL_BUILD.\n");
           exit(1);
 #endif /*HAVE_PARALLEL*/
        }
@@ -187,9 +187,9 @@ public:
 #ifdef HAVE_PARALLEL
           localParallelMode = 1;
 #else
-          printf("ERROR: LOCAL PARALLEL run requested with %s, but psuade was\n", 
+          printf("ERROR: LOCAL PARALLEL run requested with %s, but psuade\n", 
                  argv[argp]);
-          printf("        not built with PARALLEL_BUILD.\n");
+          printf("       was not built with PARALLEL_BUILD.\n");
           exit(1);
 #endif /*HAVE_PARALLEL*/
        }
@@ -207,7 +207,7 @@ public:
        }
        else
        {
-          cerr << "Unknown option: " << argv[argp] << endl;
+          printf("Unknown option: %s\n", argv[argp]);
           usage();
           exit(1);
        }
@@ -218,7 +218,7 @@ public:
     //-----------------------------
     if(parallelMode && localParallelMode) 
     {
-       printf("ERROR: Both Parallel Mode and Local Parallel Mode were requested.\n");
+       printf("ERROR: cannot use both Parallel and Local Parallel Modes.\n");
        usage();
        exit(1);
     }
@@ -229,23 +229,20 @@ public:
     //--------------------------------------------------------------------
     if (argp < argc)
     {
-      inputFilename = argv[argp];
-      psInputFilename_ = strdup(inputFilename.c_str()); 
-      userSetInputName = true;
-      argp++;
+       inputFilename = argv[argp];
+       psInputFilename_ = strdup(inputFilename.c_str()); 
+       userSetInputName = true;
+       argp++;
     }
 
     if (argp < argc)  
     {
-       cerr << "ERROR: Too many positional command line arguments!" << endl;
-       cerr << "       PSUADE only takes one argument, an input file given as: " 
-            << psInputFilename_ << endl;
-       cerr << "       The following arguments are invalid " << endl;
-       for(;argp < argc; argp++) 
-       {
-          cerr << "   " << argv[argp] << endl;
-       }
-       cerr << endl;
+       printf("ERROR: Too many positional command line arguments!\n");;
+       printf("       PSUADE only takes 1 argument: an input file %s.\n", 
+              psInputFilename_);
+       printf("       The following arguments are invalid\n");
+       for(;argp < argc; argp++) printf("   %s\n",argv[argp]);
+       printf("\n");
        usage();
        exit(1);
     }
@@ -355,14 +352,27 @@ int main(int argc, char** argv)
 
    // --------------------------------------------------------------
    // if made for parallel processing, get machine parameters
-   //-------------------------------------------------------------- 
+   // -------------------------------------------------------------- 
    psCommMgr_ = new CommManager(argc, (void **) argv);
    mypid      = psCommMgr_->getPID();
    nprocs     = psCommMgr_->getNumProcs();
 
+   // --------------------------------------------------------------
+   // initialize print level and turn on interactive and screen dump
+   // -------------------------------------------------------------- 
    initializePrintingTS(2, NULL, mypid);
+   setInteractiveMode(1);
+   setScreenDumpMode(1);
+   setLibraryMode(0);
 
+   // --------------------------------------------------------------
+   // scan options
+   // -------------------------------------------------------------- 
    Options opts(argc, argv);
+
+   // --------------------------------------------------------------
+   // instantiate configure object to accept options
+   // -------------------------------------------------------------- 
    psConfig_ = new PsuadeConfig();
 
    // --------------------------------------------------------------
@@ -381,7 +391,7 @@ int main(int argc, char** argv)
    {
       if(opts.inputFilename == "") 
       {
-         cerr << "ERROR: local parallel mode requires and input file" << endl;
+         printf("ERROR: local parallel mode requires and input file\n");
          opts.usage();
          exit(1);
       }
@@ -389,11 +399,10 @@ int main(int argc, char** argv)
       continueFlag = 0;
    } 
    else 
-   // Normal serial Run
    { 
       printAsterisks(PL_INFO, 0);
       printf("*      Welcome to PSUADE (version %d.%d.%d)\n", 
-             psuade_VERSION_MAJOR, psuade_VERSION_MINOR, psuade_VERSION_PATCH);
+             psuade_VERSION_MAJOR,psuade_VERSION_MINOR,psuade_VERSION_PATCH);
 
       printAsterisks(PL_INFO, 0);
 
@@ -455,7 +464,8 @@ int RunParallel(const char *inFileName)
          printf("RunParallel ERROR - keyword missing.\n");
          exit(1);
       }
-      while ((fgets(lineIn,lineLeng,inFile) != NULL) && ((cch=fgetc(inFile)) != EOF))
+      while ((fgets(lineIn,lineLeng,inFile) != NULL) && 
+             ((cch=fgetc(inFile)) != EOF))
       {
          strcpy(inString, "#");
          sscanf(lineIn,"%s", inString);
@@ -494,7 +504,7 @@ int RunParallel(const char *inFileName)
             fp = fopen(auxExecutable, "r");
             if (fp == NULL)
             {
-               printf("RunParallel ERROR: auxiliary executable %s not found.\n",
+               printf("RunParallel ERROR: auxiliary executable %s not found\n",
                       auxExecutable);
                strcpy(auxExecutable, "true");
             }
@@ -579,7 +589,7 @@ int RunParallel(const char *inFileName)
             printf("executable = <name of executable (absolute path)>\n");
             printf("argument = <name of argument (absolute path)>\n");
             printf("aux_exec = <name of second executable (absolute path)>\n");
-            printf("num_parallel = <number of simulations to be run in parallel>\n");
+            printf("num_parallel = <number of parallel simulations>\n");
             printf("proc_step = <which processors to run>\n");
             printf("start_sample = <which sample point to start>\n");
             printf("PSUADE_PARALLEL\n");

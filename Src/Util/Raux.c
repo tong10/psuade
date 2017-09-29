@@ -7,7 +7,10 @@ Support for R functions
 #include <stdio.h>
 
 #ifdef NAN
+/*
 static double R_NaN=NAN;
+*/
+static double R_NaN=0.0/0.0;
 #else
 static double R_NaN=0.0/0.0;
 #endif /* NAN*/

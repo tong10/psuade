@@ -160,10 +160,11 @@ public:
    //  optimizeDbleOptions[2] = tolerance for optimization
    double optimizeDbleOptions_[10];
    int    fileWriteFlag_;
-   char   specsFile_[200];
+   char   specsFile_[2000];
    int    numRSFilters_;
    int    numMOATFilters_;
-   char   rsIndexFile_[200];
+   char   rsIndexFile_[2000];
+   char   rsIndexSampleFile_[2000];
    int    useInputPDFs_;
    int    legendreOrder_;
    int    marsNbasis_;
@@ -412,6 +413,7 @@ public:
    
    char* getAnalysis_specsFile();
    char* getAnalysis_rsIndexFile();
+   char* getAnalysis_rsIndexSampleFile();
    
    // Use the GetParameter interface to get information on RSFilters 
    // and MOATFilters

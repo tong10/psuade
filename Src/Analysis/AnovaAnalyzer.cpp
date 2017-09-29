@@ -135,6 +135,8 @@ double AnovaAnalyzer::analyze(aData &adata)
    dofs_ = NULL;
  
    YY = new double[nSamples];
+   checkAllocate(YY, "YY in AnovaAnalyzer::analyze");
+
    for (ss = 0; ss < nSamples; ss++) YY[ss] = Y[nOutputs*ss+outputID];
    dimPts = 1000001;
    while (dimPts > 1000000)
@@ -157,6 +159,7 @@ double AnovaAnalyzer::analyze(aData &adata)
    for (ii = 1; ii < nInputs; ii++) nDataPts *= nLevels;
    xInterpolated = new double[nDataPts*nInputs];
    yInterpolated = new double[nDataPts];
+   checkAllocate(yInterpolated, "yInterpolated in AnovaAnalyzer::analyze");
    ncount = nDataPts / nLevels;
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -191,6 +194,7 @@ double AnovaAnalyzer::analyze(aData &adata)
    dofs_ = new int[tableLeng_];
    code_ = new int*[tableLeng_];
    for (jj = 0; jj < tableLeng_; jj++) code_[jj] = new int[3];
+   checkAllocate(code_[tableLeng_-1], "code in AnovaAnalyzer::analyze");
    for (ii = 0; ii < nInputs; ii++)
       dofs_[ii] = nLevels - 1;
    ncnt = nInputs;
@@ -210,6 +214,7 @@ double AnovaAnalyzer::analyze(aData &adata)
    sumSquares_  = new double[tableLeng_];
    meanSquares_ = new double[tableLeng_];
    fValues_     = new double[tableLeng_];
+   checkAllocate(fValues_, "fValues in AnovaAnalyzer::analyze");
    ncnt        = 0;
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO, "*                       ANOVA table\n");
@@ -346,28 +351,29 @@ double AnovaAnalyzer::analyze(aData &adata)
    {
       if (jj < nInputs)
       {
-         printOutTS(PL_WARN, "|    %7d |%7d | %11.4e | %11.4e | %11.4e|\n",
-                jj+1, dofs_[jj], sumSquares_[jj], meanSquares_[jj],fValues_[jj]);
+         printOutTS(PL_WARN,"|    %7d |%7d | %11.4e | %11.4e | %11.4e|\n",
+            jj+1, dofs_[jj], sumSquares_[jj], meanSquares_[jj],fValues_[jj]);
       } 
       else if (code_[jj][2] == 0)
       {
-         printOutTS(PL_WARN, "|    %3d,%3d |%7d | %11.4e | %11.4e | %11.4e|\n",
+         printOutTS(PL_WARN,"|    %3d,%3d |%7d | %11.4e | %11.4e | %11.4e|\n",
               code_[jj][0]+1,code_[jj][1]+1,dofs_[jj],sumSquares_[jj],
               meanSquares_[jj], fValues_[jj]);
       } 
 #if 0
       else
       {
-         printOutTS(PL_INFO, "| %3d,%3d,%3d|   %6d | %11.4e | %11.4e | %11.4e|\n",
-             code_[jj][0]+1,code_[jj][1]+1,code_[jj][2],dofs_[jj],sumSquares_[jj],
-             meanSquares_[jj],fValues_[jj]);
+         printOutTS(PL_INFO,
+             "| %3d,%3d,%3d|   %6d | %11.4e | %11.4e | %11.4e|\n",
+             code_[jj][0]+1,code_[jj][1]+1,code_[jj][2],dofs_[jj],
+             sumSquares_[jj],meanSquares_[jj],fValues_[jj]);
       }
 #endif
    }
-   printOutTS(PL_INFO, "|   others   |%7d | %11.4e | %11.4e |    -----   |\n",
+   printOutTS(PL_INFO,"|   others   |%7d | %11.4e | %11.4e |    -----   |\n",
           dofs_[tableLeng_-2],sumSquares_[tableLeng_-2],
           meanSquares_[tableLeng_-2]);
-   printOutTS(PL_INFO, "|   total    |%7d | %11.4e | %11.4e |    -----   |\n",
+   printOutTS(PL_INFO,"|   total    |%7d | %11.4e | %11.4e |    -----   |\n",
           dofs_[tableLeng_-1],sumSquares_[tableLeng_-1],
           meanSquares_[tableLeng_-1]);
    printAsterisks(PL_INFO, 0);
@@ -395,6 +401,7 @@ double AnovaAnalyzer::computeSumSquares1(int nSamples, int nInputs,
    nLevels = dof + 1;
    xcnt    = 0;
    xvalues = new double[nLevels];
+   checkAllocate(xvalues, "xvalues in AnovaAnalyzer::computeSumSquares1");
    for (ss = 0; ss < nSamples; ss++)
    {
       found = 0;
@@ -415,6 +422,7 @@ double AnovaAnalyzer::computeSumSquares1(int nSamples, int nInputs,
    }
 
    gsum = new double[nLevels];
+   checkAllocate(gsum, "gsum in AnovaAnalyzer::computeSumSquares1");
    for (jj = 0; jj < nLevels; jj++) gsum[jj] = 0.0;
    for (ss = 0; ss < nSamples; ss++)
    {
@@ -457,6 +465,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
    xcnt2    = 0;
    xvalues1 = new double[nlevels1];
    xvalues2 = new double[nlevels2];
+   checkAllocate(xvalues2, "xvalues2 in AnovaAnalyzer::computeSumSquares2");
    for (ss = 0; ss < nSamples; ss++)
    {
       found = 0;
@@ -495,6 +504,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
    }
 
    gsum1 = new double[nlevels1];
+   checkAllocate(gsum1, "gsum1 in AnovaAnalyzer::computeSumSquares2");
    for (jj = 0; jj < nlevels1; jj++) gsum1[jj] = 0.0;
    for (ss = 0; ss < nSamples; ss++) 
    {
@@ -505,6 +515,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
    for (jj = 0; jj < nlevels1; jj++) gsum1[jj] /= (nSamples / nlevels1);
 
    gsum2 = new double[nlevels2];
+   checkAllocate(gsum2, "gsum2 in AnovaAnalyzer::computeSumSquares2");
    for (jj = 0; jj < nlevels2; jj++) gsum2[jj] = 0.0;
    for (ss = 0; ss < nSamples; ss++) 
    {
@@ -516,6 +527,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
 
    ncnt = nlevels1 * nlevels2;
    gsum12 = new double[ncnt];
+   checkAllocate(gsum12, "gsum12 in AnovaAnalyzer::computeSumSquares2");
    for (jj = 0; jj < ncnt; jj++) gsum12[jj] = 0.0;
    for (ss = 0; ss < nSamples; ss++) 
    {
@@ -587,6 +599,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    xvalues1 = new double[nlevels1];
    xvalues2 = new double[nlevels2];
    xvalues3 = new double[nlevels2];
+   checkAllocate(xvalues3,"xvalues3 in AnovaAnalyzer::computeSumSquares3");
    for (ss = 0; ss < nSamples; ss++)
    {
       found = 0;
@@ -644,6 +657,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
 
    ncnt = nlevels1 * nlevels2 * nlevels3;
    gsum = new double[ncnt];
+   checkAllocate(gsum,"gsum in AnovaAnalyzer::computeSumSquares3");
    for (jj = 0; jj < ncnt; jj++) gsum[jj] = 0.0;
    for (ss = 0; ss < nSamples; ss++) 
    {
@@ -719,6 +733,7 @@ int *AnovaAnalyzer::get_dofs()
    if(dofs_)
    {
       retVal = new int[tableLeng_];
+      checkAllocate(retVal,"retVal in AnovaAnalyzer::get_dofs");
       std::copy(dofs_, dofs_+tableLeng_, retVal);
    }
    return retVal;
@@ -730,6 +745,7 @@ double *AnovaAnalyzer::get_sumSquare()
    if (sumSquares_)
    {
       retVal = new double[tableLeng_];
+      checkAllocate(retVal,"retVal in AnovaAnalyzer::get_sumSquare");
       std::copy(sumSquares_, sumSquares_+tableLeng_, retVal);
    }
    return retVal;
@@ -741,6 +757,7 @@ double *AnovaAnalyzer::get_meanSquares()
    if (meanSquares_)
    {
       retVal = new double[tableLeng_];
+      checkAllocate(retVal,"retVal in AnovaAnalyzer::get_meanSquares");
       std::copy(meanSquares_, meanSquares_+tableLeng_, retVal);
    }
    return retVal;
@@ -752,6 +769,7 @@ double *AnovaAnalyzer::get_fValues()
    if (fValues_)
    {
       retVal = new double[tableLeng_];
+      checkAllocate(retVal,"retVal in AnovaAnalyzer::get_fValues");
       std::copy(fValues_, fValues_+tableLeng_, retVal);
    }
    return retVal;
@@ -759,14 +777,16 @@ double *AnovaAnalyzer::get_fValues()
 
 int **AnovaAnalyzer::get_code()
 {
-   int** retVal = NULL;
+   int** retVal = NULL, ii;
    if (code_)
    {
       retVal = new int*[tableLeng_];
-      for (int i=0; i<tableLeng_; i++)
+      checkAllocate(retVal,"retVal in AnovaAnalyzer::get_code");
+      for (ii = 0; ii < tableLeng_; ii++)
       {
-    	  retVal[i] = new int[3];
-    	  std::copy(code_[i], code_[i]+3, retVal[i]);
+    	  retVal[ii] = new int[3];
+          checkAllocate(retVal[ii],"retVal in AnovaAnalyzer::get_code");
+    	  std::copy(code_[ii], code_[ii]+3, retVal[ii]);
       }
    }
    return retVal;

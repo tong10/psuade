@@ -29,22 +29,21 @@
 
 #include "FuncApprox.h"
 #include "Matrix.h"
+#include "Vector.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
 class GradLegendreRegression: public FuncApprox 
 {
-   int    pOrder_;
-   int    numPerms_;
-   int    nOutputs_;
-   int    **pcePerms_;
-   double *regCoeffs_;
-   double *regStdevs_;
-   int    normalizeFlag_;
-   double **fuzzyC_;
-   char   gradFile_[1000];
-   psMatrix covMatrix_;
+   int  pOrder_;
+   int  numPerms_;
+   int  nOutputs_;
+   int  **pcePerms_;
+   int  normalizeFlag_;
+   char gradFile_[1000];
+   psVector regCoeffs_;
+   psMatrix invCovMat_;
 
 public:
    GradLegendreRegression(int, int);
@@ -70,9 +69,8 @@ private:
    int    GenPermutations();
    int    analyze(double *, double *);
    int    loadXMatrix(double *, double **);
-   int    computeXTX(int, double *, double **);
    int    computeSS(int, double *, double *, double *, double &, double &);
-   int    computeCoeffVariance(int, double *, double, double *);
+   int    computeCoeffVariance(psMatrix &, psVector &, double);
    int    printRC(int, double *, double *, double *, double *);
    int    EvalLegendrePolynomials(double, double *);
    int    EvalLegendrePolynomialsDerivative(double, double *);

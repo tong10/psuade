@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
-
 #ifndef __VECTORH__
 #define __VECTORH__
 
@@ -37,10 +36,8 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class psVector
 {
-
    int    length_;
    double *Vec_;
 
@@ -58,8 +55,13 @@ public:
    int     load(psVector &);
    int     setLength(int);
    int     load(int, double *);
-   int     add(int, double *);
+   int     addElements(int, double *);
    double& operator[](int ind);
+   double  max();
+   double  min();
+   double  sum();
+   void    scale(double);
+   void    sort();
    double  *getDVector();
 };
 

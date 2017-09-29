@@ -1,8 +1,8 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.6)
+*      Welcome to PSUADE (version 1.7.7)
 **********************************************************************
 PSUADE - A Problem Solving environment for 
-         Uncertainty Analysis and Design Exploration (1.7.6)
+         Uncertainty Analysis and Design Exploration (1.7.7)
 (for help, enter <help>)
 ======================================================================
 psuade> load complete : nSamples = 1000
@@ -238,4 +238,4 @@ psuade> Enter output number (1 - 1) = MARS (0) or MARS with bagging (1) ? Mars r
 *  Rank  19 : Input =  12 (score =  4.9)
 *  Rank  20 : Input =  17 (score =  0.0)
 **********************************************************************
-psuade> 
+psuade> psuade terminates ...

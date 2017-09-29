@@ -32,6 +32,7 @@
 #include "SobolSampling.h"
 #include "Sampling.h"
 #include "MCSampling.h"
+#include "LPtauSampling.h"
 #include "LHSampling.h"
 
 // fix delta h for Sobol instead of random
@@ -116,7 +117,8 @@ int SobolSampling::initialize(int initLevel)
          ddata2 = PSUADE_drand();
          if (ddata2 > 0.5) ddata2 = 1.0;
          else              ddata2 = -1.0;
-         if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
+         if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
+             (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
               M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
          else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
       }
@@ -147,7 +149,8 @@ int SobolSampling::initialize(int initLevel)
    double *ubounds = new double[2*nInputs_];
    for (iD = 0; iD < 2*nInputs_; iD++) lbounds[iD] = 0.0;
    for (iD = 0; iD < 2*nInputs_; iD++) ubounds[iD] = 1.0;
-   Sampling *sampler = (Sampling *) new MCSampling();
+   //Sampling *sampler = (Sampling *) new MCSampling();
+   Sampling *sampler = (Sampling *) new LPtauSampling();
    sampler->setInputBounds(2*nInputs_, lbounds, ubounds);
    sampler->setOutputParams(iOne);
    sampler->setSamplingParams(nReps, iOne, iOne);

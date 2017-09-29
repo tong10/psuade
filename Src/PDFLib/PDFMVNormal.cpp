@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "Globals.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFMVNormal.h"
 #include "PDFNormal.h"
@@ -87,13 +88,12 @@ PDFMVNormal::PDFMVNormal(psVector &means, psMatrix &corMat)
    {
       printf("Covariance Matrix:\n");
       for (ii = 0; ii < length; ii++)
-   {
+      {
          for (jj = 0; jj < length; jj++)
             printf("%12.4e ", covMat_.getEntry(ii,jj));
          printf("\n");
       }
    }
-
    status = covMat_.CholDecompose();
    if (status != 0)
    {
@@ -119,7 +119,7 @@ int PDFMVNormal::genSample(int length, psVector &vecOut, psVector &lower,
    int    ii, jj, nInputs, count, flag, total;
    double iZero=0.0, One=1.0, *localData1, *localData2;
    double low=-4, high=4;
-   psVector localVec;
+   psVector localVec1, localVec2;
    PDFNormal *normalPtr;
 
    if (length <= 0)
@@ -134,6 +134,8 @@ int PDFMVNormal::genSample(int length, psVector &vecOut, psVector &lower,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFMVNormal: genSample begins (length = %d)\n",length);
    normalPtr  = new PDFNormal(iZero, One);
    localData1 = new double[length];
    localData2 = new double[length*nInputs];
@@ -148,10 +150,10 @@ int PDFMVNormal::genSample(int length, psVector &vecOut, psVector &lower,
       }
       for (ii = 0; ii < length; ii++)
       {
-         localVec.load(nInputs, &(localData2[ii*nInputs]));
-         covMat_.CholMatvec(localVec);
+         localVec1.load(nInputs, &(localData2[ii*nInputs]));
+         covMat_.CholLMatvec(localVec1, localVec2);
          for (jj = 0; jj < nInputs; jj++)
-            vecOut[count*nInputs+jj] = means_[jj] + localVec[jj];
+            vecOut[count*nInputs+jj] = means_[jj] + localVec2[jj];
          flag = 0;
          for (jj = 0; jj < nInputs; jj++)
             if (vecOut[count*nInputs+jj] < lower[jj] ||
@@ -170,6 +172,7 @@ int PDFMVNormal::genSample(int length, psVector &vecOut, psVector &lower,
          exit(1);
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFMVNormal: genSample ends.\n");
    delete [] localData1; 
    delete [] localData2; 
    delete normalPtr;

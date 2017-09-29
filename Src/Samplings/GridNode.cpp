@@ -96,7 +96,7 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
       if (jj == nInputs) found = 1;
    }
    if (found == 1) return -1;
-   sample.add(nInputs, X);
+   sample.addElements(nInputs, X);
 
    nInputs_      = nInputs;
    leftOrRight_  = leftOrRight;

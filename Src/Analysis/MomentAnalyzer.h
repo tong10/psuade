@@ -50,6 +50,9 @@ public:
 
    ~MomentAnalyzer();
 
+   void analyze(int nInps, int nSamp, double *ilbs,
+                double *iubs, double *sInps, double *sOuts);
+
    double analyze(aData &adata);
 
    MomentAnalyzer& operator=(const MomentAnalyzer &analyzer);
@@ -70,7 +73,10 @@ public:
    int get_nGroups();
    int get_nInputs();
    int get_nOutputs();
-   double *get_moments();
+   double get_mean();
+   double get_stdev();
+   double get_skewness();
+   double get_kurtosis();
 };
 
 #endif // __MOMENTANALYZERH__

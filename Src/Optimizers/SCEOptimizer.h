@@ -35,6 +35,7 @@
 // ************************************************************************
 class SCEOptimizer : public Optimizer
 {
+   int nComplex_;
 public:
 
    /** constructor */

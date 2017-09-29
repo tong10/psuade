@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "sysdef.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFSampleHist.h"
 #include "PrintingTS.h"
@@ -294,6 +295,8 @@ int PDFSampleHist::getPDF(int length, double *inData, double *outData)
 {
    int    ss, ii, jj, itmp;
    double ddata;
+   if (psPDFDiagMode_ == 1)
+      printf("PDFSampleHist: getPDF begins (length = %d)\n",length);
    for (ss = 0; ss < length; ss++)
    {
       itmp = 0;
@@ -314,6 +317,7 @@ int PDFSampleHist::getPDF(int length, double *inData, double *outData)
          outData[ii] = regionProbs_[jj];
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFSampleHist: getPDF ends.\n");
    return 0;
 }
 
@@ -345,12 +349,15 @@ int PDFSampleHist::genSample(int length,double *outData,double *, double *)
 {
    int    ii, jj, ind;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFSampleHist: genSample begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       ind = PSUADE_rand() % nSamples_;
       for (jj = 0; jj < nInputs_; jj++)
          outData[ii*nInputs_+jj] = samples_[ind*nInputs_+jj];
    }
+   if (psPDFDiagMode_ == 1) printf("PDFSampleHist: genSample ends.\n");
    return 0;
 }
 

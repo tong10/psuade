@@ -110,7 +110,6 @@ private:
 
    int    runUniform();
    int    runEnsemble();
-   int    runAdaptiveErrBased0();
    int    runAdaptiveNN();
    int    runAdaptiveErrBased1();
    int    runAdaptiveErrBasedG();

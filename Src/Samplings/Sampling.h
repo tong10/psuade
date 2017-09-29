@@ -134,7 +134,7 @@ public:
     */
    int getNumOutputs();
 
-   /** This function gets the number of sample points.
+   /** This function gets the sample points.
     *  @param nInputs  : number of inputs
     *  @param nOutputs : number of outputs
     *  @param nSamples : number of samples
@@ -145,6 +145,16 @@ public:
    int getSamples(int nInputs, int nOutputs, int nSamples, 
                   double *sampleInputs, double *sampleOutputs, 
                   int *sampleStates);
+
+   /** This function gets the sample points.
+    *  @param nInputs  : number of inputs
+    *  @param nOutputs : number of outputs
+    *  @param nSamples : number of samples
+    *  @param sampleInputs : sample inputs
+    *  @param sampleOutputs : sample outputs
+    */
+   int getSamples(int nInputs, int nOutputs, int nSamples, 
+                  double *sampleInputs, double *sampleOutputs); 
 
    /** This function stores the given sample outputs.
     *  @param nOutputs : number of outputs

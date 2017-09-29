@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
-
 #ifndef __MATRIXH__
 #define __MATRIXH__
 
@@ -42,10 +41,11 @@
 
 class psMatrix
 {
-   int    nRows_, nCols_;
-   double **Mat_;
-   int    status_;
-   double determinant_;
+   int    nRows_, nCols_, status_;
+   double **Mat_, determinant_;
+
+public:
+   int *pivots_;
 
 public:
 
@@ -58,16 +58,30 @@ public:
    int    nrows();
    int    ncols();
    int    load(psMatrix &);
+   int    load(int, int, double **);
+   int    load(int, int, double *);
    int    setDim(int, int);
    void   setEntry(const int, const int, const double);
    double getEntry(const int, const int);
    double getDeterminant();
+   void   getMatrix1D(psVector &);
+   double **getMatrix2D();
    int    submatrix(psMatrix &, const int, const int *);
    int    CholDecompose();
-   void   CholMatvec(psVector &);
-   void   CholSolve(psVector &);
-   void   CholTSolve(psVector &);
+   int    CholLMatvec(psVector &, psVector &);
+   int    CholSolve(psVector &, psVector &);
+   int    CholLSolve(psVector &, psVector &);
+   int    CholLTSolve(psVector &, psVector &);
+   int    LUDecompose();
+   int    LUSolve(psVector &, psVector &);
    void   print();
+   int    computeInverse(psMatrix &);
+   double computeDeterminant();
+   int    matvec(psVector &, psVector &, int);
+   void   matmult(psMatrix &, psMatrix &);
+   void   transpose();
+   void   eigenSolve(psMatrix &, psVector &, int);
+   void   matSolve(psVector &, psVector &);
 
 private:
    double computeDeterminant(int, double **);

@@ -41,50 +41,19 @@ public:
    CommManager(int, void **);
    ~CommManager();
 
-   inline int getNumProcs() {return numProcs_;}
-   inline int getPID()      {if (numProcs_==1) return 0; 
-                             else return gComm_->getPID();}
-
-   inline void synchronize() 
-               {if (numProcs_ != 1) gComm_->synchronize();}
-
-   inline int  send(void *msg,int leng,int dtyp,int msgid,int dest)
-               {if (gComm_ != NULL) 
-                     return gComm_->send(msg,leng,dtyp,msgid,dest);
-                else return -1;}
-
-   inline int  recv(void *msg,int leng,int dtyp,int msgid,int src)
-               {if (gComm_ != NULL)
-                     return gComm_->recv(msg,leng,dtyp,msgid,src);
-                else return -1;}
-
-   inline int  iRecv(void *msg,int leng,int dtyp,int msgid,int src)
-               {if (gComm_ != NULL) 
-                     return gComm_->iRecv(msg,leng,dtyp,msgid,src);
-                else return -1;}
-
-   inline int  disableIrecv(int proc)
-               {if (gComm_ != NULL) return gComm_->disableIrecv(proc);
-                else                return -1;}
-
-   inline int  iProbe(int src, int msgID)
-               {if (gComm_ != NULL) return gComm_->iProbe(src, msgID);
-                else                return -1;}
-
-   inline void wait(int handler)
-               {if (gComm_ != NULL) gComm_->wait(handler);}
-
-   inline int  waitAny()
-               {if (gComm_ != NULL) return gComm_->waitAny();
-                else                return -1;}
-
-   inline void bcast(void *msg, int leng, int dtyp, int src)
-               {if (gComm_ != NULL) gComm_->bcast(msg,leng,dtyp,src);}
-
-   inline void allReduce(void *msg, int leng, int dtyp, char op)
-               {if (gComm_ != NULL) gComm_->allReduce(msg,leng,dtyp,op);}
-
-   inline void shutdown() {if (gComm_ != NULL) gComm_->shutdown();}
+   int getNumProcs();
+   int getPID();
+   void synchronize();
+   int  send(void *msg,int leng,int dtyp,int msgid,int dest);
+   int  recv(void *msg,int leng,int dtyp,int msgid,int src);
+   int  iRecv(void *msg,int leng,int dtyp,int msgid,int src);
+   int  disableIrecv(int proc);
+   int  iProbe(int src, int msgID);
+   void wait(int handler);
+   int  waitAny();
+   void bcast(void *msg, int leng, int dtyp, int src);
+   void allReduce(void *msg, int leng, int dtyp, char op);
+   void shutdown();
 };
 
 #endif // __COMMMANAGERH__

@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "sysdef.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFUser.h"
 #include "PrintingTS.h"
@@ -89,6 +90,8 @@ int PDFUser::genSample(int length,double *outData, double *, double *)
    char sysCmd[1000];
    FILE *fp;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFUser: genSample begins (length = %d)\n",length);
    sprintf(sysCmd, "%s %d %d psPDF",samGenerator_,length,nInputs_);
    system(sysCmd);
    fp = fopen("psPDF", "r");
@@ -112,6 +115,7 @@ int PDFUser::genSample(int length,double *outData, double *, double *)
       printf("        Number of data read     = %d\n",cnt);
       exit(1);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFUser: genSample ends.\n");
    return 0;
 }
 

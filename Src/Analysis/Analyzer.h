@@ -38,8 +38,9 @@
 // ************************************************************************
 class Analyzer
 {
-                                                                                
+public:
    char analyzerName_[100];
+   int  rstype_;
 
 public:
                                                                                 
@@ -48,7 +49,7 @@ public:
 
    int     setName(const char *);
    virtual double analyze(aData &);
-   virtual int setParams(int, char **);
+   virtual int    setParams(int, char **);
 
 #ifdef HAVE_PYTHON
    PyObject *AnalysisDataDict;

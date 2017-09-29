@@ -4,7 +4,7 @@
 
 #define PABS(X) (((X) > 0) ? X : -(X))
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
    int    count, i, j, k, m;
    double X[20], Y, W[20];

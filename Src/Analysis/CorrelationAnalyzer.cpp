@@ -159,8 +159,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
    xvars  = new double[nInputs];
    Xvals  = new double[nInputs];
    inputMeans_ = new double[nInputs_];
-   inputVars_ = new double[nInputs_];
    inputPearsonCoef_ = new double[nInputs_];
+   inputVars_ = new double[nInputs_];
+   checkAllocate(inputVars_, "inputVars in Correlation::analyze");
 
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -268,8 +269,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
    yvars  = new double[nOutputs];
    Yvals  = new double[nOutputs];
    outputMeans_ = new double[nOutputs_];
-   outputVars_ = new double[nOutputs_];
    outputPearsonCoef_ = new double[nOutputs_];
+   outputVars_ = new double[nOutputs_];
+   checkAllocate(outputVars_, "outputVars in Correlation::analyze");
 
    if (nOutputs > 1)
    {
@@ -302,9 +304,10 @@ double CorrelationAnalyzer::analyze(aData &adata)
    printOutTS(PL_INFO, 
         "*  which gives a measure of relationship between X_i's & Y. *\n");
    printDashes(PL_INFO, 0);
-   YY = new double[nSamples];
    Xlocal = new double[nSamples];
    inputSpearmanCoef_ = new double[nInputs_];
+   YY = new double[nSamples];
+   checkAllocate(YY, "YY in Correlation::analyze");
    for (ii = 0; ii < nInputs; ii++)
    {
       for (ss = 0; ss < nSamples; ss++)
@@ -415,6 +418,7 @@ double CorrelationAnalyzer::analyze(aData &adata)
    }
 
    inputKendallCoef_ =  new double[nInputs_];
+   checkAllocate(inputKendallCoef_,"inputKendallCoef in Correlation::analyze");
    if (printLevel > 1)
    {
       int nc=0, nd=0;
@@ -473,6 +477,7 @@ double CorrelationAnalyzer::analyze(aData &adata)
         "*  Regression analysis on rank-ordered inputs/outputs       *\n");
       XX = new double[nSamples*nInputs];
       Wlocal = new double[nSamples];
+      checkAllocate(Wlocal,"Wlocal in Correlation::analyze");
       for (ss = 0; ss < nSamples*nInputs; ss++) XX[ss] = X[ss];
       for (ss = 0; ss < nSamples; ss++)
       {
@@ -630,6 +635,7 @@ double *CorrelationAnalyzer::get_outputMeans()
    if (outputMeans_)
    {
       retVal = new double[nOutputs_];
+      checkAllocate(retVal,"retVal in Correlation::get_outputMeans");
       std::copy(outputMeans_, outputMeans_+nOutputs_+1, retVal);
    }
    return retVal;
@@ -640,6 +646,7 @@ double *CorrelationAnalyzer::get_outputVars()
    if (outputVars_)
    {
       retVal = new double[nOutputs_];
+      checkAllocate(retVal,"retVal in Correlation::get_outputVars");
       std::copy(outputVars_, outputVars_+nOutputs_+1, retVal);
    }
    return retVal;
@@ -650,6 +657,7 @@ double *CorrelationAnalyzer::get_inputPearsonCoef()
    if (inputPearsonCoef_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal,"retVal in Correlation::get_inputPearsonCoef");
       std::copy(inputPearsonCoef_, inputPearsonCoef_+nInputs_+1, retVal);
    }
    return retVal;
@@ -660,7 +668,8 @@ double *CorrelationAnalyzer::get_outputPearsonCoef()
    if (outputPearsonCoef_)
    {
       retVal = new double[nOutputs_];
-      std::copy(outputPearsonCoef_, outputPearsonCoef_+nOutputs_+1, retVal);
+      checkAllocate(retVal,"retVal in Correlation::get_outputPearsonCoef");
+      std::copy(outputPearsonCoef_, outputPearsonCoef_+nOutputs_+1,retVal);
    }
    return retVal;
 }
@@ -670,6 +679,7 @@ double *CorrelationAnalyzer::get_inputSpearmanCoef()
    if (inputSpearmanCoef_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal,"retVal in Correlation::get_inputSpearmanCoef");
       std::copy(inputSpearmanCoef_, inputSpearmanCoef_+nInputs_+1, retVal);
    }
    return retVal;
@@ -680,7 +690,8 @@ double *CorrelationAnalyzer::get_outputSpearmanCoef()
    if (outputSpearmanCoef_)
    {
       retVal = new double[nOutputs_];
-      std::copy(outputSpearmanCoef_, outputSpearmanCoef_+nOutputs_+1, retVal);
+      checkAllocate(retVal,"retVal in Correlation::get_outputSpearmanCoef");
+      std::copy(outputSpearmanCoef_,outputSpearmanCoef_+nOutputs_+1,retVal);
    }
    return retVal;
 }
@@ -690,6 +701,7 @@ double *CorrelationAnalyzer::get_inputKendallCoef()
    if (inputKendallCoef_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal,"retVal in Correlation::get_inputKendallCoef");
       std::copy(inputKendallCoef_, inputKendallCoef_+nInputs_+1, retVal);
    }
    return retVal;

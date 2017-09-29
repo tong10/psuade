@@ -51,7 +51,12 @@ class Kriging : public FuncApprox
    int    fastMode_;
    double *dataStdDevs_;
    double KrigingVariance_;
-   double noReuse_;
+   int    noReuse_;
+   double *betas_;
+   double *betasOpt_;
+   double *gammas_;
+   double *gammasOpt_;
+   double *thetasOpt_;
 
 public:
 
@@ -77,6 +82,9 @@ public:
    double predict(int, double *, double *, double *);
    int    computeDistances(double **, int *);
    double setParams(int, char **);
+   double evaluateFunction(double *);
+   void   optimize();
+   double predict0(int, double *, double *, double *);
 };
 
 #endif // __KRIGINGH__

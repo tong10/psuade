@@ -138,9 +138,12 @@ double TwoParamAnalyzer::analyze(aData &adata)
       {
          if (corMatp->getEntry(ii,jj) != 0.0)
          {
-            printOutTS(PL_ERROR,"* TwoParamEffect INFO: this method should not\n");
-            printOutTS(PL_ERROR,"*      be used if inputs are correlated with\n");
-            printOutTS(PL_ERROR,"*      joint PDFs. Use group variance-based method.\n");
+            printOutTS(PL_ERROR,
+                 "* TwoParamEffect INFO: this method should not\n");
+            printOutTS(PL_ERROR,
+                 "*      be used if inputs are correlated with\n");
+            printOutTS(PL_ERROR,
+                 "*      joint PDFs. Use group variance-based method.\n");
             return PSUADE_UNDEFINED;
          }     
       }
@@ -150,8 +153,10 @@ double TwoParamAnalyzer::analyze(aData &adata)
       if (YIn[nOutputs*ss+whichOutput] > 0.9*PSUADE_UNDEFINED) status = 1;
    if (status == 1)
    {
-      printOutTS(PL_ERROR, "TwoParamEffect ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR, "        Prune the undefined sample points first.\n");
+      printOutTS(PL_ERROR, 
+                 "TwoParamEffect ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR, 
+                 "        Prune the undefined sample points first.\n");
       return PSUADE_UNDEFINED;
    }
 
@@ -163,10 +168,14 @@ double TwoParamAnalyzer::analyze(aData &adata)
    {
       if (pdfFlags != NULL && pdfFlags[ii] != PSUADE_PDF_UNIFORM)
       {
-         printOutTS(PL_INFO,"* TwoParamEffect INFO: some inputs have non-uniform\n");
-         printOutTS(PL_INFO,"*      PDFs. However, they will not be relevant in\n");
-         printOutTS(PL_INFO,"*      this analysis (since the sample should have been\n");
-         printOutTS(PL_INFO,"*      generated within the desired distributions.)\n");
+         printOutTS(PL_INFO,
+              "* TwoParamEffect INFO: some inputs have non-uniform\n");
+         printOutTS(PL_INFO,
+              "*      PDFs. However, they will not be relevant in\n");
+         printOutTS(PL_INFO,
+              "*      this analysis (since the sample should have been\n");
+         printOutTS(PL_INFO,
+              "*      generated within the desired distributions.)\n");
          break;
       }
    }
@@ -178,6 +187,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    }
    X = XIn;
    Y = new double[nSamples];
+   checkAllocate(Y, "Y in TwoParam::analyze");
    ncount = 0;
    for (ss = 0; ss < nSamples; ss++)
    {
@@ -189,15 +199,18 @@ double TwoParamAnalyzer::analyze(aData &adata)
    if (ncount == 0)
    {
       printOutTS(PL_ERROR,"TwoParamEffect ERROR: no valid sample point.\n");
-      printOutTS(PL_ERROR,"    nSamples before filtering = %d\n", nSamples);
-      printOutTS(PL_ERROR,"    nSamples after  filtering = %d\n", ncount);
-      printOutTS(PL_ERROR,"    INFO: check your data file for undefined's (1e35)\n");
+      printOutTS(PL_ERROR,"    nSamples before filtering = %d\n",nSamples);
+      printOutTS(PL_ERROR,"    nSamples after  filtering = %d\n",ncount);
+      printOutTS(PL_ERROR,
+           "    INFO: check your data file for undefined's (1e35)\n");
       return 1.0;
    }
    if (ncount != nSamples)
    {
-      printOutTS(PL_INFO,"* TwoParamEffect: nSamples before filtering = %d\n", nSamples);
-      printOutTS(PL_INFO,"* TwoParamEffect: nSamples after filtering  = %d\n", ncount);
+      printOutTS(PL_INFO,
+           "* TwoParamEffect: nSamples before filtering = %d\n", nSamples);
+      printOutTS(PL_INFO,
+           "* TwoParamEffect: nSamples after filtering  = %d\n", ncount);
    }
 
    computeMeanVariance(nInputs,1,nSamples,Y,&aMean,&aVariance,0);
@@ -206,9 +219,11 @@ double TwoParamAnalyzer::analyze(aData &adata)
 
    if (PABS(aVariance) < 1.0e-15)
    {
-      printOutTS(PL_INFO, "* =====> TwoParamEffect: variance = %12.4e (sd =%12.4e)\n",
-                aVariance, sqrt(aVariance));
-      printOutTS(PL_ERROR, "TwoParamEffect INFO: std dev too small ==> terminate.\n");
+      printOutTS(PL_INFO, 
+           "* =====> TwoParamEffect: variance = %12.4e (sd =%12.4e)\n",
+           aVariance, sqrt(aVariance));
+      printOutTS(PL_ERROR, 
+           "TwoParamEffect INFO: std dev too small ==> terminate.\n");
       return PSUADE_UNDEFINED;
    }
    if (psAnaExpertMode_ == 1 && printLevel > 4)
@@ -218,6 +233,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
       if (pString[0] == 'y')
       {
          vce = new double[nInputs*(nInputs+1)];
+         checkAllocate(vce, "vce in TwoParam::analyze");
          status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
                                   xLower, xUpper, vce);
          if (status == 0)
@@ -244,34 +260,45 @@ double TwoParamAnalyzer::analyze(aData &adata)
    meanVCEVar    = new double[nInputs*nInputs];
    mainEffects   = new double[nInputs];
    STI           = new double[nInputs];
+   checkAllocate(STI, "STI in TwoParam::analyze");
    errflag       = 0;
 
    printOutTS(PL_INFO,"\n");
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO,"* Second order Sensitivities on Raw Sample Data\n");
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO,"* Note: This method needs large samples for accurate results\n");
-   printOutTS(PL_INFO,"*       (e.g. thousands or more depending on the functions).\n");
-   printOutTS(PL_INFO,"*       For small to moderate sample sizes, use rssobol2.\n");
-   printOutTS(PL_INFO,"* Note: This method works on replicated orthogonal arrays.\n");
-   printOutTS(PL_INFO,"*       For random samples, a crude analysis will be performed.\n");
-   printOutTS(PL_INFO,"*       (use analysis expert mode to set number of bins).\n");
+   printOutTS(PL_INFO,
+        "* Note: This method needs large samples for accurate results\n");
+   printOutTS(PL_INFO,
+        "*       (e.g. thousands or more depending on the functions).\n");
+   printOutTS(PL_INFO,
+        "*       For small to moderate sample sizes, use rssobol2.\n");
+   printOutTS(PL_INFO,
+        "* Note: This method works on replicated orthogonal arrays.\n");
+   printOutTS(PL_INFO,
+        "*       For random samples, a crude analysis will be performed.\n");
+   printOutTS(PL_INFO,
+        "*       (use analysis expert mode to set number of bins).\n");
    printDashes(PL_INFO, 0);
    printOutTS(PL_INFO,"* Number of sample points = %10d\n",nSamples);
    printOutTS(PL_INFO,"* Number of nInputs       = %10d\n",nInputs);
    printDashes(PL_INFO, 0);
    printOutTS(PL_INFO,"Output %d\n", whichOutput+1);
    printOutTS(PL_INFO,"* ====> TwoParamEffect: mean     = %12.4e\n", aMean);
-   printOutTS(PL_INFO,"* ====> TwoParamEffect: variance = %12.4e (sd =%12.4e)\n",
-              aVariance, sqrt(aVariance));
+   printOutTS(PL_INFO,
+        "* ====> TwoParamEffect: variance = %12.4e (sd =%12.4e)\n",
+        aVariance, sqrt(aVariance));
 
    txArray  = new double[nSamples];
    twArray  = new double[nSamples];
    tyArray  = new double[nSamples];
+   checkAllocate(tyArray, "tyArray in TwoParam::analyze");
    if (tyArray == NULL)
    {
-      printOutTS(PL_ERROR,"TwoParamEffect ERROR:: memory allocation problem.\n");
-      printOutTS(PL_ERROR,"                       Consult PSUADE developers.\n");
+      printOutTS(PL_ERROR,
+           "TwoParamEffect ERROR:: memory allocation problem.\n");
+      printOutTS(PL_ERROR,
+           "                       Consult PSUADE developers.\n");
    }
 
    for (ii = 0; ii < nInputs; ii++)
@@ -279,7 +306,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
       for (ii2 = ii+1; ii2 < nInputs; ii2++)
       {
          if (printLevel > 4 || nSamples > 100000)
-            printOutTS(PL_DUMP,"TwoParamEffect:: input pairs = %d %d\n", ii+1, ii2+1);
+            printOutTS(PL_DUMP,
+                "TwoParamEffect:: input pairs = %d %d\n", ii+1, ii2+1);
          for (ss = 0; ss < nSamples; ss++)
          {
             txArray[ss] = X[nInputs*ss+ii];
@@ -296,11 +324,11 @@ double TwoParamAnalyzer::analyze(aData &adata)
          if (nReps1 <= 1)
          {
             printOutTS(PL_INFO,
-                 "TwoParamEffect INFO: nReps < 1 for input %d.\n",ii+1);
+               "TwoParamEffect INFO: nReps < 1 for input %d.\n",ii+1);
             printOutTS(PL_INFO,
-                 "        ==> not replicated orthogonal array nor Factorial\n");
+               "        ==> not replicated orthogonal array nor Factorial\n");
             printOutTS(PL_INFO,
-                 "        ==> crude 2-way interaction analysis.\n");
+               "        ==> crude 2-way interaction analysis.\n");
             status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
                                      xLower, xUpper, vce);
             if (status == 0)
@@ -495,7 +523,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
                }
                else
                {
-                  printOutTS(PL_ERROR,"TwoParamEffect ERROR: consult developers.\n");
+                  printOutTS(PL_ERROR,
+                       "TwoParamEffect ERROR: consult developers.\n");
                   exit(1);
                }
             }
@@ -591,6 +620,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
 #endif
 
    sensitivity_ = new double[nInputs_];
+   checkAllocate(sensitivity_, "sensitivity_ in TwoParam::analyze");
 
    if (errflag == 0)
    {
@@ -612,15 +642,15 @@ double TwoParamAnalyzer::analyze(aData &adata)
       }
       printEquals(PL_INFO, 0);
       printOutTS(PL_INFO, 
-                 "* (First + second order) sensitivity indices (normalized)\n");
+           "* (First + second order) sensitivity indices (normalized)\n");
       printDashes(PL_INFO, 0);
       for (ii = 0; ii < nInputs; ii++)
       {
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
          {
             printOutTS(PL_INFO, 
-                 "* Sensitivity index ( Inputs %2d %2d ) = %12.4e (raw = %12.4e)\n",
-                 ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance,vce[ii*nInputs+ii2]);
+             "* Sensitivity index ( Inputs %2d %2d ) = %12.4e (raw = %12.4e)\n",
+             ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance,vce[ii*nInputs+ii2]);
 
             //save sensitivity comparisons
             record rec = {ii+1, ii2+1, vce[ii*nInputs+ii2]};
@@ -632,8 +662,10 @@ double TwoParamAnalyzer::analyze(aData &adata)
       {
          printEquals(PL_INFO, 0);
          printOutTS(PL_INFO,"* Just the second order sensitivity index\n");
-         printOutTS(PL_INFO,"* (by subtracting mainEffects i, and just from VCE(i,j))\n");
-         printOutTS(PL_INFO,"* Valid only for orthogonal (uncorrelated) inputs.\n");
+         printOutTS(PL_INFO,
+            "* (by subtracting mainEffects i, and just from VCE(i,j))\n");
+         printOutTS(PL_INFO,
+            "* Valid only for orthogonal (uncorrelated) inputs.\n");
          printDashes(PL_INFO, 0);
          for (ii = 0; ii < nInputs; ii++)
          {
@@ -642,8 +674,9 @@ double TwoParamAnalyzer::analyze(aData &adata)
                ddata = vce[ii*nInputs+ii2];
                ddata -= (mainEffects[ii] + mainEffects[ii2]);
                ddata /= aVariance;
-               printOutTS(PL_INFO, "*2nd order sensitivity index (Inputs %2d %2d ) = %12.4e\n",
-                      ii+1,ii2+1, ddata);
+               printOutTS(PL_INFO, 
+                  "*2nd order sensitivity index (Inputs %2d %2d ) = %12.4e\n",
+                  ii+1,ii2+1, ddata);
             }
          }
       }
@@ -652,37 +685,49 @@ double TwoParamAnalyzer::analyze(aData &adata)
 #if 0
    if (errflag == 0)
    {
-      printOutTS(PL_INFO, "*=======================================================**\n");
-      printOutTS(PL_INFO, "* Total variance due to the complementary set           **\n");
-      printOutTS(PL_INFO, "*-------------------------------------------------------**\n");
+      printOutTS(PL_INFO, 
+         "*=======================================================**\n");
+      printOutTS(PL_INFO, 
+         "* Total variance due to the complementary set           **\n");
+      printOutTS(PL_INFO, 
+         "*-------------------------------------------------------**\n");
       for (ii = 0; ii < nInputs; ii++)
       {
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
          {
-            printOutTS(PL_INFO, "*   Mean(Var) ratio   (Inputs %2d,%2d) = %12.4e\n",
-                   ii+1,ii2+1, meanVCEVar[ii*nInputs+ii2]/aVariance);
+            printOutTS(PL_INFO, 
+               "*   Mean(Var) ratio   (Inputs %2d,%2d) = %12.4e\n",
+               ii+1,ii2+1, meanVCEVar[ii*nInputs+ii2]/aVariance);
          }
       }
-      printOutTS(PL_INFO, "*=======================================================**\n");
-      printOutTS(PL_INFO, "* Total second order sensitivity index                  **\n");
-      printOutTS(PL_INFO, "*-------------------------------------------------------**\n");
+      printOutTS(PL_INFO, 
+         "*=======================================================**\n");
+      printOutTS(PL_INFO, 
+         "* Total second order sensitivity index                  **\n");
+      printOutTS(PL_INFO, 
+         "*-------------------------------------------------------**\n");
       for (ii = 0; ii < nInputs; ii++)
       {
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
          {
-            printOutTS(PL_INFO, "*   Sensitivity index (Inputs %2d,%2d) = %12.4e\n",
-                   ii+1,ii2+1, 1.0-meanVCEVar[ii*nInputs+ii2]/aVariance);
+            printOutTS(PL_INFO, 
+               "*   Sensitivity index (Inputs %2d,%2d) = %12.4e\n",
+               ii+1,ii2+1, 1.0-meanVCEVar[ii*nInputs+ii2]/aVariance);
          }
       }
-      printOutTS(PL_INFO, "*=======================================================**\n");
-      printOutTS(PL_INFO, "* Strength of higher order interactions                 **\n");
-      printOutTS(PL_INFO, "*-------------------------------------------------------**\n");
+      printOutTS(PL_INFO, 
+         "*=======================================================**\n");
+      printOutTS(PL_INFO, 
+         "* Strength of higher order interactions                 **\n");
+      printOutTS(PL_INFO, 
+         "*-------------------------------------------------------**\n");
       for (ii = 0; ii < nInputs; ii++)
       {
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
          {
-            printOutTS(PL_INFO, "*   var VCE variance   (Inputs %2d,%2d) = %12.4e\n",
-                   ii+1,ii2+1,varVCEVar[ii*nInputs+ii2]);
+            printOutTS(PL_INFO, 
+               "*   var VCE variance   (Inputs %2d,%2d) = %12.4e\n",
+               ii+1,ii2+1,varVCEVar[ii*nInputs+ii2]);
          }
       }
    }
@@ -692,11 +737,16 @@ double TwoParamAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO, "Bootstrap analysis draws n samples from the orignal sample\n");
-      printOutTS(PL_INFO, "and assess whether the sensitivity indices have converged.\n");
-      printOutTS(PL_INFO, "If you are performed iterative analysis with refinements,\n");
-      printOutTS(PL_INFO, "you will need to enter 'no index reuse' below at the first\n");
-      printOutTS(PL_INFO, "iteration and 'yes' afterward until the final refinement.\n");
+      printOutTS(PL_INFO, 
+         "Bootstrap analysis draws n samples from the orignal sample\n");
+      printOutTS(PL_INFO, 
+         "and assess whether the sensitivity indices have converged.\n");
+      printOutTS(PL_INFO, 
+         "If you are performed iterative analysis with refinements,\n");
+      printOutTS(PL_INFO, 
+         "you will need to enter 'no index reuse' below at the first\n");
+      printOutTS(PL_INFO, 
+         "iteration and 'yes' afterward until the final refinement.\n");
       sprintf(pString,"Perform bootstrap interaction analysis? (y or n) ");
       getString(pString, winput);
 
@@ -710,6 +760,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
          bsVCEs = new double*[ncount];
          for (ii = 0; ii < ncount; ii++)
             bsVCEs[ii] = new double[nInputs*nInputs];
+         checkAllocate(bsVCEs[ncount-1], "bsVCEs in TwoParam::analyze");
          nReps = nSamples / nSubSamples;
 
          fp1 = fopen(".IE_bootstrap_indset", "r");
@@ -723,10 +774,11 @@ double TwoParamAnalyzer::analyze(aData &adata)
                fscanf(fp1, "%d", &ii);
                if (ii != nReps*ncount)
                {
-                  printOutTS(PL_ERROR, "ERROR: expect the first line to be %d.\n",
-                         nReps*ncount);
-                  printOutTS(PL_ERROR, "       Instead found the first line to be %d\n",
-                         ii);
+                  printOutTS(PL_ERROR, 
+                       "ERROR: expect the first line to be %d.\n",
+                       nReps*ncount);
+                  printOutTS(PL_ERROR, 
+                       "       Instead found the first line to be %d\n",ii);
                   fclose(fp1);
                   exit(1);
                }
@@ -737,7 +789,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
                fp1 = fopen(".IE_bootstrap_indset", "w");
                if (fp1 == NULL)
                {
-                  printOutTS(PL_ERROR, "ERROR: cannot open bootstrap_indset file (write).\n");
+                  printOutTS(PL_ERROR, 
+                     "ERROR: cannot open bootstrap_indset file (write).\n");
                   exit(1);
                }
                fprintf(fp1, "%d\n", nReps*ncount);
@@ -748,7 +801,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
             fp1 = fopen(".IE_bootstrap_indset", "w");
             if (fp1 == NULL)
             {
-               printOutTS(PL_ERROR, "ERROR: cannot open bootstrap_indset file (write).\n");
+               printOutTS(PL_ERROR, 
+                    "ERROR: cannot open bootstrap_indset file (write).\n");
                exit(1);
             }
             fprintf(fp1, "%d\n", nReps*ncount);
@@ -784,7 +838,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
                                 iZero);
             if (PABS(aVariance) < 1.0e-15)
             {
-               printOutTS(PL_INFO, "INFO: variance too small ==> terminate.\n");
+               printOutTS(PL_INFO,"INFO: variance too small ==> terminate.\n");
                continue;
             }
             computeVCE2(nInputs, nSamples, nSubSamples, XX, YY, fp, aMean, 
@@ -794,17 +848,15 @@ double TwoParamAnalyzer::analyze(aData &adata)
                                    ii2,iZero,nReps1,aMean,aVariance,&STI[ii2]);
             for (ii2 = 0; ii2 < nInputs; ii2++)
                for (ss = ii2+1; ss < nInputs; ss++)
-                  bsVCEs[ii][ii2*nInputs+ss] = (vce[ii2*nInputs+ss]) / aVariance; 
+                  bsVCEs[ii][ii2*nInputs+ss] = (vce[ii2*nInputs+ss])/aVariance; 
          }
          if (fp1 != NULL) fclose(fp1);
          if (psPlotTool_ == 0)
          {
-            printf("Enter name of matlab/scilab file to store bootstrap info: ");
-            // winput is a char array of size 501 so just for defensive programming 
-            // Bill Oliver added a width specifier
-            scanf("%500s", winput);
-            fgets(pString,500,stdin);
-            fp = fopen(winput, "w");
+           printf("Enter name of matlab/scilab file to store bootstrap info: ");
+           scanf("%500s", winput);
+           fgets(pString,500,stdin);
+           fp = fopen(winput, "w");
          }
          else fp = NULL;
          if (fp != NULL)
@@ -859,73 +911,73 @@ double TwoParamAnalyzer::analyze(aData &adata)
                   }
                }
             }
-            fprintf(fp, "VMM = sum(VCE')/%d;\n", ncount);
-            fprintf(fp, "VMA = max(VCE');\n");
-            fprintf(fp, "VMI = min(VCE');\n");
-            fprintf(fp, "ymin = 0;\n");
-            fprintf(fp, "ymax = max(VMA);\n");
-            fprintf(fp, "hh = 0.05 * (ymax - ymin);\n");
-            fprintf(fp, "ymax = ymax + hh;\n");
-            fprintf(fp, "nn   = %d;\n",nInputs);
+            fprintf(fp,"VMM = sum(VCE')/%d;\n", ncount);
+            fprintf(fp,"VMA = max(VCE');\n");
+            fprintf(fp,"VMI = min(VCE');\n");
+            fprintf(fp,"ymin = 0;\n");
+            fprintf(fp,"ymax = max(VMA);\n");
+            fprintf(fp,"hh = 0.05 * (ymax - ymin);\n");
+            fprintf(fp,"ymax = ymax + hh;\n");
+            fprintf(fp,"nn   = %d;\n",nInputs);
             if (psPlotTool_ == 1)
             {
-               fprintf(fp, "VMM = matrix(VMM, nn, nn);\n");
-               fprintf(fp, "VMM = VMM';\n");
-               fprintf(fp, "VMA = matrix(VMA, nn, nn);\n");
-               fprintf(fp, "VMA = VMA';\n");
-               fprintf(fp, "VMI = matrix(VMI, nn, nn);\n");
-               fprintf(fp, "VMI = VMI';\n");
-               fprintf(fp, "drawlater\n");
-               fprintf(fp, "hist3d(VMM);\n");
+               fprintf(fp,"VMM = matrix(VMM, nn, nn);\n");
+               fprintf(fp,"VMM = VMM';\n");
+               fprintf(fp,"VMA = matrix(VMA, nn, nn);\n");
+               fprintf(fp,"VMA = VMA';\n");
+               fprintf(fp,"VMI = matrix(VMI, nn, nn);\n");
+               fprintf(fp,"VMI = VMI';\n");
+               fprintf(fp,"drawlater\n");
+               fprintf(fp,"hist3d(VMM);\n");
                fwriteHold(fp, 1);
-               fprintf(fp, "a=gca();\n");
-               fprintf(fp, "a.data_bounds=[0, 0, 0; nn, nn+1, ymax];\n");
-               fprintf(fp, "newtick = a.x_ticks;\n");
-               fprintf(fp, "newtick(2) = [1:nn]';\n");
-               fprintf(fp, "newtick(3) = Str';\n");
-               fprintf(fp, "a.x_ticks = newtick;\n");
-               fprintf(fp, "a.x_label.font_size = 3;\n");
-               fprintf(fp, "a.x_label.font_style = 4;\n");
-               fprintf(fp, "a.y_ticks = newtick;\n");
-               fprintf(fp, "a.y_label.font_size = 3;\n");
-               fprintf(fp, "a.y_label.font_style = 4;\n");
-               fprintf(fp, "a.rotation_angles = [5 -70];\n");
-               fprintf(fp, "drawnow\n");
+               fprintf(fp,"a=gca();\n");
+               fprintf(fp,"a.data_bounds=[0, 0, 0; nn, nn+1, ymax];\n");
+               fprintf(fp,"newtick = a.x_ticks;\n");
+               fprintf(fp,"newtick(2) = [1:nn]';\n");
+               fprintf(fp,"newtick(3) = Str';\n");
+               fprintf(fp,"a.x_ticks = newtick;\n");
+               fprintf(fp,"a.x_label.font_size = 3;\n");
+               fprintf(fp,"a.x_label.font_style = 4;\n");
+               fprintf(fp,"a.y_ticks = newtick;\n");
+               fprintf(fp,"a.y_label.font_size = 3;\n");
+               fprintf(fp,"a.y_label.font_style = 4;\n");
+               fprintf(fp,"a.rotation_angles = [5 -70];\n");
+               fprintf(fp,"drawnow\n");
             }
             else
             {
-               fprintf(fp, "VMM = reshape(VMM, nn, nn);\n");
-               fprintf(fp, "VMM = VMM';\n");
-               fprintf(fp, "VMA = reshape(VMA, nn, nn);\n");
-               fprintf(fp, "VMA = VMA';\n");
-               fprintf(fp, "VMI = reshape(VMI, nn, nn);\n");
-               fprintf(fp, "VMI = VMI';\n");
-               fprintf(fp, "hh = bar3(VMM,0.8);\n");
-               fprintf(fp, "alpha = 0.2;\n");
-               fprintf(fp, "set(hh,'FaceColor','b','facea',alpha);\n");
-               fprintf(fp, "[X,Y] = meshgrid(1:nn,1:nn);\n");
-               fprintf(fp, "for k = 1:nn\n");
-               fprintf(fp, "  for l = k:nn\n");
-               fprintf(fp, "    mkl = VMM(k,l);\n");
-               fprintf(fp, "    ukl = VMA(k,l);\n");
-               fprintf(fp, "    lkl = VMI(k,l);\n");
-               fprintf(fp, "    if (mkl > .02 & (ukl-lkl)/mkl > .02)\n");
-               fprintf(fp, "      xkl = [X(k,l), X(k,l)];\n");
-               fprintf(fp, "      ykl = [Y(k,l), Y(k,l)];\n");
-               fprintf(fp, "      zkl = [lkl, ukl];\n");
-               fprintf(fp, "      plot3(xkl,ykl,zkl,'-mo',...\n");
-               fprintf(fp, "        'LineWidth',5,'MarkerEdgeColor','k',...\n");
-               fprintf(fp, "        'MarkerFaceColor','k','MarkerSize',10);\n");
-               fprintf(fp, "    end\n");
-               fprintf(fp, "  end\n");
-               fprintf(fp, "end\n");
+               fprintf(fp,"VMM = reshape(VMM, nn, nn);\n");
+               fprintf(fp,"VMM = VMM';\n");
+               fprintf(fp,"VMA = reshape(VMA, nn, nn);\n");
+               fprintf(fp,"VMA = VMA';\n");
+               fprintf(fp,"VMI = reshape(VMI, nn, nn);\n");
+               fprintf(fp,"VMI = VMI';\n");
+               fprintf(fp,"hh = bar3(VMM,0.8);\n");
+               fprintf(fp,"alpha = 0.2;\n");
+               fprintf(fp,"set(hh,'FaceColor','b','facea',alpha);\n");
+               fprintf(fp,"[X,Y] = meshgrid(1:nn,1:nn);\n");
+               fprintf(fp,"for k = 1:nn\n");
+               fprintf(fp,"  for l = k:nn\n");
+               fprintf(fp,"    mkl = VMM(k,l);\n");
+               fprintf(fp,"    ukl = VMA(k,l);\n");
+               fprintf(fp,"    lkl = VMI(k,l);\n");
+               fprintf(fp,"    if (mkl > .02 & (ukl-lkl)/mkl > .02)\n");
+               fprintf(fp,"      xkl = [X(k,l), X(k,l)];\n");
+               fprintf(fp,"      ykl = [Y(k,l), Y(k,l)];\n");
+               fprintf(fp,"      zkl = [lkl, ukl];\n");
+               fprintf(fp,"      plot3(xkl,ykl,zkl,'-mo',...\n");
+               fprintf(fp,"        'LineWidth',5,'MarkerEdgeColor','k',...\n");
+               fprintf(fp,"        'MarkerFaceColor','k','MarkerSize',10);\n");
+               fprintf(fp,"    end\n");
+               fprintf(fp,"  end\n");
+               fprintf(fp,"end\n");
                fwriteHold(fp, 0);
-               fprintf(fp, "axis([0.5 nn+0.5 0.5 nn+0.5 0 ymax])\n");
-               fprintf(fp, "set(gca,'XTickLabel',Str);\n");
-               fprintf(fp, "set(gca,'YTickLabel',Str);\n");
-               fprintf(fp, "set(gca, 'fontsize', 12)\n");
-               fprintf(fp, "set(gca, 'fontweight', 'bold')\n");
-               fprintf(fp, "set(gca, 'linewidth', 2)\n");
+               fprintf(fp,"axis([0.5 nn+0.5 0.5 nn+0.5 0 ymax])\n");
+               fprintf(fp,"set(gca,'XTickLabel',Str);\n");
+               fprintf(fp,"set(gca,'YTickLabel',Str);\n");
+               fprintf(fp,"set(gca, 'fontsize', 12)\n");
+               fprintf(fp,"set(gca, 'fontweight', 'bold')\n");
+               fprintf(fp,"set(gca, 'linewidth', 2)\n");
             }
             fwritePlotAxes(fp);
             fwritePlotTitle(fp,"Sobol 1st+2nd Order Indices (with bootstrap)");
@@ -934,7 +986,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
             fwritePlotYLabel(fp, "Inputs");
             printOutTS(PL_INFO, "Total variance = %e\n", aVariance);
             fclose(fp);
-            printOutTS(PL_INFO, "Bootstrapped interaction effect plot in now in %s\n",winput);
+            printOutTS(PL_INFO, 
+               "Bootstrapped interaction effect plot in now in %s\n",winput);
          }
          else
          {
@@ -1030,6 +1083,7 @@ double TwoParamAnalyzer::analyze1D(int nInputs, int nOutputs, int nSamples,
    txArray       = new double[nSamples];
    tyArray       = new double[nSamples];
    bins          = new int[nSubs];
+   checkAllocate(bins, "bins in TwoParam::analyze1D");
 
    for (ss = 0; ss < nSamples; ss++)
    {
@@ -1074,7 +1128,7 @@ double TwoParamAnalyzer::analyze1D(int nInputs, int nOutputs, int nSamples,
    }
    if (ncount != nSamples)
    {
-      printOutTS(PL_ERROR, "TwoParamEffect ERROR: sample not valid, input %d\n",
+      printOutTS(PL_ERROR,"TwoParamEffect ERROR: sample not valid, input %d\n",
              inputID);
       printOutTS(PL_ERROR, "       error data = %d (%d)\n",ncount, nSamples);
       exit(1);
@@ -1131,6 +1185,7 @@ int TwoParamAnalyzer::computeVCE2(int nInputs, int nSamples, int nSubSamples,
    vceMean     = new double[nSubSamples];
    vceVariance = new double[nSubSamples];
    bins        = new int[nSubSamples];
+   checkAllocate(bins, "bins in TwoParam::computeVCE2");
 
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -1203,7 +1258,7 @@ int TwoParamAnalyzer::computeVCE2(int nInputs, int nSamples, int nSubSamples,
                varVCEMean[ii*nInputs+ii2] += ((vceMean[subID] - aMean)*
                                               (vceMean[subID] - aMean) *
                                               bins[subID] / totalCnt);
-               meanVCEVar[ii*nInputs+ii2] += vceVariance[subID] * bins[subID] /
+               meanVCEVar[ii*nInputs+ii2] += vceVariance[subID]*bins[subID]/
                                              totalCnt;
             }
          }
@@ -1292,27 +1347,28 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
               "* Using number of levels = %d for 2-way effect will give\n",
               nIntervals);
          printOutTS(PL_INFO,
-              "  each 2D box less than 10 sample points. That is too small.\n");
+            "  each 2D box less than 10 sample points. That is too small.\n");
          nSize = 10;
          ddata = 1.0 * nSamples / nSize;
          ddata = pow(ddata, 0.5);
          nIntervals = (int) ddata;
          printOutTS(PL_INFO, 
-              "* Number of levels for 2-way analysis defaulted to %d\n", 
-              nIntervals);
+            "* Number of levels for 2-way analysis defaulted to %d\n", 
+            nIntervals);
       } 
-      sprintf(pString,"Number of levels for main effect (>= %d): ",nIntervals);
+      sprintf(pString,
+              "Number of levels for main effect (>= %d): ",nIntervals);
       nIntervals1 = getInt(nIntervals, nSamples, pString);
       nSize1 = nSamples / nIntervals1;
       if (nSize1 < 10)
       {
          printOutTS(PL_INFO, 
-              "Sample size per level for main effect d too small (%d < 10).\n",
-              nSize1);
+            "Sample size per level for main effect d too small (%d < 10).\n",
+            nSize1);
          nSize1 = 10;
          nIntervals1 = nSamples / nSize1;
          printOutTS(PL_INFO, 
-              "Default number of levels for main effect to %d\n", nIntervals1);
+            "Default number of levels for main effect to %d\n",nIntervals1);
       } 
    }
    int nsize = nIntervals * nIntervals;
@@ -1322,12 +1378,14 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
    bins        = new int[nsize];
    tags        = new int[nSamples];
    vce1        = new double[nInputs];
+   checkAllocate(vce1, "vce1 in TwoParam::computeVCECrude");
 
    printEquals(PL_INFO, 0);
    printOutTS(PL_INFO, "* First order sensitivity indices (normalized)\n");
    printDashes(PL_INFO, 0);
 
    sensitivity_ = new double[nInputs_];
+   checkAllocate(sensitivity_, "sensitivity_ in TwoParam::computeVCECrude");
    for (ii = 0; ii < nInputs; ii++)
    {
       hstep1 = (iUpperB[ii] - iLowerB[ii]) / nIntervals1;
@@ -1402,6 +1460,7 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++)
    {
+      for (ii2 = 0; ii2 < ii+1; ii2++) vce[ii*nInputs+ii2] = 0;
       for (ii2 = ii+1; ii2 < nInputs; ii2++)
       {
          hstep1 = (iUpperB[ii] - iLowerB[ii]) / nIntervals;
@@ -1472,7 +1531,7 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
          if ( vce[ii*nInputs+ii2] < 0.0) vce[ii*nInputs+ii2] = 0.0;
          printOutTS(PL_INFO, 
             "* Sensitivity index ( Inputs %2d %2d ) = %12.4e (raw = %12.4e)\n",
-              ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance,vce[ii*nInputs+ii2]);
+            ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance,vce[ii*nInputs+ii2]);
          //           vce[ii*nInputs+ii2]/aVariance);
 
          //save sensitivity comparisons
@@ -1522,6 +1581,7 @@ double *TwoParamAnalyzer::get_sensitivity()
    if (sensitivity_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in TwoParam::get_sensitivity");
       for (int ii = 0; ii < nInputs_; ii++) retVal[ii] = sensitivity_[ii];
    }
    return retVal;

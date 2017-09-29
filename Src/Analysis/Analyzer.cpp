@@ -36,7 +36,7 @@
 Analyzer::Analyzer()
 {
    strcpy(analyzerName_, "NONE");
-
+   rstype_ = -1;
 #ifdef HAVE_PYTHON
    AnalysisDataDict = PyDict_New();
 #endif
@@ -80,10 +80,10 @@ double Analyzer::analyze(aData &adata)
 // ************************************************************************
 // set parameter function 
 // ------------------------------------------------------------------------
-int Analyzer::setParams(int argc, char **argv)
+int Analyzer::setParams(int, char **)
 {
-   (void) argc;
-   (void) argv;
-   return -1;
+   printf("Analyzer::setParams ERROR: should not be called.\n");
+   exit(1);
+   return 0;
 }
 

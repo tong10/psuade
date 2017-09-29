@@ -120,6 +120,7 @@ double FFAnalyzer::analyze(aData &adata)
    txArray = new double[nSamples];
    tyArray = new double[nSamples];
    twArray = new double[nSamples];
+   checkAllocate(twArray, "twArray in FF::analyze");
 
    printOutTS(PL_INFO, "\n");
    printAsterisks(PL_INFO, 0);
@@ -221,12 +222,14 @@ double FFAnalyzer::analyze(aData &adata)
    }
 
    mEffects = new double*[nInputs];
+   checkAllocate(mEffects, "mEffects in FF::analyze");
    for (ii = 0; ii < nInputs; ii++) mEffects[ii] = new double[nReps+1];
 
    mEffects_ = new double*[nInputs_];
    for (ii = 0; ii < nInputs_; ii++) mEffects_[ii] = new double[nReps_+1];
    means_ = new double[nInputs_];
    stds_  = new double[nInputs_];
+   checkAllocate(stds_, "stds_ in FF::analyze");
 
    iArray  = new int[nInputs];
    for (ii = 0; ii < nInputs; ii++) iArray[ii] = ii;
@@ -319,6 +322,7 @@ double FFAnalyzer::analyze(aData &adata)
    lolos = new double**[nInputs];
    lohis = new double**[nInputs];
    hilos = new double**[nInputs];
+   checkAllocate(hilos, "hilos in FF::analyze");
    for (ii = 0; ii < nInputs; ii++)
    {
       iEffects[ii] = new double*[nInputs];
@@ -617,6 +621,7 @@ double *FFAnalyzer::get_means()
    if (means_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in FF::get_means");
       std::copy(means_, means_+nInputs_, retVal);
    }
    return retVal;
@@ -627,6 +632,7 @@ double *FFAnalyzer::get_stds()
    if (means_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in FF::get_stds");
       std::copy(stds_, stds_+nInputs_, retVal);
    }
    return retVal;
@@ -637,6 +643,7 @@ double **FFAnalyzer::get_mEffects()
    if (mEffects_)
    {
       retVal = new double*[nInputs_];
+      checkAllocate(retVal, "retVal in FF::get_mEffects");
       for (int i=0; i<nInputs_; i++)
       {
     	  retVal[i] = new double[nInputs_];

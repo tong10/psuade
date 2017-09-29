@@ -31,6 +31,21 @@
 #include "Matrix.h"
 
 //#define PS_DEBUG 1
+// ************************************************************************
+// ************************************************************************
+// external functions
+// ------------------------------------------------------------------------
+extern "C" {
+  void dgetri_(int *, double *, int *, int *, double *, int *, int *);
+  void dgels_(char *, int *, int *, int *, double *, int *,
+              double *, int *, double *, int *, int *);
+  void dsyev_(char *, char *, int *, double *, int *, double *,
+              double *, int *, int *);
+  void dpotrf_(char *, int *, double *, int *, int *);
+  void dpotrs_(char *, int *, int *, double *, int *, double *,int *,int *);
+  void dgetrf_(int *, int *, double *, int *, int *, int *);
+  void dgetrs_(char *,int *,int *,double *,int *,int *,double *,int *,int *);
+}
 
 // ************************************************************************
 // Constructor
@@ -45,6 +60,7 @@ psMatrix::psMatrix()
    Mat_ = NULL;
    status_ = 0;
    determinant_ = 0.0;
+   pivots_ = 0;
 #ifdef PS_DEBUG
    printf("psMatrix constructor ends\n");
 #endif
@@ -103,7 +119,6 @@ psMatrix & psMatrix::operator=(const psMatrix & ma)
    return *this;
 }
 
-
 // ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
@@ -120,6 +135,7 @@ psMatrix::~psMatrix()
    }
    nRows_ = nCols_ = 0;
    Mat_ = NULL;
+   if (pivots_ != NULL) delete [] pivots_;
 #ifdef PS_DEBUG
    printf("psMatrix destructor ends\n");
 #endif
@@ -176,6 +192,76 @@ int psMatrix::load(psMatrix &inMat)
    }
    status_ = 0;
    determinant_ = inMat.determinant_;
+#ifdef PS_DEBUG
+   printf("psMatrix load ends\n");
+#endif
+   return 0;
+}
+
+// ************************************************************************
+// load matrix from doubles
+// ------------------------------------------------------------------------
+int psMatrix::load(int nrows, int ncols, double **mat)
+{
+  int ii;
+#ifdef PS_DEBUG
+  printf("psMatrix load\n");
+#endif
+  if (Mat_ != NULL)
+  {
+    for (ii = 0; ii < nRows_; ii++)
+      if (Mat_[ii] != NULL) delete [] Mat_[ii];
+    delete [] Mat_;
+  }
+  Mat_ = NULL;
+
+  assert(nrows);
+  assert(ncols);
+  assert(mat);
+  nRows_ = nrows;
+  nCols_ = ncols;
+  Mat_   = mat;
+  mat    = NULL;
+  status_ = 0;
+  determinant_ = 0.0;
+#ifdef PS_DEBUG
+  printf("psMatrix load ends\n");
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// load matrix from doubles
+// ------------------------------------------------------------------------
+int psMatrix::load(int nrows, int ncols, double *mat)
+{
+   int ii, jj;
+
+#ifdef PS_DEBUG
+   printf("psMatrix load\n");
+#endif
+   if (Mat_ != NULL)
+   {
+      for (ii = 0; ii < nRows_; ii++)
+         if (Mat_[ii] != NULL) delete [] Mat_[ii];
+      delete [] Mat_;
+   }
+   Mat_ = NULL;
+
+   assert(nrows);
+   assert(ncols);
+   assert(mat);
+   nRows_ = nrows;
+   nCols_ = ncols;
+   Mat_   = new double*[nrows];
+   for (ii = 0; ii < nrows; ii++)
+   {
+     Mat_[ii] = new double[ncols];
+     for (jj = 0; jj < ncols; jj++)
+       Mat_[ii][jj] = mat[ii+jj*nrows];
+   }
+   status_ = 0;
+   determinant_ = 0.0;
 #ifdef PS_DEBUG
    printf("psMatrix load ends\n");
 #endif
@@ -250,6 +336,35 @@ double psMatrix::getDeterminant()
 }
 
 // ************************************************************************
+// get matrix in 1 dimensional array
+// ------------------------------------------------------------------------
+void psMatrix::getMatrix1D(psVector &mat)
+{
+   int ii, jj;
+#ifdef PS_DEBUG
+   printf("psMatrix getMatrix1D\n");
+#endif
+   assert(nRows_ >= 0);
+   assert(nCols_ >= 0);
+   mat.setLength(nRows_ * nCols_);
+   for (ii = 0; ii < nRows_; ii++)
+     for (jj = 0; jj < nCols_; jj++)
+       mat[ii+jj*nRows_] = Mat_[ii][jj];
+#ifdef PS_DEBUG
+   printf("psMatrix getMatrix1D ends\n");
+#endif
+   return;
+}
+
+// ************************************************************************
+// get matrix 
+// ------------------------------------------------------------------------
+double **psMatrix::getMatrix2D()
+{
+  return Mat_;
+}
+
+// ************************************************************************
 // extract submatrix
 // ------------------------------------------------------------------------
 int psMatrix::submatrix(psMatrix &inMat, const int num, const int *indices)
@@ -310,6 +425,59 @@ int psMatrix::submatrix(psMatrix &inMat, const int num, const int *indices)
    return 0;
 }
 
+#if 1
+// ************************************************************************
+// Cholesky decomposition (A = L L^T)
+// ------------------------------------------------------------------------
+int psMatrix::CholDecompose()
+{
+  int    ii, jj, status=0;
+  double ddata, *mat;
+  char   uplo='L';
+
+#ifdef PS_DEBUG
+  printf("psMatrix CholDecompose\n");
+#endif
+  if (status_ != 0) 
+  {
+     printf("psMatrix ERROR : matrix has been decomposed.\n");
+     return -1;
+  }
+  assert(nRows_ == nCols_);
+
+  mat = new double[nRows_*nRows_];
+  for (ii = 0; ii < nRows_; ii++)
+  {
+    for (jj = 0; jj < nCols_; jj++)
+      mat[ii+jj*nRows_] = Mat_[ii][jj];
+  } 
+  dpotrf_(&uplo, &nRows_, mat, &nRows_, &status);
+  for (ii = 0; ii < nRows_; ii++)
+  {
+    for (jj = 0; jj < nCols_; jj++)
+      Mat_[ii][jj] = mat[ii+jj*nRows_]; 
+  } 
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (1): failed in Cholesky factorization.\n");
+    //for (ii = 0; ii < nRows_; ii++)
+    //{
+    //  printf("Matrix: \n");
+    //  for (jj = 0; jj < nCols_; jj++)
+    //    printf("%12.4e ", Mat_[ii][jj]);
+    //  printf("\n");
+    //} 
+    delete [] mat;
+    return status;
+  }
+  delete [] mat;
+  status_ = 1;
+#ifdef PS_DEBUG
+  printf("psMatrix CholDecompose ends\n");
+#endif
+  return 0;
+}
+#else
 // ************************************************************************
 // Cholesky decomposition (A = L L^T)
 // ------------------------------------------------------------------------
@@ -330,7 +498,7 @@ int psMatrix::CholDecompose()
 
 #ifdef PS_DEBUG
    determinant_ = computeDeterminant(nRows_, Mat_); 
-   printf("psMatrix determinant = %e\n",<< determinant_);
+   printf("psMatrix determinant = %e\n", determinant_);
    for (ii = 0; ii < nRows_; ii++)
       for (jj = ii; jj < nCols_; jj++)
          printf("psMatrix (%d,%d) = %e\n", ii+1, jj+1, Mat_[ii][jj]);
@@ -365,77 +533,215 @@ int psMatrix::CholDecompose()
 #endif
    return 0;
 }
+#endif
 
 // ************************************************************************
-// matrix vector multiply  
+// matrix vector multiply (by the L factor)  
 // ------------------------------------------------------------------------
-void psMatrix::CholMatvec(psVector &vec)
+int psMatrix::CholLMatvec(psVector &ivec, psVector &ovec)
 {
-   int    ii, jj;
-   double ddata;
+  int    ii, jj, status=0;
+  double ddata;
 
 #ifdef PS_DEBUG
-   printf("psMatrix CholMatvec\n");
+  printf("psMatrix CholMatvec\n");
 #endif
-   assert(vec.length() == nCols_);
-   if (status_ == 0) CholDecompose();
-   for (ii = nRows_-1; ii >= 0; ii--)
-   {
-      ddata = 0.0;
-      for (jj = 0; jj <= ii; jj++) ddata += Mat_[ii][jj] * vec[jj];
-      vec[ii] = ddata;
-   }
+  assert(ivec.length() == nCols_);
+  if (status_ == 0) status = CholDecompose();
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (2): failed in Cholesky factorization.\n");
+    return status;
+  }
+  ovec.setLength(nRows_);
+  for (ii = nRows_-1; ii >= 0; ii--)
+  {
+    ddata = 0.0;
+    for (jj = 0; jj <= ii; jj++) ddata += Mat_[ii][jj] * ivec[jj];
+    ovec[ii] = ddata;
+  }
 #ifdef PS_DEBUG
-   printf("psMatrix CholMatvec ends\n");
+  printf("psMatrix CholMatvec ends\n");
 #endif
+  return 0;
 }
 
 // ************************************************************************
 // Cholesky L-solve 
 // ------------------------------------------------------------------------
-void psMatrix::CholSolve(psVector &vec)
+int psMatrix::CholSolve(psVector &ivec, psVector &ovec)
 {
-   int    ii, jj;
-   double ddata;
+  int    ii, jj, iOne=1, status=0;
+  double *vec, *mat;
+  char   uplo='L';
 
 #ifdef PS_DEBUG
-   printf("psMatrix CholSolve\n");
+  printf("psMatrix CholSolve\n");
 #endif
-   assert(vec.length() == nCols_);
-   if (status_ == 0) CholDecompose();
-   for (ii = 0; ii < nRows_; ii++)
-   {
-      ddata = vec[ii];
-      for (jj = 0; jj < ii; jj++) ddata -= Mat_[ii][jj] * vec[jj];
-      vec[ii] = ddata / Mat_[ii][ii];
-   }
+  assert(ivec.length() == nCols_);
+  if (status_ == 0) status = CholDecompose();
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (3): failed in Cholesky factorization.\n");
+    return status;
+  }
+  ovec.setLength(nRows_);
+  for (ii = 0; ii < nRows_; ii++) ovec[ii] = ivec[ii];
+  vec = ovec.getDVector();
+  mat = new double[nRows_*nRows_];
+  for (ii = 0; ii < nRows_; ii++)
+  {
+    for (jj = 0; jj < nCols_; jj++)
+      mat[ii+jj*nRows_] = Mat_[ii][jj];
+  } 
+  dpotrs_(&uplo,&nRows_,&iOne, mat, &nRows_,vec, &nRows_, &status);
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (1): failed in Cholesky solve.\n");
+    return status;
+  }
+  delete [] mat;
 #ifdef PS_DEBUG
    printf("psMatrix CholSolve ends\n");
 #endif
+  return 0;
+}
+
+// ************************************************************************
+// Cholesky L-solve 
+// ------------------------------------------------------------------------
+int psMatrix::CholLSolve(psVector &ivec, psVector &ovec)
+{
+  int    ii, jj, status=0;
+  double ddata;
+
+#ifdef PS_DEBUG
+  printf("psMatrix CholLSolve\n");
+#endif
+  assert(ivec.length() == nCols_);
+  if (status_ == 0) status = CholDecompose();
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (4): failed in Cholesky factorization.\n");
+    return status;
+  }
+  ovec.setLength(nRows_);
+  for (ii = 0; ii < nRows_; ii++)
+  {
+    ddata = ivec[ii];
+    for (jj = 0; jj < ii; jj++) ddata -= Mat_[ii][jj] * ovec[jj];
+    ovec[ii] = ddata / Mat_[ii][ii];
+  }
+#ifdef PS_DEBUG
+  printf("psMatrix CholLSolve ends\n");
+#endif
+  return 0;
 }
 
 // ************************************************************************
 // Cholesky LT-solve 
 // ------------------------------------------------------------------------
-void psMatrix::CholTSolve(psVector &vec)
+int psMatrix::CholLTSolve(psVector &ivec, psVector &ovec)
 {
-   int    ii, jj;
-   double ddata;
+  int    ii, jj, status=0;
+  double ddata;
 
 #ifdef PS_DEBUG
-   printf("psMatrix CholTSolve (transpose)\n");
+  printf("psMatrix CholTSolve (transpose)\n");
 #endif
-   assert(vec.length() == nCols_);
-   if (status_ == 0) CholDecompose();
-   for (ii = nRows_-1; ii > 0; ii--)
-   {
-      ddata = vec[ii];
-      for (jj = ii+1; jj < nRows_; jj++) ddata -= Mat_[jj][ii] * vec[jj];
-      vec[ii] = ddata / Mat_[ii][ii];
-   }
+  assert(ivec.length() == nCols_);
+  if (status_ == 0) status = CholDecompose();
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (1): failed in Cholesky factorization.\n");
+    return status;
+  }
+  ovec.setLength(nRows_);
+  for (ii = nRows_-1; ii > 0; ii--)
+  {
+    ddata = ivec[ii];
+    for (jj = ii+1; jj < nRows_; jj++) ddata -= Mat_[jj][ii] * ovec[jj];
+    ovec[ii] = ddata / Mat_[ii][ii];
+  }
 #ifdef PS_DEBUG
-   printf("psMatrix CholTSolve ends\n");
+  printf("psMatrix CholTSolve ends\n");
 #endif
+  return 0;
+}
+
+// ************************************************************************
+// Compute LU factorization 
+// ------------------------------------------------------------------------
+int psMatrix::LUDecompose()
+{
+  int    ii, jj, lwork, status=0;
+  double *localMatrix, *work;
+
+  assert(nRows_ == nCols_);
+  if (pivots_ != NULL) pivots_ = new int[nRows_];
+  pivots_ = new int[nRows_];
+  localMatrix = new double[nRows_ * nRows_];
+  work = new double[nRows_ * nRows_];
+  for (ii = 0; ii < nRows_; ii++)
+    for (jj = 0; jj < nRows_; jj++)
+      localMatrix[ii*nRows_+jj] = Mat_[jj][ii];
+  lwork = nRows_ * nRows_;
+  dgetrf_(&nRows_, &nRows_, localMatrix, &nRows_, pivots_, &status);
+  for (ii = 0; ii < nRows_; ii++)
+    for (jj = 0; jj < nRows_; jj++)
+      Mat_[ii][jj] = localMatrix[jj*nRows_+ii];
+  delete [] localMatrix;
+  delete [] work;
+  if (status != 0)
+  {
+    printf("psMatrix computeInverse ERROR: failed in LU factorization\n");
+    delete [] pivots_;
+    pivots_ = NULL;
+  }
+  else status_ = 2;
+  return status;
+}
+
+// ************************************************************************
+// LU solve 
+// ------------------------------------------------------------------------
+int psMatrix::LUSolve(psVector &ivec, psVector &ovec)
+{
+  int    ii, jj, iOne=1, status=0;
+  double *vec, *mat;
+  char   trans='N';
+
+#ifdef PS_DEBUG
+  printf("psMatrix LUSolve\n");
+#endif
+  assert(ivec.length() == nCols_);
+  if (status_ != 2)
+  {
+    printf("psMatrix ERROR (3): LU factorization has not been called.\n");
+    status = -1;
+    return status;
+  }
+  ovec.setLength(nRows_);
+  for (ii = 0; ii < nRows_; ii++) ovec[ii] = ivec[ii];
+  vec = ovec.getDVector();
+  mat = new double[nRows_*nRows_];
+  for (ii = 0; ii < nRows_; ii++)
+  {
+    for (jj = 0; jj < nCols_; jj++)
+      mat[ii+jj*nRows_] = Mat_[ii][jj];
+  } 
+  dgetrs_(&trans,&nRows_,&iOne,mat,&nRows_,pivots_,vec,&nRows_,&status);
+  if (status != 0)
+  {
+    printf("psMatrix ERROR (1): failed in LU solve.\n");
+    delete [] mat;
+    return status;
+  }
+  delete [] mat;
+#ifdef PS_DEBUG
+   printf("psMatrix LUSolve ends\n");
+#endif
+  return 0;
 }
 
 // ************************************************************************
@@ -450,6 +756,57 @@ void psMatrix::print()
       for (jj = 0; jj < nCols_; jj++) printf("%e ", Mat_[ii][jj]);
       printf("\n");
    }
+}
+
+// ************************************************************************
+// Compute determinant (by Bourke)
+// ------------------------------------------------------------------------
+double psMatrix::computeDeterminant()
+{
+   int    ii, jj, kk, ind;
+   double result = 0.0;
+   double **localMat = NULL;
+
+   assert(nRows_ == nCols_);
+   if (status_ == 1)
+   {
+     result = 1.0;
+     for (ii = 0; ii < nRows_; ii++) result *= Mat_[ii][ii];
+     return result;
+   }
+   if (nRows_ == 1)
+   {
+      result = Mat_[0][0];
+   }
+   else if (nRows_ == 2)
+   {
+      result = Mat_[0][0] * Mat_[1][1] - Mat_[1][0] * Mat_[0][1];
+   }
+   else
+   {
+      result = 0.0;
+      for (ii = 0; ii < nRows_; ii++)
+      {
+         localMat = new double*[nRows_-1];
+         for (kk = 0; kk < nRows_-1; kk++)
+            localMat[kk] = new double[nRows_-1];
+         for (kk = 1; kk < nRows_; kk++)
+         {
+            ind = 0;
+            for (jj = 0; jj < nRows_; jj++)
+            {
+               if (jj == ii) continue;
+               localMat[kk-1][ind] = Mat_[kk][jj];
+               ind++;
+            }
+         }
+         result += pow(-1.0,1.0+ii+1.0) * Mat_[0][ii] * 
+                   computeDeterminant(nRows_-1, localMat);
+         for (kk = 0; kk < nRows_-1; kk++) delete [] localMat[kk];
+         delete [] localMat;
+      }
+   }
+   return result;
 }
 
 // ************************************************************************
@@ -494,5 +851,200 @@ double psMatrix::computeDeterminant(int ndim, double **mat)
       }
    }
    return(result);
+}
+
+// ************************************************************************
+// Compute inverse 
+// ------------------------------------------------------------------------
+int psMatrix::computeInverse(psMatrix &inverse)
+{
+  int    ii, jj, *ipiv, lwork, status;
+  double *localMatrix, *work;
+
+  assert(nRows_ == nCols_);
+  ipiv = new int[nRows_];
+  localMatrix = new double[nRows_ * nRows_];
+  work = new double[nRows_ * nRows_];
+  for (ii = 0; ii < nRows_; ii++)
+    for (jj = 0; jj < nRows_; jj++)
+      localMatrix[ii*nRows_+jj] = Mat_[jj][ii];
+  lwork = nRows_ * nRows_;
+  dgetrf_(&nRows_, &nRows_, localMatrix, &nRows_, ipiv, &status);
+  if (status != 0)
+  {
+    printf("psMatrix computeInverse ERROR: failed in LU factorization\n");
+    return status;
+  }
+  dgetri_(&nRows_, localMatrix, &nRows_, ipiv, work, &lwork, &status);
+  if (status != 0)
+  {
+    printf("psMatrix computeInverse ERROR: failed in matrix inverse\n");
+    return status;
+  }
+  inverse.setDim(nRows_, nRows_);
+  for (ii = 0; ii < nRows_; ii++)
+    for (jj = 0; jj < nRows_; jj++)
+      inverse.setEntry(ii, jj, localMatrix[jj*nRows_+ii]);
+  delete [] work;
+  delete [] ipiv;
+  delete [] localMatrix;
+  return status;
+}
+
+// ************************************************************************
+// matrix vector multiply
+// ------------------------------------------------------------------------
+int psMatrix::matvec(psVector &inVec, psVector &outVec, int transp)
+{
+  int    ii, jj;
+  double ddata, *vdata;
+
+  if (transp == 0)
+  {
+    assert(inVec.length() == nCols_);
+    outVec.setLength(nRows_);
+    vdata = inVec.getDVector();
+    for (ii = 0; ii < nRows_; ii++)
+    {
+      ddata = 0.0;
+      for (jj = 0; jj < nCols_; jj++)
+        ddata += Mat_[ii][jj] * vdata[jj];
+      outVec[ii] = ddata;
+    }
+  }
+  else
+  {
+    assert(inVec.length() == nRows_);
+    outVec.setLength(nCols_);
+    vdata = inVec.getDVector();
+    for (ii = 0; ii < nCols_; ii++)
+    {
+      ddata = 0.0;
+      for (jj = 0; jj < nRows_; jj++)
+        ddata += Mat_[jj][ii] * vdata[jj];
+      outVec[ii] = ddata;
+    }
+  }
+  return 0;
+}
+
+// ************************************************************************
+// matrix matrix multiply
+// ------------------------------------------------------------------------
+void psMatrix::matmult(psMatrix &inMat, psMatrix &outMat)
+{
+  int      ii, jj, kk, ncols;
+  double   ddata, *vdata, **idata, **odata;
+  psVector colVec;
+
+  assert(inMat.nrows() == nCols_);
+  outMat.setDim(nRows_, inMat.ncols());
+  idata = inMat.getMatrix2D();
+  odata = outMat.getMatrix2D();
+  ncols = inMat.ncols();
+  for (jj = 0; jj < ncols; jj++)
+  {
+    for (ii = 0; ii < nRows_; ii++)
+    {
+      ddata = 0.0;
+      for (kk = 0; kk < nCols_; kk++)
+        ddata += Mat_[kk][ii] * idata[jj][kk];
+      odata[ii][jj] = ddata;
+    }
+  }
+}
+
+// ************************************************************************
+// matrix transpose 
+// ------------------------------------------------------------------------
+void psMatrix::transpose()
+{
+  int    ii, jj;
+  double **tmpMat;
+
+  assert(nCols_ > 0 && nRows_ > 0);
+  tmpMat = new double*[nRows_];
+  for (ii = 0; ii < nRows_; ii++)
+  {
+     tmpMat[ii] = new double[nCols_];
+     for (jj = 0; jj < nCols_; jj++) tmpMat[ii][jj] = Mat_[jj][ii];
+  }
+  for (ii = 0; ii < nCols_; ii++) delete [] Mat_[ii];
+  delete [] Mat_;
+  Mat_ = tmpMat;
+  ii = nRows_;
+  nRows_ = nCols_;
+  nCols_ = ii;
+}
+
+// ************************************************************************
+// eigen solve 
+// ------------------------------------------------------------------------
+void psMatrix::eigenSolve(psMatrix &eigMat, psVector &eigVals, int flag)
+{
+   int    ii, jj, lwork, N, info;
+   double *work, *eigs, *mat;
+   char   jobz='V', uplo='U';
+
+   if (flag == 1) jobz = 'N';
+   N     = nCols_;
+   lwork = 3 * N;
+   work  = new double[lwork];
+   eigs  = new double[N];
+   mat   = new double[N*N];
+   for (ii = 0; ii < N; ii++)
+      for (jj = 0; jj < N; jj++)
+         mat[ii*N+jj] = Mat_[ii][jj];
+   dsyev_(&jobz,&uplo,&N,mat,&N,eigs,work,&lwork,&info);
+   if (info != 0)
+   {
+      printf("ERROR: dsyev returns a nonzero (%d).\n", info);
+      delete [] mat;
+      delete [] eigs;
+      delete [] work;
+      exit(1);
+   }
+
+   eigMat.setDim(N,N);
+   for (ii = 0; ii < N; ii++)
+      for (jj = 0; jj < N; jj++)
+         eigMat.setEntry(jj,ii,mat[ii*N+jj]);
+   eigVals.setLength(N);
+   for (ii = 0; ii < N; ii++) eigVals[ii] = eigs[ii];
+   delete [] mat;
+   delete [] eigs;
+   delete [] work;
+}
+
+// ************************************************************************
+// matrix solve using QR 
+// ------------------------------------------------------------------------
+void psMatrix::matSolve(psVector &invec, psVector &outvec)
+{
+   int    iOne=1, info, lwork, nn, ii, jj;
+   double *work, *b, *x, *dmat;
+   char   trans[1];
+
+   nn = invec.length();
+   (*trans) = 'N';
+   b = invec.getDVector();
+   outvec.setLength(nn);
+   x = outvec.getDVector();
+   for (ii = 0; ii < nn; ii++) x[ii] = b[ii];
+   lwork = 2 * nn * nn;
+   work = new double[lwork];
+   dmat = new double[nn*nn];
+   for (ii = 0; ii < nn; ii++)
+      for (jj = 0; jj < nn; jj++)
+         dmat[ii*nn+jj] = Mat_[ii][jj];
+   dgels_(trans, &nn, &nn, &iOne, dmat, &nn, x, &nn, work, &lwork, &info);
+   if (info != 0)
+   {
+      printf("psMatrix matSolve ERROR: dgels returns error %d.\n",info);
+      exit(1);
+   }
+   delete [] dmat;
+   delete [] work;
+   return;
 }
 

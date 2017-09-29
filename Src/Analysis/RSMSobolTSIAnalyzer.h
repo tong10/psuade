@@ -49,6 +49,9 @@ public:
 
    ~RSMSobolTSIAnalyzer();
 
+   void analyze(int nInps, int nSamp, double *ilbs,
+                double *iubs, double *sInps, double *sOuts);
+
    double analyze(aData &adata);
 
    double analyze3(aData &adata);
@@ -61,7 +64,7 @@ public:
    int    get_nInputs();
    double get_outputMean();
    double get_outputStd();
-   double *get_totalSensitivity();
+   double get_tsi(int ind);
 };
 
 #endif // __RSMSOBOLTSIANALYZERH__

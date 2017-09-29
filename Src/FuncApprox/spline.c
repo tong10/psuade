@@ -91,13 +91,15 @@ int spline1d(int nx, double *Xn, double *Zn,
 int spline2d(int nx, int ny, double *Xn, double *Yn, double *Zn,
              int mm, double *Xm, double *Ym, double *Zm)
 {
-   int    offset, ii, xx, yy;
+   int    offset, ii, xx, yy, nn;
    double *ZT, *ZP, *ZU, Xval, Yval;
    /* ======================================= */
    /* compute second derivatives              */
    /* compute spline one row at a time        */
    /* ======================================= */
-   ZT = (double *) malloc(ny * sizeof(double));
+   nn = nx;
+   if (nn < ny) nn = ny;
+   ZT = (double *) malloc(nn * sizeof(double));
    ZP = (double *) malloc(nx * ny * sizeof(double));
    ZU = (double *) malloc(nx * sizeof(double));
    for (xx = 0; xx < nx; xx++)

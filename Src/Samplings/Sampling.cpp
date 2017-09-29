@@ -235,10 +235,8 @@ int Sampling::doSampling(PsuadeData* psuadeIO_)
    psuadeIO_->getParameter("input_settings", pSettings);
    haveSettings = pSettings.nInts_;
 
-   //Blow away any existing samples:
    psuadeIO_->resetSamples();
 
-   //Set up the Sampler
    setPrintLevel(outputLevel_);
    setInputBounds(nInputs, iLowerB, iUpperB);
    setOutputParams(nOutputs);
@@ -250,14 +248,11 @@ int Sampling::doSampling(PsuadeData* psuadeIO_)
                     pSettings.dbleArray2D_, NULL);
    }
 
-   //There are two ways to sample, the normal way, and the PDF way
-   //Figure out if we're supposed to do the PDF way
    for (int ii = 0; ii < nInputs; ii++) iSum += inputPDFs[ii];
    bool doingPDFs = false;
-   if(iSum >0 && usePDFs) doingPDFs = true;
+   if (iSum > 0 && usePDFs) doingPDFs = true;
   
-   //I wish PDFs were part of the normal sampling class hierarchy
-   if(doingPDFs) 
+   if (doingPDFs) 
    {
       if (nRefines > 0)
       {
@@ -472,7 +467,7 @@ int Sampling::getNumOutputs()
 // get all sample points 
 // ------------------------------------------------------------------------
 int Sampling::getSamples(int nSamples, int nInputs, int nOutputs,
-                     double *sampData, double *outputs, int *states)
+                         double *sampData, double *outputs, int *states)
 {
    int ii, jj, offset, offset2;
 
@@ -519,6 +514,55 @@ int Sampling::getSamples(int nSamples, int nInputs, int nOutputs,
             outputs[offset2+jj] = sampleOutput_[offset2+jj];
       }
       if (states != NULL) states[ii] = sampleStates_[ii];
+   }
+   return nSamples;
+}
+
+// ************************************************************************
+// get all sample points (this is for library call - no state information)
+// ------------------------------------------------------------------------
+int Sampling::getSamples(int nSamples, int nInputs, int nOutputs,
+                         double *sampData, double *outputs)
+{
+   int ii, jj, offset, offset2;
+
+   if (nSamples != nSamples_) 
+   {
+      printf("Sampling::getSamples ERROR : invalid nSamples. \n");
+      exit(1);
+   }
+   if (nInputs != nInputs_) 
+   {
+      printf("Sampling::getSamples ERROR : invalid nInputs. \n");
+      exit(1);
+   }
+   if (nOutputs_ != nOutputs) 
+   {
+      printf("Sampling::getSamples ERROR : invalid nOutputs. \n");
+      exit(1);
+   }
+   if (sampleMatrix_ == NULL)
+   {
+      printf("Sampling::getSamples ERROR : samples not ready. \n");
+      exit(1);
+   }
+   if (sampleOutput_ == NULL && outputs != NULL)
+   {
+      printf("Sampling::getSamples ERROR : sample output not ready. \n");
+      exit(1);
+   }
+
+   for (ii = 0; ii < nSamples; ii++) 
+   {
+      offset = ii * nInputs;
+      offset2 = ii * nOutputs;
+      for (jj = 0; jj < nInputs; jj++) 
+         sampData[offset+jj] = sampleMatrix_[ii][jj];
+      if (outputs != NULL)
+      {
+         for (jj = 0; jj < nOutputs; jj++) 
+            outputs[offset2+jj] = sampleOutput_[offset2+jj];
+      }
    }
    return nSamples;
 }
@@ -947,10 +991,9 @@ int SamplingDestroy(Sampling *sampler)
 int SamplingQuality(int nSamples, int nInputs, double *sampleInputs,
                     double *lbnds, double *ubnds, double *quality)
 {
-   int    ss1, ss2, ii;
-   double distance, minDistance, minMaxDist, dtemp, minMinDist;
+   int    ss1, ss2, ii, numPerms;
+   double distance, minDistance, dtemp, minMinDist, *darray;
 
-   minMaxDist = -1.0e35;
    minMinDist =  1.0e35;
    for (ss1 = 0; ss1 < nSamples; ss1++)
    {
@@ -970,11 +1013,36 @@ int SamplingQuality(int nSamples, int nInputs, double *sampleInputs,
             if (distance < minDistance) minDistance = distance;
          }
       }
-      if (minDistance > minMaxDist) minMaxDist = minDistance;
       if (minDistance < minMinDist) minMinDist = minDistance;
    }
-   quality[0] = minMaxDist;
-   quality[1] = minMinDist;
+   quality[0] = minMinDist;
+   numPerms = 1;
+   for (ii = 0; ii < nInputs; ii++) numPerms *= 2;
+   darray = new double[nInputs];
+   minDistance = 1.0e35;
+   for (ss1 = 0; ss1 < numPerms; ss1++)
+   {
+      for (ii = 0; ii < nInputs; ii++) 
+      {
+        if ((ss1 & (1 << ii)) == 1) darray[ii] = 1.0;
+        else                        darray[ii] = 0.0;
+      }
+      for (ss2 = 0; ss2 < nSamples; ss2++)
+      {
+         distance = 0.0;
+         for (ii = 0; ii < nInputs; ii++)
+         {
+            dtemp = (sampleInputs[ss1*nInputs+ii] - lbnds[ii]) /
+                    (ubnds[ii] - lbnds[ii]);
+            dtemp -= darray[ii];
+            distance += dtemp * dtemp;
+         }
+         distance = sqrt(distance);
+         if (distance < minDistance) minDistance = distance;
+      } 
+   }
+   quality[1] = minDistance;
+   delete [] darray;
    return 0;
 }
 

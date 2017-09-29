@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFNormal.h"
 #define PABS(x) ((x >= 0) ? x : -(x))
@@ -55,6 +56,8 @@ int PDFNormal::getPDF(int length, double *inData, double *outData)
    int    ii;
    double denom, coef, xdata, expo;
 
+   if (psPDFDiagMode_ == 1) 
+      printf("PDFNormal: getPDF begins (length = %d)\n",length);
    denom = 2.0 * stdev_ * stdev_;
    coef  = 1.0 / (stdev_ * sqrt(2.0*M_PI));
    for (ii = 0; ii < length; ii++)
@@ -63,6 +66,7 @@ int PDFNormal::getPDF(int length, double *inData, double *outData)
       expo = - (xdata - mean_) * (xdata - mean_) / denom;
       outData[ii] = coef * exp(expo);
    }
+   if (psPDFDiagMode_ == 1) printf("PDFNormal: getPDF ends.\n");
    return 0;
 }
 
@@ -74,12 +78,15 @@ int PDFNormal::getCDF(int length, double *inData, double *outData)
    int    ii;
    double ddata, iroot2;
 
+   if (psPDFDiagMode_ == 1) 
+      printf("PDFNormal: getCDF begins (length = %d)\n", length);
    iroot2 = sqrt(0.5)/stdev_;
    for (ii = 0; ii < length; ii++)
    {
       ddata = inData[ii];
       outData[ii] = 0.5 * (1.0 + erf((ddata-mean_)*iroot2));
    }
+   if (psPDFDiagMode_ == 1) printf("PDFNormal: getCDF ends.\n");
    return 0;
 }
 
@@ -100,6 +107,8 @@ int PDFNormal::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFNormal: invCDF begins (length = %d)\n",length);
    scale = upper - lower;
    iroot2 = sqrt(0.5)/stdev_;
    for (ii = 0; ii < length; ii++)
@@ -133,6 +142,7 @@ int PDFNormal::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFNormal: invCDF ends.\n");
    return 0;
 }
 
@@ -168,7 +178,7 @@ int PDFNormal::genSample(int length, double *outData, double *lowers,
 
    if (stdev_ == 0)
    {
-      printf("PDFNormal: genSample WARNING - std dev = 0.\n");
+      printf("PDFNormal WARNING: genSample - std dev = 0.\n");
       for (ii = 0; ii < length; ii++) outData[ii] = mean_;
       return 0;
    }
@@ -179,7 +189,8 @@ int PDFNormal::genSample(int length, double *outData, double *lowers,
    low   = 0.5 * (1.0 + erf((lower2-mean_)*iroot2));
    range = 0.5 * (1.0 + erf((upper2-mean_)*iroot2)) - low;
    count = total = 0;
-   //printf("PDFExp: genSample begins (Take too long? Check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFNormal: genSample begins (length = %d)\n",length);
    while (count < length)
    {
       U1 = PSUADE_drand() * range + low;
@@ -196,17 +207,18 @@ int PDFNormal::genSample(int length, double *outData, double *lowers,
       if (outData[count] >= lower && outData[count] <= upper)
          count++;
       total += 2;
-      if (total > length*1000)
+      if (total > length*100)
       {
          printf("PDFNormal genSample ERROR - Cannot generate enough\n");
          printf("          sample points to be within range. Maybe\n");
          printf("          due to prescribed ranges too narrow.\n");
          printf("     mean,  stdev = %e %e\n", mean_, stdev_);
          printf("     lower, upper = %e %e\n", lower, upper);
+         printf("     ntrials, nsuccess = %d %d (%d)\n",total,count,length);
          exit(1);
       }
    }
-   //printf("PDFNormal: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFNormal: genSample ends.\n");
    return 0;
 }
 

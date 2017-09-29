@@ -1,5 +1,5 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.6)
+*      Welcome to PSUADE (version 1.7.8)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
@@ -11,7 +11,8 @@ PSUADE run: max job wait time = 1000000 seconds
 PSUADE run: min job wait time = 1 seconds
 PSUADE run: launch interval   = 1 seconds
 PSUADE run: save frequency    = every 1000000 runs
-NOTE: if evaluation should be fast but is slow, check save frequency.
+NOTE: if evaluation should be fast but is slow, check
+      save_frequency because it may be due to too much I/O.
 Note: use psuade_pmachine to dynamically change max jobs.
 Note: use psuade_stop to terminate gracefully.
 ======================================================================

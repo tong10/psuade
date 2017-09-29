@@ -39,6 +39,7 @@ class MCMCAnalyzer : public Analyzer
 private:
    int    mode_;
    int    bfmode_;
+   int    scheme_;
    int    nInputs_;
    int    nOutputs_;
    double *means_;           //length is nInputs_
@@ -56,7 +57,15 @@ public:
 
    double analyze_bf(aData &adata);
 
+   double analyze_mh(aData &adata);
+
    MCMCAnalyzer& operator=(const MCMCAnalyzer &analyzer);
+
+   int readIndexFile(PsuadeData *dataPtr,int nInputs,
+                     int *designParams, int *rsIndices,
+                     double *rsValues);
+
+   void cleanUp();
 
    double genMatlabFile(int nInputs, double *lower, double *upper,
                         double *ranges, int nPlots, int *plotIndices,
@@ -78,7 +87,8 @@ public:
 
    double readSpecFile(int nInputs, int nOutputs, int *dnSamp,
                        int *dnInps, int **dParams, double **dSamIns,
-                       double **dMeans, double **dStds, int printLevel);
+                       double **dMeans, double **dStds, int &combFlag,
+                       int printLevel);
 
    int setParams(int nParams, char **params);
 

@@ -43,26 +43,22 @@ public:
 
    ~MOATAnalyzer();
 
+   void analyze(int nInps, int nSamp, double *ilbs,
+                double *iubs, double *sInps, double *sOuts);
+
    double analyze(aData &adata);
 
    MOATAnalyzer& operator=(const MOATAnalyzer &analyzer);
 
-  /** Getters for analysis results */
-  double get_analysisError();
-  double *get_means();
-  double *get_stds();
-  double *get_modifiedMeans();
-  double *get_modifiedStds();
-  int    *get_indexesSortedByModifiedMeans();
-  double *get_sigma1LowerBounds();
-  double *get_sigma1UpperBounds();
-  double *get_sigma2LowerBounds();
-  double *get_sigma2UpperBounds();
-
-  /*create, save & check output string */
-  void createOutputString();
-  void saveOutputString(char *filename);
-  bool checkOutputString(char *filename);
+   /** Getters for analysis results */
+   double get_mean(int ind);
+   double get_stdev(int ind);
+   double get_modifiedMean(int ind);
+   double get_modifiedStdev(int ind);
+ 
+   void createOutputString();
+   void saveOutputString(char *filename);
+   bool checkOutputString(char *filename);
 
 private:
    int createScreenDiagramFile(int nSamples, int nInputs, double *Y, 
@@ -81,16 +77,11 @@ private:
    int    nOutputs_;
    int    nSamples_;
    int    outputID_;
-   double analysisError_;
    double *means_;
    double *stds_;
    double *modifiedMeans_;
    double *modifiedStds_;
    int    *indexesSortedByModifiedMeans_;
-   double *sigma1LowerBounds_;
-   double *sigma1UpperBounds_;
-   double *sigma2LowerBounds_;
-   double *sigma2UpperBounds_;
 
 };
 

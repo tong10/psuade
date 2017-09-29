@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
    int    i, nInputs, count;
    double X[2], Y, pi=3.1415928;

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
    int    i, j, nInputs;
    double X[4], Y[4], F, AB[2], error, dtemp;

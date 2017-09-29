@@ -236,7 +236,7 @@ int prn3lb(integer *n, double *x, double *f, integer *
 */
     }
 L999:
-    if (*iprint >= 0) {
+    if (*iprint >= 5) {
         if (*info != 0) {
             if (*info == -1) {
                 printf(" Matrix in 1st Cholesky factorization in formk is not Pos. Def.\n");
@@ -280,6 +280,7 @@ L999:
             printf("Subspace minimization time %.3e seconds.\n", *sbtime );
             printf("Line search           time %.3e seconds.\n", *lnscht );
         }
+        if (*iprint >= 1) 
         printf(" Total User time %.3e seconds.\n", *time );
     }
     return 0;

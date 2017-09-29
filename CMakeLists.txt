@@ -9,7 +9,7 @@ set (PROJECT_NAME psuade)
 # The version number.
 set (psuade_VERSION_MAJOR 1)
 set (psuade_VERSION_MINOR 7)
-set (psuade_VERSION_PATCH 6)
+set (psuade_VERSION_PATCH 8)
 
 set (PROJECT_INCLUDE_DIR "${PROJECT_BINARY_DIR}/include")
 set (PROJECT_BIN_DIR "${PROJECT_BINARY_DIR}/bin}")
@@ -160,6 +160,7 @@ set( PDF_SRC
   "Src/PDFLib/PDFUser.cpp"
   "Src/PDFLib/PDFManager.cpp"
   "Src/PDFLib/pdfData.cpp"
+  "Src/PDFLib/KSDensity.cpp"
 )
 
 # add the executable
@@ -349,6 +350,18 @@ if (USE_LBFGS)
   set (EXTRA_LIBS ${EXTRA_LIBS} lbfgs)
   add_definitions(-DHAVE_LBFGS)
 endif (USE_LBFGS)
+
+#NOMAD
+if(EXISTS "${PROJECT_SOURCE_DIR}/External/NOMAD")
+  option (USE_NOMAD
+        "Build and use the NOMAD library." ON)
+endif() 
+if (USE_NOMAD)
+  include_directories ("${PROJECT_SOURCE_DIR}/External/NOMAD")
+  add_subdirectory (External/NOMAD) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} nomad)
+  add_definitions(-DHAVE_NOMAD)
+endif (USE_NOMAD)
 
 #optional libraries, see if dir exists, then see if user wants it.  If both yes, build it.
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/MARS")

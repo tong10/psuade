@@ -119,9 +119,11 @@ double BootstrapAnalyzer::analyze(aData &adata)
    computeMeanVariance(nSamples,nOutputs,Y,&mean,&var,outputID,printLevel);
 
    YY = new double[nSamples];
+   checkAllocate(YY, "YY in Bootstrap::analyze");
    for (ss = 0; ss < nSamples; ss++) YY[ss] = Y[nOutputs*ss+outputID];
 
    bsmeans = new double[nB];
+   checkAllocate(bsmeans, "bsmeans in Bootstrap::analyze");
    genBootstrap(nSamples, YY, nB, bsmeans);
 
    nPass = 0;
@@ -253,6 +255,7 @@ int BootstrapAnalyzer::setupNormalCDF(double mean, double stdev)
 
    value = 0.0;
    storedValues_ = new double[nSteps_+1];
+   checkAllocate(storedValues_, "storedValues in Bootstrap::setupNormalCDF");
    for (ii = 0; ii < nSteps_; ii++)
    {
       xdata  = left + hstep * ii;
@@ -310,6 +313,7 @@ double *BootstrapAnalyzer::get_storedValues()
    if (storedValues_)
    {
       retVal = new double[nSteps_];
+      checkAllocate(retVal, "retVal in Bootstrap::get_storedValues");
       for (int ii = 0; ii < nSteps_; ii++) retVal[ii] = storedValues_[ii];
    }
    return retVal;

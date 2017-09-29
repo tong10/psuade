@@ -138,6 +138,7 @@ int RBF::initialize(double *X, double *Y)
    if (iRanges_     != NULL) delete [] iRanges_;
    if (regCoeffs_   != NULL) delete [] regCoeffs_;
    XNormalized_ = new double[nSamples_*nInputs_];
+   checkAllocate(XNormalized_, "XNormalized_ in RBF::initialize");
    for (ii = 0; ii < nInputs_; ii++)
    {
       range = 1.0 / (upperBounds_[ii] - lowerBounds_[ii]);
@@ -146,9 +147,11 @@ int RBF::initialize(double *X, double *Y)
             (X[ss*nInputs_+ii] - lowerBounds_[ii]) * range;
    }
    YNormalized_ = new double[nSamples_];
+   checkAllocate(YNormalized_, "YNormalized_ in RBF::initialize");
    initOutputScaling(Y, YNormalized_);
    for (ii = 0; ii < nSamples_; ii++) YNormalized_[ii] = Y[ii] - YMean_;
    iRanges_ = new double[nInputs_];
+   checkAllocate(iRanges_, "iRanges_ in RBF::initialize");
    for (ii = 0; ii < nInputs_; ii++)
       iRanges_[ii] = 1.0 / (upperBounds_[ii] - lowerBounds_[ii]);
  
@@ -158,6 +161,7 @@ int RBF::initialize(double *X, double *Y)
    nSamp1 = nSamples_;
 #endif
    Dmat = new double[nSamp1*nSamp1];
+   checkAllocate(Dmat, "Dmat in RBF::initialize");
    switch(type_) 
    {
       case 0: 
@@ -188,8 +192,8 @@ int RBF::initialize(double *X, double *Y)
             {
                ddata = 0.0;
                for (ii = 0; ii < nInputs_; ii++)
-                  ddata += pow((X[ss*nInputs_+ii]-X[ss2*nInputs_+ii])*
-                               iRanges_[ii],2.0);
+                  ddata += pow((XNormalized_[ss*nInputs_+ii]-
+                                XNormalized_[ss2*nInputs_+ii]),2.0);
                Dmat[ss*nSamp1+ss2] = 
                     Dmat[ss2*nSamp1+ss] = 1.0/sqrt(ddata+1.0);
             }
@@ -206,8 +210,8 @@ int RBF::initialize(double *X, double *Y)
             {
                ddata = 0.0;
                for (ii = 0; ii < nInputs_; ii++)
-                  ddata += pow((X[ss*nInputs_+ii]-X[ss2*nInputs_+ii])*
-                               iRanges_[ii],2.0);
+                  ddata += pow((XNormalized_[ss*nInputs_+ii]-
+                                XNormalized_[ss2*nInputs_+ii]),2.0);
                Dmat[ss*nSamp1+ss2] = 
                     Dmat[ss2*nSamp1+ss] = exp(-gaussScale_*ddata/2.0);
             }
@@ -224,8 +228,8 @@ int RBF::initialize(double *X, double *Y)
             {
                ddata = 0.0;
                for (ii = 0; ii < nInputs_; ii++)
-                  ddata += pow((X[ss*nInputs_+ii]-X[ss2*nInputs_+ii])*
-                               iRanges_[ii],2.0);
+                  ddata += pow((XNormalized_[ss*nInputs_+ii]-
+                                XNormalized_[ss2*nInputs_+ii]),2.0);
                Dmat[ss*nSamp1+ss2] = 
                     Dmat[ss2*nSamp1+ss] = (ddata+1.0)*log(sqrt(ddata+1.0));
             }
@@ -264,6 +268,7 @@ int RBF::initialize(double *X, double *Y)
    double *UU = new double[nSamp1*nSamp1];
    double *VV = new double[nSamp1*nSamp1];
    double *WW = new double[wlen];
+   checkAllocate(WW, "WW in RBF::initialize");
    dgesvd_(&jobu,&jobvt,&nSamp1,&nSamp1,Dmat,&nSamp1,SS,UU,&nSamp1,VV,
            &nSamp1,WW, &wlen,&info);
    if (info != 0) 
@@ -277,6 +282,7 @@ int RBF::initialize(double *X, double *Y)
       return -1;
    }
    regCoeffs_ = new double[nSamp1];
+   checkAllocate(regCoeffs_, "regCoeffs_ in RBF::initialize");
    for (ii = 0; ii < nSamples_; ii++) regCoeffs_[ii] = YNormalized_[ii];
 #ifdef PS_RBF1
    regCoeffs_[nSamples_] = 0.0;
@@ -559,6 +565,7 @@ int RBF::genNDGridData(double *X,double *Y,int *N2,double **X2,double **Y2)
    totPts = (*N2);
 
    (*Y2) = new double[totPts];
+   checkAllocate(*Y2, "Y2 in RBF::genNDGridData");
    evaluatePoint(totPts, *X2, *Y2);
 
    return 0;
@@ -585,6 +592,7 @@ int RBF::gen1DGridData(double *X, double *Y, int ind1, double *settings,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in RBF::gen1DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -624,6 +632,7 @@ int RBF::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in RBF::gen2DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -670,6 +679,7 @@ int RBF::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in RBF::gen3DGridData");
    for (ss = 0; ss < totPts; ss++)
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii];
 
@@ -723,6 +733,7 @@ int RBF::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    YY = (*Y2);
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in RBF::gen4DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     

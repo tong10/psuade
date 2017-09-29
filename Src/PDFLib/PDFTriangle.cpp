@@ -26,6 +26,7 @@
 // ************************************************************************
 #include <stdio.h>
 #include <math.h>
+#include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PDFTriangle.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
@@ -61,6 +62,8 @@ int PDFTriangle::getPDF(int length, double *inData, double *outData)
    int    ii;
    double height, ddata;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFTriangle: getPDF begins (length = %d)\n",length);
    height = 1.0 / width_;
    for (ii = 0; ii < length; ii++)
    {
@@ -72,6 +75,7 @@ int PDFTriangle::getPDF(int length, double *inData, double *outData)
       else if (ddata >= mean_)
          outData[ii] = height - (ddata - mean_) * height / width_;
    }
+   if (psPDFDiagMode_ == 1) printf("PDFTriangle: getPDF ends.\n");
    return 0;
 }
 
@@ -83,6 +87,8 @@ int PDFTriangle::getCDF(int length, double *inData, double *outData)
    int    ii, iOne=1;
    double ddata, ddata2;
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFTriangle: getCDF begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       ddata = inData[ii];
@@ -99,6 +105,7 @@ int PDFTriangle::getCDF(int length, double *inData, double *outData)
          outData[ii] = 1.0 - 0.5 * ddata2 * (mean_ + width_ - ddata); 
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFTriangle: getCDF ends.\n");
    return 0;
 }
 
@@ -117,6 +124,8 @@ int PDFTriangle::invCDF(int length, double *inData, double *outData,
       exit(1);
    }
 
+   if (psPDFDiagMode_ == 1)
+      printf("PDFTriangle: invCDF begins (length = %d)\n",length);
    getCDF(iOne, &lower, &low);
    getCDF(iOne, &upper, &range);
    range = range - low;
@@ -151,6 +160,7 @@ int PDFTriangle::invCDF(int length, double *inData, double *outData,
          else                                   outData[ii] = xhi;
       }
    }
+   if (psPDFDiagMode_ == 1) printf("PDFTriangle: invCDF ends.\n");
    return 0;
 }
 
@@ -179,7 +189,8 @@ int PDFTriangle::genSample(int length, double *outData, double *lowers,
    getCDF(iOne, &lower, &low);
    getCDF(iOne, &upper, &range);
    range = range - low;
-   //printf("PDFTriangle: genSample begins (Take too long? check ranges)\n");
+   if (psPDFDiagMode_ == 1)
+      printf("PDFTriangle: genSample begins (length = %d)\n",length);
    for (ii = 0; ii < length; ii++)
    {
       xlo = lower;
@@ -210,7 +221,7 @@ int PDFTriangle::genSample(int length, double *outData, double *lowers,
          else                             outData[ii] = xhi;
       }
    }
-   //printf("PDFTriangle: genSample ends.\n");
+   if (psPDFDiagMode_ == 1) printf("PDFTriangle: genSample ends.\n");
    return 0;
 }
 

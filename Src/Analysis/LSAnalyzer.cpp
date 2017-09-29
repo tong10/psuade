@@ -152,6 +152,7 @@ double LSAnalyzer::analyze(aData &adata)
    nInputs_ = nInputs;
    lsMeasures_ = new double[nInputs];
    mEffect = new double[nInputs];
+   checkAllocate(mEffect, "mEffect in LSAnalyzer::analyze");
    for (ii = 0; ii < nInputs; ii++) 
       mEffect[ii] = lsMeasures_[ii] = PSUADE_UNDEFINED;
 
@@ -299,6 +300,7 @@ double *LSAnalyzer::get_lsMeasures()
    if (lsMeasures_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in LSAnalyzer::get_lsMeasures");
       for (int ii = 0; ii < nInputs_; ii++)
          retVal[ii] = lsMeasures_[ii];
    }

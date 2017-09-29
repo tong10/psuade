@@ -24,7 +24,7 @@ main(int argc, char **argv)
       YY[i] = -2.0*(1.0-X[i]) + 200.0*(2.0*pow(X[i],3.0)-2.0*X[i]*X[i+1]);
       if (i > 0) YY[i] += 200.0 * (X[i] - X[i-1] * X[i-1]);
    }
-   YY[n-1] += 200.0 * (X[n-1] - X[n-2] * X[n-2]);
+   YY[n-1] = 200.0 * (X[n-1] - X[n-2] * X[n-2]);
    fOut = fopen(argv[2], "w");
    fprintf(fOut, "%24.16e\n", Y);
    for (i = 0; i < n; i++) fprintf(fOut, "%24.16e\n", YY[i]);

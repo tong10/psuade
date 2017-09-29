@@ -90,7 +90,8 @@ double TSIAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0)
    {
-      printOutTS(PL_ERROR,"Total Effect ERROR: invalid nInputs or nOutputs.\n");
+      printOutTS(PL_ERROR,
+           "Total Effect ERROR: invalid nInputs or nOutputs.\n");
       printOutTS(PL_ERROR,"   nInputs  = %d\n", nInputs);
       printOutTS(PL_ERROR,"   nOutputs = %d\n", nOutputs);
       return -1;
@@ -103,8 +104,10 @@ double TSIAnalyzer::analyze(aData &adata)
    }  
    if (nSamples < 10000)
    {
-      printOutTS(PL_WARN,"Total Effect WARNING: nSamples may be too small to\n");
-      printOutTS(PL_WARN,"             give results with acceptable accuracy.\n");
+      printOutTS(PL_WARN,
+           "Total Effect WARNING: nSamples may be too small to\n");
+      printOutTS(PL_WARN,
+           "             give results with acceptable accuracy.\n");
    }  
    status = 0;
    for (ss = 0; ss < nSamples; ss++)
@@ -118,15 +121,18 @@ double TSIAnalyzer::analyze(aData &adata)
       return PSUADE_UNDEFINED;
    }
    Y = new double[nSamples];
+   checkAllocate(Y, "Y in TSI::analyze");
    for (ss = 0; ss < nSamples; ss++) Y[ss] = YY[ss*nOutputs+outputID];
 
    ranges  = new double[nInputs];
+   checkAllocate(ranges, "ranges in TSI::analyze");
    for (ii = 0; ii < nInputs; ii++)
    {
       ranges[ii] = ubounds[ii] - lbounds[ii];
       if (ranges[ii] <= 0.0)
       {
-         printOutTS(PL_ERROR,"Total Effect ERROR: lbound/ubound mismatch.\n");
+         printOutTS(PL_ERROR,
+            "Total Effect ERROR: lbound/ubound mismatch.\n");
          exit(1);
       }
    }
@@ -146,7 +152,7 @@ double TSIAnalyzer::analyze(aData &adata)
    if (nInputs > 21)
    {
       printOutTS(PL_ERROR,
-           "Total Effect ERROR: nInputs > 21 currently not supported.\n");
+         "Total Effect ERROR: nInputs > 21 currently not supported.\n");
       exit(1);
    }
    if (nInputs == 1 ) n1d = nSamples*10;
@@ -171,12 +177,18 @@ double TSIAnalyzer::analyze(aData &adata)
           nSamples/50);
    printOutTS(PL_INFO,"* Total Effect: number of point per subdomain = 50\n");
    printDashes(PL_INFO,0);
-   printOutTS(PL_INFO,"* Note: for small to moderate sample size, this method in\n");
-   printOutTS(PL_INFO,"*       general gives rough estimates of total sensitivity.\n");
-   printOutTS(PL_INFO,"* Recommendation: Try different numbers of subdomains to\n");
-   printOutTS(PL_INFO,"*   assess goodness of the measures. A rule of thumb for\n");
-   printOutTS(PL_INFO,"    sample size per subdomain is > 50.\n");
-   printOutTS(PL_INFO,"* Turn on analysis expert mode to modify default settings.\n");
+   printOutTS(PL_INFO,
+        "* Note: for small to moderate sample size, this method in\n");
+   printOutTS(PL_INFO,
+        "*       general gives rough estimates of total sensitivity.\n");
+   printOutTS(PL_INFO,
+        "* Recommendation: Try different numbers of subdomains to\n");
+   printOutTS(PL_INFO,
+        "*   assess goodness of the measures. A rule of thumb for\n");
+   printOutTS(PL_INFO,
+        "    sample size per subdomain is > 50.\n");
+   printOutTS(PL_INFO,
+        "* Turn on analysis expert mode to modify default settings.\n");
    if (psAnaExpertMode_ != 0)
    {
       strcpy(pString,"Enter the number of subdomains (> 5): ");
@@ -185,6 +197,7 @@ double TSIAnalyzer::analyze(aData &adata)
    else nAggrs = nSamples / 50;
 
    incrs  = new int[nInputs];
+   checkAllocate(incrs, "incrs in TSI::analyze");
    graphN = 1;
    incrs[0] = graphN;
    for (jj = 1; jj < nInputs; jj++)
@@ -194,10 +207,12 @@ double TSIAnalyzer::analyze(aData &adata)
    }
    if (nAggrs > graphN) nAggrs = graphN / 2;
 
-   printOutTS(PL_INFO, "* Total Effect: number of subdomains = %d\n", nAggrs);
+   printOutTS(PL_INFO, 
+        "* Total Effect: number of subdomains = %d\n", nAggrs);
    printEquals(PL_INFO, 0);
    graphI = new int[graphN+1];
    graphJ = new int[graphN*(nInputs-1)*2+1];
+   checkAllocate(graphJ, "graphJ in TSI::analyze");
    nnz = 0;
    graphI[0] = nnz;
    for (ii = 0; ii < graphN; ii++)
@@ -216,6 +231,7 @@ double TSIAnalyzer::analyze(aData &adata)
    sample2Aggr = new int[nSamples];
    aggrMean = new double[nAggrs];
    aggrCnts = new int[nAggrs];
+   checkAllocate(aggrCnts, "aggrCnts in TSI::analyze");
 
    options[0] = 0;
 #ifdef HAVE_METIS
@@ -227,6 +243,7 @@ double TSIAnalyzer::analyze(aData &adata)
 #endif
 
    tsi = new double[nInputs];
+   checkAllocate(tsi, "tsi in TSI::analyze");
    for (inputID = 0; inputID < nInputs; inputID++)
    {
       for (ss = 0; ss < nSamples; ss++)
@@ -279,14 +296,14 @@ double TSIAnalyzer::analyze(aData &adata)
          if (wFlag == 0 && aggrCnts[ii] == 0)
          {
             printOutTS(PL_WARN,
-                 "TSIAnalyzer WARNING: some bins for input %d have no sample\n",
+              "TSIAnalyzer WARNING: some bins for input %d have no sample\n",
                  inputID+1);
             printOutTS(PL_WARN,
-                 "            points. This may be due to unconventional input\n");
+              "            points. This may be due to unconventional input\n");
             printOutTS(PL_WARN,
-                 "            distributions, or too many subdomains and sample\n");
+              "            distributions, or too many subdomains and sample\n");
             printOutTS(PL_WARN,
-                 "            points are not distributed evenly over the\n");
+              "            points are not distributed evenly over the\n");
             printOutTS(PL_WARN, "            parameter space.\n");
             wFlag = 1;
          }
@@ -298,20 +315,21 @@ double TSIAnalyzer::analyze(aData &adata)
       dmean /= (double) nSamples;
       dvar = 0.0;
       for (ii = 0; ii < nAggrs; ii++)
-         if (aggrCnts[ii] > 0) dvar += pow(aggrMean[ii] - dmean, 2.0) * aggrCnts[ii];
+         if (aggrCnts[ii] > 0) dvar += pow(aggrMean[ii]-dmean,2.0)*aggrCnts[ii];
       dvar /= (double) (nSamples - 1.0);
 
       if (dvar < variance)
-         printOutTS(PL_INFO,"Input %4d : Approximate total sensitivity index = %e\n",
-                inputID+1, 1.0-dvar/variance);
+         printOutTS(PL_INFO,
+            "Input %4d : Approximate total sensitivity index = %e\n",
+            inputID+1, 1.0-dvar/variance);
       else
       {
          printOutTS(PL_INFO,
-              "Input %4d : Approximate total sensitivity index %e > variance %e?\n",
-              inputID+1, dvar, variance);
+           "Input %4d: Approximate total sensitivity index %e > variance %e?\n",
+           inputID+1, dvar, variance);
          printOutTS(PL_INFO,"            Is your sample evenly distributed?\n");
          printOutTS(PL_INFO,
-              "            Do you have too many subdomains (too few in each)?\n");
+           "            Do you have too many subdomains (too few in each)?\n");
          for (ii = 0; ii < nAggrs; ii++)
             printf("Aggregate mean %d = %e (dmean=%e, count=%d)\n",ii+1,
                    aggrMean[ii],dmean,aggrCnts[ii]);
@@ -361,14 +379,14 @@ int TSIAnalyzer::printResults(int nInputs, double variance,
    printEquals(PL_INFO, 0);
    if (variance == 0.0)
    {
-      printOutTS(PL_INFO, "Total variance = 0. Hence, no total effect plot.\n");
+      printOutTS(PL_INFO,"Total variance = 0. Hence, no total effect plot.\n");
       return 0;
    }
    printOutTS(PL_INFO, "Approximate Total Effect Statistics: \n");
    for (ii = 0; ii < nInputs; ii++)
       printOutTS(PL_INFO,
-           "Input %4d: Sobol' total sensitivity = %12.4e (normalized = %12.4e)\n",
-             ii+1,tsi[ii],tsi[ii]/variance);
+         "Input %4d: Sobol' total sensitivity = %12.4e (normalized = %12.4e)\n",
+         ii+1,tsi[ii],tsi[ii]/variance);
    if (psPlotTool_ == 1) fp = fopen("scilabtsi.sci", "w");
    else                  fp = fopen("matlabtsi.m", "w");
    if (fp != NULL)
@@ -454,7 +472,7 @@ int TSIAnalyzer::printResults(int nInputs, double variance,
    }
    else
    {
-      printOutTS(PL_ERROR, "TSIAnalyser ERROR: cannot create tsi plot file.\n");
+      printOutTS(PL_ERROR,"TSIAnalyser ERROR: cannot create tsi plot file.\n");
       return 0;
    }
 }

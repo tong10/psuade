@@ -109,6 +109,7 @@ int SumOfTrees::genNDGridData(double *X, double *Y, int *N2, double **X2,
    totPts = (*N2);
 
    (*Y2) = new double[totPts];
+   checkAllocate(*Y2, "Y2 in SumOfTrees::genNDGridData");
    evaluatePoint(totPts, *X2, *Y2);
 
    return 0;
@@ -138,6 +139,7 @@ int SumOfTrees::gen1DGridData(double *X, double *Y, int ind1,
    (*N) = totPts;
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in SumOfTrees::gen1DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -180,6 +182,7 @@ int SumOfTrees::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    (*N) = totPts;
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in SumOfTrees::gen2DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -229,6 +232,7 @@ int SumOfTrees::gen3DGridData(double *X, double *Y, int ind1, int ind2,
    (*N) = totPts;
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in SumOfTrees::gen3DGridData");
    for (ss = 0; ss < totPts; ss++)
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii];
 
@@ -284,6 +288,7 @@ int SumOfTrees::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    (*N) = totPts;
 
    XT = new double[totPts*nInputs_];
+   checkAllocate(XT, "XT in SumOfTrees::gen4DGridData");
    for (ss = 0; ss < totPts; ss++) 
       for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
     
@@ -410,10 +415,11 @@ int SumOfTrees::buildTrees(double *X, double *Y)
    FILE   *fp=NULL;
 
    //** allocate temporary storage
+   inputScores = new double[nInputs_];
    XT = new double[nSamples_*nInputs_];
    YT = new double[nSamples_];
    YY = new double[nSamples_];
-   inputScores = new double[nInputs_];
+   checkAllocate(YY, "YY in SumOfTrees::buildTrees");
 
    //** initialize local variables (YY keeps intermediate Y)
    for (jj = 0; jj < nInputs_; jj++) inputScores[jj] = 0.0; 
@@ -840,6 +846,7 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
       
    X1 = new double[leng*nInputs_];
    Y1 = new double[leng];
+   checkAllocate(Y1, "Y1 in SumOfTrees::buildOneTree");
    for (jj = 0; jj < leng; jj++) Y1[jj] = YT[jj] / Ymax;
    mean = sos = 0.0;
    for (jj = 0; jj < leng; jj++) mean += Y1[jj];
@@ -1063,6 +1070,7 @@ double SumOfTrees::setParams(int targc, char **targv)
    {
       double val=0.0;
       inputScores = new double[nInputs_];
+      checkAllocate(inputScores, "inputScores in SumOfTrees::setParams");
       for (ii = 0; ii < nInputs_; ii++) inputScores[ii] = 0.0;
       for (mm = 0; mm < numTrees_; mm++)
       {
@@ -1096,6 +1104,7 @@ double SumOfTrees::setParams(int targc, char **targv)
       else printf("Sum-of-trees ranking is now in matlabsot.m.\n");
 
       iArray = new int[nInputs_];
+      checkAllocate(iArray, "iArray in SumOfTrees::setParams");
       for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
       sortDbleList2a(nInputs_, inputScores, iArray);
       if (targc == 1)

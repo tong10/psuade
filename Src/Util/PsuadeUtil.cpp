@@ -31,6 +31,7 @@ using namespace std;
 #include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PrintingTS.h"
+#include "Globals.h"
 
 // ------------------------------------------------------------------------
 // external functions 
@@ -613,7 +614,7 @@ void sortDbleList4(int length, double *valueList, double *dataList,
 }
 
 // ************************************************************************
-// special sort and delet (very specialized for sparse grid)
+// special sort and delete (very specialized for sparse grid)
 // sort double list with 4 double arrays 
 // ------------------------------------------------------------------------
 int sortAndDelete(int nrows, int ncols, double **ddata)
@@ -622,16 +623,17 @@ int sortAndDelete(int nrows, int ncols, double **ddata)
    double *dsortList;
    
    // range checking by Bill Oliver
-   if(nrows <= 0){ 
-     printf("First parameter to function sortAndDelete is <= 0 in file %s \
-              and must be >0 returning -1", __FILE__);
-     return -1;
+   if (nrows <= 0)
+   { 
+      printf("First parameter to function sortAndDelete is <= 0 in file %s \
+               and must be >0 returning -1", __FILE__);
+      return -1;
    }
-
-   if(ncols <= 0){ 
-     printf("Second parameter to function sortAndDelete is <= 0 in file %s \
-              and must be >0 returning -1", __FILE__);
-     return -1;
+   if(ncols <= 0)
+   { 
+      printf("Second parameter to function sortAndDelete is <= 0 in file %s \
+               and must be >0 returning -1", __FILE__);
+      return -1;
    }
              
    dsortList = (double *) malloc(nrows * sizeof(double));
@@ -639,7 +641,7 @@ int sortAndDelete(int nrows, int ncols, double **ddata)
 
    // Bill Oliver check for out of memory
    if(dsortList == NULL || isortList == NULL){
-     printf("out of memory in file %s line %d aborting\n", __FILE__, __LINE__);
+     printf("out of memory in file %s line %d aborting\n",__FILE__,__LINE__);
      abort();
    }
 
@@ -863,6 +865,60 @@ void StopTimer()
 double getElapsedTime()
 {
    return elapsedTime_;
+}
+
+// ************************************************************************
+// set screen dump mode
+// ------------------------------------------------------------------------
+void setScreenDumpMode(int mode)
+{
+   if (mode == 0) psScreenOutput_ = 0;
+   else           psScreenOutput_ = 1;
+}
+
+// ************************************************************************
+// set screen dump mode
+// ------------------------------------------------------------------------
+void setLibraryMode(int mode)
+{
+   if (mode == 0) psLibMode_ = 0;
+   else           psLibMode_ = 1;
+}
+
+// ************************************************************************
+// set interactive mode
+// ------------------------------------------------------------------------
+void setInteractiveMode(int mode)
+{
+   if (mode == 0) psInteractive_ = 0;
+   else           psInteractive_ = 1;
+}
+
+// ************************************************************************
+// check screen dump mode
+// ------------------------------------------------------------------------
+int isScreenDumpModeOn()
+{
+   if (psScreenOutput_ == 1) return 1;
+   else                      return 0;
+}
+
+// ************************************************************************
+// check library mode
+// ------------------------------------------------------------------------
+int isLibraryModeOn()
+{
+   if (psLibMode_ == 1) return 1;
+   else                 return 0;
+}
+
+// ************************************************************************
+// check interactive mode
+// ------------------------------------------------------------------------
+int isInteractiveModeOn()
+{
+   if (psInteractive_ == 1) return 1;
+   else                     return 0;
 }
 
 // ************************************************************************
@@ -1205,7 +1261,7 @@ int checkMCMCFileFormat(char *fname, int option, int printLevel)
             if (kk <= cnt)
             {
                if (printLevel > 0)
-                  printf("ERROR: wrong design parameter order (should be ascending).\n");
+                 printf("ERROR: wrong design parameter order (ascending?)\n");
                fclose(fp);
                return -1;
             }
@@ -1459,6 +1515,7 @@ void fwriteRSPythonCommon(FILE *fp)
    fprintf(fp,"#==================================================\n");
    fprintf(fp,"def genOutputFile(outFileName, outData):\n");
    fprintf(fp,"   nLeng = len(outData) / 2\n");
+   fprintf(fp,"   nLeng = math.ceil(nLeng)\n");
    fprintf(fp,"   outfile = open(outFileName, 'w')\n");
    fprintf(fp,"   for ind in range(nLeng):\n");
    fprintf(fp,"      outfile.write(\"%%d \" %% (ind+1))\n");

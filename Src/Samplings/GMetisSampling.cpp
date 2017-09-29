@@ -254,9 +254,11 @@ int GMetisSampling::initialize(int initLevel)
          printf("GMetisSampling INFO: a partition file is found but\n");
          printf("      the data is not consistent with this setup\n");
          printf("      (The file name is psuadeGMetisInfo).\n");
-         printf("      nSamples : %d != %d.\n", nSamples_, itmp);
-         printf("      nInputs  : %d != %d.\n", nInputs_, jtmp);
-         printf("NOTE: this file is not to be used.\n");
+         if (itmp != nSamples_)
+            printf("      nSamples : %d != %d.\n", nSamples_, itmp);
+         if (jtmp != nInputs_)
+            printf("      nInputs  : %d != %d.\n", nInputs_, jtmp);
+         printf("NOTE: THIS FILE IS NOT TO BE USED.\n");
       }
       else
       {
@@ -321,7 +323,7 @@ int GMetisSampling::initialize(int initLevel)
          else
          {
             if (nSamples_ < 5) nAggrs_ = nSamples_;
-            else               nAggrs_ = nSamples_ / 2;
+            else               nAggrs_ = nSamples_;
             printf("GMetisSampling INFO: default number of partitions = %d.\n",
                    nAggrs_);
          }
@@ -623,8 +625,8 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
             //        aggrErrs[index]);
             if (refineArray[index] == 0)
             {
-               printf("GMetisSampling: %7d selected for refinement: error = %13.5e\n",
-                      index, aggrErrs[index]);
+               printf("GMetis: %7d selected for refinement: error = %13.5e\n",
+                      index+1, aggrErrs[index]);
 
                cellCnt++;
                refineArray[index] = 1;
@@ -771,6 +773,8 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
 
    for (ss = nAggrs_; ss < currNAggr; ss++)
    {
+      if (printLevel_ > 4)
+         printf("Aggregate %d produces the following sample:\n", ss+1);
       index = (int) (PSUADE_drand() * aggrCnts_[ss]);
       if (index == aggrCnts_[ss]) index--;
       index = aggrLabels_[ss][index];
@@ -783,6 +787,9 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
          dtmp = ((double) (jtmp + 0.999*PSUADE_drand())) / (double) n1d_;
          sampleMatrix_[oldNumSamples][inputID] = dtmp * ranges[inputID] +
                                                  lbounds[inputID];
+         if (printLevel_ > 4)
+            printf("  Input %3d = %16.8e\n", inputID+1, 
+                   sampleMatrix_[oldNumSamples][inputID]);
       }
       oldNumSamples++;
    }

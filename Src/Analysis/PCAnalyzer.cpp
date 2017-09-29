@@ -156,12 +156,14 @@ double PCAnalyzer::analyze(aData &adata)
    }
 
    YY = new double[nSamples*nOutputs];
+   checkAllocate(YY, "YY in PCA::analyze");
    for (jj = 0; jj < nOutputs; jj++)
       for (ss = 0; ss < nSamples; ss++)
          YY[nSamples*jj+ss] = Y[ss*nOutputs+jj];
 
    means  = new double[nOutputs];
    stdevs = new double[nOutputs];
+   checkAllocate(stdevs, "stdevs in PCA::analyze");
    for (jj = 0; jj < nOutputs; jj++)
    {
       means[jj] = 0.0;
@@ -188,6 +190,7 @@ double PCAnalyzer::analyze(aData &adata)
    UU = new double[M*N];
    VV = new double[N*N];
    WW = new double[wlen];
+   checkAllocate(WW, "WW in PCA::analyze");
    dgesvd_(&jobu, &jobvt, &M, &N, YY, &M, SS, UU, &M, VV, &N, WW,
            &wlen, &info);
    if (info != 0)
@@ -302,7 +305,7 @@ double PCAnalyzer::analyze(aData &adata)
       }
    }
 
-   fp = fopen("psPCA.out", "w");
+	   fp = fopen("psPCA.out", "w");
    if (fp == NULL)
    {
       printOutTS(PL_ERROR, 

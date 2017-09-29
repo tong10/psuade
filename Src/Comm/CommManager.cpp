@@ -87,3 +87,114 @@ CommManager::~CommManager()
 #endif
 }
 
+// ************************************************************************
+// get number of processors 
+// ------------------------------------------------------------------------
+int CommManager::getNumProcs()
+{
+   return numProcs_;
+}
+
+// ************************************************************************
+// get processor ID
+// ------------------------------------------------------------------------
+int CommManager::getPID()
+{
+   if (numProcs_ == 1) return 0; 
+   else                return gComm_->getPID();
+}
+
+// ************************************************************************
+// synchronize processors
+// ------------------------------------------------------------------------
+void CommManager::synchronize() 
+{
+   if (numProcs_ != 1) gComm_->synchronize();
+}
+
+// ************************************************************************
+// send data to another processor
+// ------------------------------------------------------------------------
+int CommManager::send(void *msg,int leng,int dtyp,int msgid,int dest)
+{
+   if (gComm_ != NULL) return gComm_->send(msg,leng,dtyp,msgid,dest);
+   else                return -1;
+}
+
+// ************************************************************************
+// receive data from another processor
+// ------------------------------------------------------------------------
+int CommManager::recv(void *msg,int leng,int dtyp,int msgid,int src)
+{
+   if (gComm_ != NULL) return gComm_->recv(msg,leng,dtyp,msgid,src);
+   else                return -1;
+}
+
+// ************************************************************************
+// receive data from another processor
+// ------------------------------------------------------------------------
+int CommManager::iRecv(void *msg,int leng,int dtyp,int msgid,int src)
+{
+   if (gComm_ != NULL) return gComm_->iRecv(msg,leng,dtyp,msgid,src);
+   else                return -1;
+}
+
+// ************************************************************************
+// receive data from another processor
+// ------------------------------------------------------------------------
+inline int  CommManager::disableIrecv(int proc)
+{
+   if (gComm_ != NULL) return gComm_->disableIrecv(proc);
+   else                return -1;
+}
+
+// ************************************************************************
+// probe the source processor
+// ------------------------------------------------------------------------
+int  CommManager::iProbe(int src, int msgID)
+{
+   if (gComm_ != NULL) return gComm_->iProbe(src, msgID);
+   else                return -1;
+}
+
+// ************************************************************************
+// wait for all processors
+// ------------------------------------------------------------------------
+void CommManager::wait(int handler)
+{
+   if (gComm_ != NULL) gComm_->wait(handler);
+}
+
+// ************************************************************************
+// wait for any processors
+// ------------------------------------------------------------------------
+int  CommManager::waitAny()
+{
+   if (gComm_ != NULL) return gComm_->waitAny();
+   else                return -1;
+}
+
+// ************************************************************************
+// broadcast to other processors
+// ------------------------------------------------------------------------
+void CommManager::bcast(void *msg, int leng, int dtyp, int src)
+{
+   if (gComm_ != NULL) gComm_->bcast(msg,leng,dtyp,src);
+}
+
+// ************************************************************************
+// collapse data from all processors
+// ------------------------------------------------------------------------
+void CommManager::allReduce(void *msg, int leng, int dtyp, char op)
+{
+   if (gComm_ != NULL) gComm_->allReduce(msg,leng,dtyp,op);
+}
+
+// ************************************************************************
+// shut down the communicator
+// ------------------------------------------------------------------------
+void CommManager::shutdown() 
+{
+   if (gComm_ != NULL) gComm_->shutdown();
+}
+

@@ -66,6 +66,10 @@ public:
    // fname : configure file name
    void writeToFile(char *fname);
 
+   // add from file
+   // fname : configure file name
+   void addFromFile(char *fname);
+
    // print 
    void print();
 };

@@ -601,7 +601,8 @@ int MOATSampling::repair(char *fname, int start)
    }
    if (fp == NULL)
    {
-      printOutTS(PL_INFO,"MOAT repair: no repair file found.\n");
+      if (fname != NULL)
+         printOutTS(PL_INFO,"MOAT repair: repair file not found.\n");
       return 1;
    }
   

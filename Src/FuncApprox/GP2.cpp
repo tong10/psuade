@@ -103,6 +103,7 @@ int GP2::genNDGridData(double *X, double *Y, int *N, double **X2,
    totPts = (*N);
 
    YY = new double[totPts];
+   checkAllocate(YY, "YY in GP2::initialize");
    if (outputLevel_ >= 1) printf("GP2 interpolation begins....\n");
    gpmcInterp(totPts, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("GP2 interpolation completed.\n");
@@ -134,7 +135,9 @@ int GP2::gen1DGridData(double *X, double *Y, int ind1,
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
 
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in GP2::gen1DGridData");
    (*X2) = new double[totPts];
+   checkAllocate(*X2, "X2 in GP2::gen1DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (kk = 0; kk < nInputs_; kk++) 
@@ -144,6 +147,7 @@ int GP2::gen1DGridData(double *X, double *Y, int ind1,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in GP2::gen1DGridData");
    if (outputLevel_ >= 1) printf("GP2 interpolation begins....\n");
    gpmcInterp(totPts, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("GP2 interpolation completed.\n");
@@ -177,7 +181,9 @@ int GP2::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
 
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in GP2::gen2DGridData");
    (*X2) = new double[2*totPts];
+   checkAllocate(*X2, "X2 in GP2::gen2DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -193,6 +199,7 @@ int GP2::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in GP2::gen2DGridData");
    if (outputLevel_ >= 1) printf("GP2 interpolation begins....\n");
    gpmcInterp(totPts, *X2, YY, NULL);
    if (outputLevel_ >= 1) printf("GP2 interpolation completed.\n");
@@ -228,7 +235,9 @@ int GP2::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
 
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in GP2::gen3DGridData");
    (*X2) = new double[3*totPts];
+   checkAllocate(*X2, "X2 in GP2::gen3DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -286,7 +295,9 @@ int GP2::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
 
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in GP2::gen4DGridData");
    (*X2) = new double[4*totPts];
+   checkAllocate(*X2, "X2 in GP2::gen4DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -313,6 +324,7 @@ int GP2::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    }
     
    YY = new double[totPts];
+   checkAllocate(YY, "YY in GP2::gen4DGridData");
    if (outputLevel_ >= 1) printf("GP2 interpolation begins....\n");
    gpmcInterp(totPts, *X2, YY, NULL);
    if (outputLevel_ >= 1) printf("GP2 interpolation completed.\n");

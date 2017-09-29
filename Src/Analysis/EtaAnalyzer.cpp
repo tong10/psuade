@@ -117,6 +117,8 @@ double EtaAnalyzer::analyze(aData &adata)
       return PSUADE_UNDEFINED;
    }
    rangesInv2 = new double[nInputs];
+   checkAllocate(rangesInv2, "rangesInv2 in etaTest::analyze");
+
    for (ii = 0; ii < nInputs; ii++) 
    {
       if ((iUpperB[ii] - iLowerB[ii]) > 0)
@@ -159,6 +161,7 @@ double EtaAnalyzer::analyze(aData &adata)
 
    inputBins = new int[nInputs];
    minDistMap = new double**[nSamples];
+   checkAllocate(minDistMap, "minDistMap in etaTest::analyze");
    for (ii = 0; ii < nSamples; ii++)
    {
       minDistMap[ii] = new double*[nInputs];
@@ -185,10 +188,11 @@ double EtaAnalyzer::analyze(aData &adata)
    dRanks_ = new double[nInputs_];
    means = new double[nInputs];
    indices = new int[nNeighs];
-   dOrder = new double[nInputs];
-   dOrder_ = new double[nInputs_];
    inputViolations = new int[nInputs];
    inputViolations_ = new int[nInputs_];
+   dOrder = new double[nInputs];
+   dOrder_ = new double[nInputs_];
+   checkAllocate(dOrder_, "dOrder in etaTest::analyze");
 
    srand(time(NULL));  
    for (ii = 0; ii < nInputs; ii++)
@@ -334,9 +338,9 @@ double EtaAnalyzer::analyze(aData &adata)
    //save results
    for (ii = 0; ii < nInputs_; ii++)
    {
-	   dOrder_[ii] = dOrder[ii];
-	   dRanks_[ii] = dRanks[ii];
-	   inputViolations_[ii] = inputViolations[ii];
+      dOrder_[ii] = dOrder[ii];
+      dRanks_[ii] = dRanks[ii];
+      inputViolations_[ii] = inputViolations[ii];
    }
    if (psAnaExpertMode_ == 1)
    {
@@ -671,6 +675,7 @@ double *EtaAnalyzer::get_dOrder()
    if (dOrder_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in etaTest::get_dOrder");
       std::copy(dOrder_, dOrder_+nInputs_+1, retVal);
    }
    return retVal;
@@ -681,6 +686,7 @@ double *EtaAnalyzer::get_dRanks()
    if (dRanks_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in etaTest::get_dRanks");
       std::copy(dRanks_, dRanks_+nInputs_+1, retVal);
    }
    return retVal;
@@ -691,6 +697,7 @@ double *EtaAnalyzer::get_inputViolations()
    if (inputViolations_)
    {
       retVal = new double[nInputs_];
+      checkAllocate(retVal, "retVal in etaTest::get_inputViolations");
       std::copy(inputViolations_, inputViolations_+nInputs_+1, retVal);
    }
    return retVal;

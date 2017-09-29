@@ -59,6 +59,12 @@ extern "C"
                       double*,double*,double*,long*);
    void   plot3d_(long*,double*,long*);
    void   plotend_();
+   void   Plotbegin(double,double,double,double);
+   void   PlotSamples2D(long,double*,double*,long*);
+   void   PlotScatter2D(long,double*,double*);
+   void   PlotScatterM2D(long,double*,double*,double*);
+   void   Plot3d(long,double*,double*,double*);
+   void   Plotend();
    
 #ifdef CYGWIN
 int     cygwin_System(char *s);
@@ -136,13 +142,12 @@ int     gettimeofday(struct timeval *,struct timezone *);
    void   printDashes(int, int);
    void   printEquals(int, int);
    void   checkAllocate(void *, const char *);
-
-   void   Plotbegin(double,double,double,double);
-   void   PlotSamples2D(long,double*,double*,long*);
-   void   PlotScatter2D(long,double*,double*);
-   void   PlotScatterM2D(long,double*,double*,double*);
-   void   Plot3d(long,double*,double*,double*);
-   void   Plotend();
+   void   setScreenDumpMode(int);
+   int    isScreenDumpModeOn();
+   void   setLibraryMode(int);
+   int    isLibraryModeOn();
+   void   setInteractiveMode(int);
+   int    isInteractiveModeOn();
 
    void   generateRandomIvector(int, int *);
    int    checkPrime( int );
@@ -163,6 +168,7 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    getInt(int, int, char *);
    double getDouble(char *);
    int    getString(char *, char *);
+
    int    genMatlabPlotFile(int,double *,double *,int, double *, 
                             char **,char *,int);
 

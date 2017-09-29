@@ -163,10 +163,14 @@ int LHSampling::initialize(int initLevel)
    else if (nSamples_ > 1000)  ntimes = 10;
    else                        ntimes = 50;
    
-   if (psSamExpertMode_ == 1 && printLevel_ > 0)
+   if (psSamExpertMode_ == 1 && isScreenDumpModeOn() == 1)
    {
+      printf("LHSampling uses repeated generation and checking to\n");
+      printf("  find the sub-optimal sample (using maxi-min, that is,\n");
+      printf("  select the sample with the largest minimum distance\n");
+      printf("  between sample points.\n");
       sprintf(pString,
-          "LHSampling: number of times to search for maxi-min (1-100): \n");
+       "LHSampling: number of times to search for maxi-min (1-1000): \n");
       ntimes = getInt(1, 1000, pString);
    }
 

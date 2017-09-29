@@ -47,6 +47,8 @@
 #include "LincoaOptimizer.h"
 #include "NewuoaOptimizer.h"
 #include "LBFGSOptimizer.h"
+#include "NomadOptimizer.h"
+#include "OUUMinlpOptimizer.h"
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
@@ -55,6 +57,9 @@
 // ------------------------------------------------------------------------
 Optimizer::Optimizer()
 {
+   optimalX_ = NULL;
+   optimalY_ = 1e35;
+   numEvals_ = 0;
 }
 
 // ************************************************************************
@@ -62,6 +67,15 @@ Optimizer::Optimizer()
 // ------------------------------------------------------------------------
 Optimizer::~Optimizer()
 {
+   if (optimalX_ != NULL) delete [] optimalX_;
+}
+
+// ************************************************************************
+// set objective function
+// ------------------------------------------------------------------------
+void Optimizer::setObjectiveFunction(void (*func)(int,double*,int,double*))
+{
+   objFunction_ = func;
 }
 
 // ************************************************************************
@@ -79,6 +93,30 @@ void Optimizer::optimize(oData *odata)
 void Optimizer::setParam(char *)
 {
    return;
+}
+
+// ************************************************************************
+// get optimal X 
+// ------------------------------------------------------------------------
+double *Optimizer::getOptimalX()
+{
+   return optimalX_;
+}
+
+// ************************************************************************
+// get optimal Y 
+// ------------------------------------------------------------------------
+double Optimizer::getOptimalY()
+{
+   return optimalY_;
+}
+
+// ************************************************************************
+// get number of function evaluations 
+// ------------------------------------------------------------------------
+int Optimizer::getNumFuncEvals()
+{
+   return numEvals_;
 }
 
 // ************************************************************************
@@ -121,6 +159,8 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
    LincoaOptimizer   *LincoaPtr;
    NewuoaOptimizer   *NewuoaPtr;
    LBFGSOptimizer    *lbfgsPtr;
+   NomadOptimizer    *nomadPtr;
+   OUUMinlpOptimizer *minlpPtr;
    oData             odata;
 
    psuadeIO->getParameter("input_ninputs", pPtr);
@@ -214,7 +254,8 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
          tempOutputs[ss] = sampleOutputs[ss*nOutputs+optID];
          dbleInd[ss] = (double) ss;
       }
-      sortDbleList2(nSamples, tempOutputs, dbleInd);
+      if (nSamples > optimizeNumPts)
+         sortDbleList2(nSamples, tempOutputs, dbleInd);
 
       optNewCnt = optimalCount - optimizeNumPts;
       ind1 = 0;
@@ -1184,15 +1225,19 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
              totalEval);
    }
  
-   else if ((optimizeFlag == 1) && 
-            ((optMethod == 11) || (optMethod == 16) || (optMethod == 18)))
+   else if ((optimizeFlag == 1) && ((optMethod == 11) || 
+            (optMethod == 16) || (optMethod == 17) || 
+            (optMethod == 18) || (optMethod == 20)))
    {
       numYmin = 0;
       istart = optimalCount - optimizeNumPts;
       if (istart < 0) istart = 0;
       OUUPtr = new OUUOptimizer();
+      if (optMethod == 11) OUUPtr->setLocalOptimizer(0);
       if (optMethod == 16) OUUPtr->setLocalOptimizer(1);
+      if (optMethod == 17) OUUPtr->setLocalOptimizer(0);
       if (optMethod == 18) OUUPtr->setLocalOptimizer(2);
+      if (optMethod == 20) OUUPtr->setLocalOptimizer(3);
       odata.optimalY_ = 1e35;
       totalEval = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
@@ -1506,6 +1551,198 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
              totalEval);
    }
 
+   else if ((optimizeFlag == 1) && (optMethod == 21))
+   {
+      numYmin = 0;
+      istart = optimalCount - optimizeNumPts;
+      if (istart < 0) istart = 0;
+      nomadPtr = new NomadOptimizer();
+      odata.optimalY_ = 1e35;
+      totalEval = 0;
+      for (ind1 = istart; ind1 < optimalCount; ind1++)
+      {
+         printAsterisks(PL_INFO, 0);
+         printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
+
+         if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
+         {
+            printf("skip optimization (%16.8e > %16.8e) : \n", 
+                   optInitYData[ind1], optCutOff);
+         }
+         else
+         {
+            for (ii = 0; ii < nInputs; ii++)
+            {
+               ss = (int) optInitXData[ind1*nInputs+ii];
+               if (optInitXData[ind1*nInputs+ii] - ss == 0)
+                  printf("\t starting X(%6d) = %d\n",ii+1,ss);
+               else
+                  printf("\t starting X(%6d) = %16.8e\n",ii+1,
+                         optInitXData[ind1*nInputs+ii]);
+            }
+            printf("\t starting Y = %16.8e\n",optInitYData[ind1]);
+
+            odata.initialX_ = &(optInitXData[ind1*nInputs]); 
+            funcIO->setSynchronousMode();
+            odata.funcIO_ = funcIO;
+            odata.nInputs_ = nInputs;
+            odata.nOutputs_ = nOutputs;
+            odata.outputID_ = optID;
+            odata.lowerBounds_ = iLowerB;
+            odata.upperBounds_ = iUpperB;
+            odata.outputLevel_ = optPrintLevel;
+            odata.tolerance_   = optTol;
+            odata.optimalX_ = new double[nInputs];
+            odata.numFuncEvals_ = 0;
+            if      (optimalCount-istart == 1) odata.setOptDriver_ = 3;
+            else if (ind1 == istart)           odata.setOptDriver_ = 1;
+            else if (ind1 == optimalCount-1)   odata.setOptDriver_ = 2;
+            else                               odata.setOptDriver_ = 0;
+            nomadPtr->optimize(&odata);
+            printf("\t Nomad number of function evaluations = %d\n",
+                   odata.numFuncEvals_);
+            totalEval += odata.numFuncEvals_;
+            if (odata.optimalY_ != 1.0e50)
+            {
+               for (ii = 0; ii < nInputs; ii++)
+               {
+                  optimalXData[ind1*nInputs+ii] = odata.optimalX_[ii];
+                  ss = (int) optimalXData[ind1*nInputs+ii];
+                  if (optimalXData[ind1*nInputs+ii] - ss == 0)
+                     printf("\t optimum  X(%6d) = %d\n", ii+1, ss);
+                  else
+                     printf("\t optimum  X(%6d) = %16.8e\n", ii+1,
+                         odata.optimalX_[ii]);
+               }
+               optimalYData[ind1] = odata.optimalY_;
+               printf("\t\t\t optimum Y = %16.8e\n", odata.optimalY_);
+            }
+            else
+            {
+               printf("** PSUADE NOMAD INFO: no feasible solution found.\n");
+            }
+            delete [] odata.optimalX_;
+            odata.optimalX_ = NULL;
+            odata.initialX_ = NULL;
+            odata.lowerBounds_ = NULL;
+            odata.upperBounds_ = NULL;
+            odata.funcIO_ = NULL;
+            if (optimalYData[ind1] <= optFmin) numYmin++;
+         }
+         printAsterisks(PL_INFO, 0);
+      }
+      delete nomadPtr;
+      for (ind1 = 0; ind1 < optimalCount; ind1++)
+      {
+         if (optFmin != 0.0) 
+         {
+            if (optimalYData[ind1] <= optFmin) returnFlag++;
+         }
+         else
+         {
+            if (PABS(optimalYData[ind1]) <= 1.0e-6) returnFlag++;
+         }
+      }
+      printf("\t Nomad total number of function evaluations = %d\n",
+             totalEval);
+   }
+
+   else if ((optimizeFlag == 1) && (optMethod == 22))
+   {
+      numYmin = 0;
+      istart = optimalCount - optimizeNumPts;
+      if (istart < 0) istart = 0;
+      minlpPtr = new OUUMinlpOptimizer();
+      odata.optimalY_ = 1e35;
+      totalEval = 0;
+      for (ind1 = istart; ind1 < optimalCount; ind1++)
+      {
+         printAsterisks(PL_INFO, 0);
+         printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
+
+         if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
+         {
+            printf("skip optimization (%16.8e > %16.8e) : \n", 
+                   optInitYData[ind1], optCutOff);
+         }
+         else
+         {
+            for (ii = 0; ii < nInputs; ii++)
+            {
+               ss = (int) optInitXData[ind1*nInputs+ii];
+               if (optInitXData[ind1*nInputs+ii] - ss == 0)
+                  printf("\t starting X(%6d) = %d\n",ii+1,ss);
+               else
+                  printf("\t starting X(%6d) = %16.8e\n",ii+1,
+                         optInitXData[ind1*nInputs+ii]);
+            }
+            printf("\t starting Y = %16.8e\n",optInitYData[ind1]);
+
+            odata.initialX_ = &(optInitXData[ind1*nInputs]); 
+            funcIO->setSynchronousMode();
+            odata.funcIO_ = funcIO;
+            odata.nInputs_ = nInputs;
+            odata.nOutputs_ = nOutputs;
+            odata.outputID_ = optID;
+            odata.lowerBounds_ = iLowerB;
+            odata.upperBounds_ = iUpperB;
+            odata.outputLevel_ = optPrintLevel;
+            odata.tolerance_   = optTol;
+            odata.optimalX_ = new double[nInputs];
+            odata.numFuncEvals_ = 0;
+            if      (optimalCount-istart == 1) odata.setOptDriver_ = 3;
+            else if (ind1 == istart)           odata.setOptDriver_ = 1;
+            else if (ind1 == optimalCount-1)   odata.setOptDriver_ = 2;
+            else                               odata.setOptDriver_ = 0;
+            minlpPtr->optimize(&odata);
+            printf("\t OUU/MINLP number of function evaluations = %d\n",
+                   odata.numFuncEvals_);
+            totalEval += odata.numFuncEvals_;
+            if (odata.optimalY_ != 1.0e50)
+            {
+               for (ii = 0; ii < nInputs; ii++)
+               {
+                  optimalXData[ind1*nInputs+ii] = odata.optimalX_[ii];
+                  ss = (int) optimalXData[ind1*nInputs+ii];
+                  if (optimalXData[ind1*nInputs+ii] - ss == 0)
+                     printf("\t optimum  X(%6d) = %d\n", ii+1, ss);
+                  else
+                     printf("\t optimum  X(%6d) = %16.8e\n", ii+1,
+                         odata.optimalX_[ii]);
+               }
+               optimalYData[ind1] = odata.optimalY_;
+               printf("\t\t\t optimum Y = %16.8e\n", odata.optimalY_);
+            }
+            else
+            {
+               printf("** PSUADE NOMAD INFO: no feasible solution found.\n");
+            }
+            delete [] odata.optimalX_;
+            odata.optimalX_ = NULL;
+            odata.initialX_ = NULL;
+            odata.lowerBounds_ = NULL;
+            odata.upperBounds_ = NULL;
+            odata.funcIO_ = NULL;
+            if (optimalYData[ind1] <= optFmin) numYmin++;
+         }
+         printAsterisks(PL_INFO, 0);
+      }
+      delete minlpPtr;
+      for (ind1 = 0; ind1 < optimalCount; ind1++)
+      {
+         if (optFmin != 0.0) 
+         {
+            if (optimalYData[ind1] <= optFmin) returnFlag++;
+         }
+         else
+         {
+            if (PABS(optimalYData[ind1]) <= 1.0e-6) returnFlag++;
+         }
+      }
+      printf("\t OUU/MINLP total number of function evaluations = %d\n",
+             totalEval);
+   }
+
    optCount[0] = optimalCount;
    int nTrack=0, nn, count;
    int *trackIndices = new int[optNumFmin];
@@ -1525,8 +1762,14 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             ind2 = M1;
             if (ind2 < 0) ind2 = nInputs;
             for (ii = 0; ii < ind2; ii++)
-               printf("\t\tX %5d = %16.8e\n", ii+1,
+            {
+               ss = (int) optimalXData[ind1*nInputs+ii];
+               if (optimalXData[ind1*nInputs+ii] - ss == 0)
+                  printf("\t\tX %5d = %d\n", ii+1,ss);
+               else 
+                  printf("\t\tX %5d = %16.8e\n", ii+1,
                       optimalXData[ind1*nInputs+ii]);
+            }
             printf("\t\t\tYmin = %16.8e\n",optimalYData[ind1]);
             if (nTrack < optNumFmin) 
             {
@@ -1590,7 +1833,14 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             if (M1 < 0) M1 = nInputs;
             ind2 = trackIndices[nn];
             for (ii = 0; ii < M1; ii++)
-               printf("\t\tX %5d = %16.8e\n",ii+1,optimalXData[ind2*nInputs+ii]);
+            {
+               ind1 = (int) optimalXData[ind2*nInputs+ii];
+               if (optimalXData[ind2*nInputs+ii] - ind1 == 0)
+                  printf("\t\tX %5d = %d\n",ii+1,ind1);
+               else
+                  printf("\t\tX %5d = %16.8e\n",ii+1,
+                         optimalXData[ind2*nInputs+ii]);
+            }
             printf("\t\t\tYmin = %16.8e\n",optimalYData[ind2]);
             if (nn < nTrack-1)
                printf("--------------------------------------------------\n");

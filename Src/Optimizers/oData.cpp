@@ -37,7 +37,7 @@ oData::oData()
    nOutputs_ = 0;
    numFuncEvals_ = 0;
    maxParallelJobs_ = 0;
-   setOptDriver_ = 0;
+   setOptDriver_ = -1;
    initialX_ = NULL;
    lowerBounds_ = NULL;
    upperBounds_ = NULL;
@@ -45,6 +45,7 @@ oData::oData()
    funcIO_ = NULL;
    psIO_ = NULL;
    intData_ = -1;
+   optFunction_ = NULL;
 }
 
 // ************************************************************************

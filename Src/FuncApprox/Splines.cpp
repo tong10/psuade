@@ -104,6 +104,7 @@ int Splines::genNDGridData(double *XIn, double *YIn, int *, double **,
          if (XIn[ii] <= XIn[ii-1])
          {
             printf("Splines initialize ERROR: sample not factorial (1).\n");
+            printf("        Suggestion: re-order the inputs first.\n");
             exit(1);
          }
       }
@@ -121,6 +122,8 @@ int Splines::genNDGridData(double *XIn, double *YIn, int *, double **,
       if (n1_ * n2_ != nSamples_)
       {
          printf("Splines initialize ERROR: sample not factorial (2a).\n");
+         printf("   Note: factorial should be laid out in order ");
+         printf("beginning with input 1.\n");
          exit(1);
       }
       n3_ = 1;
@@ -172,6 +175,7 @@ int Splines::genNDGridData(double *XIn, double *YIn, int *, double **,
       dinput1 = new double[nSamples_];
       dinput2 = new double[nSamples_];
       dinput3 = new double[nSamples_];
+      checkAllocate(dinput3, "dinput3 in Splines::genNDGridData");
       for (ii = 0; ii < nSamples_; ii++) dinput1[ii] = XIn[3*ii];
       for (ii = 0; ii < nSamples_; ii++) dinput2[ii] = XIn[3*ii+1];
       for (ii = 0; ii < nSamples_; ii++) dinput3[ii] = XIn[3*ii+2];
@@ -188,6 +192,8 @@ int Splines::genNDGridData(double *XIn, double *YIn, int *, double **,
       if (n1_ * n2_ * n3_ != nSamples_)
       {
          printf("Splines initialize ERROR: sample not factorial (3a).\n");
+         printf("   Note: factorial should be laid out in order ");
+         printf("beginning with input 1.\n");
          exit(1);
       }
       for (ii = 1; ii < n1_; ii++)
@@ -266,6 +272,7 @@ int Splines::genNDGridData(double *XIn, double *YIn, int *, double **,
    if (samIns_ != NULL) delete [] samIns_;
    if (samOut_ != NULL) delete [] samOut_;
    samIns_ = new double[n1_+n2_+n3_];
+   checkAllocate(samIns_, "samIns in Splines::genNDGridData");
    int ii;
    for (ii = 0; ii < n1_; ii++) samIns_[ii] = XIn[ii*nInputs_];
    if (nInputs_ >= 2)
@@ -279,6 +286,7 @@ int Splines::genNDGridData(double *XIn, double *YIn, int *, double **,
          samIns_[n1_+n2_+ii] = XIn[nInputs_*ii*n1_*n2_+2];
    }
    samOut_ = new double[nSamples_];
+   checkAllocate(samOut_, "samOut in Splines::genNDGridData");
    for (ii = 0; ii < nSamples_; ii++) samOut_[ii] = YIn[ii];
    return 0;
 }
@@ -308,6 +316,7 @@ int Splines::gen1DGridData(double *XIn,double *YIn,int ind1,double *setting,
    X2 = new double[nPtsPerDim_];
    X3 = new double[nPtsPerDim_];
    YY = new double[nPtsPerDim_];
+   checkAllocate(YY, "YY in Splines::gen1DGridData");
    if (ind1 == 0)
    {
       for (ii = 0; ii < nPtsPerDim_; ii++)
@@ -420,6 +429,7 @@ int Splines::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
    X1 = new double[totPts];
    X2 = new double[totPts];
    X3 = new double[totPts];
+   checkAllocate(X3, "X3 in Splines::gen2DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++)
@@ -445,6 +455,7 @@ int Splines::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
    }
 
    YY = new double[totPts];
+   checkAllocate(YY, "YY in Splines::gen2DGridData");
    if (nInputs_ == 2)
    {
       spline2d(n1_, n2_, samIns_, &samIns_[n1_],YIn,totPts,X1,X2,YY); 
@@ -456,6 +467,7 @@ int Splines::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
    }
 
    XX = new double[2*totPts];
+   checkAllocate(XX, "XX in Splines::gen2DGridData");
    (*XOut) = XX;
    (*YOut) = YY;
    (*NOut) = totPts;
@@ -528,6 +540,7 @@ int Splines::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2,
    X1 = new double[totPts];
    X2 = new double[totPts];
    X3 = new double[totPts];
+   checkAllocate(X3, "X3 in Splines::gen3DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++)
@@ -563,10 +576,12 @@ int Splines::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2,
    }
 
    YY = new double[totPts];
+   checkAllocate(YY, "YY in Splines::gen3DGridData");
    spline3d(n1_,n2_,n3_,samIns_,&samIns_[n1_],&samIns_[n1_+n2_],YIn,totPts,
             X1,X2,X3,YY); 
 
    XX = new double[3*totPts];
+   checkAllocate(XX, "XX in Splines::gen3DGridData");
    (*XOut) = XX;
    (*YOut) = YY;
    (*NOut) = totPts;

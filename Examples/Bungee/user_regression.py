@@ -17,6 +17,7 @@ for ii in range(nSamp):
    X2 = eval(ncols[2])
    X3 = eval(ncols[3])
    outfile.write("%d " % (ii+1))
+   outfile.write("1 ")
    outfile.write("%e " % X1)
    outfile.write("%e " % X2)
    outfile.write("%e " % X3)

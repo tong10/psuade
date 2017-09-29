@@ -207,7 +207,7 @@ extern "C"
             for (jj = 0; jj < nInputs; jj++)
                psMMcSaveX_[psMMcNSaved_*nInputs+jj] = XValues[jj];
             for (jj = 0; jj < nOutputs; jj++)
-               psMMcSaveY_[psMMcNSaved_] = (*YValue);
+               psMMcSaveY_[psMMcNSaved_*nOutputs+jj] = localY[jj];
             psMMcNSaved_++;
          }
       }

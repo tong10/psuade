@@ -120,6 +120,7 @@ int TGP::genNDGridData(double *X, double *Y, int *N, double **X2,
    BTE[1] = bte1;
    BTE[2] = 2;
    dparams = new double[(nInputs_+1)*(nInputs_+1)+nInputs_+45];
+   checkAllocate(dparams, "dparams in TGP::genNDGridData");
    dparams[0] = 0.5;  // tree prior alpha
    dparams[1] = 2.0;  // tree prior beta
    dparams[2] = 10.0; // tree prior minpart
@@ -187,6 +188,7 @@ int TGP::genNDGridData(double *X, double *Y, int *N, double **X2,
                   (double) (nPtsPerDim_ - 1); 
       XX = new double[totPts*nInputs_];
       Xloc = new double[nInputs_];
+      checkAllocate(Xloc, "Xloc in TGP::genNDGridData");
       for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
  
       for (ss = 0; ss < totPts; ss++)
@@ -328,6 +330,7 @@ int TGP::gen1DGridData(double *X, double *Y, int ind1,
    BTE[1] = bte1;
    BTE[2] = 2;
    dparams = new double[(nInputs_+1)*(nInputs_+1)+nInputs_+45];
+   checkAllocate(dparams, "dparams in TGP::genNDGridData");
    dparams[0] = 0.5;  // tree prior alpha
    dparams[1] = 2.0;  // tree prior beta
    dparams[2] = 10.0; // tree prior minpart
@@ -391,6 +394,7 @@ int TGP::gen1DGridData(double *X, double *Y, int ind1,
 
    (*X2) = new double[totPts];
    XX = new double[totPts*nInputs_];
+   checkAllocate(XX, "XX in TGP::gen1DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (kk = 0; kk < nInputs_; kk++) 
@@ -506,6 +510,7 @@ int TGP::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    BTE[1] = bte1;
    BTE[2] = 2;
    dparams = new double[(nInputs_+1)*(nInputs_+1)+nInputs_+45];
+   checkAllocate(dparams, "dparams in TGP::gen2DGridData");
    dparams[0] = 0.5;  // tree prior alpha
    dparams[1] = 2.0;  // tree prior beta
    dparams[2] = 10.0; // tree prior minpart
@@ -571,6 +576,7 @@ int TGP::gen2DGridData(double *X, double *Y, int ind1, int ind2,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[2*totPts];
+   checkAllocate(*X2, "X2 in TGP::gen2DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -693,6 +699,7 @@ int TGP::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    BTE[1] = bte1;
    BTE[2] = 2;
    dparams = new double[(nInputs_+1)*(nInputs_+1)+nInputs_+45];
+   checkAllocate(dparams, "dparams in TGP::gen3DGridData");
    dparams[0] = 0.5;  // tree prior alpha
    dparams[1] = 2.0;  // tree prior beta
    dparams[2] = 10.0; // tree prior minpart
@@ -759,6 +766,7 @@ int TGP::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[3*totPts];
+   checkAllocate(*X2, "X2 in TGP::gen3DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -887,6 +895,7 @@ int TGP::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    BTE[1] = bte1;
    BTE[2] = 2;
    dparams = new double[(nInputs_+1)*(nInputs_+1)+nInputs_+45];
+   checkAllocate(dparams, "dparams in TGP::gen4DGridData");
    dparams[0] = 0.5;  // tree prior alpha
    dparams[1] = 2.0;  // tree prior beta
    dparams[2] = 10.0; // tree prior minpart
@@ -954,6 +963,7 @@ int TGP::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
 
    XX = new double[totPts*nInputs_];
    (*X2) = new double[4*totPts];
+   checkAllocate(*X2, "X2 in TGP::gen4DGridData");
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
       for (jj = 0; jj < nPtsPerDim_; jj++) 
@@ -1108,6 +1118,7 @@ double TGP::evaluatePoint(int npts, double *X, double *Y)
    if (nChunks == 0) nChunks = 1;
    XX = new double[nSamples_*nInputs_];
    YY = new double[nSamples_];
+   checkAllocate(YY, "YY in TGP::evaluatePoint");
    
    for (ii = 0; ii < nChunks; ii++)
    {
@@ -1222,6 +1233,7 @@ double TGP::evaluatePointFuzzy(int npts,double *X, double *Y, double *Ystd)
    XX = new double[nSamples_*nInputs_];
    YY = new double[nSamples_];
    YS = new double[nSamples_];
+   checkAllocate(YS, "YS in TGP::evaluatePointFuzzy");
    
    for (ii = 0; ii < nChunks; ii++)
    {

@@ -50,6 +50,7 @@ double  *psLincoaAmat_=NULL;
 double  *psLincoaBvec_=NULL;
 int     psLCurrDriver_=-1;
 int     psLincoaSaveHistory_=0;
+char    psLincoaConstraintFile_[1000]="NONE";
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
 // ************************************************************************
@@ -91,7 +92,15 @@ extern "C"
       funcID = odata->numFuncEvals_;
       if (found == 0)
       {
-         odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         if (odata->optFunction_ != NULL)
+            odata->optFunction_(nInputs, XValues, nOutputs, localY);
+         else if (odata->funcIO_ != NULL)
+            odata->funcIO_->evaluate(funcID,nInputs,XValues,nOutputs,localY,0);
+         else
+         {
+            printf("LincoaOptimizer ERROR: no function evaluator.\n");
+            exit(1);
+         }
          if (odata->outputLevel_ > 4)
          {
             printf("LincoaOptimizer %6d : \n", odata->numFuncEvals_);
@@ -164,51 +173,54 @@ extern "C"
 // ------------------------------------------------------------------------
 LincoaOptimizer::LincoaOptimizer()
 {
-   printAsterisks(PL_INFO, 0);
-   printf("*    LINCOA Optimizer Usage Information\n");
-   printEquals(PL_INFO, 0);
-   printf("* LINCOA is an optimization software developed by Professor\n");
-   printf("* Michael Powell to solve linearly constrained optimization\n");
-   printf("* without derrivatives suitable for problems with hundreds\n");
-   printf("* of variables. The formulation of the problem is as follow:\n");
-   printf("\n*                min_X F(X)\n");
-   printf("*\n");
-   printf("*            subject to A(:,j) X < b(j) for j = 1, 2, ... m\n");
-   printf("* where m is the number of constraints.\n"); 
-   printf("*\n");
-   printf("* To run this optimizer, do the following: \n");
-   printf("* (1) Prepare a PSUADE input file with all variable defined.\n");
-   printf("* (2) In the PSUADE input file, make sure opt_driver has been\n");
-   printf("*     initialized to point your optimization objective function\n");
-   printf("*      evaluator\n");
-   printf("* (3) Set optimization tolerance in PSUADE input file\n");
-   printf("* (4) Set maximum number of iterations in PSUADE input file\n");
-   printf("* (5) Set optimization print_level to give additonal outputs\n");
-   printf("* (6) In Opt EXPERT mode, the optimization history log will be\n");
-   printf("*     turned on automatically. Previous psuade_lincoa_history\n");
-   printf("*     file will also be reused to save evaluations.\n");
-   printf("* (7) If your opt_driver is a response surface which has more\n");
-   printf("*     input than the number of optimization inputs, you can fix\n");
-   printf("*     some driver inputs by creating a (analyzer) rs_index_file.\n");
-   printf("* (8) You also need to specific the linear constraints by\n");
-   printf("*     creating a file called psuade_lincoa_constaints in your\n");
-   printf("*     current directory having the following format:\n");
-   printf("*     (If no such file exists, PSUADE treats it as if there is\n");
-   printf("*      no constraint).\n");
-   printf("*\n");
-   printf("\tPSUADE_BEGIN\n");
-   printf("\t<c> <m>         /* c in number of constraints, m - nInputs */\n");
-   printf("\t1  <m+1 values> /* constraint 1: m for A(:,1), 1 for b(1) */\n");
-   printf("\t2  <m+1 values> /* constraint 2: m for A(:,2), 1 for b(2) */\n");
-   printf("\t...\n");
-   printf("\tPSUADE_END\n\n");
-   printf("where each line corresponds to one constraint.\n");
-   printEquals(PL_INFO, 0);
-   printf("To reuse the simulations (e.g. restart from abrupt termination),\n");
-   printf("turn on save_history and use_history optimization options in the\n");
-   printf("ANALYSIS section (e.g. optimization save_history). You will see\n");
-   printf("a file created called 'psuade_lincoa_history' afterward.\n");
-   printAsterisks(PL_INFO, 0);
+  if (isScreenDumpModeOn())
+  {
+    printAsterisks(PL_INFO, 0);
+    printf("*    LINCOA Optimizer Usage Information\n");
+    printEquals(PL_INFO, 0);
+    printf("* LINCOA is an optimization software developed by Professor\n");
+    printf("* Michael Powell to solve linearly constrained optimization\n");
+    printf("* without derrivatives suitable for problems with hundreds\n");
+    printf("* of variables. The formulation of the problem is as follow:\n");
+    printf("\n*                min_X F(X)\n");
+    printf("*\n");
+    printf("*            subject to A(:,j) X < b(j) for j = 1, 2, ... m\n");
+    printf("* where m is the number of constraints.\n"); 
+    printf("*\n");
+    printf("* To run this optimizer, do the following: \n");
+    printf("* (1) Prepare a PSUADE input file with all variable defined.\n");
+    printf("* (2) In the PSUADE input file, make sure opt_driver has been\n");
+    printf("*     initialized to point your optimization objective function\n");
+    printf("*      evaluator\n");
+    printf("* (3) Set optimization tolerance in PSUADE input file\n");
+    printf("* (4) Set maximum number of iterations in PSUADE input file\n");
+    printf("* (5) Set optimization print_level to give additonal outputs\n");
+    printf("* (6) In Opt EXPERT mode, the optimization history log will be\n");
+    printf("*     turned on automatically. Previous psuade_lincoa_history\n");
+    printf("*     file will also be reused to save evaluations.\n");
+    printf("* (7) If your opt_driver is a response surface which has more\n");
+    printf("*     input than the number of optimization inputs, you can fix\n");
+    printf("*     some driver inputs by using a rs_index_file (ANALYSIS).\n");
+    printf("* (8) You also need to specific the linear constraints by\n");
+    printf("*     creating a file called psuade_lincoa_constaints in your\n");
+    printf("*     current directory having the following format:\n");
+    printf("*     (If no such file exists, PSUADE treats it as if there is\n");
+    printf("*      no constraint).\n");
+    printf("*\n");
+    printf("\tPSUADE_BEGIN\n");
+    printf("\t<c> <m>         /* c in number of constraints, m - nInputs */\n");
+    printf("\t1  <m+1 values> /* constraint 1: m for A(:,1), 1 for b(1) */\n");
+    printf("\t2  <m+1 values> /* constraint 2: m for A(:,2), 1 for b(2) */\n");
+    printf("\t...\n");
+    printf("\tPSUADE_END\n\n");
+    printf("where each line corresponds to one constraint.\n");
+    printEquals(PL_INFO, 0);
+    printf("To reuse the results (e.g. restart from abrupt termination),\n");
+    printf("turn on save_history and use_history optimization options in\n");
+    printf("the ANALYSIS section (e.g. optimization save_history). You will\n");
+    printf("see a file created called 'psuade_lincoa_history' afterward.\n");
+    printAsterisks(PL_INFO, 0);
+  }
 }
 
 // ************************************************************************
@@ -219,6 +231,55 @@ LincoaOptimizer::~LincoaOptimizer()
 }
 
 // ************************************************************************
+// set objective function
+// ------------------------------------------------------------------------
+void LincoaOptimizer::setConstraintFile(char *fname)
+{
+   strcpy(psLincoaConstraintFile_, fname);
+}
+
+// ************************************************************************
+// optimize (this function should be used in the library mode)
+// ------------------------------------------------------------------------
+void LincoaOptimizer::optimize(int nInputs, double *XValues, double *lbds,
+                       double *ubds, int nOutputs, int maxfun, double tol)
+{
+   double *optimalX;
+   if (nInputs <= 0)
+   {
+      printf("LincoaOptimizer ERROR: nInputs <= 0.\n");
+      exit(1);
+   }
+   oData *odata = new oData();
+   odata->outputLevel_ = 0;
+   odata->nInputs_ = nInputs;
+   optimalX = new double[nInputs];
+   odata->optimalX_ = optimalX;
+   odata->initialX_ = XValues;
+   odata->lowerBounds_ = lbds;
+   odata->upperBounds_ = ubds;
+   odata->tolerance_ = tol;
+   if (odata->tolerance_ <= 0) odata->tolerance_ = 1e-6;
+   odata->nOutputs_ = nOutputs;
+   odata->outputID_ = 0;
+   odata->maxFEval_ = maxfun;
+   odata->numFuncEvals_ = 0;
+   odata->tolerance_ = tol;
+   odata->setOptDriver_ = 0;
+   odata->optFunction_ = objFunction_;
+   odata->funcIO_ = NULL;
+   optimize(odata);
+   odata->initialX_ = NULL;
+   odata->lowerBounds_ = NULL;
+   odata->upperBounds_ = NULL;
+   odata->optFunction_ = NULL;
+   for (int ii = 0; ii < nInputs; ii++)
+      XValues[ii] = optimalX_[ii] = odata->optimalX_[ii];
+   delete [] optimalX;
+   odata->optimalX_ = NULL;
+}
+
+// ************************************************************************
 // optimize
 // ------------------------------------------------------------------------
 void LincoaOptimizer::optimize(oData *odata)
@@ -226,7 +287,7 @@ void LincoaOptimizer::optimize(oData *odata)
    int    nInputs, printLevel=0, ii, kk, maxfun, nPts=0, nConstr;
    int    nOutputs, outputID, lincoaFlag=0;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp, *workArray;
-   char   cinput[5000], *cString, winput[5001];;
+   char   cinput[5000], *cString, winput[5001], cfile[2000];
    FILE   *infile=NULL;
    FILE   *fp=NULL;
 
@@ -252,10 +313,14 @@ void LincoaOptimizer::optimize(oData *odata)
    }
    nOutputs = odata->nOutputs_;
    outputID = odata->outputID_;
-   fp = fopen("psuade_lincoa_constraints", "r");
+
+   if (strcmp(psLincoaConstraintFile_, "NONE"))
+        strcpy(cfile, psLincoaConstraintFile_);
+   else strcpy(cfile, "psuade_lincoa_constraints");
+   fp = fopen(cfile, "r");
    if (fp == NULL)
    {
-      printf("Lincoa WARNING: psuade_lincoa_constraints file not found.\n");
+      printf("Lincoa WARNING: constraint file %s not found.\n",cfile);
       printf("                Assume no constraint.\n");
       nConstr = 0;
       psLincoaNConstr_ = 0;
@@ -296,10 +361,13 @@ void LincoaOptimizer::optimize(oData *odata)
          for (ii = 0; ii < nInputs; ii++)
             fscanf(fp, "%lg", &psLincoaAmat_[kk*nInputs+ii]);
          fscanf(fp, "%lg", &psLincoaBvec_[kk]);
-         printf("Constr %4d: ",kk+1);
-         for (ii = 0; ii < nInputs; ii++)
-            printf(" %12.4e ",kk+1,psLincoaAmat_[kk*nInputs+ii]);
-         printf("%12.4e\n", psLincoaBvec_[kk]);
+         if (isScreenDumpModeOn())
+         {
+            printf("Constr %4d: ",kk+1);
+            for (ii = 0; ii < nInputs; ii++)
+               printf(" %12.4e ",psLincoaAmat_[kk*nInputs+ii]);
+            printf("%12.4e\n", psLincoaBvec_[kk]);
+         }
          kk++;
       } 
       fclose(fp); 
@@ -318,12 +386,15 @@ void LincoaOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(1);
    }
    psLincoaObj_= (void *) odata;
-   printAsterisks(PL_INFO, 0);
-   printf("Lincoa optimizer: max fevals = %d\n", odata->maxFEval_);
-   printf("Lincoa optimizer: tolerance  = %e\n", odata->tolerance_);
-   if (printLevel > 1)
-      printf("Lincoa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
-   printEquals(PL_INFO, 0);
+   if (isScreenDumpModeOn())
+   {
+      printAsterisks(PL_INFO, 0);
+      printf("Lincoa optimizer: max fevals = %d\n", odata->maxFEval_);
+      printf("Lincoa optimizer: tolerance  = %e\n", odata->tolerance_);
+      if (printLevel > 1)
+         printf("Lincoa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
+      printEquals(PL_INFO, 0);
+   }
 
    nPts = (nInputs + 1) * (nInputs + 2) / 2;
    kk = nConstr*(2+nInputs) + nPts*(4+nInputs+nPts) + 
@@ -365,16 +436,27 @@ void LincoaOptimizer::optimize(oData *odata)
          }
       }
    }
-   for (ii = 0; ii < nInputs; ii++) 
-      printf("Lincoa initial X %3d = %e\n", ii+1, XValues[ii]);
-   lincoaFlag = odata->outputLevel_;
+   if (isScreenDumpModeOn())
+   {
+      for (ii = 0; ii < nInputs; ii++) 
+         printf("Lincoa initial X %3d = %e\n", ii+1, XValues[ii]);
+   }
+   lincoaFlag = 9999;
    lincoa_(&nInputs, &nPts, &nConstr, psLincoaAmat_, &psLincoaNConstr_,
            psLincoaBvec_, XValues, &rhobeg, &rhoend, &lincoaFlag, 
            &maxfun, workArray);
-   printf("Lincoa optimizer: total number of evaluations = %d\n",
-           odata->numFuncEvals_);
+   if (isScreenDumpModeOn())
+   {
+      printf("Lincoa optimizer: total number of evaluations = %d\n",
+              odata->numFuncEvals_);
+   }
    for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = XValues[ii];
    odata->optimalY_ = workArray[0];
+   if (optimalX_ != NULL) delete [] optimalX_;
+   optimalX_ = new double[nInputs];
+   for (ii = 0; ii < nInputs; ii++) optimalX_[ii] = XValues[ii];
+   optimalY_ = odata->optimalY_ = workArray[0];
+   numEvals_ = odata->numFuncEvals_;
 
    if (psLincoaSaveHistory_ == 1 && psLincoaNSaved_ > 0)
    {
@@ -397,11 +479,11 @@ void LincoaOptimizer::optimize(oData *odata)
    exit(1);
 #endif
 
-   //if (odata->setOptDriver_ & 2)
-   //{
-   //   printf("Lincoa INFO: reverting to original simulation driver.\n");
-   //   odata->funcIO_->setDriver(psLCurrDriver_);
-   //}
+   if ((odata->setOptDriver_ & 2) && psLCurrDriver_ >= 0)
+   {
+      printf("Lincoa INFO: reverting to original simulation driver.\n");
+      odata->funcIO_->setDriver(psLCurrDriver_);
+   }
    delete [] XValues;
    delete [] workArray;
    if (psLincoaAmat_ != NULL)

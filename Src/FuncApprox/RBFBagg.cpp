@@ -126,6 +126,7 @@ int RBFBagg::initialize(double *XX, double *Y)
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    iCnts = new int[nSamples_];
+   checkAllocate(iCnts, "iCnts in RBFBagg::initialize");
    expertFlag = psRSExpertMode_;
    psRSExpertMode_ = 0;
    for (ii = 0; ii < numRBFs_; ii++)
@@ -210,6 +211,7 @@ int RBFBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
 
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
+   checkAllocate(YB, "YB in RBFBagg::genNDGridData");
    if ((*N) == -999)
    {
       iCnts = new int[nSamples_];
@@ -281,6 +283,7 @@ int RBFBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
       for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
       (*XX2) = new double[nInputs_ * totPts];
       (*Y2)  = new double[totPts];
+      checkAllocate(*Y2, "Y2 in RBFBagg::genNDGridData");
       for (ii = 0; ii < totPts; ii++) (*Y2)[ii] = 0.0;
 
       for (ii = 0; ii < numRBFs_; ii++)
@@ -329,6 +332,7 @@ int RBFBagg::gen1DGridData(double *X, double *Y, int ind1,
    (*N)   = totPts;
    (*XX)  = new double[totPts];
    (*YY)  = new double[totPts];
+   checkAllocate(*YY, "YY in RBFBagg::gen1DGridData");
    for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
 
    for (ii = 0; ii < numRBFs_; ii++)
@@ -385,6 +389,7 @@ int RBFBagg::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    (*N)   = totPts;
    (*XX)  = new double[2 * totPts];
    (*YY)  = new double[totPts];
+   checkAllocate(*YY, "YY in RBFBagg::gen2DGridData");
    for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
 
    for (ii = 0; ii < numRBFs_; ii++)
@@ -446,6 +451,7 @@ int RBFBagg::gen3DGridData(double *X, double *Y, int ind1, int ind2,
    (*N)   = totPts;
    (*XX)  = new double[3 * totPts];
    (*YY)  = new double[totPts];
+   checkAllocate(*YY, "YY in RBFBagg::gen3DGridData");
    for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
 
    for (ii = 0; ii < numRBFs_; ii++)
@@ -506,6 +512,7 @@ int RBFBagg::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    (*N)   = totPts;
    (*XX)  = new double[4 * totPts];
    (*YY)  = new double[totPts];
+   checkAllocate(*YY, "YY in RBFBagg::gen4DGridData");
    for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
 
    for (ii = 0; ii < numRBFs_; ii++)
@@ -597,6 +604,7 @@ double RBFBagg::evaluatePointFuzzy(double *X, double &std)
    double *Y;
 
    Y = new double[numRBFs_];
+   checkAllocate(Y, "Y in RBFBagg::evaluatePointFuzzy");
    for (ii = 0; ii < numRBFs_; ii++) 
    {
       Y[ii] = rbfObjs_[ii]->evaluatePoint(X);
@@ -621,6 +629,7 @@ double RBFBagg::evaluatePointFuzzy(int npts, double *X, double *Y,
    double *YY;
 
    YY = new double[numRBFs_];
+   checkAllocate(YY, "YY in RBFBagg::evaluatePointFuzzy");
    for (in = 0; in < npts; in++) 
    {
       for (ii = 0; ii < numRBFs_; ii++) 
@@ -682,14 +691,17 @@ double RBFBagg::setParams(int targc, char **targv)
       if (dataSetX_ == NULL)
       {
          dataSetX_ = new double*[numRBFs_];
+         checkAllocate(dataSetX_, "dataSetX_ in RBFBagg::setParams");
          for (ii = 0; ii < numRBFs_; ii++) dataSetX_[ii] = NULL;
          dataSetY_ = new double*[numRBFs_];
+         checkAllocate(dataSetY_, "dataSetY_ in RBFBagg::setParams");
          for (ii = 0; ii < numRBFs_; ii++) dataSetY_[ii] = NULL;
       }
       if (dataSetX_[itmp] == NULL)
       {
          dataSetX_[itmp] = new double[leng*nInputs_];
          dataSetY_[itmp] = new double[leng];
+         checkAllocate(dataSetY_[itmp], "dataSetY_[itmp] in RBFBagg::setParams");
       }
       for (ii = 0; ii < leng*nInputs_; ii++) dataSetX_[itmp][ii] = Xdata[ii];
       for (ii = 0; ii < leng; ii++) dataSetY_[itmp][ii] = Ydata[ii];
