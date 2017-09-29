@@ -1,5 +1,5 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.4)
+*      Welcome to PSUADE (version 1.7.5)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
@@ -7,11 +7,15 @@ PDFManager INFO: some distributions are not UNIFORM.
 PDFSample INFO: sample file 'sample1' has been read.
    sample size   = 1000
    no. of inputs = 1
+   Perturbation has been turned on (sample drawn will be perturbed).
    Input 1 has column 1 in the sample file.
 PDFSample INFO: sample file 'sample2' has been read.
    sample size   = 1000
    no. of inputs = 1
+   Perturbation has been turned on (sample drawn will be perturbed).
    Input 1 has column 2 in the sample file.
+PDFNormal: genSample begins (Take too long? Check ranges)
+PDFNormal: genSample ends.
 PSUADE run: creating interface to user driver.
 PSUADE run: output level = 1
 PSUADE run: max parallel jobs = 1
@@ -440,15 +444,15 @@ MomentAnalyzer INFO: non-uniform probability distributions
 * nOutputs =          1
 ----------------------------------------------------------------------
 * outputID =          1
-*       Sample mean          =   2.4517e+00
-*       Sample std dev       =   1.5420e+00
-*       Sample skewness      =  -1.8348e-03
-*       Sample kurtosis      =   2.5862e+00
+*       Sample mean          =   2.4912e+00
+*       Sample std dev       =   1.5395e+00
+*       Sample skewness      =  -6.6753e-04
+*       Sample kurtosis      =   2.6705e+00
 ----------------------------------------------------------------------
 **********************************************************************
 Output distribution plot is now in matlabua.m.
 **********************************************************************
-*       std error of mean       =   1.09036039e-02
+*       std error of mean       =   1.08856910e-02
 **********************************************************************
 AnalysisManager: analysis error = 1.09e-02 <? 1.00e+00
 ======================================================================

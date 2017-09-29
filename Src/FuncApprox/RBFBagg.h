@@ -20,63 +20,52 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Definition for the class PsuadeConfig
+// Definition for the class RBFBagg
 // AUTHOR : CHARLES TONG
-// DATE   : 2006
+// DATE   : 2015
 // ************************************************************************
-#ifndef __PSUADECONFIGH__
-#define __PSUADECONFIGH__
+#ifndef __RBFBAGGH__
+#define __RBFBAGGH__
+
+#include <stdio.h>
+#include "FuncApprox.h"
+#include "RBF.h"
 
 // ************************************************************************
+// class definition
 // ************************************************************************
-// main class definition 
-// ************************************************************************
-// ************************************************************************
-
-class PsuadeConfig 
+class RBFBagg : public FuncApprox 
 {
-   int  printLevel_;
-   int  nLines_;
-   int  nLinesUsed_;
-   char **fileData_;
+   int    numRBFs_;
+   RBF    **rbfObjs_;
+   int    usageIndex_;
+   double **dataSetX_;
+   double **dataSetY_;
 
 public:
 
-   // Constructor
-   // fname : configure file name
-   // printLevel : diagnostics print level
-   PsuadeConfig(char *fname, int printLevel);
+   RBFBagg(int, int);
+   ~RBFBagg();
 
-   // Constructor
-   PsuadeConfig();
+   int    setBounds(double *, double *);
+   void   setNPtsPerDim(int);
 
-   // Copy Contructor by Bill Oliver
-   PsuadeConfig(const PsuadeConfig & ps);
-
-   // Destructor
-   ~PsuadeConfig();
-
-   // Get parameter 
-   char *getParameter(const char *);
-
-   // put parameter 
-   void putParameter(const char *);
-
-   // write file
-   // fname : configure file name
-   void writeToFile(char *fname);
-
-   // print 
-   void print();
+   int    initialize(double*,double*);
+   int    genNDGridData(double*,double*,int*,double**,double**);
+   int    gen1DGridData(double*,double *,int,double*, 
+                        int *, double **, double **);
+   int    gen2DGridData(double*,double *,int,int,double*, 
+                        int *, double **, double **);
+   int    gen3DGridData(double*,double *,int,int,int,double*, 
+                        int *, double **, double **);
+   int    gen4DGridData(double*,double *,int,int,int,int,double*, 
+                        int *, double **, double **);
+   double evaluatePoint(double *);
+   double evaluatePoint(int, double *, double *);
+   double evaluatePointFuzzy(double *, double &);
+   double evaluatePointFuzzy(int, double *, double *, double *);
+   double setParams(int, char **);
 };
 
-// ************************************************************************
-// friend function
-// ------------------------------------------------------------------------
-extern "C"
-{
-   int genConfigFileTemplate(char *filename);
-}
-
-#endif // __PSUADECONFIGH__
+#endif // __RBFBAGGH__
 

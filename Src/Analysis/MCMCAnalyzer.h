@@ -60,7 +60,8 @@ public:
 
    double genMatlabFile(int nInputs, double *lower, double *upper,
                         double *ranges, int nPlots, int *plotIndices,
-                        int nbins, int **bins, int ****bins2, 
+                        int nbins, int **pbins, int ****pbins2, 
+                        int **bins, int ****bins2, 
                         pData &pData, int nChains, int chainCnt,
                         double ***XChains, int *chainStatus, 
                         double *Xmax, double Ymin);

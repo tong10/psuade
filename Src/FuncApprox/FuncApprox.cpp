@@ -51,6 +51,7 @@
 #include "Splines.h"
 #include "KNN.h"
 #include "RBF.h"
+#include "RBFBagg.h"
 #include "Acosso.h"
 #include "BSSAnova.h"
 #include "PsuadeRegression.h"
@@ -469,23 +470,28 @@ int getFAType(char *pString)
 
    faType = getInt(0, PSUADE_NUM_RS-1, pString);
 #ifndef HAVE_MARS
-   if (faType == 0) faType = -1;
+   if (faType == PSUADE_RS_MARS) faType = -1;
 #endif
 #ifndef HAVE_SNNS
    if (faType == 5) faType = -1;
 #endif
 #ifndef HAVE_TPROS
-   if (faType == 7) faType = -1;
+   if (faType == PSUADE_RS_GP1) faType = -1;
 #endif
 #ifndef HAVE_GPMC
-   if (faType == 8) faType = -1;
+   if (faType == PSUADE_RS_GP2) faType = -1;
 #endif
 #ifndef HAVE_SVM
-   if (faType == 9) faType = -1;
+   if (faType == PSUADE_RS_SVM) faType = -1;
 #endif
 #ifndef HAVE_EARTH
-   if (faType == 13) faType = -1;
+   if (faType == PSUADE_RS_EARTH) faType = -1;
 #endif
+#ifdef HAVE_TGP
+   if (faType == PSUADE_RS_TGP) faType = -1;
+#endif
+   if      (faType == 24) faType = PSUADE_RS_RBFB;
+   else if (faType == 25) faType = PSUADE_RS_LOCAL;
    return faType;
 }
 
@@ -498,64 +504,84 @@ void printThisFA(int faType)
    switch( faType )
    {
 #ifdef HAVE_MARS
-      case 0: printf("MARS model\n"); break;
+      case PSUADE_RS_MARS: printf("MARS model\n"); break;
 #else
-      case 0: printf("MARS model (not installed)\n"); break;
+      case PSUADE_RS_MARS: printf("MARS model (not installed)\n"); break;
 #endif
-      case 1: printf("Linear regression model\n"); break;
-      case 2: printf("Quadratic regression model\n"); break;
-      case 3: printf("Cubic regression model\n"); break;
-      case 4: printf("Quartic regression model\n"); break;
+      case PSUADE_RS_REGR1: printf("Linear regression model\n"); break;
+      case PSUADE_RS_REGR2: printf("Quadratic regression model\n"); break;
+      case PSUADE_RS_REGR3: printf("Cubic regression model\n"); break;
+      case PSUADE_RS_REGR4: printf("Quartic regression model\n"); break;
 #ifdef HAVE_SNNS
-      case 5: printf("Artificial neural network model\n"); break;
+      case PSUADE_RS_ANN: 
+           printf("Artificial neural network model\n"); break;
 #else
-      case 5: printf("Artificial neural network model (not installed)\n"); 
-              break;
+      case PSUADE_RS_ANN: 
+           printf("Artificial neural network model (not installed)\n"); 
+           break;
 #endif
-      case 6: printf("User-defined regression model\n"); break;
+      case PSUADE_RS_REGRS: 
+           printf("User-defined regression model\n"); break;
 #ifdef HAVE_TPROS
-      case 7: printf("Gaussian process (MacKay) model\n"); break;
+      case PSUADE_RS_GP1: 
+           printf("Gaussian process (MacKay) model\n"); break;
 #else
-      case 7: printf("Gaussian process (MacKay) model (not installed) \n");
-              break;
+      case PSUADE_RS_GP1: 
+           printf("Gaussian process (MacKay) model (not installed) \n");
+           break;
 #endif
 #ifdef HAVE_GPMC
-      case 8: printf("Gaussian process (Rasmussen) model\n"); break;
+      case PSUADE_RS_GP2: 
+           printf("Gaussian process (Rasmussen) model\n"); break;
 #else
-      case 8: printf("Gaussian process (Rasmussen) model (not installed)\n");
-              break;
+      case PSUADE_RS_GP2: 
+           printf("Gaussian process (Rasmussen) model (not installed)\n");
+           break;
 #endif
 #ifdef HAVE_SVM
-      case 9: printf("SVM-light (Joachims) model\n"); break;
+      case PSUADE_RS_SVM: printf("SVM-light (Joachims) model\n"); break;
 #else
-      case 9: printf("SVM-light (Joachims) model (not installed)\n");
-              break;
+      case PSUADE_RS_SVM: 
+           printf("SVM-light (Joachims) model (not installed)\n");
+           break;
 #endif
-      case 10: printf("Derivative-based Legendre polynomial regression\n"); break;
+      case PSUADE_RS_REGRGL: 
+           printf("Derivative-based Legendre polynomial regression\n"); 
+           break;
 #ifdef HAVE_TGP
-      case 11: printf("Tree-based Gaussian Process\n"); break;
+      case PSUADE_RS_TGP: 
+           printf("Tree-based Gaussian Process\n"); break;
 #else
-      case 11: printf("Tree-based Gaussian Process (not installed)\n");
-               break;
+      case PSUADE_RS_TGP: 
+           printf("Tree-based Gaussian Process (not installed)\n");
+           break;
 #endif
 #ifdef HAVE_MARS
-      case 12: printf("MARS with bagging model\n"); break;
+      case PSUADE_RS_MARSB: printf("MARS with bagging model\n"); break;
 #else
-      case 12: printf("MARS with bagging model (not installed)\n"); break;
+      case PSUADE_RS_MARSB: 
+           printf("MARS with bagging model (not installed)\n"); break;
 #endif
 #ifdef HAVE_EARTH
-      case 13: printf("Earth model\n"); break;
+      case PSUADE_RS_EARTH: printf("Earth model\n"); break;
 #else
-      case 13: printf("Earth model (not installed)\n"); break;
+      case PSUADE_RS_EARTH: printf("Earth model (not installed)\n"); break;
 #endif
-      case 14: printf("Sum-of-trees model\n"); break;
-      case 15: printf("Legendre polynomial regression\n"); break;
-      case 16: printf("User-defined (nonpolynomial) regression\n"); break;
-      case 17: printf("Sparse Grid polynomial regression\n"); break;
-      case 18: printf("Kriging\n"); break;
-      case 19: printf("Splines on regular grid (1D, 2D, or 3D only)\n"); break;
-      case 20: printf("K-nearest neighbor\n"); break;
-      case 21: printf("Radial Basis Function\n"); break;
+      case PSUADE_RS_SOTS: 
+           printf("Sum-of-trees model\n"); break;
+      case PSUADE_RS_REGRL: 
+           printf("Legendre polynomial regression\n"); break;
+      case PSUADE_RS_REGRU: 
+           printf("User-defined (nonpolynomial) regression\n"); break;
+      case PSUADE_RS_REGSG: 
+           printf("Sparse Grid polynomial regression\n"); break;
+      case PSUADE_RS_KR: printf("Kriging\n"); break;
+      case PSUADE_RS_SPLINES: 
+           printf("Splines on regular grid (1D, 2D, or 3D only)\n"); break;
+      case PSUADE_RS_KNN: printf("K-nearest neighbor\n"); break;
+      case PSUADE_RS_RBF: printf("Radial Basis Function\n"); break;
+      case PSUADE_RS_RBFB: 
+           printf("Radial Basis Function with bagging\n"); break;
    }
 }
 
@@ -655,8 +681,9 @@ int writeFAInfo(int level)
    printf("19. Splines on regular grid (1D, 2D, or 3D only)\n");
    printf("20. K nearest neighbors \n");
    printf("21. Radial Basis Function\n");
-// printf("22. Acosso (by Storlie, LANL. Need R to run)\n");
-// printf("23. BSSAnova (by Storlie, LANL. Need R to run)\n");
+   printf("22. Acosso (by Storlie, LANL. Need R to run)\n");
+   printf("23. BSSAnova (by Storlie, LANL. Need R to run)\n");
+   printf("24. Radial Basis Function with bagging\n");
    return PSUADE_NUM_RS;
 }
 
@@ -725,6 +752,8 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
         faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (rsType == PSUADE_RS_NPL)
         faPtr = new NPLearning(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_RBFB)
+        faPtr = new RBFBagg(nInputs, nSamples);
    else
    {
       printf("INFO: rstype = regression.\n");
@@ -850,6 +879,8 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
         faPtr = new BSSAnova(nInputs, nSamples);
    else if (faType == PSUADE_RS_LOCAL)
         faPtr = new PsuadeRegression(nInputs, nSamples);
+   else if (faType == PSUADE_RS_RBFB)
+        faPtr = new RBFBagg(nInputs, nSamples);
    else if (faType == PSUADE_RS_NPL)
         faPtr = new NPLearning(nInputs, nSamples);
    else

@@ -50,6 +50,7 @@ public:
    virtual int invCDF(int, double *, double *, double, double);
    virtual int genSample(int, double *, double, double);
    virtual double getMean();
+   virtual int getMeans(double *);
    virtual int setParam(char *);
 };
 

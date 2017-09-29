@@ -101,7 +101,7 @@
    have been hardwired. 
    both MGP1 and PWL are not used
 */
-#define PSUADE_NUM_RS           23
+#define PSUADE_NUM_RS           26
 #define PSUADE_RS_MARS          0
 #define PSUADE_RS_REGR1         1
 #define PSUADE_RS_REGR2         2
@@ -127,10 +127,11 @@
 #define PSUADE_RS_ACOSSO        22
 #define PSUADE_RS_BSSANOVA      23
 #define PSUADE_RS_LOCAL         24
-#define PSUADE_RS_NPL           25
-#define PSUADE_RS_MGP1          26
-#define PSUADE_RS_PWL           27
-#define PSUADE_RS_REGRLC        28
+#define PSUADE_RS_RBFB          25
+#define PSUADE_RS_NPL           26
+#define PSUADE_RS_MGP1          27
+#define PSUADE_RS_PWL           28
+#define PSUADE_RS_REGRLC        29
 
 #define PSUADE_GRAPHICS         1
 #define PSUADE_SAMPLE_GRAPHICS  2

@@ -44,7 +44,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
 
    if (fname == NULL || !strcmp(fname, "NONE"))
    {
-      printf("PDFSpecial constructor: expecting a sample file.\n");
+      printf("PDFSample constructor: expecting a sample file.\n");
       printf("                        having the following format: \n");
       printf("line 1: (optional) PSUADE_BEGIN\n");
       printf("line 2: <number of sample points> <number of inputs>\n");
@@ -60,7 +60,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
       nn = strlen(filename);
       if (nn > 1000)
       {
-         printf("PDFSpecial constructor ERROR: file name too long.\n");
+         printf("PDFSample constructor ERROR: file name too long.\n");
          exit(1);
       }
       filename[nn-1] = '\0';
@@ -74,7 +74,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
    fp = fopen(filename, "r");
    if (fp == NULL)
    {
-      printf("PDFSpecial ERROR: cannot open sample file %s.\n",filename);
+      printf("PDFSample ERROR: cannot open sample file %s.\n",filename);
       exit(1);
    }
    fscanf(fp, "%s", pString);
@@ -86,17 +86,17 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
    fscanf(fp, "%d %d", &nSamples_, &nInps);
    if (nSamples_ < 1)
    {
-      printf("PDFSpecial ERROR: sample file has nSamples <= 0.\n");
+      printf("PDFSample ERROR: sample file has nSamples <= 0.\n");
       exit(1);
    }
    if (nInps < 1)
    {
-      printf("PDFSpecial ERROR: sample file has nInputs <= 0.\n");
+      printf("PDFSample ERROR: sample file has nInputs <= 0.\n");
       exit(1);
    }
    if (nInputs_ != nInps && indices == NULL)
    {
-      printf("PDFSpecial ERROR: nInputs does not match.\n");
+      printf("PDFSample ERROR: nInputs does not match.\n");
       printf("           nInputs in your sample file    = %d\n",nInps);
       printf("           nInputs from psuade input file = %d\n",nInputs_);
       exit(1);
@@ -107,7 +107,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
       {
          if (indices[ii] < 0 || indices[ii] >= nInps)
          {
-            printf("PDFSpecial ERROR: sample index > nInputs in sample file.\n");
+            printf("PDFSample ERROR: sample index > nInputs in sample file.\n");
             printf("          sample index requested         = %d\n",
                    indices[ii]+1);
             printf("          nInputs in your sample file    = %d\n",nInps);
@@ -133,7 +133,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
       fscanf(fp, "%d", &nn);
       if (nn != (ii+1))
       {
-         printf("PDFSpecial ERROR: invalid sample number.\n");
+         printf("PDFSample ERROR: invalid sample number.\n");
          printf("           Expected: %d\n", ii+1);
          printf("           Read:     %d\n", nn);
          printf("Advice: check your data format and line number %d.\n\n",ii+2);
@@ -163,7 +163,7 @@ PDFSpecial::PDFSpecial(int scount, char *fname, int *indices)
    if (strcmp(pString, "#perturb")) perturb_ = 1;
    fclose(fp);
    delete [] oneSample;
-   printOutTS(PL_INFO,"PDFSpecial INFO: sample file '%s' has been read.\n", 
+   printOutTS(PL_INFO,"PDFSample INFO: sample file '%s' has been read.\n", 
               fname);
    printOutTS(PL_INFO,"   sample size   = %d\n", nSamples_);
    printOutTS(PL_INFO,"   no. of inputs = %d\n", nInputs_);
@@ -206,7 +206,7 @@ PDFSpecial::~PDFSpecial()
 // ------------------------------------------------------------------------
 int PDFSpecial::getPDF(int length, double *inData, double *outData)
 {
-   printf("PDFSpecial::getPDF not available.\n");
+   printf("PDFSample::getPDF not available.\n");
    for (int ii = 0; ii < length; ii++) outData[ii] = 0;
    return -1;
 }
@@ -216,7 +216,7 @@ int PDFSpecial::getPDF(int length, double *inData, double *outData)
 // ------------------------------------------------------------------------
 int PDFSpecial::getCDF(int length, double *inData, double *outData)
 {
-   printf("PDFSpecial::getCDF not available.\n");
+   printf("PDFSample::getCDF not available.\n");
    for (int ii = 0; ii < length; ii++) outData[ii] = 0;
    return -1;
 }
@@ -227,8 +227,8 @@ int PDFSpecial::getCDF(int length, double *inData, double *outData)
 int PDFSpecial::invCDF(int length, double *inData, double *outData,
                        double lower, double upper)
 {
-   printf("PDFSpecial::invCDF not available.\n");
-   for (int ii = 0; ii < length; ii++) outData[ii] = 0;
+   printf("PDFSample WARNING::invCDF not available - no change.\n");
+   for (int ii = 0; ii < length; ii++) outData[ii] = inData[ii];
    return -1;
 }
 
@@ -266,7 +266,7 @@ int PDFSpecial::genSample(int length,double *outData,double, double)
 // ------------------------------------------------------------------------
 double PDFSpecial::getMean()
 {
-   printf("PDFSpecial::getMean not available for this distribution.\n");
+   printf("PDFSample::getMean not available for this distribution.\n");
    return 0.0;
 }
 

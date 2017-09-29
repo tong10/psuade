@@ -78,8 +78,10 @@ double FORMAnalyzer::analyze(aData &adata)
    thresh     = adata.analysisThreshold_;
    if (adata.inputPDFs_ != NULL)
    {
-      printOutTS(PL_WARN, "FORM INFO: some inputs have non-uniform PDFs, but\n");
-      printOutTS(PL_WARN, "           they will not be relevant in this analysis.\n");
+      printOutTS(PL_WARN, 
+           "FORM INFO: some inputs have non-uniform PDFs, but\n");
+      printOutTS(PL_WARN, 
+           "           they will not be relevant in this analysis.\n");
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
@@ -93,14 +95,7 @@ double FORMAnalyzer::analyze(aData &adata)
    if (printLevel > 0)
    {
       printAsterisks(PL_INFO, 0);
-      if (rsType_ == 0) printOutTS(PL_INFO, "FORM: MARS model.\n");
-      if (rsType_ == 1) printOutTS(PL_INFO, "FORM: linear regression model.\n");
-      if (rsType_ == 2) printOutTS(PL_INFO, "FORM: quadratic regression model.\n");
-      if (rsType_ == 3) printOutTS(PL_INFO, "FORM: cubic regression model.\n");
-      if (rsType_ == 4) printOutTS(PL_INFO, "FORM: quartic regression model.\n");
-      if (rsType_ == 5) printOutTS(PL_INFO, "FORM: artificial neural network model.\n");
-      if (rsType_ == 6) printOutTS(PL_INFO, "FORM: user-specified regression model.\n");
-      if (rsType_ == 7) printOutTS(PL_INFO, "FORM: Gaussian process model.\n");
+      printThisFA(rsType_);
       printEquals(PL_INFO, 0);
    }
    
@@ -117,7 +112,7 @@ double FORMAnalyzer::analyze(aData &adata)
    fa = genFA(rsType_, nInputs, iOne=1, nSamples);
    if (fa == NULL)
    {
-      printOutTS(PL_INFO, "FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
+      printOutTS(PL_INFO,"FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
       delete [] YY;
       delete fa;
       if (wgts != NULL) delete [] wgts;
@@ -134,7 +129,8 @@ double FORMAnalyzer::analyze(aData &adata)
    status = fa->initialize(X, YY);
    if (status != 0)
    {
-      printOutTS(PL_INFO, "FORMAnalyzer ERROR: FuncApprox returns error.\n");
+      printOutTS(PL_INFO, 
+           "FORMAnalyzer ERROR: FuncApprox returns error.\n");
       delete [] YY;
       delete fa;
       return 1.0e12;
@@ -172,8 +168,9 @@ double FORMAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) beta += currZ[ii] * currZ[ii];
       beta = sqrt(beta);
       if (printLevel > 1)
-         printOutTS(PL_INFO, "FORM analyze: beta at iter %4d = %12.4e(%12.4e)\n",iter,
-                beta, oldbeta);
+         printOutTS(PL_INFO, 
+              "FORM analyze: beta at iter %4d = %12.4e(%12.4e)\n",iter,
+              beta, oldbeta);
       if (PABS((beta-oldbeta)/(beta+oldbeta)) < 1.0e-4) break;
       iter++;
    }
@@ -201,9 +198,9 @@ int FORMAnalyzer::setParams(int argc, char **argv)
    char  *request = (char *) argv[0];
    if (!strcmp(request, "rstype"))
    {
-      if (argc != 2) printOutTS(PL_INFO, "FORMAnalyzer WARNING: setParams.\n");
+      if (argc != 2) printOutTS(PL_INFO,"FORMAnalyzer WARNING: setParams.\n");
       rsType_ = *(int *) argv[1];
-      if (rsType_ < 0 || rsType_ > 7) rsType_ = 0;
+      if (rsType_ < 0 || rsType_ >= PSUADE_NUM_RS) rsType_ = 0;
    }
    else
    {
@@ -218,7 +215,8 @@ int FORMAnalyzer::setParams(int argc, char **argv)
 // ------------------------------------------------------------------------
 FORMAnalyzer& FORMAnalyzer::operator=(const FORMAnalyzer &)
 {
-   printOutTS(PL_ERROR, "FORMAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, 
+        "FORMAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

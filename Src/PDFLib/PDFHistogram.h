@@ -52,6 +52,7 @@ class PDFHistogram : public PDFBase
    int    *indexSet_;
    int    *incrs_;
    double *histCDF_;
+   double *means_;
 
 public:
 
@@ -64,6 +65,7 @@ public:
    int invCDF(int, double *, double *, double, double);
    int genSample(int, double *, double, double);
    double getMean();
+   int    getMeans(double *);
    int    searchHistogram(double);
    void   initHistogram();
    void   mergeHistogram(int *, int);

@@ -292,7 +292,7 @@ public:
   void
   info(void)
   {
-    printf("PSUADE version %d.%d.%da\n", psuade_VERSION_MAJOR, 
+    printf("PSUADE version %d.%d.%d\n", psuade_VERSION_MAJOR, 
            psuade_VERSION_MINOR, psuade_VERSION_PATCH);
 
 #ifdef HAVE_MARS
@@ -392,7 +392,7 @@ int main(int argc, char** argv)
    // Normal serial Run
    { 
       printAsterisks(PL_INFO, 0);
-      printf("*      Welcome to PSUADE (version %d.%d.%da)\n", 
+      printf("*      Welcome to PSUADE (version %d.%d.%d)\n", 
              psuade_VERSION_MAJOR, psuade_VERSION_MINOR, psuade_VERSION_PATCH);
 
       printAsterisks(PL_INFO, 0);

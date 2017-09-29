@@ -78,7 +78,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
    RSConstraints *constrPtr=NULL;
 
    nInputs       = adata.nInputs_;
-   nInputs_		 = nInputs;
+   nInputs_	 = nInputs;
    nOutputs      = adata.nOutputs_;
    nSamples      = adata.nSamples_;
    outputID      = adata.outputID_;
@@ -234,11 +234,11 @@ double MainEffectAnalyzer::analyze(aData &adata)
          if (txArray[ss] == txArray[0]) nReplications++;
          else                           break;
       }
-      if (nReplications <= 1)
+      if (nReplications <= 5)
       {
-         printOutTS(PL_INFO,"* MainEffect INFO: nReps = 1 for input %d.\n",ii+1);
-         printOutTS(PL_INFO,"*            ==> not replicated Latin hypercube\n");
-         printOutTS(PL_INFO,"*            ==> crude main effect analysis.\n");
+         printOutTS(PL_INFO,"* MainEffect INFO: nReps <= 5 for input %d.\n",ii+1);
+         printOutTS(PL_INFO,"*     ==> probably not replicated Latin hypercube\n");
+         printOutTS(PL_INFO,"*     ==> crude main effect analysis.\n");
          computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
                          aVariance, vce);
          pData *pPtr = ioPtr->getAuxData();
@@ -276,9 +276,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
          meFileName[strlen(meFileName)-1] = '\0';
          fp = fopen(meFileName, "w");
          if (fp != NULL)
-         {
-            printOutTS(PL_INFO,"MainEffect: main effect file = %s\n", meFileName);
-         }
+            printOutTS(PL_INFO,
+                 "MainEffect: main effect file = %s\n",meFileName);
       }
    }
 
@@ -357,8 +356,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
          {
             totalVCE += vce[ii] / aVariance;
             printOutTS(PL_INFO, 
-                 "Input %4d, normalized 1st-order effect = %9.2e (raw = %9.2e)\n",
-                 ii+1, vce[ii]/aVariance, vce[ii]);
+               "Input %4d, normalized 1st-order effect = %9.2e (raw = %9.2e)\n",
+               ii+1, vce[ii]/aVariance, vce[ii]);
          }
          printOutTS(PL_INFO, "Total VCE = %9.2e\n", totalVCE);
       }
@@ -369,7 +368,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
    if (printLevel > 2)
    {
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO,"     McKay's biased correlation ratio (stdVCEMean)\n");
+      printOutTS(PL_INFO,
+           "     McKay's biased correlation ratio (stdVCEMean)\n");
       printDashes(PL_INFO, 0);
       totalVCE = 0.0;
       for (ii = 0; ii < nInputs; ii++)
@@ -392,7 +392,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
                     ii+1, varVCEVar[ii], meanVCEVar[ii]);
       printAsterisks(PL_INFO, 0);
       printOutTS(PL_INFO,"            Hora and Iman sensitivity index\n");
-      printOutTS(PL_INFO,"   (may not be valid in the presence of constraints)\n");
+      printOutTS(PL_INFO,
+           "   (may not be valid in the presence of constraints)\n");
       printDashes(PL_INFO, 0);
       totalVCE = 0.0;
       for (ii = 0; ii < nInputs; ii++) 
@@ -546,11 +547,10 @@ double MainEffectAnalyzer::analyze(aData &adata)
                fscanf(fp1, "%d", &ii);
                if (ii != nReplications*ncount)
                {
-                  printOutTS(PL_ERROR, "ERROR: expect the first line to be %d.\n",
+                  printOutTS(PL_ERROR,"ERROR: expect the first line to be %d.\n",
                          nReplications*ncount);
                   printOutTS(PL_ERROR, 
-                       "       Instead found the first line to be %d.n",
-                         ii);
+                       "       Instead found the first line to be %d.n",ii);
                   exit(1);
                }
             }
@@ -589,7 +589,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
                   if (index < 0 || index >= nReplications)
                   {
                      printOutTS(PL_ERROR, 
-                          "ERROR: reading index from file .ME_bootstrap_indset\n");
+                        "ERROR: reading index from file .ME_bootstrap_indset\n");
                      printOutTS(PL_ERROR,"       index read = %d\n", index);
                      printOutTS(PL_ERROR,"       expected   = [0,%d]\n", 
                                 nReplications-1);
@@ -692,8 +692,8 @@ double MainEffectAnalyzer::analyze(aData &adata)
             {
                fprintf(fp,"axis([0  nn+1 ymin ymax])\n");
                fprintf(fp,"set(gca,'XTickLabel',[]);\n");
-               fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str,");
-               fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+               fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),");
+               fprintf(fp,"Str,'HorizontalAlignment','left','rotation',90);\n");
                fprintf(fp,"set(th, 'fontsize', 12)\n");
                fprintf(fp,"set(th, 'fontweight', 'bold')\n");
             }
@@ -920,8 +920,6 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
    double *vceMean, *vceVariance, aMean, ddata, hstep;
    char   pString[500];
 
-   nIntervals = (int) sqrt(1.0 * nSamples);
-   nSize = nSamples / nIntervals;
    if (nSize < 10) nSize = 10;
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO,"*                Crude Main Effect\n");
@@ -938,6 +936,8 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
        "* of the computed measures with respect to it.\n");
    printOutTS(PL_INFO, 
        "* Turn on analysis expert mode to change the settings.\n");
+   nIntervals = (int) sqrt(1.0 * nSamples);
+   nSize = nSamples / nIntervals;
    printOutTS(PL_INFO,"* MainEffect: number of levels   = %d\n", nIntervals);
    printOutTS(PL_INFO,"* MainEffect: sample size/levels = %d\n", nSize);
    if (psAnaExpertMode_ == 1)
@@ -966,6 +966,7 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
       {
          ddata = (X[nInputs*ss+ii] - iLowerB[ii]) / hstep;
          index = (int) ddata;
+         if (index <  0) index = 0;
          if (index >= nIntervals) index = nIntervals - 1;
          tags[ss] = -1;
          if (Y[ss] < 0.9*PSUADE_UNDEFINED)
@@ -980,6 +981,11 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
       for (ss = 0; ss < nSamples; ss++)
       {
          index = tags[ss];
+         if (index < 0 || index >= nIntervals)
+         {
+            printf("ERROR: index %d = %d\n",ss+1,index);
+            exit(1);
+         }
          if (Y[ss] < 0.9*PSUADE_UNDEFINED)
          {
             vceVariance[index] += ((Y[ss]-vceMean[index])*

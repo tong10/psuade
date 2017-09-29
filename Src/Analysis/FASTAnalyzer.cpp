@@ -101,15 +101,15 @@ double FASTAnalyzer::analyze(aData &adata)
       if (count > 0)
       {
          printOutTS(PL_WARN, 
-              "FAST INFO: some inputs have non-uniform PDFs, but\n");
+            "FAST INFO: some inputs have non-uniform PDFs, but\n");
          printOutTS(PL_WARN, 
-              "     they are not relevant in this analysis.\n");
+            "     they are not relevant in this analysis.\n");
          printOutTS(PL_WARN, 
-              "     (To perform this analysis with desired distributions,\n");
+            "     (To perform this analysis with desired distributions,\n");
          printOutTS(PL_WARN, 
-              "     first create a FAST sample, then prescribe PDFs and\n");
+            "     first create a FAST sample, then prescribe PDFs and\n");
          printOutTS(PL_WARN, 
-              "     run the sample through 'pdfconvert' before running\n");
+            "     run the sample through 'pdfconvert' before running\n");
          printOutTS(PL_WARN, "     the simulations.\n");
       }
    }
@@ -124,7 +124,8 @@ double FASTAnalyzer::analyze(aData &adata)
    } 
    if (nInputs > PSUADE_FAST_MaxDimension)
    {
-      printOutTS(PL_ERROR,"FAST ERROR: input dimension needs to be <= 50.\n");
+      printOutTS(PL_ERROR,
+           "FAST ERROR: input dimension needs to be <= 50.\n");
       printOutTS(PL_ERROR,"    nInputs  = %d\n", nInputs);
       return PSUADE_UNDEFINED;
    } 
@@ -175,12 +176,13 @@ double FASTAnalyzer::analyze(aData &adata)
       {
          printDashes(PL_INFO, 0);
          printOutTS(PL_INFO, 
-              "* Fourier Amplitude Sampling Test (FAST) coarse coefficients\n");
+            "* Fourier Amplitude Sampling Test (FAST) coarse coefficients\n");
          printDashes(PL_INFO, 0);
          for (ii = 0; ii < nInputs; ii++)
-            printOutTS(PL_INFO, "* Input %4d = %14.6e\n", ii+1, fourierCoefs2[ii]);
+            printOutTS(PL_INFO, "* Input %4d = %14.6e\n", ii+1, 
+                       fourierCoefs2[ii]);
          printOutTS(PL_INFO, 
-              "* FAST variance            = %14.6e\n", fourierCoefs2[nInputs]);
+            "* FAST variance            = %14.6e\n", fourierCoefs2[nInputs]);
       }
 
       //save coarse Fourier coefficients
@@ -338,8 +340,9 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
       fastImag += dataImag * dataImag;
       if (flag >= 3)
       {
-         printOutTS(PL_INFO,"FAST: frequency %5d : data = %9.1e (%9.1e %9.1e) ",
-                ii+1,dataReal*dataReal+dataImag*dataImag,dataReal,dataImag);
+         printOutTS(PL_INFO,
+            "FAST: frequency %5d : data = %9.1e (%9.1e %9.1e) ",
+            ii+1,dataReal*dataReal+dataImag*dataImag,dataReal,dataImag);
          for (jj = 0; jj < nInputs; jj++)
             if ((ii + 1) / omegas[jj] * omegas[jj] == (ii + 1))
                printOutTS(PL_INFO, "(%4d) ", jj+1);

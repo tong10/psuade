@@ -20,7 +20,7 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// Functions for the class Mars
+// Functions for the class MarsBagg
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
@@ -125,11 +125,13 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    }
    if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
-      sprintf(pString, "MARS with bagging: mean (0) or median (1) mode ? ");
+      sprintf(pString,"MARS with bagging: mean (0) or median (1) mode ? ");
       mode_ = getInt(0, 1, pString);
-      sprintf(pString, "How many instantiation of MARS (10-5000, default=100) ? ");
+      sprintf(pString,
+              "How many instantiation of MARS (10-5000, default=100) ? ");
       numMars_ = getInt(10, 5000, pString);
-      sprintf(pString, "How many basis functions in MARS (< %d, default = %d) ? ",
+      sprintf(pString, 
+              "How many basis functions in MARS (< %d, default = %d) ? ",
               nSamples, maxBasis_);
       maxBasis_ = getInt(1, nSamples, pString);
       sprintf(pString, "How many variables per basis (<= %d, default = %d) ? ",
@@ -137,13 +139,14 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       varPerBasis_ = getInt(1, nInputs, pString);
       if (psMasterMode_ == 1)
       {
-         printf("You can control the probability of using more of the sample\n");
+         printf("You can control the probability of using more sample\n");
          printf("points in any instantiation by setting a 'frequency' knob.\n");
          printf("The default is 4, which gives 80-90 percent usage.\n");
          printf("Set this number to a larger value to increase usage.\n");
          printf("If you do not know what this knob does, enter 3.\n");
          printf("To see the actual usage percentage, turn on printlevel 2.\n");
-         sprintf(pString, "What value should be assigned to this knob? (2 - 8) ");
+         sprintf(pString,
+                 "What value should be assigned to this knob? (2 - 8) ");
          usageIndex_ = getInt(2, 8, pString);
       }   
    }
@@ -304,7 +307,8 @@ int MarsBagg::initialize(double *XX, double *Y)
             YB[ss] = Y[index]; 
          }
          index = 0;
-         for (ss = 0; ss < nSamples_; ss++) if (iCnts[ss] < usageIndex_*2) index++;
+         for (ss = 0; ss < nSamples_; ss++) 
+            if (iCnts[ss] < usageIndex_*2) index++;
          if (outputLevel_ >= 2)
             printf("     Number of sample points used = %d (out of %d)\n",
                    index,nSamples_);
@@ -539,7 +543,8 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
                   {
                      iCnts[index]--;
                   }
-                  else if (iCnts[index] > 0 && (iCnts[index] % usageIndex_) != 0)
+                  else if (iCnts[index] > 0 && 
+                           (iCnts[index] % usageIndex_) != 0)
                   {
                      iCnts[index]--;
                      index = -1;
@@ -1698,7 +1703,7 @@ int MarsBagg::genRSInterpolator()
    fprintf(fp,"    for (tt = 0; tt < nmars; tt++) mean += YY[tt];\n");
    fprintf(fp,"    mean /= nmars;\n");
    fprintf(fp,"    std = 0.0;\n");
-   fprintf(fp,"    for (tt = 0; tt < nmars; tt++) std += pow(YY[tt]-mean,2.0);\n");
+   fprintf(fp,"    for (tt=0; tt<nmars; tt++) std += pow(YY[tt]-mean,2.0);\n");
    fprintf(fp,"    std = sqrt(std/(nmars-1));\n");
    fprintf(fp,"    Y[ss] = mean;\n");
    fprintf(fp,"    S[ss] = std;\n");
@@ -1815,7 +1820,9 @@ int MarsBagg::genRSInterpolator()
    }
    fprintf(fp,"};\n");
    fprintf(fp,"/* ====================================*/\n");
-   fprintf(fp,"int getCoefs(int ind,double *fm, int *im,double *XM,double *XS) {\n");
+   fprintf(fp,
+       "int getCoefs(int ind,double *fm,int *im,double *XM,double *XS)\n");
+   fprintf(fp,"{\n");
    fprintf(fp,"  int mm;\n");
    fprintf(fp,"  for (mm = 0; mm < %d; mm++)\n",countFm);
    fprintf(fp,"    fm[mm] = FMS[mm][ind];\n");
@@ -1976,13 +1983,13 @@ int MarsBagg::genRSInterpolator()
    fprintf(fp,"               v = 1.0\n");
    fprintf(fp,"               if (t < 0.0) : \n");
    fprintf(fp,"                 v = -1.0\n");
-   fprintf(fp,"               dt = (X[ind] - XMeans[ind][tt])/XStds[ind][tt]\n");
+   fprintf(fp,"               dt = (X[ind]-XMeans[ind][tt])/XStds[ind][tt]\n");
    fprintf(fp,"               ind2 = int(indtb+ip*5+2)\n");
    fprintf(fp,"               u = v * (dt-FMS[ind2][tt]) \n");
    fprintf(fp,"               if (u < 0.0) : \n");
    fprintf(fp,"                 u = 0.0\n");
    fprintf(fp,"             else :\n");
-   fprintf(fp,"               dt = (X[ind] - XMeans[ind][tt])/XStds[ind][tt]\n");
+   fprintf(fp,"               dt = (X[ind]-XMeans[ind][tt])/XStds[ind][tt]\n");
    fprintf(fp,"               k = icat(dt, ind, FMS, indcm, tt)\n");
    fprintf(fp,"               if (k != 0) :\n");
    fprintf(fp,"                 ind = int(FMS[indtb+ip*5+2][tt]+0.1) - 1\n");

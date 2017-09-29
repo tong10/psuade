@@ -72,7 +72,7 @@ SparseGridSampling::SparseGridSampling() : Sampling()
 {
    samplingID_ = PSUADE_SAMP_SG;
    sampleWeights_ = NULL;
-   pOrder_ = 1; 
+   pOrder_ = 2; /* default order = 2 */
 }
 
 // ************************************************************************
@@ -124,27 +124,28 @@ int SparseGridSampling::initialize(int initLevel)
    if (initLevel != 0) return 0;
 
    pOrder_ = 0;
-   while (pOrder_ < 2 || pOrder_ > 7)
+   while (pOrder_ < 2 || pOrder_ > 4)
    {
-      printf("SparseGridSampling: enter polynomial order (2 - 7): ");
+      printf("SparseGridSampling: enter polynomial order (2 - 4): ");
       scanf("%d", &pOrder_);
    }
    if (pOrder_ > 7)
    {
-      printf("SparseGridSampling ERROR: does not support pOrder > 7.\n");
+      printf("SparseGridSampling ERROR: does not support pOrder > 4.\n");
+      printf("                          Maybe unstable.\n");
       exit(1);
    }
 
-   minQ = pOrder_ - nInputs_;
+   minQ = pOrder_ + 1 - nInputs_;
    if (minQ < 0) minQ = 0;
-   maxQ = pOrder_ - 1;
+   maxQ = pOrder_;
    midx = new int[nInputs_];
    Vnodes = new Vector[nInputs_];
    nVecs = 0;
    for (ii = minQ; ii <= maxQ; ii++)
    {
       val   = (pow(-1.0, 1.0*(maxQ-ii))) * 
-               nChooseK(nInputs_-1,nInputs_+ii-pOrder_);
+               nChooseK(nInputs_-1,nInputs_+ii-(pOrder_+1));
       bQ = (int) val;
       nPerms = GenSequence(nInputs_, nInputs_+ii, &pcePerms);
       counts = new int[nPerms];
@@ -443,7 +444,7 @@ int SparseGridSampling::setParam(char *sparam)
    if (!strcmp(winput, "pOrder"))
    {
       sscanf(sparam, "%s %d", winput, &pOrder_);
-      if (pOrder_ < 1) pOrder_ = 1;
+      if (pOrder_ < 2) pOrder_ = 2;
    }
    return 0;
 }

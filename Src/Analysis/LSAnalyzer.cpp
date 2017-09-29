@@ -215,12 +215,13 @@ double LSAnalyzer::analyze(aData &adata)
             if (iNames[ii] != NULL) fprintf(fp,"'%s',",iNames[ii]);
             else                    fprintf(fp,"'X%d',",ii+1);
          }
-         if (iNames[nInputs-1] != NULL) fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
-         else                           fprintf(fp,"'X%d'};\n",nInputs);
+         if (iNames[nInputs-1] != NULL) 
+              fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
+         else fprintf(fp,"'X%d'};\n",nInputs);
       }
       fprintf(fp, "if (sortFlag == 1);\n");
-      if (psPlotTool_ == 1) fprintf(fp, "  [AA, II] = gsort(Y);\n");
-      else                  fprintf(fp, "  [AA, II] = sort(Y, 'descend');\n");
+      if (psPlotTool_ == 1) fprintf(fp,"  [AA,II] = gsort(Y);\n");
+      else                  fprintf(fp,"  [AA,II] = sort(Y, 'descend');\n");
       fprintf(fp, "  II  = II(1:nn);\n");
       fprintf(fp, "  Str = Str(II);\n");
       fprintf(fp, "  Y   = Y(II);\n");
@@ -252,7 +253,8 @@ double LSAnalyzer::analyze(aData &adata)
       }
       else
       {
-         fprintf(fp,"axis([0 nn+1 ymin-0.01*(ymax-ymin) ymax+0.01*(ymax-ymin)])\n");
+         fprintf(fp,
+            "axis([0 nn+1 ymin-0.01*(ymax-ymin) ymax+0.01*(ymax-ymin)])\n");
          fprintf(fp,"set(gca,'XTickLabel',[]);\n");
          fprintf(fp,"th=text(1:nn, repmat(ymin-0.07*(ymax-ymin),nn,1),Str,");
          fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");

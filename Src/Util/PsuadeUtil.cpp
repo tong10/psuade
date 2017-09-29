@@ -1013,7 +1013,7 @@ int computeNumPCEPermutations(int nRVs, int pOrder)
 
    nTerms = 1;
    for (ii = nRVs; ii < nRVs+pOrder; ii++) nTerms *= (ii + 1);
-   for (ii = nRVs; ii < nRVs+pOrder; ii++) nTerms /= (ii - nRVs + 1);
+   for (ii = 0; ii < pOrder; ii++) nTerms /= (ii + 1);
    return nTerms;
 }
 
@@ -1190,7 +1190,7 @@ int checkMCMCFileFormat(char *fname, int option, int printLevel)
             if (kk <= cnt)
             {
                if (printLevel > 0)
-                  printf("ERROR: wrong design parameter order (has to be ascending).\n");
+                  printf("ERROR: wrong design parameter order (should be ascending).\n");
                fclose(fp);
                return -1;
             }
@@ -1455,6 +1455,313 @@ void fwriteRSPythonCommon(FILE *fp)
 }
 
 // ************************************************************************
+// generate matrix of histogram plots
+// ------------------------------------------------------------------------
+int genMatlabPlotFile(int nInps,double *LB,double *UB,int nSamps, 
+                      double *sample, char **inpNames, char *fname, 
+                      int nbins)
+{
+   int    kk, kk2, ii, ii2, jj, jj2, index, index2, sumBins;
+   int    **bins, ****bins2;
+   double ddata, ddata2;
+   char   cfname[1001], charString[1001];;
+   FILE   *fp;
+
+   bins = new int*[nbins];
+   for (ii = 0; ii < nbins; ii++)
+   {
+      bins[ii] = new int[nInps];
+      for (jj = 0; jj < nInps; jj++) bins[ii][jj] = 0;
+   }
+   bins2 = new int***[nbins];
+   for (jj = 0; jj < nbins; jj++)
+   {
+      bins2[jj] = new int**[nbins];
+      for (jj2 = 0; jj2 < nbins; jj2++)
+      {
+         bins2[jj][jj2] = new int*[nInps];
+         for (ii = 0; ii < nInps; ii++)
+         {
+            bins2[jj][jj2][ii] = new int[nInps];
+            for (ii2 = 0; ii2 < nInps; ii2++)
+               bins2[jj][jj2][ii][ii2] = 0;
+         }
+      }
+   }
+   for (ii = 0; ii < nSamps; ii++)
+   {
+      for (ii2 = 0; ii2 < nInps; ii2++)
+      {
+         ddata = sample[ii*nInps+ii2];
+         ddata = (ddata - LB[ii2]) / (UB[ii2] - LB[ii2]);
+         index = (int) (ddata * nbins);
+         if (index >= nbins) index = nbins - 1;
+         if (index < 0) index = 0;
+         bins[index][ii2]++;
+      }
+      for (ii2 = 0; ii2 < nInps; ii2++)
+      {
+         ddata = sample[ii*nInps+ii2];
+         ddata = (ddata - LB[ii2]) / (UB[ii2] - LB[ii2]);
+         index = (int) (ddata * nbins);
+         if (index >= nbins) index = nbins - 1;
+         if (index < 0) index = 0;
+         for (jj = 0; jj < nInps; jj++)
+         {
+            ddata2 = sample[ii*nInps+jj];
+            ddata2 = (ddata2 - LB[jj]) / (UB[jj] - LB[jj]);
+            index2 = (int) (ddata2 * nbins);
+            if (index2 >= nbins) index2 = nbins - 1;
+            if (index2 < 0) index2 = 0;
+            bins2[index][index2][ii2][jj]++;
+         }
+      }
+   }
+
+   strcpy(cfname, fname);
+   fp = fopen(cfname, "w");
+   if (fp == NULL)
+   {
+      printOutTS(PL_ERROR, "ERROR: cannot open %s file.\n", cfname);
+      return 0;
+   }
+   sprintf(charString,"This file shows posteriors plots");
+   fwriteComment(fp, charString);
+   sprintf(charString,"ns  - set to 1 for 1-step smoothing of 2D contours");
+   fwriteComment(fp, charString);
+   sprintf(charString,"ns1 - set to 1 for 1-step smoothing of 1D histgrams");
+   fwriteComment(fp, charString);
+   fprintf(fp, "ns  = 0;\n");
+   fprintf(fp, "ns1 = 0;\n");
+   fwritePlotCLF(fp);
+   fprintf(fp, "active = [\n");
+   for (kk = 0; kk < nInps; kk++) fprintf(fp, "1\n");
+   fprintf(fp, "];\n");
+   fprintf(fp, "L = [\n");
+   for (kk = 0; kk < nInps; kk++) fprintf(fp, "%e ",LB[kk]);
+   fprintf(fp, "];\n");
+   fprintf(fp, "U = [\n");
+   for (kk = 0; kk < nInps; kk++) fprintf(fp, "%e ",UB[kk]);
+   fprintf(fp, "];\n");
+   fprintf(fp, "iStr = {\n");
+   for (kk = 0; kk < nInps-1; kk++) fprintf(fp, "'%s',", inpNames[kk]);
+   fprintf(fp, "'%s'};\n", inpNames[nInps-1]);
+   fprintf(fp, "X = zeros(%d,%d);\n", nInps, nbins);
+   fprintf(fp, "D = zeros(%d,%d);\n", nInps, nbins);
+   fprintf(fp, "NC = zeros(%d,%d,%d,%d);\n",nInps,nInps,nbins,nbins);
+   for (kk = 0; kk < nInps; kk++)
+   {
+      for (kk2 = 0; kk2 < nInps; kk2++)
+      {
+         if (kk == kk2)
+         {
+            fprintf(fp, "X(%d,:) = [\n", kk+1);
+            for (jj = 0; jj < nbins; jj++)
+               fprintf(fp, "%e ", (UB[kk]-LB[kk])/nbins*(jj+0.5)+LB[kk]);
+            fprintf(fp, "];\n");
+            fprintf(fp, "D(%d,:) = [\n", kk+1);
+            sumBins = 0;
+            for (jj = 0; jj < nbins; jj++) sumBins += bins[jj][kk];
+            if (sumBins == 0) sumBins = 1;
+            for (jj = 0; jj < nbins; jj++)
+               fprintf(fp, "%e ", (double) bins[jj][kk]/(double) sumBins);
+            fprintf(fp, "];\n");
+         }
+         else
+         {
+            fprintf(fp, "NC(%d,%d,:,:) = [\n", kk+1, kk2+1);
+            for (jj = 0; jj < nbins; jj++)
+            {
+               for (jj2 = 0; jj2 < nbins; jj2++)
+                  fprintf(fp, "%d ", bins2[jj][jj2][kk][kk2]);
+               fprintf(fp, "\n");
+            }
+            fprintf(fp, "]';\n");
+         }
+      }
+   }
+   fprintf(fp,"fs = 12;\n");
+   fprintf(fp,"nInps  = length(active);\n");
+   fprintf(fp,"nPlots = 0;\n");
+   fprintf(fp,"for ii = 1 : nInps\n");
+   fprintf(fp,"   if (active(ii) == 1)\n");
+   fprintf(fp,"      nPlots = nPlots + 1;\n");
+   fprintf(fp,"      active(ii) = nPlots;\n");
+   fprintf(fp,"   end;\n");
+   fprintf(fp,"end;\n");
+   fprintf(fp,"dzero = 0;\n");
+   fprintf(fp,"for ii = 1 : nInps\n");
+   fprintf(fp,"  for jj = ii : nInps\n");
+   fprintf(fp,"    if (active(ii) ~= 0 & active(jj) ~= 0)\n");
+   fprintf(fp,"      index = (active(ii)-1) * nPlots + active(jj);\n");
+   fprintf(fp,"      subplot(nPlots,nPlots,index)\n");
+   fprintf(fp,"      if (ii == jj)\n");
+   fprintf(fp,"        n = length(D(ii,:));\n");
+   fprintf(fp,"        DN = D(ii,:);\n");
+   fprintf(fp,"        for kk = 1 : ns1\n");
+   fprintf(fp,"          DN1 = DN;\n");
+   fprintf(fp,"          for ll = 2 : n-1\n");
+   fprintf(fp,"            DN(ll) = DN(ll) + DN1(ll+1);\n");
+   fprintf(fp,"            DN(ll) = DN(ll) + DN1(ll-1);\n");
+   fprintf(fp,"            DN(ll) = DN(ll) / 3;\n");
+   fprintf(fp,"          end;\n");
+   fprintf(fp,"        end;\n");
+   fprintf(fp,"        bar(X(ii,:), DN, 1.0);\n");
+   fprintf(fp,"        xmin = min(X(ii,:));\n");
+   fprintf(fp,"        xmax = max(X(ii,:));\n");
+   fprintf(fp,"        xwid = xmax - xmin;\n");
+   fprintf(fp,"        xmin = xmin - 0.5 * xwid / %d;\n", nbins);
+   fprintf(fp,"        xmax = xmax + 0.5 * xwid / %d;\n", nbins);
+   fprintf(fp,"        ymax = max(DN);\n");
+   if (psPlotTool_ == 1)
+   {
+      fprintf(fp,"        e = gce();\n");
+      fprintf(fp,"        e.children.thickness = 2;\n");
+      fprintf(fp,"        e.children.foreground = 0;\n");
+      fprintf(fp,"        e.children.background = 2;\n");
+      fprintf(fp,"        a = gca();\n");
+      fprintf(fp,"        a.data_bounds=[xmin,0;xmax,ymax];\n");
+      fprintf(fp,"        a.x_label.text = iStr(ii);\n");
+      fprintf(fp,"        a.x_label.font_size = 3;\n");
+      fprintf(fp,"        a.x_label.font_style = 4;\n");
+      fprintf(fp,"//      a.grid = [1 1];\n");
+      fprintf(fp,"        a.y_label.text = iStr(jj);\n");
+      fprintf(fp,"        a.y_label.font_size = 3;\n");
+      fprintf(fp,"        a.y_label.font_style = 4;\n");
+      fprintf(fp,"        a.thickness = 2;\n");
+      fprintf(fp,"        a.font_size = 3;\n");
+      fprintf(fp,"        a.font_style = 4;\n");
+      fprintf(fp,"        a.box = \"on\";\n");
+   }
+   else
+   {
+      fprintf(fp,"        axis([xmin xmax 0 ymax])\n");
+      fprintf(fp,"        set(gca,'linewidth',2)\n");
+      fprintf(fp,"        set(gca,'fontweight','bold')\n");
+      fprintf(fp,"        set(gca,'fontsize',12)\n");
+      fprintf(fp,
+         "        xlabel(iStr(ii),'FontWeight','bold','FontSize',fs)\n");
+      fprintf(fp,"        if (ii == 1)\n");
+      fprintf(fp,
+         "        ylabel('Probabilities','FontWeight','bold','FontSize',fs)\n");
+      fprintf(fp,"        end;\n");
+      fprintf(fp,"        grid on\n");
+      fprintf(fp,"        box on\n");
+   }
+   fprintf(fp,"      else\n");
+   fprintf(fp,"        n = length(X(jj,:));\n");
+   fprintf(fp,"        XT = X(jj,:);\n");
+   fprintf(fp,"        YT = X(ii,:);\n");
+   fprintf(fp,"        HX = (XT(n) - XT(1)) / (n-1);\n");
+   fprintf(fp,"        HY = (YT(n) - YT(1)) / (n-1);\n");
+   fprintf(fp,"        ZZ = squeeze(NC(ii,jj,:,:));\n");
+   fprintf(fp,"        for kk = 1 : ns\n");
+   fprintf(fp,"          ZZ1 = ZZ;\n");
+   fprintf(fp,"          for ll = 2 : n-1\n");
+   fprintf(fp,"            for mm = 2 : n-1\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll+1,mm);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll-1,mm);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll,mm+1);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll,mm-1);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll+1,mm+1);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll-1,mm-1);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll-1,mm+1);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) + ZZ1(ll+1,mm-1);\n");
+   fprintf(fp,"              ZZ(ll,mm) = ZZ(ll,mm) / 9;\n");
+   fprintf(fp,"            end;\n");
+   fprintf(fp,"          end;\n");
+   fprintf(fp,"        end;\n");
+   fprintf(fp,"        ZZ = ZZ / (sum(sum(ZZ)));\n");
+   if (psPlotTool_ == 1)
+   {
+      fprintf(fp,"        XX = [XT(1):HX:XT(n)];\n");
+      fprintf(fp,"        YY = [YT(1):HY:YT(n)];\n");
+      fprintf(fp,"        DD = splin2d(XX,YY,ZZ);\n");
+      fprintf(fp,"        HX = 0.01 * (XT(n) - XT(1));\n");
+      fprintf(fp,"        HY = 0.01 * (YT(n) - YT(1));\n");
+      fprintf(fp,"        X2 = [XT(1):HX:XT(n)];\n");
+      fprintf(fp,"        Y2 = [YT(1):HY:YT(n)];\n");
+      fprintf(fp,"        [XI, YI] = ndgrid(X2, Y2);\n");
+      fprintf(fp,"        disp('interpolation')\n");
+      fprintf(fp,"        ZI =interp2d(XI, YI, XX, YY, DD, \"natural\");\n");
+      fprintf(fp,"        disp('interpolation done')\n");
+      fprintf(fp,"        ZB = ZI;\n");
+      fprintf(fp,"        nX = length(X2);\n");
+      fprintf(fp,"        nY = length(Y2);\n");
+      fprintf(fp,"        for kk = 1 : nX\n");
+      fprintf(fp,"          for ll = 1 : nY\n");
+      fprintf(fp,"            ZI(kk,ll) = ZB(kk,nY-ll+1);\n");
+      fprintf(fp,"          end;\n");
+      fprintf(fp,"        end;\n");
+      fprintf(fp,"        zmax = max(max(ZI));\n");
+      fprintf(fp,"        zmin = min(min(ZI)) / zmax;\n");
+      fprintf(fp,"        ZI   = ZI / zmax;\n");
+      fprintf(fp,"        zmax = 1;\n");
+      fprintf(fp,"        xset(\"colormap\",jetcolormap(64));\n");
+      fprintf(fp,"        colorbar(zmin,zmax);\n");
+      fprintf(fp,
+           "        contour2d(X2,Y2,ZB,5,rect=[L(jj),L(ii),U(jj),U(ii)]);\n");
+      fprintf(fp,"        xset(\"fpf\",\" \");\n");
+      fprintf(fp,"        Matplot1((ZI-zmin)/(zmax-zmin)*64,[L(jj),L(ii),");
+      fprintf(fp,"U(jj),U(ii)]);\n");
+      fprintf(fp,"        a = gca();\n");
+      fprintf(fp,"        a.x_label.text = iStr(jj);\n");
+      fprintf(fp,"        a.x_label.font_size = 3;\n");
+      fprintf(fp,"        a.x_label.font_style = 4;\n");
+      fprintf(fp,"        a.y_label.text = iStr(ii);\n");
+      fprintf(fp,"        a.y_label.font_size = 3;\n");
+      fprintf(fp,"        a.y_label.font_style = 4;\n");
+      fwritePlotAxesNoGrid(fp);
+   }
+   else
+   {
+      fprintf(fp,"        imagesc(ZZ')\n");
+      fprintf(fp,"        xtick = L(ii):(U(ii)-L(ii))/4:U(ii);\n");
+      fprintf(fp,"        set(gca,'XTick',0:n/4:n);\n");
+      fprintf(fp,"        set(gca,'XTickLabel', xtick);\n");
+      fprintf(fp,"        ytick = L(jj):(U(jj)-L(jj))/4:U(jj);\n");
+      fprintf(fp,"        set(gca,'YTick',0:n/4:n);\n");
+      fprintf(fp,"        set(gca,'YTickLabel', ytick);\n");
+      fprintf(fp,"        set(gca,'YDir', 'normal');\n");
+      fprintf(fp,"%% axis off\n");
+      fprintf(fp,
+         "        xlabel(iStr(jj),'FontWeight','bold','FontSize',fs)\n");
+      fprintf(fp,
+         "        ylabel(iStr(ii),'FontWeight','bold','FontSize',fs)\n");
+      fwritePlotAxesNoGrid(fp);
+   }
+   fprintf(fp,"      end;\n");
+   fprintf(fp,"    end;\n");
+   fprintf(fp,"  end;\n");
+   fprintf(fp,"end;\n");
+   if (psPlotTool_ == 0)
+   {
+      fprintf(fp,"set(gcf,'NextPlot','add');\n");
+      fprintf(fp,"axes;\n");
+      fprintf(fp,"h=title('One- and Two-Input Distributions',");
+      fprintf(fp,"'fontSize',fs,'fontWeight','bold');\n");
+      fprintf(fp,"set(gca,'Visible','off');\n");
+      fprintf(fp,"set(h,'Visible','on');\n");
+   }
+   fclose(fp);
+   printOutTS(PL_INFO,"The %s file has been created.\n",fname);
+
+   for (ii = 0; ii < nbins; ii++) delete [] bins[ii];
+   delete [] bins;
+   for (jj = 0; jj < nbins; jj++)
+   {
+      for (jj2 = 0; jj2 < nbins; jj2++)
+      {
+         for (ii = 0; ii < nInps; ii++) delete [] bins2[jj][jj2][ii];
+         delete [] bins2[jj][jj2];
+      }
+      delete [] bins2[jj];
+   }
+   delete [] bins2;
+   return 0;
+}
+
+// ************************************************************************
 // plot stuff for scilab or matlab
 // ------------------------------------------------------------------------
 int fwritePlotAxes(FILE *fp)
@@ -1493,7 +1800,7 @@ int fwritePlotAxesNoGrid(FILE *fp)
    {
       fprintf(fp, "set(gca,'linewidth',2)\n");
       fprintf(fp, "set(gca,'fontweight','bold')\n");
-      fprintf(fp, "set(gca,'fontsize',12)\n");
+      fprintf(fp, "set(gca,'fontsize',10)\n");
       fprintf(fp, "box on\n");
    }
    return 0;
@@ -1510,7 +1817,7 @@ int fwritePlotXLabel(FILE *fp, const char *label)
    }
    else
    {
-      fprintf(fp, "xlabel('%s','FontWeight','bold','FontSize',12)\n",label);
+      fprintf(fp,"xlabel('%s','FontWeight','bold','FontSize',12)\n",label);
    }
    return 0;
 }
@@ -1526,7 +1833,7 @@ int fwritePlotYLabel(FILE *fp, const char *label)
    }
    else
    {
-      fprintf(fp, "ylabel('%s','FontWeight','bold','FontSize',12)\n",label);
+      fprintf(fp,"ylabel('%s','FontWeight','bold','FontSize',12)\n",label);
    }
    return 0;
 }
@@ -1542,7 +1849,7 @@ int fwritePlotZLabel(FILE *fp, const char *label)
    }
    else
    {
-      fprintf(fp, "zlabel('%s','FontWeight','bold','FontSize',12)\n",label);
+      fprintf(fp,"zlabel('%s','FontWeight','bold','FontSize',12)\n",label);
    }
    return 0;
 }

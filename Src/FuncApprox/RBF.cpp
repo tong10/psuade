@@ -49,7 +49,7 @@ extern "C" {
 #define PS_RBF1
 
 // ************************************************************************
-// Constructor for object class KNN
+// Constructor for object class RBF
 // ------------------------------------------------------------------------
 RBF::RBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
@@ -65,15 +65,20 @@ RBF::RBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    gaussScale_ = 1;
 
    // display banner and additonal information
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO,"*           Radial Basis Function (RBF) Analysis\n");
-   printOutTS(PL_INFO,"* Set printlevel to 1-4 to see RBF details.\n");
-   printOutTS(PL_INFO,"* Default kernel    = multi-quadratic \n");
-   printOutTS(PL_INFO,"* Default threshold = 1.0e-15 (for SVD truncation)\n");
-   printOutTS(PL_INFO,"* Turn on rs_expert mode to make changes.\n");
-   printEquals(PL_INFO, 0);
+   if (psInteractive_ == 1)
+   {
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO,
+           "*           Radial Basis Function (RBF) Analysis\n");
+      printOutTS(PL_INFO,"* Set printlevel to 1-4 to see RBF details.\n");
+      printOutTS(PL_INFO,"* Default kernel    = multi-quadratic \n");
+      printOutTS(PL_INFO,
+           "* Default threshold = 1.0e-15 (for SVD truncation)\n");
+      printOutTS(PL_INFO,"* Turn on rs_expert mode to make changes.\n");
+      printEquals(PL_INFO, 0);
+   }
    
-   if (psRSExpertMode_ == 1)
+   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
       printf("In the following you have the option to select the kernel. \n");
       printf("0. multi-quadratic\n");
@@ -84,13 +89,18 @@ RBF::RBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       type_ = getInt(0, 3, pString);
       if (type_ == 2)
       {
-         sprintf(pString,"Enter scaling factor for Gaussian kernel (default=1) : ");
+         sprintf(pString,
+            "Enter scaling factor for Gaussian kernel (default=1) : ");
          gaussScale_ = getDouble(pString);
       }
-      printf("The RBF matrix to be constructed may be near-singular.\n");
-      printf("Currently, singular values svd < max(svd)*1e-15 are truncated.\n");
-      printf("You have the option to change this threshold (1e-15).\n");
-      printf("NOTE: truncating singular values may lead to erroneous results.\n");
+      printOutTS(PL_INFO,
+           "The RBF matrix to be constructed may be near-singular.\n");
+      printOutTS(PL_INFO,
+           "Currently, singular values < max(svd)*1e-15 are truncated.\n");
+      printOutTS(PL_INFO,
+           "You have the option to change this threshold (1e-15).\n");
+      printOutTS(PL_INFO,
+           "NOTE: truncating singular values may lead to erroneous results.\n");
       sprintf(pString, "Enter new threshold for SVD (> 0 but << 1) : ");
       svdThresh_ = getDouble(pString);
    }
@@ -119,7 +129,8 @@ int RBF::initialize(double *X, double *Y)
 
    if (lowerBounds_ == NULL)
    {
-      printf("RBF initialize ERROR: sample bounds not set yet.\n");
+      printOutTS(PL_ERROR,
+           "RBF initialize ERROR: sample bounds not set yet.\n");
       return -1;
    }
    if (XNormalized_ != NULL) delete [] XNormalized_;
@@ -150,7 +161,8 @@ int RBF::initialize(double *X, double *Y)
    switch(type_) 
    {
       case 0: 
-         if (outputLevel_ > 0) printf("Kernel = multi-quadratic\n");
+         if (outputLevel_ > 0) 
+            printOutTS(PL_INFO,"Kernel = multi-quadratic\n");
          for (ss = 0; ss < nSamples_; ss++)
          {
             Dmat[ss*nSamp1+ss] = 1.0; 
@@ -158,7 +170,8 @@ int RBF::initialize(double *X, double *Y)
             {
                ddata = 0.0;
                for (ii = 0; ii < nInputs_; ii++)
-                  ddata += pow((XNormalized_[ss*nInputs_+ii]-XNormalized_[ss2*nInputs_+ii]),2.0);
+                  ddata += pow((XNormalized_[ss*nInputs_+ii]-
+                                XNormalized_[ss2*nInputs_+ii]),2.0);
                Dmat[ss*nSamp1+ss2] = 
                     Dmat[ss2*nSamp1+ss] = sqrt(ddata+1.0);
             }
@@ -166,7 +179,8 @@ int RBF::initialize(double *X, double *Y)
          break;
 
       case 1: 
-         if (outputLevel_ > 0) printf("Kernel = inverse multi-quadratic\n");
+         if (outputLevel_ > 0) 
+            printOutTS(PL_INFO,"Kernel = inverse multi-quadratic\n");
          for (ss = 0; ss < nSamples_; ss++)
          {
             Dmat[ss*nSamp1+ss] = 1.0; 
@@ -183,7 +197,8 @@ int RBF::initialize(double *X, double *Y)
          break;
 
       case 2: 
-         if (outputLevel_ > 0) printf("Kernel = Gaussian\n");
+         if (outputLevel_ > 0) 
+            printOutTS(PL_INFO,"Kernel = Gaussian\n");
          for (ss = 0; ss < nSamples_; ss++)
          {
             Dmat[ss*nSamp1+ss] = 1.0; 
@@ -200,7 +215,8 @@ int RBF::initialize(double *X, double *Y)
          break;
 
       case 3: 
-         if (outputLevel_ > 0) printf("Kernel = thin plate spline\n");
+         if (outputLevel_ > 0) 
+            printOutTS(PL_INFO,"Kernel = thin plate spline\n");
          for (ss = 0; ss < nSamples_; ss++)
          {
             Dmat[ss*nSamp1+ss] = 0.0; 
@@ -248,9 +264,10 @@ int RBF::initialize(double *X, double *Y)
    double *UU = new double[nSamp1*nSamp1];
    double *VV = new double[nSamp1*nSamp1];
    double *WW = new double[wlen];
-   dgesvd_(&jobu,&jobvt,&nSamp1,&nSamp1,Dmat,&nSamp1,SS,UU,&nSamp1,VV,&nSamp1,WW,
-           &wlen,&info);
-   if (info != 0) printf("RBF WARNING: dgesvd returns error %d.\n",info);
+   dgesvd_(&jobu,&jobvt,&nSamp1,&nSamp1,Dmat,&nSamp1,SS,UU,&nSamp1,VV,
+           &nSamp1,WW, &wlen,&info);
+   if (info != 0 && psInteractive_ == 1) 
+      printOutTS(PL_WARN,"RBF WARNING: dgesvd returns error %d.\n",info);
    regCoeffs_ = new double[nSamp1];
    for (ii = 0; ii < nSamples_; ii++) regCoeffs_[ii] = YNormalized_[ii];
 #ifdef PS_RBF1
@@ -264,11 +281,13 @@ int RBF::initialize(double *X, double *Y)
          cnt++;
       }
    }
-   if (cnt > 0)
+   if (cnt > 0 && psInteractive_ == 1)
    {
-      printf("WARNING: RBF matrix is near-singular. Small singular values\n");
-      printf("         (%d out of %d) are truncated.\n",cnt,nSamp1);
-      printf("         Approximation may be inaccurate.\n");
+      printOutTS(PL_WARN,
+           "WARNING: RBF matrix is near-singular. Small singular values\n");
+      printOutTS(PL_WARN,
+           "         (%d out of %d) are truncated.\n",cnt,nSamp1);
+      printOutTS(PL_WARN,"         Approximation may be inaccurate.\n");
    }
    for (ss = 0; ss < nSamp1; ss++)
    {
@@ -284,7 +303,8 @@ int RBF::initialize(double *X, double *Y)
    for (ss = 0; ss < nSamp1; ss++)
    {
       regCoeffs_[ss] = 0.0;
-      for (ss2 = 0; ss2 < nSamp1; ss2++) regCoeffs_[ss] += VV[ss*nSamp1+ss2] * WW[ss2];
+      for (ss2 = 0; ss2 < nSamp1; ss2++) 
+         regCoeffs_[ss] += VV[ss*nSamp1+ss2] * WW[ss2];
    }
    delete [] SS;
    delete [] UU;

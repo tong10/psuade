@@ -1193,17 +1193,23 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                else printf(" (unnormalized)\n");
             } 
             if (psPlotTool_ == 1)
-            {
-               printf("rssobol1: scilab graphics is not currently available.\n");
-               fp = NULL;
-            }
+                 fp = fopen("scilabrssobol1.sci", "w");
             else fp = fopen("matlabrssobol1.m", "w");
-            if (fp == NULL) printf("rssobol1 ERROR: cannot open matlabrssobol1.m\n");
+            if (fp == NULL) printf("rssobol1 ERROR: cannot open file to save data\n");
             else
             {
-               fprintf(fp, "%% This file contains Sobol' indices\n");
-               fprintf(fp, "%% set sortFlag = 1 and set nn to be the number\n");
-               fprintf(fp, "%% of inputs to display.\n");
+               if (psPlotTool_ == 1)
+               {
+                  fprintf(fp,"// This file contains Sobol' indices\n");
+                  fprintf(fp,"// set sortFlag = 1 and set nn to be the number\n");
+                  fprintf(fp,"// of inputs to display.\n");
+               }
+               else
+               {
+                  fprintf(fp,"%% This file contains Sobol' indices\n");
+                  fprintf(fp,"%% set sortFlag = 1 and set nn to be the number\n");
+                  fprintf(fp,"%% of inputs to display.\n");
+               }
                fprintf(fp, "sortFlag = 0;\n");
                fprintf(fp, "nn = %d;\n", nInputs);
                fprintf(fp, "Mids = [\n");
@@ -1244,7 +1250,9 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                }
                fwriteHold(fp, 0);
                fprintf(fp, "if (sortFlag == 1)\n");
-               fprintf(fp, "  [Mids, I2] = sort(Mids,'descend');\n");
+               if (psPlotTool_ == 1)
+                    fprintf(fp, "  [Mids, I2] = gsort(Mids);\n");
+               else fprintf(fp, "  [Mids, I2] = sort(Mids,'descend');\n");
                if (pdata->nDbles_ == 3*nInputs)
                {
                   fprintf(fp, "  Maxs = Maxs(I2);\n");
@@ -1271,11 +1279,15 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                   fprintf(fp, "ymax = max(Mids);\n");
                }
                fprintf(fp, "h2 = 0.05 * (ymax - ymin);\n");
+               if (psPlotTool_ == 1) fprintf(fp, "drawlater\n");
                fprintf(fp, "bar(Mids,0.8);\n");
                if (pdata->nDbles_ == 3*nInputs)
                {
                   fprintf(fp,"for ii = 1:nn\n");
-                  fprintf(fp,"%% h = plot(ii,Means(ii),'r*','MarkerSize',13);\n");
+                  if (psPlotTool_ == 1)
+                     fprintf(fp,"// h = plot(ii,Means(ii),'r*','MarkerSize',13);\n");
+                  else 
+                     fprintf(fp,"%% h = plot(ii,Means(ii),'r*','MarkerSize',13);\n");
                   fprintf(fp,"   if (ii == 1)\n");
                   fwriteHold(fp, 1);
                   fprintf(fp,"   end;\n");
@@ -1285,19 +1297,38 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
                   fprintf(fp,"'k','MarkerFaceColor','g','MarkerSize',13)\n");
                   fprintf(fp,"end;\n");
                }
-               fprintf(fp,"ymin=0;\n");
-               fprintf(fp,"axis([0 nn+1 ymin ymax])\n");
                fwritePlotAxes(fp);
-               fprintf(fp,"set(gca,'XTickLabel',[]);\n");
-               fprintf(fp,"th=text(1:nn, repmat(ymin-0.07*(ymax-ymin),nn,1),Str,");
-               fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
-               fprintf(fp,"set(th, 'fontsize', 12)\n");
-               fprintf(fp,"set(th, 'fontweight', 'bold')\n");
+               fprintf(fp,"ymin=0;\n");
+               if (psPlotTool_ == 1)
+               {
+                  fprintf(fp, "a=gca();\n");
+                  fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
+                  fprintf(fp, "newtick = a.x_ticks;\n");
+                  fprintf(fp, "newtick(2) = [1:nn]';\n");
+                  fprintf(fp, "newtick(3) = Str';\n");
+                  fprintf(fp, "a.x_ticks = newtick;\n");
+                  fprintf(fp, "a.x_label.font_size = 3;\n");
+                  fprintf(fp, "a.x_label.font_style = 4;\n");
+               }
+               else
+               {
+                  fprintf(fp,"axis([0 nn+1 ymin ymax])\n");
+                  fprintf(fp,"set(gca,'XTickLabel',[]);\n");
+                  fprintf(fp,"th=text(1:nn, repmat(ymin-0.07*(ymax-ymin),nn,1),Str,");
+                  fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+                  fprintf(fp,"set(th, 'fontsize', 12)\n");
+                  fprintf(fp,"set(th, 'fontweight', 'bold')\n");
+               }
                fwritePlotTitle(fp,"Sobol First Order Indices");
                fwritePlotYLabel(fp, "Sobol Indices");
                fwriteHold(fp, 0);
+               if (psPlotTool_ == 1)
+               {
+                  fprintf(fp, "drawnow\n");
+                  printf("rssobol1 plot file = scilabrssobol1.sci\n");
+               }
+               else printf("rssobol1 plot file = matlabrssobol1.m\n");
                fclose(fp);
-               printf("rssobol1 plot matlab file = matlabrssobol1.m\n");
             }
          }
          else

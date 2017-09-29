@@ -168,6 +168,7 @@ int PDFExponential::genSample(int length, double *outData, double lower,
    int    ii;
    double UU, xlo, xhi, xmi, ylo, yhi, ymi;
 
+   printf("PDFExp: genSample begins (Take too long? Check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -199,6 +200,7 @@ int PDFExponential::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
+   printf("PDFExponential: genSample ends.\n");
    return 0;
 }
 

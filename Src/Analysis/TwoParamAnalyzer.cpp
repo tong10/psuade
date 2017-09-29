@@ -295,9 +295,12 @@ double TwoParamAnalyzer::analyze(aData &adata)
          nReps1 = ss;
          if (nReps1 <= 1)
          {
-            printOutTS(PL_INFO,"TwoParamEffect INFO: nReps < 1 for input %d.\n",ii+1);
-            printOutTS(PL_INFO,"        ==> not replicated orthogonal array nor Factorial\n");
-            printOutTS(PL_INFO,"        ==> crude 2-way interaction analysis.\n");
+            printOutTS(PL_INFO,
+                 "TwoParamEffect INFO: nReps < 1 for input %d.\n",ii+1);
+            printOutTS(PL_INFO,
+                 "        ==> not replicated orthogonal array nor Factorial\n");
+            printOutTS(PL_INFO,
+                 "        ==> crude 2-way interaction analysis.\n");
             status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
                                      xLower, xUpper, vce);
             if (status == 0)
@@ -336,10 +339,14 @@ double TwoParamAnalyzer::analyze(aData &adata)
          }
          if (errflag != 0)
          {
-            printOutTS(PL_WARN,"TwoParamEffect WARNING(2): replications not satisified.\n");
-            printOutTS(PL_WARN,"    Are you using replicated orthogonal array or Factorial?\n");
-            printOutTS(PL_WARN,"    If so, you need to use > 1 replications. A crude\n");
-            printOutTS(PL_WARN,"    2-way interaction analysis will be done instead.\n");
+            printOutTS(PL_WARN,
+               "TwoParamEffect WARNING(2): replications not satisified.\n");
+            printOutTS(PL_WARN,
+               "    Are you using replicated orthogonal array or Factorial?\n");
+            printOutTS(PL_WARN,
+               "    If so, you need to use > 1 replications. A crude\n");
+            printOutTS(PL_WARN,
+               "    2-way interaction analysis will be done instead.\n");
             status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
                                      xLower, xUpper, vce);
             if (status == 0)
@@ -376,10 +383,14 @@ double TwoParamAnalyzer::analyze(aData &adata)
          nReps = ss;
          if (nReps <= 1 || (nReps1/nReps*nReps != nReps1))
          {
-            printOutTS(PL_WARN,"TwoParamEffect WARNING(3): replications not satisified.\n");
-            printOutTS(PL_WARN,"    Are you using replicated orthogonal array or Factorial?\n");
-            printOutTS(PL_WARN,"    If so, you need to use > 1 replications.\n");
-            printOutTS(PL_WARN,"A Crude 2-way interaction analysis will be done instead.\n");
+            printOutTS(PL_WARN,
+               "TwoParamEffect WARNING(3): replications not satisified.\n");
+            printOutTS(PL_WARN,
+               "    Are you using replicated orthogonal array or Factorial?\n");
+            printOutTS(PL_WARN,
+               "    If so, you need to use > 1 replications.\n");
+            printOutTS(PL_WARN,
+               "A Crude 2-way interaction analysis will be done instead.\n");
             status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
                                      xLower, xUpper, vce);
             if (status == 0)
@@ -420,7 +431,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
                }
                if (ncount != nReps)
                {
-                  printOutTS(PL_WARN,"TwoParamEffect WARNING(3): sample not rOA/FACT.\n");
+                  printOutTS(PL_WARN,
+                     "TwoParamEffect WARNING(3): sample not rOA/FACT.\n");
                   errflag = 1;
                }
             }
@@ -428,10 +440,14 @@ double TwoParamAnalyzer::analyze(aData &adata)
          }
          if (errflag != 0)
          {
-            printOutTS(PL_WARN,"TwoParamEffect WARNING(4): replications not satisified.\n");
-            printOutTS(PL_WARN,"    Are you using replicated orthogonal array or Factorial?\n");
-            printOutTS(PL_WARN,"    If so, you need to use > 1 replications.\n");
-            printOutTS(PL_WARN,"A Crude 2-way interaction analysis will be done instead.\n");
+            printOutTS(PL_WARN,
+               "TwoParamEffect WARNING(4): replications not satisified.\n");
+            printOutTS(PL_WARN,
+               "    Are you using replicated orthogonal array or Factorial?\n");
+            printOutTS(PL_WARN,
+               "    If so, you need to use > 1 replications.\n");
+            printOutTS(PL_WARN,
+               "A Crude 2-way interaction analysis will be done instead.\n");
             status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
                                      xLower, xUpper, vce);
             if (status == 0)
@@ -1231,31 +1247,43 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
    if (nIntervals < 4)
    {
       printOutTS(PL_ERROR,"ERROR: sample size too small.\n");
-      printOutTS(PL_ERROR,"       Need larger sample to give meaningful results.\n");
+      printOutTS(PL_ERROR,
+         "       Need larger sample to give meaningful results.\n");
       return -1;
    }
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO,"           Crude 2-way Interaction Effect\n");
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO,"TwoParamEffect: default number of levels in each input  = %d\n",
+   printOutTS(PL_INFO,
+        "TwoParamEffect: default number of levels in each input  = %d\n",
           nIntervals);
-   printOutTS(PL_INFO,"TwoParamEffect: default number of level for main effect = %d\n",
+   printOutTS(PL_INFO,
+        "TwoParamEffect: default number of level for main effect = %d\n",
           nIntervals1);
-   printOutTS(PL_INFO,"TwoParamEffect: sample size for each 2-dimensional box  = %d\n",
+   printOutTS(PL_INFO,
+        "TwoParamEffect: sample size for each 2-dimensional box  = %d\n",
           nSize);
    printDashes(PL_INFO, 0);
-   printOutTS(PL_INFO,"* For small to moderate sample sizes, this method gives rough\n");
-   printOutTS(PL_INFO,"* estimates of interaction effect (second order sensitivity).\n");
-   printOutTS(PL_INFO,"* These estimates can vary with different choices of internal\n");
-   printOutTS(PL_INFO,"* settings. For example, try different number of levels to\n");
-   printOutTS(PL_INFO,"* assess sensitivity of the computed measures with respect to\n");
-   printOutTS(PL_INFO,"* it. Turn on analysis expert mode to change the settings.\n");
-   printOutTS(PL_INFO,"* Recommend sample size per 2D box to be at least 10 to\n");
+   printOutTS(PL_INFO,
+        "* For small to moderate sample sizes, this method gives rough\n");
+   printOutTS(PL_INFO,
+        "* estimates of interaction effect (second order sensitivity).\n");
+   printOutTS(PL_INFO,
+        "* These estimates can vary with different choices of internal\n");
+   printOutTS(PL_INFO,
+        "* settings. For example, try different number of levels to\n");
+   printOutTS(PL_INFO,
+        "* assess sensitivity of the computed measures with respect to\n");
+   printOutTS(PL_INFO,
+        "* it. Turn on analysis expert mode to change the settings.\n");
+   printOutTS(PL_INFO,
+        "* Recommend sample size per 2D box to be at least 10 to\n");
    if (psAnaExpertMode_ == 1)
    {
       printEquals(PL_INFO, 0);
-      sprintf(pString,"Number of levels for 2-way analysis (>= 4, default = %d): ",
-              nIntervals);
+      sprintf(pString,
+           "Number of levels for 2-way analysis (>= 4, default = %d): ",
+           nIntervals);
       nIntervals = getInt(4, nSamples, pString);
       nSize = nSamples / nIntervals / nIntervals;
       if (nSize < 10)
@@ -1270,7 +1298,8 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
          ddata = pow(ddata, 0.5);
          nIntervals = (int) ddata;
          printOutTS(PL_INFO, 
-              "* Number of levels for 2-way analysis defaulted to %d\n", nIntervals);
+              "* Number of levels for 2-way analysis defaulted to %d\n", 
+              nIntervals);
       } 
       sprintf(pString,"Number of levels for main effect (>= %d): ",nIntervals);
       nIntervals1 = getInt(nIntervals, nSamples, pString);
@@ -1278,7 +1307,7 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
       if (nSize1 < 10)
       {
          printOutTS(PL_INFO, 
-              "Sample size per level for main effect %d too small (should be >= 10).\n",
+              "Sample size per level for main effect d too small (%d < 10).\n",
               nSize1);
          nSize1 = 10;
          nIntervals1 = nSamples / nSize1;
@@ -1307,14 +1336,14 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
          vceMean[ss] = 0.0;
          vceVariance[ss] = 0.0;
          bins[ss] = 0;
-         tags[ss] = 0;
       }
       for (ss = 0; ss < nSamples; ss++)
       {
          ddata = (X[nInputs*ss+ii] - iLowerB[ii]) / hstep1;
          ind1 = (int) ddata;
+         if (ind1 <  0) ind1 = 0;
          if (ind1 >= nIntervals1) ind1 = nIntervals1 - 1;
-         tags[ind1] = -1;
+         tags[ss] = -1;
          if (Y[ss] < 0.9*PSUADE_UNDEFINED)
          {
             vceMean[ind1] += Y[ss];
@@ -1358,15 +1387,18 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
                          (vceMean[ss] - aMean) * bins[ss]/totalCnt);
          }
       }
-      printOutTS(PL_INFO, "* Sensitivity index (Inputs %3d) = %12.4e (raw = %12.4e)\n",
-             ii+1,vce1[ii]/aVariance,vce1[ii]);
+      printOutTS(PL_INFO,
+           "* Sensitivity index (Inputs %3d) = %12.4e (raw = %12.4e)\n",
+           ii+1,vce1[ii]/aVariance,vce1[ii]);
 
       //save sensitivity
       sensitivity_[ii] = vce1[ii];
-      //cout << "sensitivity for input " << ii+1 << " = " << sensitivity_[ii] << endl;
+      //cout << "sensitivity for input " << ii+1 << " = " << 
+      //        sensitivity_[ii] << endl;
    }
    printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "* (First + second order) sensitivity indices (normalized)\n");
+   printOutTS(PL_INFO, 
+        "* (First + second order) sensitivity indices (normalized)\n");
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -1379,18 +1411,19 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
             vceMean[ss] = 0.0;
             vceVariance[ss] = 0.0;
             bins[ss] = 0;
-            tags[ss] = 0;
          }
          for (ss = 0; ss < nSamples; ss++)
          {
             ddata = (X[nInputs*ss+ii] - iLowerB[ii]) / hstep1;
             ind1 = (int) ddata;
+            if (ind1 < 0) ind1 = 0;
             if (ind1 >= nIntervals) ind1 = nIntervals - 1;
             ddata = (X[nInputs*ss+ii2] - iLowerB[ii2]) / hstep2;
             ind2 = (int) ddata;
+            if (ind2 < 0) ind2 = 0;
             if (ind2 >= nIntervals) ind2 = nIntervals - 1;
             ind = ind1 * nIntervals + ind2;
-            tags[ind] = -1;
+            tags[ss] = -1;
             if (Y[ss] < 0.9*PSUADE_UNDEFINED)
             {
                vceMean[ind] += Y[ss];
@@ -1438,8 +1471,9 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
          }
          if ( vce[ii*nInputs+ii2] < 0.0) vce[ii*nInputs+ii2] = 0.0;
          printOutTS(PL_INFO, 
-              "* Sensitivity index ( Inputs %2d %2d ) = %12.4e (raw = %12.4e)\n",
+            "* Sensitivity index ( Inputs %2d %2d ) = %12.4e (raw = %12.4e)\n",
               ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance,vce[ii*nInputs+ii2]);
+         //           vce[ii*nInputs+ii2]/aVariance);
 
          //save sensitivity comparisons
          record rec = {ii+1, ii2+1, vce[ii*nInputs+ii2]};

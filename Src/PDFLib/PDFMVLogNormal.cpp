@@ -130,7 +130,7 @@ int PDFMVLogNormal::genSample(int length, Vector &vecOut, Vector &lower,
    {
       for (jj = 0; jj < nInputs; jj++)
       {
-         normalPtr->genSample(length,localData1,Zero,One);
+         normalPtr->genSample(length,localData1,-4*One,4*One);
          for (ii = 0; ii < length; ii++)
             localData2[ii*nInputs+jj] = localData1[ii];
       }
@@ -158,6 +158,9 @@ int PDFMVLogNormal::genSample(int length, Vector &vecOut, Vector &lower,
          exit(1);
       }
    }
+   if (total > length)
+      printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
+             total,length);
    delete normalPtr;
    delete [] localData1;
    delete [] localData2;

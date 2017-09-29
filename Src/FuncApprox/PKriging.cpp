@@ -109,11 +109,11 @@ extern "C"
          (*YValue) = PSUADE_UNDEFINED;
          return NULL;
       }
-      fp = fopen("ps_terminate", "r");
+      fp = fopen("psuade_stop", "r");
       if (fp != NULL)
       {
          fclose(fp);
-         printf("Kriging: terminating ....\n");
+         printf("Kriging: psuade_stop file found - terminating ....\n");
          (*YValue) = PKRI_OptY;
          return NULL;
       }
@@ -250,11 +250,11 @@ extern "C"
             printf("\t    Current theta %d = %e\n", ii+1, XValues[ii]);
          printf("\t    Current Kriging objective value = %e\n", ddata);
          printf("\t* For early termination, just create a file\n");
-         printf("\t* called 'ps_terminate' in your local directory.\n");
-         fp = fopen("ps_terminate", "r");
+         printf("\t* called 'psuade_stop' in your local directory.\n");
+         fp = fopen("psuade_stop", "r");
          if (fp != NULL)
          {
-            printf("\t*** ps_terminate file found.\n");
+            printf("\t*** psuade_stop file found.\n");
             (*YValue) = 0.0;
             fclose(fp);
          }
@@ -300,7 +300,7 @@ PKriging::PKriging(int nInputs,int nSamples, CommManager *comm) :
       printAsterisks(PL_INFO, 0);
       printf("*                Kriging Analysis\n");
       printf("* Set printlevel to 1-4 to see Kriging details.\n");
-      printf("* Create 'ps_terminate' file to gracefully terminate.\n");
+      printf("* Create 'psuade_stop' file to gracefully terminate.\n");
       printf("* Create 'ps_print' file to set print level on the fly.\n");
       printEquals(PL_INFO, 0);
    }
@@ -499,10 +499,10 @@ double PKriging::train(double *X, double *Y)
    Sampling *sampler;
 
    status = 0;
-   fp = fopen("ps_terminate", "r");
+   fp = fopen("psuade_stop", "r");
    if (mypid_ == 0 && fp != NULL)
    {
-      printf("PKriging ERROR: remove the 'ps_terminate' file\n");
+      printf("PKriging ERROR: remove the 'psuade_stop' file\n");
       printf("                first and re-do.\n");
       fclose(fp);
       status = 1;
@@ -667,12 +667,12 @@ double PKriging::train(double *X, double *Y)
             for (ii = 0; ii < nInputs_; ii++)
                optThetas[ii] = PKRI_OptThetas[ii];
          }
-         fp = fopen("ps_terminate", "r");
+         fp = fopen("psuade_stop", "r");
          if (fp != NULL)
          {
             fclose(fp);
             fp = NULL;
-            printf("PKriging: terminating ....\n");
+            printf("PKriging: psuade_stop file found - terminating ....\n");
             break;
          }
       }

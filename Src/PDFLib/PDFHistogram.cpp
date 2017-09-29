@@ -66,6 +66,7 @@ PDFHistogram::PDFHistogram(char *fname, int nInps, int *indices, int *incrs)
    }
    else strcpy(filename, fname);
 
+   means_ = NULL;
    nSamples_ = 0;
    samples_  = NULL;
    nInputs_  = nInps;
@@ -83,15 +84,15 @@ PDFHistogram::PDFHistogram(char *fname, int nInps, int *indices, int *incrs)
       fp = fopen(filename, "r");
    } 
    fscanf(fp, "%d %d", &nSamples_, &nn);
-   if (nSamples_ < 10000)
+   if (nSamples_ < 100)
    {
-      printf("PDFHistogram ERROR: sample file needs to be >= 10000.\n");
+      printf("PDFHistogram ERROR: sample file needs to be >= 100.\n");
       fclose(fp);
       exit(1);
    }
-   if (nn < 1 || nn > 15)
+   if (nn < 1)
    {
-      printf("PDFHistogram ERROR: sample file has nInputs <= 0 or > 15.\n");
+      printf("PDFHistogram ERROR: sample file has nInputs <= 0.\n");
       fclose(fp);
       exit(1);
    }
@@ -207,6 +208,10 @@ PDFHistogram::PDFHistogram(char *fname, int nInps, int *indices, int *incrs)
        incrs_[ii] = incrs[ii];
    }
    
+   int *minBins = new int[nInputs_];
+   int *maxBins = new int[nInputs_];
+   for (ii = 0; ii < nInputs_; ii++) minBins[ii] = 2 * incrs_[ii]; 
+   for (ii = 0; ii < nInputs_; ii++) maxBins[ii] = 0;
    initHistogram();
    for (ss = 0; ss < nSamples_; ss++)
    {
@@ -217,10 +222,19 @@ PDFHistogram::PDFHistogram(char *fname, int nInps, int *indices, int *incrs)
          if (ddata == 1.0) jj = incrs_[ii] - 1;
          else              jj = (int) (ddata * incrs_[ii]);
          indexSet_[ii] = jj;
+         if (jj < minBins[ii]) minBins[ii] = jj;
+         if (jj > maxBins[ii]) maxBins[ii] = jj;
       }
       mergeHistogram(indexSet_,ss);
    }
    finalizeHistogram();
+   for (ii = 0; ii < nInputs_; ii++) 
+   {
+      printf("PDF box range for Input %4d = [%d , %d]\n",ii+1,
+             minBins[ii],maxBins[ii]);
+   }
+   delete [] minBins;
+   delete [] maxBins;
 }
 
 // ************************************************************************
@@ -229,20 +243,21 @@ PDFHistogram::PDFHistogram(char *fname, int nInps, int *indices, int *incrs)
 PDFHistogram::PDFHistogram(int nSamp,int nInps,double *samInputs,
                            int *incrs, int flag)
 {
-   int    ii, jj, ss;
+   int    ii, jj, ss, maxCnt, maxInd;
    double ddata, dmin, dmax;
    char   pString[1001];
 
-   if (nSamp < 10000)
+   if (nSamp < 100)
    {
-      printf("PDFHistogram ERROR: sample file needs to be >= 10000.\n");
+      printf("PDFHistogram ERROR: sample file needs to be >= 100.\n");
       exit(1);
    }
-   if (nInps < 1 || nInps > 15)
+   if (nInps < 1)
    {
-      printf("PDFHistogram ERROR: sample file has nInputs <= 0 or > 15.\n");
+      printf("PDFHistogram ERROR: sample file has nInputs <= 0.\n");
       exit(1);
    }
+   means_ = NULL;
    nSamples_ = nSamp;
    nInputs_  = nInps;
    samples_  = new double[nSamples_*nInputs_];
@@ -296,6 +311,25 @@ PDFHistogram::PDFHistogram(int nSamp,int nInps,double *samInputs,
       mergeHistogram(indexSet_,ss);
    }
    finalizeHistogram();
+
+   means_ = new double[nInputs_];
+   for (ii = 0; ii < nInputs_; ii++) 
+   {
+      means_[ii] = 0.0;
+      for (ss = 0; ss < nSamples_; ss++)
+         means_[ii] += samples_[ss*nInputs_+ii];
+      means_[ii] /= (double) nSamples_;
+   }
+   for (ii = 0; ii < nInputs_; ii++) 
+   {
+      ddata = means_[ii];
+      ddata = (ddata - lowerBs_[ii]) / (upperBs_[ii]-lowerBs_[ii]);
+      if (ddata == 1.0) jj = incrs_[ii] - 1;
+      else              jj = (int) (ddata * incrs_[ii]);
+      indexSet_[ii] = jj;
+   }
+   mergeHistogram(indexSet_,-1);
+
    if (flag == 1)
    {
       FILE *fp = fopen("psuade_pdfhist_sample","w");
@@ -312,6 +346,18 @@ PDFHistogram::PDFHistogram(int nSamp,int nInps,double *samInputs,
          fprintf(fp, "%16.8e\n", 1.0*histCnts_[ii]/nSamples_);
       }      
       fclose(fp);
+      printf("PDFHistogram: a sample has been created in psuade_pdfhist_sample.\n");
+      maxCnt = histCnts_[0];
+      maxInd = 0;
+      for (ss = 1; ss < nHist_; ss++) 
+      {
+         if (histCnts_[ss] > maxCnt) 
+         {
+            maxCnt = histCnts_[ss];
+            maxInd = ss;
+         }
+      }
+      printf("PDFHistogram: the mode is at sample number %d\n", maxInd+1);
    }
 }
 
@@ -334,6 +380,7 @@ PDFHistogram::~PDFHistogram()
       for (int ii = 0; ii < nHist_; ii++) delete [] histMap_[ii];
       delete [] histMap_;
    }
+   if (means_ != NULL) delete [] means_;
 }
 
 // ************************************************************************
@@ -364,7 +411,7 @@ int PDFHistogram::getPDF(int length, double *inData, double *outData)
 int PDFHistogram::getCDF(int length, double *inData, double *outData)
 {
    printf("PDFHistogram::getCDF not available.\n");
-   for (int ii = 0; ii < length; ii++) outData[ii] = 0;
+   for (int ii = 0; ii < length; ii++) outData[ii] = inData[ii];
    return -1;
 }
 
@@ -375,7 +422,7 @@ int PDFHistogram::invCDF(int length, double *inData, double *outData,
                        double lower, double upper)
 {
    printf("PDFHistogram::invCDF not available.\n");
-   for (int ii = 0; ii < length; ii++) outData[ii] = 0;
+   for (int ii = 0; ii < length; ii++) outData[ii] = inData[ii];
    return -1;
 }
 
@@ -393,7 +440,7 @@ int PDFHistogram::genSample(int length,double *outData,double, double)
       ddata = PSUADE_drand();
       ind = searchHistogram(ddata);
       for (ii = 0; ii < histCnts_[ind]; ii++)
-      kk = PSUADE_rand() % histCnts_[ind];
+         kk = PSUADE_rand() % histCnts_[ind];
       jj = histMap_[ind][kk];
       for (ii = 0; ii < nInputs_; ii++)
          outData[count*nInputs_+ii] = samples_[jj*nInputs_+ii];
@@ -407,7 +454,21 @@ int PDFHistogram::genSample(int length,double *outData,double, double)
 // ------------------------------------------------------------------------
 double PDFHistogram::getMean()
 {
-   printf("PDFHistogram::getMean not available for this distribution.\n");
+   printf("PDFHistogram::getMean not relevant for this distribution.\n");
+   printf("              Use getMeans.\n");
+   return 0.0;
+}
+
+// ************************************************************************
+// get means
+// ------------------------------------------------------------------------
+int PDFHistogram::getMeans(double *means)
+{
+   int ii;
+   if (means_ != NULL && means != NULL)
+      for (ii = 0; ii < nInputs_; ii++) means[ii] = means_[ii];
+   else if (means != NULL)
+      for (ii = 0; ii < nInputs_; ii++) means[ii] = 0.0;
    return 0.0;
 }
 
@@ -421,11 +482,7 @@ int PDFHistogram::searchHistogram(double prob)
    if (prob < histCDF_[0]) return 0; 
    if (prob >= histCDF_[nHist_-1]) return (nHist_-1); 
    for (ii = 1; ii < nHist_; ii++)
-   {
-      ddata = 0.5 * (histCDF_[ii-1] + histCDF_[ii]);
-      if (prob <= ddata) return (ii-1);
-      else if (prob < histCDF_[ii]) return ii;
-   }
+      if (prob <= histCDF_[ii]) return (ii);
    return 0;
 }
 
@@ -458,6 +515,20 @@ void PDFHistogram::mergeHistogram(int *indexSet, int samNum)
       if (jj == nInputs_) break;
    }
    index = ii;
+   if (samNum == -1)
+   {
+      if (index == nHist_) 
+         printf("PDFHistogram INFO: the sample mean is outside the hull.\n"); 
+      else
+      {
+         printf("PDFHistogram INFO: the sample mean is inside the hull.\n"); 
+         if (index == 0) printf("Weight = %e\n", histCDF_[index]);
+         else            printf("Weight = %e\n", 
+                                histCDF_[index]-histCDF_[index-1]);
+
+      }
+      return;
+   }
    //*** new entry
    if (index == nHist_)
    {
@@ -525,6 +596,7 @@ void PDFHistogram::finalizeHistogram()
       histCDF_[ss] = 1.0 * histCnts_[ss] / nSamples_; 
    for (ss = 1; ss < nHist_; ss++)
       histCDF_[ss] += histCDF_[ss-1];
+printf("his = %e\n",histCDF_[nHist_-1]);
 }
 
 // ************************************************************************

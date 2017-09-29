@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -173,8 +172,9 @@ int PDFLogNormal::invCDF(int length, double *inData, double *outData,
 int PDFLogNormal::genSample(int length, double *outData, double lower,
                             double upper)
 {
-   int    count, total;
+   int    ii, count, total;
    double U1, U2, R, theta, Z1, Z2, pi=3.14159, range, low, iroot2;
+   double lower2, upper2;
 
    printf("LogNormal genSample : mean, stdev = %e %e\n", mean_, stdev_);
    if (length <= 0)
@@ -196,11 +196,21 @@ int PDFLogNormal::genSample(int length, double *outData, double lower,
       exit(1);
    }
 
+   if (stdev_ == 0)
+   {
+      printf("PDFLognormal: genSample WARNING - std. dev. = 0\n");
+      for (ii = 0; ii < length; ii++) outData[ii] = exp(mean_);
+      return 0;
+   }
+
    iroot2 = sqrt(0.5)/stdev_;
-   if (lower == 0) low = 0.0;
-   else            low = 0.5 * (1.0 + erf((log(lower)-mean_)*iroot2));
-   range = 0.5 * (1.0 + erf((log(upper)-mean_)*iroot2)) - low;
+   lower2 = exp(mean_-5*stdev_);
+   upper2 = exp(mean_+5*stdev_);
+   if (lower2 == 0) low = 0.0;
+   else             low = 0.5 * (1.0 + erf((log(lower2)-mean_)*iroot2));
+   range = 0.5 * (1.0 + erf((log(upper2)-mean_)*iroot2)) - low;
    count = total = 0;
+   printf("PDFLognormal: genSample begins (Take too long? Check ranges)\n");
    while (count < length)
    {
       U1 = PSUADE_drand() * range + low;
@@ -230,7 +240,10 @@ int PDFLogNormal::genSample(int length, double *outData, double lower,
          exit(1);
       }
    }
-   printf("PDFLogNormal Statistics: need %d to generate %d points.\n",total,length);
+   if (total > length)
+      printf("PDFLogNormal Statistics: need %d to generate %d points.\n",
+             total,length);
+   printf("PDFLognormal: genSample ends.\n");
    return 0;
 }
 

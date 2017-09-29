@@ -189,6 +189,7 @@ int PDFF::genSample(int length, double *outData, double lower, double upper)
       exit(1);
    }
 
+   printf("PDFF: genSample begins (Take too long? Check ranges)\n");
    mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
    for (ii = 0; ii < length; ii++)
    {
@@ -224,6 +225,7 @@ int PDFF::genSample(int length, double *outData, double lower, double upper)
          else                             outData[ii] = xhi;
       }
    }
+   printf("PDFF: genSample ends.\n");
    return 0;
 }
 

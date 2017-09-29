@@ -41,7 +41,7 @@
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-DeltaAnalyzer::DeltaAnalyzer() : Analyzer(),nBins_(0),nInputs_(0),nConfig_(0),
+DeltaAnalyzer::DeltaAnalyzer(): Analyzer(),nBins_(0),nInputs_(0),nConfig_(0),
                    minDeltas_(0), deltaBins_(0), dOrder_(0), ranks_(0)
 {
    setName("DELTATEST");
@@ -123,8 +123,10 @@ double DeltaAnalyzer::analyze(aData &adata)
       if (YY[nOutputs*ii+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printOutTS(PL_ERROR, "DeltaTest ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR, "                 Prune the undefined's first.\n");
+      printOutTS(PL_ERROR, 
+           "DeltaTest ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR, 
+           "                 Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    }
 
@@ -151,8 +153,12 @@ double DeltaAnalyzer::analyze(aData &adata)
         "subset is at the end of the test (sharp zoom into the most\n");
    printOutTS(PL_INFO,"important subset).\n");
    printOutTS(PL_INFO,
+        "Thus, the purpose of this test is to identify a subset of\n");
+   printOutTS(PL_INFO,"important parameters.\n");
+   printOutTS(PL_INFO,
         "Note: If both nInputs and nSamples are large, this test\n");
-   printOutTS(PL_INFO,"      may take a long time to run. So, be patient.)\n");
+   printOutTS(PL_INFO,
+        "      may take a long time to run. So, be patient.)\n");
    printEquals(PL_INFO, 0);
    auxBins = new int[nInputs];
    inputBins = new int[nInputs];
@@ -167,7 +173,8 @@ double DeltaAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printOutTS(PL_INFO,"DeltaTest Option: set the number of neighbors K.\n");
+      printOutTS(PL_INFO,
+           "DeltaTest Option: set the number of neighbors K.\n");
       printOutTS(PL_INFO, 
            "The larger K is, the larger the distinguishing power is.\n");
       sprintf(pString, "What is K (>= 1, <= 20, default=3)? ");
@@ -280,7 +287,9 @@ double DeltaAnalyzer::analyze(aData &adata)
       }
       delta += ddata / (double) nIndex;
    }
-   printOutTS(PL_INFO, "Current best solution for output %d:\n",outputID+1);
+   printOutTS(PL_INFO,"Current best solution for output %d:\n",outputID+1);
+   printOutTS(PL_INFO,
+        "To stop the search, create a psuade_stop file in local directory.\n");
    printDashes(PL_INFO, 0);
    delta /= (2.0 * nSamples);
    for (ii = 0; ii < nInputs; ii++) printOutTS(PL_INFO, "%d ", inputBins[ii]);

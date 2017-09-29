@@ -97,8 +97,10 @@ double BootstrapAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*ss+outputID] == PSUADE_UNDEFINED) nPass++;
    if (nPass > 0)
    {
-      printOutTS(PL_ERROR, "BootstrapAnalyzer ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR, "                         Prune the undefined's first.\n");
+      printOutTS(PL_ERROR, 
+           "BootstrapAnalyzer ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR, 
+           "                         Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    }
    if (storedValues_ != NULL) delete [] storedValues_;
@@ -145,8 +147,9 @@ double BootstrapAnalyzer::analyze(aData &adata)
    if (aVal == 0.0) ind = 0;
    else             ind = (int) (alpha_u * nB);
    if (printLevel > 2)
-      printOutTS(PL_DETAIL, "Bootstrap confidence interval (%3.1f%% coverage) = {0, %e}\n",
-             100.0*(1.0 - alpha), bsmeans[ind]);
+      printOutTS(PL_DETAIL, 
+         "Bootstrap confidence interval (%3.1f%% coverage) = {0, %e}\n",
+         100.0*(1.0 - alpha), bsmeans[ind]);
    if (printLevel > 1)
       printAsterisks(PL_INFO, 0);
 

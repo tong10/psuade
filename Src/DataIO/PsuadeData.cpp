@@ -129,11 +129,16 @@ int PsuadeData::readPsuadeFile(const char *fname)
    while ((fgets(lineIn, lineLeng, fIn) != NULL) && (feof(fIn) == 0))
    {
       sscanf(lineIn,"%s", winput);
-      if      (strcmp(winput, keywords[1]) == 0) status = readInputSection(fIn);
-      else if (strcmp(winput, keywords[2]) == 0) status = readOutputSection(fIn);
-      else if (strcmp(winput, keywords[3]) == 0) status = readMethodSection(fIn);
-      else if (strcmp(winput, keywords[4]) == 0) status = readApplicationSection(fIn);
-      else if (strcmp(winput, keywords[5]) == 0) status = readAnalysisSection(fIn);
+      if (strcmp(winput, keywords[1]) == 0) 
+         status = readInputSection(fIn);
+      else if (strcmp(winput, keywords[2]) == 0) 
+         status = readOutputSection(fIn);
+      else if (strcmp(winput, keywords[3]) == 0) 
+         status = readMethodSection(fIn);
+      else if (strcmp(winput, keywords[4]) == 0) 
+         status = readApplicationSection(fIn);
+      else if (strcmp(winput, keywords[5]) == 0) 
+         status = readAnalysisSection(fIn);
       else if (strcmp(winput, keywords[6]) == 0) break;
       else if (strcmp(winput,"#") == 0) { /* comment line */ }
       else if (winput[0] == '#') { /* comment line */ }
@@ -1500,7 +1505,7 @@ int PsuadeData::readPsuadeIO(const char *fname)
    char   lineInput[500], keyword[500];
    FILE   *fIn;
 
-   fIn = fopen("ps_extreme_diagnostics", "r");
+   fIn = fopen("ps_io_diagnostics", "r");
    if (fIn != NULL)
    {
       flag = 1;
@@ -1591,7 +1596,7 @@ int PsuadeData::readInputSection(FILE *fp)
                              "num_fixed", "fixed", "END"};
    FILE  *fp2;
 
-   fp2 = fopen("ps_extreme_diagnostics", "r");
+   fp2 = fopen("ps_io_diagnostics", "r");
    if (fp2 != NULL)
    {
       flag = 1;
@@ -2071,8 +2076,8 @@ int PsuadeData::readInputSection(FILE *fp)
                 winput3, &(pInput_.fixedValues_[idata]));
          if (psConfig_ != NULL) 
          {
-            sprintf(winput,"fixed-%d= %s %24.16e", itmp, pInput_.fixedNames_[idata],
-                    pInput_.fixedValues_[idata]);
+            sprintf(winput,"fixed-%d %s = %24.16e", itmp, 
+                    pInput_.fixedNames_[idata],pInput_.fixedValues_[idata]);
             psConfig_->putParameter(winput);
          }
       }
@@ -2991,12 +2996,13 @@ int PsuadeData::readAnalysisSection(FILE *fp)
               "selective_regression", "GP1", "GP2", "SVM", "PWL", "TGP",
               "MARSBag","EARTH","sum_of_trees","Legendre","user_regression",
               "sparse_grid_regression", "Kriging", "splines", "KNN", "RBF",
-              "Acosso", "Bssanova", "psuade_regression"};
+              "Acosso", "Bssanova", "psuade_regression", "RBFBag"};
    const char *transformTypes[] = {"logx","logy"};
    const char *optimizeOptions[] = {
               "method", "fmin", "num_local_minima", "use_response_surface", 
               "cutoff", "tolerance", "print_level", "num_fmin", "output_id",
-              "max_feval", "deltax", "target_file", "save_history", "use_history"};
+              "max_feval", "deltax", "target_file", "save_history", 
+              "use_history"};
    const char *optimizeSchemes[] = {
               "crude", "txmath", "appspack", "minpack", "cobyla", "sm", "mm",
               "mm_adaptive", "bobyqa", "sce", "moo", "ouu", "ouu1", "ouu2"};
@@ -3171,6 +3177,8 @@ int PsuadeData::readAnalysisSection(FILE *fp)
                  rstype = PSUADE_RS_BSSANOVA;
             else if (!strcmp(winput4,resSurfTypes[24])) 
                  rstype = PSUADE_RS_LOCAL;
+            else if (!strcmp(winput4,resSurfTypes[25])) 
+                 rstype = PSUADE_RS_RBFB;
             else
             {
                printf("readAnalysis ERROR: invalid RS type %s\n",
@@ -4210,6 +4218,9 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_LOCAL)
         fprintf(fOut,"   analyzer rstype = psuade_regression\n");
    else fprintf(fOut,"#  analyzer rstype = psuade_regression\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_RBFB)
+        fprintf(fOut,"   analyzer rstype = RBFBag\n");
+   else fprintf(fOut,"#  analyzer rstype = RBFBag\n");
    if (pAnalysis_.legendreOrder_ > 0)
         fprintf(fOut,"   analyzer rs_legendre_order = %d\n", 
                 pAnalysis_.legendreOrder_);

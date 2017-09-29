@@ -201,9 +201,11 @@ int FunctionInterface::loadOutputData(int nOutputs, char **names)
 // ------------------------------------------------------------------------
 int FunctionInterface::loadFunctionData(int length, char **names)
 { 
-   int  ii, kk, nInps, status;
-   char inString[200], fname[200];
-   FILE *fp;
+   int    ii, kk, nInps, status;
+   char   inString[200], fname[200], *cString, pString[1001];
+   char   winput1[1001], winput2[1001], winput3[1001];
+   double ddata;
+   FILE   *fp;
    PsuadeData *psIO;
    pData pPtr;
 
@@ -293,52 +295,80 @@ int FunctionInterface::loadFunctionData(int length, char **names)
             psIO->getParameter("ana_rsindexfile", pPtr);
             if (!strcmp(pPtr.strArray_[0], "NONE"))
             {
-               printf("ERROR: nInputs mismatch and missing rs_index_file.\n");
-               printf("   nInputs in original psuade file = %d\n",nInputs_);
-               printf("   nInputs in RS driver data file  = %d\n",
-                      rsModelnInps);
-               printf("ADVICE: Put rs_index_file in %s or in the",fname);
-               printf(" original psuade file.\n");
-               exit(1);
-            }
-            printf("WARNING: rs_index_file found in the RS driver file.\n");
-            fp = fopen(pPtr.strArray_[0], "r");
-            if (fp == NULL)
-            {
-               printf("ERROR: missing rs_index_file %s in current folder.\n",
-                      pPtr.strArray_[0]);
-               exit(1);
+               psIO->getParameter("input_names", pPtr);
+               if (psConfig_ != NULL && pPtr.strArray_ != NULL)
+               {
+                  cString = psConfig_->getParameter("num_fixed");
+                  if (cString != NULL)
+                  {
+                     sscanf(cString, "%s %s %d", winput1, winput2, &nInps);
+                     if (nInps > 0)
+                     {
+                        rsIndices_ = new int[rsModelnInps];
+                        rsValues_ = new double[rsModelnInps];
+                        for (ii = 0; ii < rsModelnInps; ii++) rsIndices_[ii] = ii;
+                        for (ii = 0; ii < nInps; ii++)
+                        {
+                           sprintf(pString,"fixed-%d", ii+1);
+                           cString = psConfig_->getParameter(pString);
+                           if (cString != NULL)
+                           {
+                              sscanf(cString,"%s %s %s %d",winput1,winput2,
+                                     winput3, &ddata);
+                              for (kk = 0; kk < rsModelnInps; kk++)
+                              {
+                                 if (!strcmp(winput2,pPtr.strArray_[kk]))
+                                 {
+                                    rsIndices_[kk] = -1;
+                                    rsValues_[kk] = ddata;
+                                    printf("Input %4d fixed at %e\n",kk+1,ddata);
+                                 }
+                              }
+                              if (kk == rsModelnInps) break;
+                           }
+                        }
+                        if (ii == nInps)
+                        {
+                           delete [] rsIndices_;
+                           delete [] rsValues_;
+                           rsIndices_ = NULL;
+                           rsValues_ = NULL;
+                        }
+                        else rsnInps_ = rsModelnInps;
+                     }
+                  }
+               }
+               if (rsIndices_ == NULL)
+               { 
+                  printf("ERROR: nInputs mismatch and missing rs_index_file.\n");
+                  printf("   nInputs in original psuade file = %d\n",nInputs_);
+                  printf("   nInputs in RS driver data file  = %d\n",
+                         rsModelnInps);
+                  printf("ADVICE: Put rs_index_file in %s or in the",fname);
+                  printf(" original psuade file.\n");
+                  exit(1);
+               }
             }
             else
             {
-               fscanf(fp,"%d", &nInps);
-               rsnInps_ = nInps;
-               if (rsModelnInps != nInps)
+               printf("WARNING: rs_index_file found in the RS driver file.\n");
+               fp = fopen(pPtr.strArray_[0], "r");
+               if (fp == NULL)
                {
-                  printf("ERROR: invalid nInputs in rs index file.\n");
-                  printf("  It has to match nInputs in the RS data file.\n");
-                  printf("  nInputs read     = %d\n", nInps);
-                  printf("  nInputs expected = %d\n", rsModelnInps);
-                  printf("  Data format in rs index file should be: \n");
-                  printf("  line 1: nInputs in RS driver data file\n");
-                  printf("  line 2: 1 <num> <num == 0 ==> fixed>\n");
-                  printf("  line 3: 2 <num> <0 if num != 0 (active)>\n");
-                  printf("  line 4: 3 <num> <num == 0 ==> fixed>\n");
-                  printf("  line 5: 4 <num> <0 if num != 0 (active)>\n");
-                  printf("  ...\n");
+                  printf("ERROR: missing rs_index_file %s in current folder.\n",
+                         pPtr.strArray_[0]);
                   exit(1);
                }
-               rsIndices_ = new int[nInps];
-               rsValues_ = new double[nInps];
-               for (ii = 0; ii < nInps; ii++) rsIndices_[ii] = 0;
-               for (ii = 0; ii < nInps; ii++)
+               else
                {
-                  fscanf(fp, "%d", &kk);
-                  if (kk != ii+1)
+                  fscanf(fp,"%d", &nInps);
+                  rsnInps_ = nInps;
+                  if (rsModelnInps != nInps)
                   {
-                     printf("ERROR: first index in rs index file = %d.\n",
-                            rsIndices_[ii]);
-                     printf("       Must be equal to %d.\n",ii+1);
+                     printf("ERROR: invalid nInputs in rs index file.\n");
+                     printf("  It has to match nInputs in the RS data file.\n");
+                     printf("  nInputs read     = %d\n", nInps);
+                     printf("  nInputs expected = %d\n", rsModelnInps);
                      printf("  Data format in rs index file should be: \n");
                      printf("  line 1: nInputs in RS driver data file\n");
                      printf("  line 2: 1 <num> <num == 0 ==> fixed>\n");
@@ -347,27 +377,96 @@ int FunctionInterface::loadFunctionData(int length, char **names)
                      printf("  line 5: 4 <num> <0 if num != 0 (active)>\n");
                      printf("  ...\n");
                      exit(1);
-                  } 
-                  fscanf(fp, "%d", &rsIndices_[ii]);
-                  if (rsIndices_[ii] < 0 || rsIndices_[ii] > nInputs_)
-                  {
-                     printf("ERROR: input %3d = %d not valid\n",ii+1,
-                            rsIndices_[ii]);
-                     printf("       Need to be between 1 and %d\n",nInputs_);
-                     exit(1);
                   }
-                  rsIndices_[ii]--;
-                  fscanf(fp, "%lg", &rsValues_[ii]);
-                  if (rsIndices_[ii] == -1)
-                     printf("   RS Input %d inactive, fixed at %16.8e\n",
-                            ii+1, rsValues_[ii]);
-                  else
+                  rsIndices_ = new int[nInps];
+                  rsValues_ = new double[nInps];
+                  for (ii = 0; ii < nInps; ii++) rsIndices_[ii] = 0;
+                  for (ii = 0; ii < nInps; ii++)
                   {
-                     printf("   RS Input %d   active, mapped to",ii+1);
-                     printf(" PSUADE input %d\n", rsIndices_[ii]+1);
+                     fscanf(fp, "%d", &kk);
+                     if (kk != ii+1)
+                     {
+                        printf("ERROR: first index in rs index file = %d.\n",
+                               rsIndices_[ii]);
+                        printf("       Must be equal to %d.\n",ii+1);
+                        printf("  Data format in rs index file should be: \n");
+                        printf("  line 1: nInputs in RS driver data file\n");
+                        printf("  line 2: 1 <num> <num == 0 ==> fixed>\n");
+                        printf("  line 3: 2 <num> <0 if num != 0 (active)>\n");
+                        printf("  line 4: 3 <num> <num == 0 ==> fixed>\n");
+                        printf("  line 5: 4 <num> <0 if num != 0 (active)>\n");
+                        printf("  ...\n");
+                        exit(1);
+                     } 
+                     fscanf(fp, "%d", &rsIndices_[ii]);
+                     if (rsIndices_[ii] < 0 || rsIndices_[ii] > nInputs_)
+                     {
+                        printf("ERROR: input %3d = %d not valid\n",ii+1,
+                               rsIndices_[ii]);
+                        printf("       Need to be between 1 and %d\n",nInputs_);
+                        exit(1);
+                     }
+                     rsIndices_[ii]--;
+                     fscanf(fp, "%lg", &rsValues_[ii]);
+                     if (rsIndices_[ii] == -1)
+                        printf("   RS Input %d inactive, fixed at %16.8e\n",
+                               ii+1, rsValues_[ii]);
+                     else
+                     {
+                        printf("   RS Input %d   active, mapped to",ii+1);
+                        printf(" PSUADE input %d\n", rsIndices_[ii]+1);
+                     }
                   }
+                  fclose(fp);
                }
-               fclose(fp);
+            }
+         }
+         psIO->getParameter("input_names", pPtr);
+         if (psConfig_ != NULL && rsIndices_ == NULL && pPtr.strArray_ != NULL)
+         {
+            cString = psConfig_->getParameter("num_fixed");
+            if (cString != NULL)
+            {
+               sscanf(cString, "%s %s %d", winput1, winput2, &nInps);
+               if (nInps > 0)
+               {
+                  rsIndices_ = new int[rsModelnInps];
+                  rsValues_ = new double[rsModelnInps];
+                  for (ii = 0; ii < rsModelnInps; ii++) rsIndices_[ii] = ii;
+                  for (ii = 0; ii < nInps; ii++)
+                  {
+                     sprintf(pString,"fixed-%d", ii+1);
+                     cString = psConfig_->getParameter(pString);
+                     if (cString != NULL)
+                     {
+                        sscanf(cString,"%s %s %s %lg",winput1,winput2,winput3, &ddata);
+                        for (kk = 0; kk < rsModelnInps; kk++)
+                        {
+                           if (!strcmp(winput2,pPtr.strArray_[kk]))
+                           {
+                              rsIndices_[kk] = -1;
+                              rsValues_[kk] = ddata;
+                              break;
+                           }
+                        }
+                        if (kk == rsModelnInps) break;
+                     }
+                  }
+                  if (ii != nInps)
+                  {
+                     printf("WARNING: config info on fixed variables not used.\n");
+                     delete [] rsIndices_;
+                     delete [] rsValues_;
+                     rsIndices_ = NULL;
+                     rsValues_ = NULL;
+                  }
+                  else rsnInps_ = rsModelnInps;
+               }
+               for (kk = 0; kk < rsModelnInps; kk++)
+               {
+                  if (rsIndices_[kk] == -1) 
+                     printf("Input %4d fixed at %e\n",kk+1,rsValues_[kk]);
+               }
             }
          }
          delete psIO;
@@ -442,9 +541,11 @@ int FunctionInterface::setOutputLevel(int level)
 // ------------------------------------------------------------------------
 int FunctionInterface::setDriver(int which)
 {
-   int  ii, kk, nInps, status;
-   char inString[200], fname[200];
-   FILE *fp;
+   int    ii, kk, nInps, status;
+   char   inString[200], fname[200], winput1[1001], winput2[1001];
+   char   winput3[1001], *cString, pString[1001];
+   double ddata;
+   FILE   *fp;
    PsuadeData *psIO;
    pData pPtr;
 
@@ -599,6 +700,55 @@ int FunctionInterface::setDriver(int which)
                fclose(fp);
             }
          }
+         psIO->getParameter("input_names", pPtr);
+         if (psConfig_ != NULL && rsIndices_ == NULL && pPtr.strArray_ != NULL)
+         {
+            cString = psConfig_->getParameter("num_fixed");
+            if (cString != NULL)
+            {
+               sscanf(cString, "%s %s %d", winput1, winput2, &nInps);
+               if (nInps > 0)
+               {
+                  rsIndices_ = new int[rsModelnInps];
+                  rsValues_ = new double[rsModelnInps];
+                  for (ii = 0; ii < rsModelnInps; ii++) rsIndices_[ii] = ii;
+                  for (ii = 0; ii < nInps; ii++)
+                  {
+                     sprintf(pString,"fixed-%d", ii+1);
+                     cString = psConfig_->getParameter(pString);
+                     if (cString != NULL)
+                     {
+                        sscanf(cString,"%s %s %s %lg",winput1,winput2,winput3, &ddata);
+                        for (kk = 0; kk < rsModelnInps; kk++)
+                        {
+                           if (!strcmp(winput2,pPtr.strArray_[kk]))
+                           {
+                              rsIndices_[kk] = -1;
+                              rsValues_[kk] = ddata;
+                              break;
+                           }
+                        }
+                        if (kk == rsModelnInps) break;
+                     }
+                  }
+                  if (ii != nInps)
+                  {
+                     printf("WARNING: config info on fixed variables not used.\n");
+                     delete [] rsIndices_;
+                     delete [] rsValues_;
+                     rsIndices_ = NULL;
+                     rsValues_ = NULL;
+                  }
+                  else rsnInps_ = nInps;
+               }
+               for (kk = 0; kk < rsModelnInps; kk++)
+               {
+                  if (rsIndices_[kk] == -1) 
+                     printf("Input %4d fixed at %e\n",kk+1,rsValues_[kk]);
+               }
+            }
+         }
+         delete psIO;
          delete psIO;
          rsPtrs_ = new FuncApprox*[nOutputs_];
          for (ii = 0; ii < nOutputs_; ii++)

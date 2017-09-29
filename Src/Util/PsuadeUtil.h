@@ -162,6 +162,8 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    getInt(int, int, char *);
    double getDouble(char *);
    int    getString(char *, char *);
+   int    genMatlabPlotFile(int,double *,double *,int, double *, 
+                            char **,char *,int);
 
    void   fwriteRSPythonHeader(FILE *);
    void   fwriteRSPythonCommon(FILE *);

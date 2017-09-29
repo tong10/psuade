@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
+#include "Globals.h"
 #include "PsuadeUtil.h"
 #include "PDFMVNormal.h"
 #include "PDFNormal.h"
@@ -59,7 +60,8 @@ PDFMVNormal::PDFMVNormal(Vector &means, Matrix &corMat)
       ddata = corMat.getEntry(ii,ii);
       if (ddata <= 0)
       {
-         printf("PDFMVNormal ERROR: stdev should be > 0 (%d,%e).\n",ii+1,ddata);
+         printf("PDFMVNormal ERROR: stdev should be > 0 (%d,%e).\n",
+                ii+1,ddata);
          exit(1);
       }
    }
@@ -81,6 +83,17 @@ PDFMVNormal::PDFMVNormal(Vector &means, Matrix &corMat)
          covMat_.setEntry(ii,jj,ddata);
       }
    }
+   if (psAnaExpertMode_ == 1)
+   {
+      printf("Covariance Matrix:\n");
+      for (ii = 0; ii < length; ii++)
+   {
+         for (jj = 0; jj < length; jj++)
+            printf("%12.4e ", covMat_.getEntry(ii,jj));
+         printf("\n");
+      }
+   }
+
    status = covMat_.CholDecompose();
    if (status != 0)
    {

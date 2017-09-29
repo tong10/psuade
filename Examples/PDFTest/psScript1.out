@@ -1,11 +1,12 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.4)
+*      Welcome to PSUADE (version 1.7.5)
 **********************************************************************
 INFO: Creating a sample where some uncertain parameters
       are not uniformly distributed.
 PDFManager INFO: some distributions are not UNIFORM.
 LogNormal genSample : mean, stdev = 1.000000e+00 1.000000e+00
-PDFLogNormal Statistics: need 10000 to generate 10000 points.
+PDFLognormal: genSample begins (Take too long? Check ranges)
+PDFLognormal: genSample ends.
 PSUADE run: creating interface to user driver.
 PSUADE run: output level = 2
 PSUADE run: max parallel jobs = 1
@@ -235,14 +236,14 @@ MomentAnalyzer INFO: non-uniform probability distributions
 ----------------------------------------------------------------------
 * outputID =          1
 *       Sample mean          =   4.4822e+00
-*       Sample std dev       =   5.8476e+00
-*       Sample skewness      =   5.0238e+00
-*       Sample kurtosis      =   4.7579e+01
+*       Sample std dev       =   5.8475e+00
+*       Sample skewness      =   5.0236e+00
+*       Sample kurtosis      =   4.7574e+01
 ----------------------------------------------------------------------
 **********************************************************************
 Output distribution plot is now in matlabua.m.
 **********************************************************************
-*       std error of mean       =   5.84755424e-02
+*       std error of mean       =   5.84747153e-02
 **********************************************************************
 AnalysisManager: analysis error = 5.85e-02 <? 1.00e+00
 ======================================================================

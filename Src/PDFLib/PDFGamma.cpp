@@ -175,6 +175,7 @@ int PDFGamma::genSample(int length, double *outData, double lower,
       exit(1);
    }
 
+   printf("PDFGamma: genSample begins (Take too long? Check ranges)\n");
    mult = 1.0 / Gamma_Function(alpha_);
    for (ii = 0; ii < length; ii++)
    {
@@ -207,6 +208,7 @@ int PDFGamma::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
+   printf("PDFGamma: genSample ends.\n");
    return 0;
 }
 

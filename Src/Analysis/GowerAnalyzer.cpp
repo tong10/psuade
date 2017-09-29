@@ -113,13 +113,13 @@ double GowerAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs; ii++) vsum += vvm[ii];
    if (vsum <= 0.0)
    {
-      printOutTS(PL_INFO,  "GowerAnalyzer INFO: vce sum <= 0.0.\n");
-      printOutTS(PL_INFO,  "                    vce not used for scaling.");
+      printOutTS(PL_INFO,"GowerAnalyzer INFO: vce sum <= 0.0.\n");
+      printOutTS(PL_INFO,"                    vce not used for scaling.");
       for (ii = 0; ii < nInputs; ii++) vvm[ii] = 1.0;
    }
    else
    {
-      printOutTS(PL_INFO,  "GowerAnalyzer INFO: vce used for scaling.\n");
+      printOutTS(PL_INFO,"GowerAnalyzer INFO: vce used for scaling.\n");
       for (ii = 0; ii < nInputs; ii++) vvm[ii] /= vsum;
       for (ii = 0; ii < nInputs; ii++)
          printOutTS(PL_INFO,  "VCE %4d = %e\n", ii+1, vvm[ii]);
@@ -134,7 +134,7 @@ double GowerAnalyzer::analyze(aData &adata)
    delete sampPtr;
    delete mePtr;
 
-   printf( "Enter file name for unobserved data (outside convex hull): ");
+   printf("Enter file name for unobserved data (outside convex hull): ");
    scanf("%s", dataFile);
    fp = fopen(dataFile,"r");
    if (fp == NULL)
@@ -164,8 +164,8 @@ double GowerAnalyzer::analyze(aData &adata)
    if (nInputs != nInputs2)
    {
       printOutTS(PL_ERROR,
-                 "GowerAnalyzer ERROR: different input dimensions %d %d\n",
-                 nInputs, nInputs2);
+           "GowerAnalyzer ERROR: different input dimensions %d %d\n",
+           nInputs, nInputs2);
       delete [] vvm;
       delete pIO;
       return PSUADE_UNDEFINED;
@@ -183,8 +183,8 @@ double GowerAnalyzer::analyze(aData &adata)
       ranges[ii] = dmax - dmin;
       if (ranges[ii] == 0.0)
       {
-         printOutTS(PL_ERROR,"GowerAnalyzer ERROR: some input range = 0 (%d).\n",
-                    ii+1);
+         printOutTS(PL_ERROR,
+            "GowerAnalyzer ERROR: some input range = 0 (%d).\n",ii+1);
          delete [] ranges;
          delete [] vvm;
          delete pIO;
@@ -205,7 +205,7 @@ double GowerAnalyzer::analyze(aData &adata)
    if (fp == NULL)
    {
       printOutTS(PL_ERROR,  
-           "GowerAnalyzer ERROR: cannot write to file psuade_gower_data.m\n");
+         "GowerAnalyzer ERROR: cannot write to psuade_gower_data.m\n");
       delete [] vvm;
       delete [] ranges;
       delete pIO; 
@@ -219,7 +219,7 @@ double GowerAnalyzer::analyze(aData &adata)
       {
          gower = 0.0;
          for (ii = 0; ii < nInputs; ii++)
-            gower += PABS(X[ss*nInputs+ii]-X2[ss2*nInputs+ii]) / ranges[ii];
+            gower += PABS(X[ss*nInputs+ii]-X2[ss2*nInputs+ii])/ranges[ii];
          gower /= (double) nInputs;
          fprintf(fp, "%e ", gower);
       }
@@ -264,8 +264,8 @@ double GowerAnalyzer::analyze(aData &adata)
       {
          gower = 0.0;
          for (ii = 0; ii < nInputs; ii++)
-            gower += PABS(X[ss*nInputs+ii]-X2[ss2*nInputs+ii]) / ranges[ii] *
-                     vvm[ii];
+            gower += PABS(X[ss*nInputs+ii]-X2[ss2*nInputs+ii]) / 
+                     ranges[ii] * vvm[ii];
          gower /= (double) nInputs;
          fprintf(fp, "%e ", gower);
       }
@@ -295,15 +295,15 @@ double GowerAnalyzer::analyze(aData &adata)
    fprintf(fp, "\n");
    if (psPlotTool_ == 0)
    {
-      fprintf(fp, "figure(3);\n");
-      fprintf(fp, "%% Mahalanobis distance statistics\n");
-      fprintf(fp, "%% showing distance from centers of clusters / std dev\n");
+      fprintf(fp,"figure(3);\n");
+      fprintf(fp,"%% Mahalanobis distance statistics\n");
+      fprintf(fp,"%% showing distance from centers of clusters/std dev\n");
    }
    else
    {
-      fprintf(fp, "scf(3);\n");
-      fprintf(fp, "// Mahalanobis distance statistics\n");
-      fprintf(fp, "// showing distance from centers of clusters / std dev\n");
+      fprintf(fp,"scf(3);\n");
+      fprintf(fp,"// Mahalanobis distance statistics\n");
+      fprintf(fp,"// showing distance from centers of clusters/std dev\n");
    }
    fprintf(fp, "M = [\n");
    dmeans = new double[nInputs];
@@ -345,9 +345,11 @@ double GowerAnalyzer::analyze(aData &adata)
    fwritePlotYLabel(fp, "Mahalanobis distance");
    fclose(fp);
    if (psPlotTool_ == 1)
-      printOutTS(PL_INFO,"GowerAnalyzer: psuade_gower_data.sci file created.\n");
+      printOutTS(PL_INFO,
+           "GowerAnalyzer: psuade_gower_data.sci file created.\n");
    else
-      printOutTS(PL_INFO,"GowerAnalyzer: psuade_gower_data.m file created.\n");
+      printOutTS(PL_INFO,
+           "GowerAnalyzer: psuade_gower_data.m file created.\n");
 
    delete [] ranges; 
    delete [] vvm;

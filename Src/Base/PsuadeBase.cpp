@@ -719,16 +719,17 @@ int PsuadeBase::runUniform()
                   if (((jobsCompleted-jobsCompletedLast) % saveFrequency) == 
                       (saveFrequency-1))
                   {
-                     psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
-                                                    sampleStates,NULL); 
+                     psuadeIO_->updateOutputSection(nSamples,nOutputs,
+                                       sampleOutputs,sampleStates,NULL); 
                      psuadeIO_->writePsuadeFile(NULL,0);
                   }
 
                   if (outputLevel_ > 0)
                   {
                      if (((sampleID+1) % 100) == 0) 
-                       printOutTS(PL_INFO, "\nSample point %6d completed (out of %d).\n",
-                               sampleID+1, nSamples);
+                       printOutTS(PL_INFO, 
+                            "\nSample point %6d completed (out of %d).\n",
+                            sampleID+1, nSamples);
                      else if ((sampleID % 11) == 1) printOutTS(PL_INFO, ".");
                      fflush(stdout);
                   }
@@ -738,9 +739,10 @@ int PsuadeBase::runUniform()
                      if (fp != NULL)
                      {
                         fclose(fp);
-                        printOutTS(PL_INFO, "\nTermination signal detected (1).\n");
-                        psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
-                                                       sampleStates,NULL); 
+                        printOutTS(PL_INFO,
+                             "psuade_stop file found - terminate (1).\n");
+                        psuadeIO_->updateOutputSection(nSamples,nOutputs
+                                        ,sampleOutputs,sampleStates,NULL); 
                         psuadeIO_->writePsuadeFile(NULL,0);
 			throw Psuade_Stop_Exception();
                      }
@@ -902,7 +904,7 @@ int PsuadeBase::runUniform()
          if (fp != NULL)
          {
             fclose(fp);
-            printOutTS(PL_INFO, "\nTermination signal detected (2).\n");
+            printOutTS(PL_INFO,"\npsuade_stop file found - terminate (2).\n");
 	    psuadeIO_->writePsuadeFile(NULL,0);
 	    throw Psuade_Stop_Exception();
          }

@@ -99,6 +99,7 @@ double MOATAnalyzer::analyze(aData &adata)
    printAsterisks(PL_INFO, 0);
    printOutTS(PL_INFO,"*                Morris Screening \n");
    printEquals(PL_INFO, 0);
+   printLevel = adata.printLevel_;
    if (printLevel > 0)
    {
       printOutTS(PL_INFO,"* use printlevel to show more analysis information.\n");
@@ -127,7 +128,6 @@ double MOATAnalyzer::analyze(aData &adata)
    // ---------------------------------------------------------------
    // extract test information and data
    // ---------------------------------------------------------------
-   printLevel = adata.printLevel_;
    nInputs_   = adata.nInputs_;
    nOutputs_  = adata.nOutputs_;
    nSamples_  = adata.nSamples_;

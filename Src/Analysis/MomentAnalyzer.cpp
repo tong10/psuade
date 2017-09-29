@@ -351,18 +351,25 @@ double MomentAnalyzer::analyze(aData &adata)
          skewness = kurtosis = 0.0;
       }
       variance = gVariances[0];
-      pData *pPtr = ioPtr->getAuxData();
-      pPtr->nDbles_ = 4;
-      pPtr->dbleArray_ = new double[4];
-      pPtr->dbleArray_[0] = gMeans[0];
-      pPtr->dbleArray_[1] = sqrt(gVariances[0]);
-      pPtr->dbleArray_[2] = sqrt(skewness);
-      pPtr->dbleArray_[3] = sqrt(kurtosis);
+      pData *pPtr=NULL;
+      if (ioPtr != NULL)
+      {
+         pPtr = ioPtr->getAuxData();
+         if (pPtr != NULL)
+         {
+            pPtr->nDbles_ = 4;
+            pPtr->dbleArray_ = new double[4];
+            pPtr->dbleArray_[0] = gMeans[0];
+            pPtr->dbleArray_[1] = sqrt(gVariances[0]);
+            pPtr->dbleArray_[2] = sqrt(skewness);
+            pPtr->dbleArray_[3] = sqrt(kurtosis);
+         }
 
-      //save moments
-      moments_ = new double[4];
-      for (int mm = 0; mm< 4; mm++)
-    	  moments_[mm] = pPtr->dbleArray_[mm];
+         //save moments
+         moments_ = new double[4];
+         for (int mm = 0; mm< 4; mm++)
+    	     moments_[mm] = pPtr->dbleArray_[mm];
+      }
 
    }
    if (printLevel >= 0)

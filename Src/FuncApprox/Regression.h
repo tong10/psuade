@@ -69,6 +69,7 @@ private:
    int    computeSS(int, double *, double *, double *, double &, double &);
    int    computeCoeffVariance(int, double *, double, double *);
    int    printRC(int, double *, double *, double *, double *);
+   int    printCoefs(int, double *);
    int    printSRC(double *, double *, double);
 
 };

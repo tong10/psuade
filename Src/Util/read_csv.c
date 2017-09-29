@@ -15,7 +15,8 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
    char *stptr, **ionames, **tcarray;
    int flag = 0, counter=0, first=1, csize, nclines, ncols, nInOuts;
    int idx = 0, xsize, ii, jj, kk, leng, nInputs, nOutputs, ipos;
-   int lcount = 0; /* Cell Seperator */
+   int lcount = 0; /* Cell Separator */
+   int numLines=0;
    double ddata;
    double *X, *Xt;
 
@@ -50,6 +51,14 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
    ionames = NULL;
    csize   = 0;
    if (kk < leng)
+   {
+      printf("READ_CSV: the first line contains non-numerics.\n");
+      printf("Use the first line as the header line? (y or n) ");
+      scanf("%s", line1);
+      if (line1[0] == 'y') nclines++;
+      fgets(line1,5000,stdin);
+   }
+   if (kk < leng && nclines > 0)
    {
       /* read in the variable names or input/output */
       csize = 10;
@@ -104,6 +113,7 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
          ionames = NULL;
       }
    }
+#if 0
    /* read the second line, if the first line is non-numeric */
    if (nclines > 0 && flag == 0)
    {
@@ -176,6 +186,7 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
       }
       nclines++;
    }
+#endif
    fclose(myfile);
 
    /* read the file again */
@@ -184,15 +195,17 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
    xsize = 1000;
    X = (double *) malloc(xsize * sizeof(double));
    /* Get a line from file */
+   numLines = 0;
    while (fgets(line1,sizeof line1,myfile) != NULL)
    { 
       if (line1[0] == '#') continue;
       lcount = 0;
       strcpy(line2,line1);
       stptr = line2;
+      numLines++;
 
       /* start going character by character thro the line */
-      while (*stptr != '\0')
+      while (*stptr != '\0' && *stptr != 10)
       { 
          lcount++;
          /* If field begins with " */
@@ -206,7 +219,8 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
                stptr++;
                /* Find corresponding closing " */
                while (*stptr != '"')
-               { line3[idx] = *stptr;
+               { 
+                  line3[idx] = *stptr;
                   idx++;
                   stptr++;
                }
@@ -217,7 +231,8 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
                   flag = 1;
                }
                else if (*stptr != '\0' && *stptr == '"')
-               { line3[idx] = *stptr;
+               { 
+                  line3[idx] = *stptr;
                   idx++;
                }
                else
@@ -226,6 +241,10 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
                   flag = 1;
                }
             }
+            X[counter++] = 0;
+            if (numLines <= 1)
+               printf("INFO: Non-numeric data read - set the field %d to 0.\n",
+                      counter);
          }
          else
          { 
@@ -250,8 +269,6 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
          }
          if (*stptr != '\0' && *stptr == ',')
             stptr++;
-         strcpy(line2,stptr);
-         stptr = line2;
       }
       if (first == 1)
       {

@@ -108,11 +108,11 @@ extern "C"
          (*YValue) = PSUADE_UNDEFINED;
          return NULL;
       }
-      fp = fopen("ps_terminate", "r");
+      fp = fopen("psuade_stop", "r");
       if (fp != NULL)
       {
          fclose(fp);
-         printf("Kriging: terminating ....\n");
+         printf("Kriging: psuade_stop file found - terminating ...\n");
          (*YValue) = KRI_OptY;
          return NULL;
       }
@@ -253,11 +253,11 @@ extern "C"
             printf("\t    Current theta %d = %e\n", ii+1, XValues[ii]);
          printf("\t    Current Kriging objective value = %e\n", ddata);
          printf("\t* For early termination, just create a file\n");
-         printf("\t* called 'ps_terminate' in your local directory.\n");
-         fp = fopen("ps_terminate", "r");
+         printf("\t* called 'psuade_stop' in your local directory.\n");
+         fp = fopen("psuade_stop", "r");
          if (fp != NULL)
          {
-            printf("\t*** ps_terminate file found.\n");
+            printf("\t*** psuade_stop file found.\n");
             (*YValue) = 0.0;
             fclose(fp);
          }
@@ -314,7 +314,7 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       printf("*  + Snail mode (DEFAULT): use multi-start optimization.\n");
       printf("*      - to change optimization parameters, turn\n");
       printf("*        rs_expert mode.\n");
-      printf("* Create 'ps_terminate' file to gracefully terminate.\n");
+      printf("* Create 'psuade_stop' file to gracefully terminate.\n");
       printf("* Create 'ps_print' file to set print level on the fly.\n");
       printEquals(PL_INFO, 0);
    }
@@ -889,10 +889,10 @@ double Kriging::train(double *X, double *Y)
       FILE   *fp=NULL;
       Sampling *sampler;
 
-      fp = fopen("ps_terminate", "r");
+      fp = fopen("psuade_stop", "r");
       if (fp != NULL)
       {
-         printf("Kriging ERROR: remove the 'ps_terminate' file\n");
+         printf("Kriging ERROR: remove the 'psuade_stop' file\n");
          printf("               first and re-do.\n");
          fclose(fp);
          exit(1);
@@ -1080,12 +1080,12 @@ double Kriging::train(double *X, double *Y)
             for (ii = 0; ii < nInputs_; ii++)
                optThetas[ii] = KRI_OptThetas[ii];
          }
-         fp = fopen("ps_terminate", "r");
+         fp = fopen("psuade_stop", "r");
          if (fp != NULL)
          {
             fclose(fp);
             fp = NULL;
-            printf("Kriging: terminating ....\n");
+            printf("Kriging: psuade_stop file found - terminating ....\n");
             break;
          }
          fp = fopen("ps_rs_expert", "r");

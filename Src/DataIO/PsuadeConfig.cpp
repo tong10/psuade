@@ -28,7 +28,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "sysdef.h"
 #include "PsuadeConfig.h"
+#include "PsuadeUtil.h"
 
 // ************************************************************************
 // constructor 
@@ -162,7 +164,7 @@ char *PsuadeConfig::getParameter(const char *keyword)
       sscanf(fileData_[ii], "%s", firstWord);
       if (strcmp(keyword,firstWord) == 0)
       {
-         printf("PsuadeConfig: parameter found = %s\n",fileData_[ii]);
+         printf("PsuadeConfig::parameter found: %s\n",fileData_[ii]);
          return fileData_[ii];
       }
    }
@@ -208,6 +210,18 @@ void PsuadeConfig::writeToFile(char *fname)
       fprintf(fOut, "%s\n", fileData_[ii]);
    fprintf(fOut, "PSUADE_END\n");
    fclose(fOut);
+}
+
+// ************************************************************************
+// print content of the config object
+// ------------------------------------------------------------------------ 
+void PsuadeConfig::print()
+{
+   printAsterisks(PL_INFO, 0);
+   printf("************* PSUADE configuration information\n");
+   printEquals(PL_INFO, 0);
+   for (int ii = 0; ii < nLines_; ii++) printf("%s\n", fileData_[ii]);
+   printAsterisks(PL_INFO, 0);
 }
 
 // ************************************************************************

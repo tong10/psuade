@@ -142,8 +142,9 @@ int PDFNormal::invCDF(int length, double *inData, double *outData,
 int PDFNormal::genSample(int length, double *outData, double lower,
                          double upper)
 {
-   int    count, total;
+   int    ii, count, total;
    double U1, U2, R, theta, Z1, Z2, pi=3.14159, range, low, iroot2;
+   double lower2, upper2;
 
    if (length <= 0)
    {
@@ -158,10 +159,20 @@ int PDFNormal::genSample(int length, double *outData, double lower,
       exit(1);
    }
 
+   if (stdev_ == 0)
+   {
+      printf("PDFNormal: genSample WARNING - std dev = 0.\n");
+      for (ii = 0; ii < length; ii++) outData[ii] = mean_;
+      return 0;
+   }
+
+   lower2 = mean_ - 5 * stdev_;
+   upper2 = mean_ + 5 * stdev_;
    iroot2 = sqrt(0.5)/stdev_;
-   low   = 0.5 * (1.0 + erf((lower-mean_)*iroot2));
-   range = 0.5 * (1.0 + erf((upper-mean_)*iroot2)) - low;
+   low   = 0.5 * (1.0 + erf((lower2-mean_)*iroot2));
+   range = 0.5 * (1.0 + erf((upper2-mean_)*iroot2)) - low;
    count = total = 0;
+   printf("PDFNormal: genSample begins (Take too long? Check ranges)\n");
    while (count < length)
    {
       U1 = PSUADE_drand() * range + low;
@@ -172,16 +183,11 @@ int PDFNormal::genSample(int length, double *outData, double lower,
       Z2 = R * sin(theta);
       outData[count] = mean_ + stdev_ * Z1;
       if (outData[count] >= lower && outData[count] <= upper)
-      {
          count++;
-         if (count < length)
-         {
-            outData[count] = mean_ + stdev_ * Z2;
-            if (outData[count] >= lower && outData[count] <= upper)
-               count++;
-            else count--;
-         }
-      }
+      if (count >= length) break;
+      outData[count] = mean_ + stdev_ * Z2;
+      if (outData[count] >= lower && outData[count] <= upper)
+         count++;
       total += 2;
       if (total > length*1000)
       {
@@ -193,6 +199,7 @@ int PDFNormal::genSample(int length, double *outData, double lower,
          exit(1);
       }
    }
+   printf("PDFNormal: genSample ends.\n");
    return 0;
 }
 

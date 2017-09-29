@@ -119,7 +119,7 @@ int PsuadeBase::interpretInteractive()
 
    // loop on the command interpreter
    printf("PSUADE - A Problem Solving environment for \n");
-   printf("         Uncertainty Analysis and Design Exploration (%d.%d.%da)\n",
+   printf("         Uncertainty Analysis and Design Exploration (%d.%d.%d)\n",
           psuade_VERSION_MAJOR, psuade_VERSION_MINOR, psuade_VERSION_PATCH);
    printf("(for help, enter <help>)\n");
    printEquals(PL_INFO, 0);
@@ -271,8 +271,8 @@ int PsuadeBase::interpretInteractive()
             printf("\tupdate       <file> (update sample OUTPUTS from a data file)\n");
             printf("\tiadd         <file> (add more inputs from a data file)\n");
             printf("\toadd         <file> (add more outputs from a data file)\n");
-            printf("\tiadd1        <file> (add 1 input with random data in [0,1])\n");
-            printf("\toadd1        <file> (add 1 output with random data in [0,1])\n");
+            printf("\tiadd1               (add 1 input with random values in [0,1])\n");
+            printf("\toadd1               (add 1 output with entries set to 1e35)\n");
             printf("\tireplace     <file> (replace one input from <file>)\n");
             printf("\toreplace     <file> (replace all outputs from <file>)\n");
             printf("\tsplitsample         (split sample into 2 files)\n");
@@ -400,12 +400,12 @@ int PsuadeBase::interpretInteractive()
             printf("\tiplot3     (3-input (input only) scatter plot)\n");
             printf("\tiplot4m    (4-input (input only) scatter plot): movie\n");
             printf("\tiplot2_all (all pairs 2-input plots)\n");
-            //printf("\tiplot_pdf  (plot the sample PDF of selected inputs)\n");
+            printf("\tiplot_pdf  (plot sample PDF of selected inputs)\n");
+            printf("\tiplot2_pdf (plot sample PDFs of all input pairs)\n");
+            printf("\tiplot_pdf  (plot the sample PDF of selected inputs)\n");
             printf("\toplot2     (2-output scatter plot)\n");
-            printf("\tihist      (create an input histogram matlab file)\n");
-            printf("\tihist2     (create two-input histogram matlab file)\n");
-            printf("\tohist      (create an output histogram matlab file)\n");
-            printf("\tohist2     (create two-output histogram matlab file)\n");
+            printf("\toplot_pdf  (plot sample PDF of selected outputs)\n");
+            printf("\toplot2_pdf (plot sample PDF of all output pairs)\n");
             printf("\tiotrace    (plot inputs/outputs of each run)\n");
             //printf("\tmeplot  (plot main effects with Pgplot)\n");
             //printf("\tmeplot2 (plot main effect/interaction with Pgplot)\n");
@@ -415,13 +415,13 @@ int PsuadeBase::interpretInteractive()
          { 
             printf("Commands for plotting sample data:\n");
             printf("(to see more plot commands, use 'help plot long')\n");
-            printf("\tsplot      (sample scatter plot versus each input in matlab)\n");
-            printf("\tsplot2     (2-input/1 output scatter plot in matlab/scilab)\n");
-            printf("\tsplot3     (3-input/1 output scatter plot in matlab/scilab)\n");
+            printf("\tsplot      (sample scatter plot versus each input)\n");
+            printf("\tsplot2     (2-input/1 output scatter plot)\n");
+            printf("\tsplot3     (3-input/1 output scatter plot in matlab)\n");
             printf("\trs1        (1-input response surface in matlab/scilab)\n");
             printf("\trs2        (2-input response surface in matlab/scilab)\n");
             printf("\trs3        (3-input response surface in matlab)\n");
-            printf("\trs3m       (3-input RS in matlab (movie), output in z-axis)\n");
+            printf("\trs3m       (3-input RS in matlab (movie), output: z-axis)\n");
             printf("\trs4        (4-input response surface in matlab (movie))\n");
             printf("\trssd       (std dev response surface in matlab)\n");
             printf("\trssd_ua    (create pdf of std dev for response surface)\n");
@@ -434,20 +434,20 @@ int PsuadeBase::interpretInteractive()
             printf("\tiplot3     (3-input (input only) scatter plot)\n");
             printf("\tiplot4m    (4-input (input only) scatter plot): movie\n");
             printf("\tiplot2_all (all pairs 2-input plots)\n");
+            printf("\tiplot_pdf  (plot sample PDF of selected inputs)\n");
+            printf("\tiplot2_pdf (plot sample PDFs of all input pairs)\n");
             printf("\toplot2     (2-output scatter plot)\n");
-            printf("\tihist      (create an input histogram matlab file)\n");
-            printf("\tihist2     (create two-input histogram matlab file)\n");
-            printf("\tohist      (create an output histogram matlab file)\n");
-            printf("\tohist2     (create two-output histogram matlab file)\n");
+            printf("\toplot_pdf  (plot sample PDF of selected outputs)\n");
+            printf("\toplot2_pdf (plot sample PDF of all output pairs)\n");
          }
          else if (!strcmp(winput, "setup"))
          {
             printf("Commands for setting up/monitoring work flow:\n");
-            printf("\tsetupguide     (instructions on how to set up application)\n");
+            printf("\tsetupguide     (guide on how to set up application)\n");
             printf("\tgeninputfile   (create an input file for psuade)\n");
             printf("\tgenbatchfile   (create a LLNL-specific batch file)\n");
             printf("\tgendriver      (create an application driver)\n");
-            printf("\tgenexample     (create a simple example for demonstration)\n");
+            printf("\tgenexample     (create a demonstration example)\n");
             printf("\tchkjobs        (check job status and create a report)\n");
          }
          else if (!strcmp(winput, "edit"))
@@ -625,7 +625,7 @@ int PsuadeBase::interpretInteractive()
          if (!strcmp(dataFile,psOutputFilename_))
          {
             printf("WARNING: you are loading a file with the same\n");
-            printf("name as the default output file %s", psOutputFilename_);
+            printf("name as the default output file %s.\n",psOutputFilename_);
             printf("This file may be overwritten during your session.\n");
             printf("You can change the default ouptut filename with\n");
             printf("the 'output_file' command.\n");
@@ -1119,7 +1119,7 @@ int PsuadeBase::interpretInteractive()
             printf("       iwrite or a file with the following format:\n");
             printf("line 1: PSUADE_BEGIN\n");
             printf("line 2: <nSamples> <nInputs>\n");
-            printf("line 3: (optional) '#' as first character, then input names\n");
+            printf("line 3: (optional) '#' in column 1, then input names\n");
             printf("line 4: 1 <sample point 1 inputs> \n");
             printf("line 5: 2 <sample point 2 inputs> \n");
             printf(".......\n");
@@ -1198,7 +1198,6 @@ int PsuadeBase::interpretInteractive()
                printf("         sample number read     = %d\n", jj);
                printf("         sample number expected = %d\n", ii+1);
                printf("INFO: the first field must be the sample number.\n");
-               cleanUp();
                break;
             }
             for (jj = 0; jj < nInputs_; jj++)
@@ -1206,9 +1205,17 @@ int PsuadeBase::interpretInteractive()
             sampleOutputs_[ii] = PSUADE_UNDEFINED;
             sampleStates_[ii] = 0;
          }
-         fscanf(fp, "%s", winput);
+         if (ii != nSamples_) 
+         {
+            delete [] sampleInputs_;
+            delete [] sampleOutputs_;
+            delete [] sampleStates_;
+            delete psuadeIO_;
+            psuadeIO_ = NULL;
+            fclose(fp);
+            continue;
+         }
          fclose(fp);
-         if (ii != nSamples_) continue;
          if (inputNames_ == NULL)
          {
             inputNames_ = new char*[nInputs_];
@@ -1250,9 +1257,9 @@ int PsuadeBase::interpretInteractive()
             inputStds_[ii] = 0;
             inputCMat_->setEntry(ii,ii,1.0);
          }
-         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,iUpperB_,
-                                   sampleInputs_,inputNames_,inputPDFs_,inputMeans_,
-                                   inputStds_,inputCMat_); 
+         psuadeIO_->updateInputSection(nSamples_,nInputs_,NULL,iLowerB_,
+                          iUpperB_,sampleInputs_,inputNames_,inputPDFs_,
+                          inputMeans_,inputStds_,inputCMat_); 
 
          outputNames_ = new char*[nOutputs_];
          for (ii = 0; ii < nOutputs_; ii++)
@@ -2933,7 +2940,7 @@ int PsuadeBase::interpretInteractive()
             {
                for (jj = 0; jj < nOutputs_; jj++)
                   sampleOutputs_[ii*(nOutputs_+1)+jj] = tempX[ii*nOutputs_+jj];
-               sampleOutputs_[ii*(nOutputs_+1)+nOutputs_] = PSUADE_drand();
+               sampleOutputs_[ii*(nOutputs_+1)+nOutputs_] = PSUADE_UNDEFINED;
             }
             nOutputs_++;
             psuadeIO_->updateOutputSection(nSamples_,nOutputs_,sampleOutputs_, 
@@ -4603,11 +4610,15 @@ int PsuadeBase::interpretInteractive()
             if (pdata->dbleData_ > 0)
             {
                for (ii = 0; ii < nInputs_; ii++)
+               {
                   for (jj = ii+1; jj < nInputs_; jj++)
+                  {
                      printf("Inputs %4d %4d: sensitivity index = %11.4e ",
                             ii+1,jj+1,pdata->dbleArray_[ii*nInputs_+jj]);
                      printf("(normalized=%11.4e)\n",
                             pdata->dbleArray_[ii*nInputs_+jj]/pdata->dbleData_);
+                  }
+               }
                if (psPlotTool_ == 1) fp = fopen("scilabaie.sci", "w");
                else                  fp = fopen("matlabaie.m", "w");
                if (fp != NULL)
@@ -7073,15 +7084,41 @@ int PsuadeBase::interpretInteractive()
          sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
          outputID = getInt(1, nOutputs_, pString);
          outputID--;
-         analysisMethod = PSUADE_ANA_INTEGRATION;
-         anaManager = new AnalysisManager();
-         anaManager->setup(analysisMethod, 0);
-         psuadeIO_->getParameter("ana_diagnostics",pPtr);
-         ii = pPtr.intData_;
-         psuadeIO_->updateAnalysisSection(-1,-1,-1,outputLevel_,-1,-1);
-         anaManager->analyze(psuadeIO_, 0, NULL, outputID);
-         psuadeIO_->updateAnalysisSection(-1,-1,-1,ii,-1,-1);
-         delete anaManager;
+
+         faFlag = 3;
+         psuadeIO_->updateAnalysisSection(-1, -1, -1, -1, outputID,-1);
+         faPtr = genFAInteractive(psuadeIO_, faFlag);
+         faPtr->setOutputLevel(outputLevel_);
+         if (nInputs_ <= 51)
+              sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_LPTAU);
+         else sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_MC);
+         sampPtr->setPrintLevel(PL_INTERACTIVE);
+         sampPtr->setInputBounds(nInputs_, iLowerB_, iUpperB_);
+         sampPtr->setOutputParams(1);
+         kk = 1000000;
+         sampPtr->setSamplingParams(kk, 1, 0);
+         sampPtr->initialize(0);
+         tempX = new double[kk*nInputs_];
+         tempY = new double[kk];
+         states = new int[kk];
+         sampPtr->getSamples(kk, nInputs_, 1, tempX, tempY, states);
+         faPtr->evaluatePoint(kk,tempX,tempY);
+         ddata = 0.0;
+         for (ii = 0; ii < kk; ii++) ddata += tempY[ii];
+         ddata /= (double) kk;
+         for (ii = 0; ii < nInputs_; ii++) 
+            ddata *= (iUpperB_[ii] - iLowerB_[ii]);
+         printf("rsint: volume under the function = %16.8e.\n",ddata);
+         delete faPtr;
+         faPtr = NULL;
+         delete sampPtr;
+         sampPtr = NULL;
+         delete [] tempX;
+         delete [] tempY;
+         delete [] states;
+         tempX = NULL;
+         tempY = NULL;
+         states = NULL;
       }
 
       // +++ rsvol 
@@ -7090,7 +7127,8 @@ int PsuadeBase::interpretInteractive()
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("rsvol: calculate volume of the constrained space\n");
+            printf("rsvol: calculate percentage of volume in the");
+            printf(" constrained space\n");
             printf("syntax: rsvol (no argument needed)\n");
             printf("This command is useful for estimating how much of\n");
             printf("parameter space has been cut out due to constraints.\n");
@@ -7849,7 +7887,7 @@ int PsuadeBase::interpretInteractive()
             fprintf(fp, "hold off\n");
             fwritePlotXLabel(fp, inputNames_[iplot1]);
             fwritePlotYLabel(fp, inputNames_[iplot2]);
-            fwritePlotZLabel(fp, outputNames_[iplot3]);
+            fwritePlotZLabel(fp, inputNames_[iplot3]);
             fwritePlotAxes(fp);
             fwritePlotTitle(fp, "3D 3-Input/1-Output Data Plot");
             fprintf(fp,"disp('red  *: failed runs.')\n");
@@ -10466,9 +10504,9 @@ int PsuadeBase::interpretInteractive()
          if (!strcmp(winput, "-h"))
          {
             printf("genconfigfile: create a PSUADE config template file\n");
-            printf("syntax: genconfigure (no argument needed)\n");
-            printf("Configure files are used to modify settings.\n");
-            printf("Configure files may be used to replace interactive\n");
+            printf("syntax: genconfigfile (no argument needed)\n");
+            printf("Config files are used to modify settings.\n");
+            printf("Config files may be used to replace interactive\n");
             printf("queries from PSUADE.\n");
             continue;
          }
@@ -10486,6 +10524,21 @@ int PsuadeBase::interpretInteractive()
          else 
             printf("ERROR: cannot write to file %s or no filename given.\n",
                    dataFile);
+      }
+
+      // printconfiggenconfigfile 
+      else if (!strcmp(command, "printconfig"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("printconfig: print out the content of PSUADE's\n");
+            printf("             internal config object.\n");
+            printf("syntax: printconfig (no argument needed)\n");
+            continue;
+         }
+         if (psConfig_ == NULL) printf("INFO: config object not found.\n");
+         else                   psConfig_->print();
       }
 
       // +++ chkjobs 
@@ -11264,7 +11317,8 @@ int PsuadeBase::interpretInteractive()
          int indexCnt  = 0;
          while (indexCnt < nInputs_)
          {
-            sprintf(pString, "Enter the %d-th input (1 - %d) : ",ii+1,nInputs_);
+            sprintf(pString, "Enter the %d-th input (1 - %d) : ",
+                    indexCnt+1,nInputs_);
             indexSet[indexCnt] = getInt(1, nInputs_, pString);
             indexCnt++;
          }
@@ -12326,6 +12380,8 @@ int PsuadeBase::interpretInteractive()
          fprintf(fp, "X = [\n"); 
          for (ii = 0; ii < kk; ii++) fprintf(fp, "X%d ", ii+1); 
          fprintf(fp, "S];\n"); 
+         fprintf(fp,"ms=9;\n");
+         fprintf(fp,"fs=9;\n");
          for (ii = 0; ii < kk; ii++)
          {
             for (jj = ii; jj < kk; jj++)
@@ -12343,10 +12399,10 @@ int PsuadeBase::interpretInteractive()
                if (psPlotTool_ == 1)
                {
                   fprintf(fp,"iset = find(S==0);\n");
-                  fprintf(fp,"plot(X(iset,%d),X(iset,%d),'rX','MarkerSize',13)\n",
+                  fprintf(fp,"plot(X(iset,%d),X(iset,%d),'rX','MarkerSize',ms)\n",
                           jj+1,ii+1);
                   fprintf(fp,"iset = find(S~=0);\n");
-                  fprintf(fp,"plot(X(iset,%d),X(iset,%d),'bX','MarkerSize',13)\n",
+                  fprintf(fp,"plot(X(iset,%d),X(iset,%d),'bX','MarkerSize',ms)\n",
                           jj+1,ii+1);
                }
                else
@@ -12356,7 +12412,7 @@ int PsuadeBase::interpretInteractive()
                   fprintf(fp, "rand(size(iset,1),1)/100),X(iset,%d)",
                           ii+1);
                   fprintf(fp, ".*(1+ranflag*rand(size(iset,1),1)/100),'rX',");
-                  fprintf(fp, "'MarkerSize',13)\n");
+                  fprintf(fp, "'MarkerSize',ms)\n");
                   if (psPlotTool_ == 1)
                        fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
                   else fprintf(fp, "hold on\n");
@@ -12365,7 +12421,7 @@ int PsuadeBase::interpretInteractive()
                   fprintf(fp, "rand(size(iset,1),1)/100),X(iset,%d)",
                           ii+1);
                   fprintf(fp, ".*(1+ranflag*rand(size(iset,1),1)/100),'b*',");
-                  fprintf(fp, "'MarkerSize',13)\n");
+                  fprintf(fp, "'MarkerSize',ms)\n");
                }
                fwritePlotXLabel(fp, inputNames_[indSet[jj]]);
                fwritePlotYLabel(fp, inputNames_[indSet[ii]]);
@@ -12562,14 +12618,14 @@ int PsuadeBase::interpretInteractive()
          printf("Histogram is available in matlabihist2.m\n");
       }
 
-      // +++ ohist 
-      else if (!strcmp(command, "ohist"))
+      // +++ oplot_pdf 
+      else if (!strcmp(command, "oplot_pdf"))
       {
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("ohist: plot histogram for an output\n");
-            printf("syntax: ohist (no argument needed)\n");
+            printf("oplot_pdf: plot histogram for an output\n");
+            printf("syntax: oplot_pdf (no argument needed)\n");
             printf("This command is useful to examine output distribution\n");
             printf("without using the 'ua' command.\n");
             continue;
@@ -12583,8 +12639,8 @@ int PsuadeBase::interpretInteractive()
                  nOutputs_);
          kk = getInt(1, nOutputs_, pString);
          kk--;
-         if (psPlotTool_ == 1) fp = fopen("scilabohist.sci", "w");
-         else                  fp = fopen("matlabohist.m", "w");
+         if (psPlotTool_ == 1) fp = fopen("scilabopltpdf.sci", "w");
+         else                  fp = fopen("matlabopltpdf.m", "w");
          fprintf(fp, "Y = [\n");
          for (ss = 0; ss < nSamples_; ss++)
             fprintf(fp, "%e \n",sampleOutputs_[ss*nOutputs_+kk]);
@@ -12611,18 +12667,19 @@ int PsuadeBase::interpretInteractive()
          fwritePlotXLabel(fp, "Output Value");
          fwritePlotYLabel(fp, "Probabilities");
          fclose(fp);
-         if (psPlotTool_ == 1) printf("Histogram is available in scilabohist.sci\n");
-         else                  printf("Histogram is available in matlabohist.m\n");
+         if (psPlotTool_ == 1) 
+              printf("Histogram is available in scilabopltpdf.sci\n");
+         else printf("Histogram is available in matlabopltpdf.m\n");
       }
          
-      // +++ ohist2 
-      else if (!strcmp(command, "ohist2"))
+      // +++ oplot2_pdf 
+      else if (!strcmp(command, "oplot2_pdf"))
       {
          sscanf(lineIn,"%s %s",command,winput);
          if (!strcmp(winput, "-h"))
          {
-            printf("ohist2: plot histogram for two outputs\n");
-            printf("syntax: ohist2 (no argument needed)\n");
+            printf("oplot2_pdf: plot histogram for two outputs\n");
+            printf("syntax: oplot2_pdf (no argument needed)\n");
             continue;
          }
          if (psuadeIO_ == NULL || nSamples_ <= 0)
@@ -12635,6 +12692,32 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: this command is for nOutputs >= 2.\n");
             continue;
          }
+         int nbins=20;
+         if (psPlotTool_ == 1)
+              strcpy(pString, "scilaboplt2pdf.sci");
+         else strcpy(pString, "matlaboplt2pdf.m");
+         double *oLowerB = new double[nOutputs_];
+         double *oUpperB = new double[nOutputs_];
+         for (ii = 0; ii < nOutputs_; ii++)
+         {
+            oLowerB[ii] = PSUADE_UNDEFINED;
+            oUpperB[ii] = -PSUADE_UNDEFINED;
+            for (jj = 0; jj < nSamples_; jj++)
+            {
+               if (sampleOutputs_[jj*nOutputs_+ii] < oLowerB[ii])
+                  oLowerB[ii] = sampleOutputs_[jj*nOutputs_+ii];
+               if (sampleOutputs_[jj*nOutputs_+ii] > oUpperB[ii])
+                  oUpperB[ii] = sampleOutputs_[jj*nOutputs_+ii];
+            }
+         }
+         genMatlabPlotFile(nOutputs_,oLowerB,oUpperB,nSamples_,
+                           sampleOutputs_, outputNames_,pString,nbins);
+         if (psPlotTool_ == 1) strcpy(dataFile, "scilaboplt2pdf.sci");
+         else                  strcpy(dataFile, "matlaboplt2pdf.m");
+         delete [] oLowerB;
+         delete [] oUpperB;
+         printf("Distribution PDFs are available in %s.\n",dataFile);
+#if 0
          sprintf(pString,"Select the first input (1 - %d) : ", nOutputs_);
          jj = getInt(1, nOutputs_, pString);
          jj--;
@@ -12646,7 +12729,7 @@ int PsuadeBase::interpretInteractive()
             printf("ERROR: scilab plot not currently available.\n");
             continue;
          }
-         fp = fopen("matlabohist2.m", "w");
+         fp = fopen("matlaboplt2pdf.m", "w");
          fprintf(fp, "Y = [\n");
          for (ss = 0; ss < nSamples_; ss++)
             fprintf(fp, "%e %e\n",sampleInputs_[ss*nInputs_+kk],
@@ -12724,6 +12807,7 @@ int PsuadeBase::interpretInteractive()
          fwritePlotTitle(fp, pString);
          fclose(fp);
          printf("Histogram is available in matlabohist2.m\n");
+#endif
       }
 
       // +++ iplot_pdf 
@@ -12840,6 +12924,39 @@ int PsuadeBase::interpretInteractive()
          indSet = NULL;
       }
 
+      // +++ iplot2_pdf 
+      else if (!strcmp(command, "iplot2_pdf"))
+      {
+         sscanf(lineIn,"%s %s",command,winput);
+         if (!strcmp(winput, "-h"))
+         {
+            printf("This command uses the loaded sample and generates\n");
+            printf("single-input and pairwise histograms similar to.\n");
+            printf("the posterior plots created in MCMC.\n");
+            printf("So first load the posterior sample using 'iread'\n");
+            printf("and then use this command.\n");
+            continue;
+         }
+         if (psuadeIO_ == NULL)
+         {
+            printf("ERROR: no data (load data first).\n");
+            continue;
+         }
+         if (nInputs_ < 2)
+         {
+            printf("ERROR: this command is for nInputs_ >= 2.\n");
+            continue;
+         }
+         int nbins=20;
+         if (psPlotTool_ == 1)
+              strcpy(pString, "scilabiplt2pdf.sci");
+         else strcpy(pString, "matlabiplt2pdf.m");
+         genMatlabPlotFile(nInputs_,iLowerB_,iUpperB_,nSamples_,
+                           sampleInputs_, inputNames_, pString, nbins);
+         if (psPlotTool_ == 1) strcpy(dataFile, "scilabiplt2pdf.sci");
+         else                  strcpy(dataFile, "matlabiplt2pdf.m");
+      }
+ 
       // +++ printlevel 
       else if (!strcmp(command, "printlevel"))
       {
@@ -13113,7 +13230,7 @@ int PsuadeBase::interpretInteractive()
          faPtrsRsEval = new FuncApprox*[nOutputs_];
          if (outputID != 0)
          {
-            psuadeIO_->updateAnalysisSection(-1, -1, -1, outputLevel_, outputID-1, -1);
+            psuadeIO_->updateAnalysisSection(-1,-1,-1,outputLevel_,outputID-1,-1);
             faPtrsRsEval[0] = genFAInteractive(psuadeIO_, faFlag);
             for (ii = 1; ii < nOutputs_; ii++) faPtrsRsEval[ii] = NULL;
          }
@@ -13122,7 +13239,7 @@ int PsuadeBase::interpretInteractive()
             for (ii = 0; ii < nOutputs_; ii++)
             {
                printf("Creating response surface for output %d\n", ii+1);
-               psuadeIO_->updateAnalysisSection(-1, -1, -1, outputLevel_, ii, -1);
+               psuadeIO_->updateAnalysisSection(-1, -1, -1, outputLevel_,ii,-1);
                faPtrsRsEval[ii] = genFAInteractive(psuadeIO_, faFlag);
             }
          }
@@ -13822,14 +13939,55 @@ int PsuadeBase::interpretInteractive()
          printf("Please enter the number of bins per input dimension.\n");
          for (ii = 0; ii < nInputs_; ii++)
          {
-            sprintf(pString, "Number of histogram bins for input %d : ", ii+1);
+            sprintf(pString,"Number of histogram bins for input %d : ",
+                    ii+1);
             incrs[ii] = getInt(2, 1000, pString);
          }
          PDFHistogram *pdfhist = new PDFHistogram(nSamples_, nInputs_, 
-                                                  sampleInputs_, incrs, 1);
+                                                  sampleInputs_,incrs,1);
+         tempX = new double[nInputs_];
+         pdfhist->getMeans(tempX);
+         for (ii = 0; ii < nInputs_; ii++)
+            printf("Estimated mean of input %7d = %e\n",ii+1,tempX[ii]);
+         delete [] tempX;
+         count = 100000;
+         tempX = new double[count*nInputs_];
+         pdfhist->genSample(count,tempX,0,0);
+         ioPtr = new PsuadeData();
+         ioPtr->updateInputSection(count, nInputs_, NULL, iLowerB_,
+                      iUpperB_,tempX,inputNames_,NULL,NULL,NULL,NULL);
+         kk = 1;
+         tempY = new double[count];
+         states = new int[count];
+         for (ii = 0; ii < count; ii++) tempY[ii] = PSUADE_UNDEFINED;
+         for (ii = 0; ii < count; ii++) states[ii] = 0;
+         ioPtr->updateOutputSection(count,kk,tempY,states,outputNames_);
+         ioPtr->updateMethodSection(PSUADE_SAMP_MC, count, 1, -1, -1);
+         strcpy(dataFile, "psuade_pdfhist_checksample");
+         ioPtr->writePsuadeFile(dataFile, 0);
+         delete ioPtr;
+         ioPtr = NULL;
+         printf("A large sample for cross-checking PDFs is in %s.\n",
+                dataFile);
+         delete [] tempX;
+         delete [] tempY;
+         delete [] states;
          delete pdfhist;
+         fp = fopen("psuade_pdfhist_sample", "r");
+         if (fp == NULL)
+         {
+            printf("ERROR: psuade_pdfhist_sample file not found.\n");
+            continue;
+         }
+         else
+         {
+            fscanf(fp, "%d", &kk);
+            fclose(fp);
+            printf("Final iteration: nbins = %d, scenario size = %d\n",
+                   incrs[0],kk);
+            printf("Histogram has been created in psuade_pdfhist_sample.\n");
+         }
          delete [] incrs;
-         printf("Histogram file has been created in psuade_pdfhist_sample.\n");
       }
 
       // +++ genhistogram2 
@@ -13850,22 +14008,23 @@ int PsuadeBase::interpretInteractive()
             continue;
          }
          int *incrs = new int[nInputs_];
-         sprintf(pString, "Approximate number of scenarios (2-%d): ",nSamples_);
+         sprintf(pString, "Approximate number of scenarios (2-%d): ",
+                 nSamples_);
          int nScen = getInt(2, nSamples_, pString);
-         int nbins = (int) pow(10.0 * nScen, 1.0/nInputs_);
-         int kdiff = 1;
-         int ksign = 0;
+         int nbins = 2;
+         int nScenLast=-1;
          PDFHistogram *pdfhist=NULL;
          while (1)
          {
             for (ii = 0; ii < nInputs_; ii++) incrs[ii] = nbins;
-            pdfhist = new PDFHistogram(nSamples_,nInputs_,sampleInputs_,incrs,1);
+            pdfhist = new PDFHistogram(nSamples_,nInputs_,sampleInputs_,
+                                       incrs,1);
             delete pdfhist;
             fp = fopen("psuade_pdfhist_sample", "r");
             if (fp == NULL)
             {
                printf("ERROR: psuade_pdfhist_sample file not found.\n");
-               continue;
+               break;
             }
             else
             {
@@ -13873,18 +14032,36 @@ int PsuadeBase::interpretInteractive()
                fclose(fp);
                printf("Current iteration: nbins = %d, scenario size = %d\n",
                       nbins,kk);
-               kdiff = kk - nScen;
-               if (kdiff == 0) break;
-               if (kdiff < 0 && ksign == 1) break;
-               if (kdiff > 0 && ksign == -1) break;
-               if (kdiff < 0) nbins++;
-               if (kdiff > 0) nbins--;
-               if (kdiff < 0) ksign = -1;
-               if (kdiff > 0) ksign = 1;
+               if (kk > nScen)
+               {
+                  if (nScenLast == -1 || (PABS(nScen-kk) < PABS(kk-nScenLast)))
+                  {
+                     printf("Final iteration: nbins = %d, scenario size = %d\n",
+                            nbins,kk);
+                     break;
+                  }
+                  nbins = nbins - 1;
+                  if (nbins >= 2)
+                  {
+                     for (ii = 0; ii < nInputs_; ii++) incrs[ii] = nbins;
+                     pdfhist = new PDFHistogram(nSamples_,nInputs_,sampleInputs_,
+                                                incrs,1);
+                     delete pdfhist;
+                     printf("Final iteration: nbins = %d, scenario size = %d\n",
+                            nbins,nScenLast);
+                     break; 
+                  }
+               }
             }
+            nbins++;
          }
          delete [] incrs;
-         printf("Histogram file has been created in psuade_pdfhist_sample.\n");
+         printf("Histogram has been created in psuade_pdfhist_sample.\n");
+         printf("Info: To estimate the goodness of this histogram, run the\n");
+         printf("   genhistogram command with the nbins information\n");
+         printf("   given above. Thereafter, use the large sample in\n");
+         printf("   psuade_pdfhist_checksample with iplot2_pdf to compare\n");
+         printf("   against the iplot2_pdf plots from the original sample.\n");
       }
 
       // +++ master 
@@ -14455,7 +14632,7 @@ int PsuadeBase::interpretInteractive()
          sstdevs  = new double[4];
          slbounds = new double[4];
          subounds = new double[4];
-         nSam = 100000;
+         nSam = 200000;
          sOutputs = new double[nSam];
 
          sscanf(lineIn,"%s %s",command,winput);
@@ -14602,11 +14779,11 @@ int PsuadeBase::interpretInteractive()
          printAsterisks(PL_INFO, 0);
          printAsterisks(PL_INFO, 0);
          printEquals(PL_INFO, 0);
-         printf("##### Two-input test (LogNormal(1,1)): \n");
-         printf("Sample mean     should be = 8.9634\n");
-         printf("Sample std dev  should be = 8.3081\n");
+         printf("##### Two-input test (LogNormal(log(mean)=0,1)): \n");
+         printf("Sample mean     should be = 3.30\n");
+         printf("Sample std dev  should be = 3.07\n");
          printDashes(PL_INFO, 0);
-         smeans[0] = smeans[1] = 1.0;
+         smeans[0] = smeans[1] = 0.0;
          sstdevs[0] = sstdevs[1] = 1.0;
          slbounds[0] = slbounds[1] =  0.0;
          subounds[0] = subounds[1] =  200.0;
@@ -14674,14 +14851,14 @@ int PsuadeBase::interpretInteractive()
          printAsterisks(PL_INFO, 0);
          printAsterisks(PL_INFO, 0);
          printEquals(PL_INFO, 0);
-         printf("##### Two-input test (LogNormal(1,1)) with cor = 0.5: \n");
-         printf("Sample mean     should be = 7.4\n");
-         printf("Sample mean     should be = 1.0\n");
+         printf("##### Two-input test (LogNormal(logmean=0,1)) with cor = 0.5:\n");
+         printf("Sample mean     should be = 3.3\n");
+         printf("Sample std dev  should be = 3.5\n");
          printDashes(PL_INFO, 0);
-         smeans[0] = smeans[1] = 1.0;
+         smeans[0] = smeans[1] = 0.0;
          sstdevs[0] = sstdevs[1] = 1.0;
-         slbounds[0] = slbounds[1] =  0.0;
-         subounds[0] = subounds[1] =  100.0;
+         slbounds[0] = slbounds[1] = 0.0;
+         subounds[0] = subounds[1] = 200.0;
          PDFs[0] = PSUADE_PDF_LOGNORMAL;
          PDFs[1] = PSUADE_PDF_LOGNORMAL;
          ddata = 1.0;
@@ -14708,9 +14885,9 @@ int PsuadeBase::interpretInteractive()
 
          printEquals(PL_INFO, 0);
          printEquals(PL_INFO, 0);
-         printf("4-input test (Normal(0,1), cor = 0.5, LogNormal(1,1), no cor: \n");
-         printf("Sample mean     should be = 8.96\n");
-         printf("Sample std dev  should be = 8.54\n");
+         printf("4-input test (Normal(0,1), cor = 0.5, LogNormal(0,1), no cor: \n");
+         printf("Sample mean     should be = 3.3\n");
+         printf("Sample std dev  should be = 3.5\n");
          printDashes(PL_INFO, 0);
          pdfman = new PDFManager();
          PDFs[0] = PSUADE_PDF_NORMAL;
@@ -14718,12 +14895,13 @@ int PsuadeBase::interpretInteractive()
          PDFs[2] = PSUADE_PDF_LOGNORMAL;
          PDFs[3] = PSUADE_PDF_LOGNORMAL;
          smeans[0] = smeans[1] = 0.0;
-         smeans[2] = smeans[3] = 1.0;
-         sstdevs[0] = sstdevs[1] = sstdevs[2] = sstdevs[3] = 1.0;
+         smeans[2] = smeans[3] = 0.0;
+         sstdevs[0] = sstdevs[1] = 1.0;
+         sstdevs[2] = sstdevs[3] = 1.0;
          slbounds[0] = slbounds[1] = -10.0;
          slbounds[2] = slbounds[3] =  0.0;
          subounds[0] = subounds[1] =  10.0;
-         subounds[2] = subounds[3] =  100.0;
+         subounds[2] = subounds[3] =  200.0;
          corMat.setDim(4,4);
          ddata = 1.0;
          corMat.setEntry(0,0,ddata);

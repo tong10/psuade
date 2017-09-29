@@ -61,8 +61,8 @@ FFAnalyzer::~FFAnalyzer()
 double FFAnalyzer::analyze(aData &adata)
 {
    int    nInputs, nOutputs, nSamples, outputID, checkSample, printLevel;
-   int    ii, ii2, rr, ss, whichOutput, ncount, nplots, *iArray, nReps, offset;
-   double *X, *Y, *txArray, *twArray, *tyArray, **mEffects, accum, ***iEffects;
+   int    ii, ii2, rr, ss,whichOutput,ncount,nplots, *iArray,nReps, offset;
+   double *X, *Y,*txArray,*twArray,*tyArray, **mEffects,accum, ***iEffects;
    double ***lolos, ***lohis, ***hilos, ***hihis, stdev, mean;
    char   pString[500], winput[500], **iNames;
    FILE   *fp=NULL;
@@ -180,7 +180,7 @@ double FFAnalyzer::analyze(aData &adata)
          printOutTS(PL_INFO, 
               "If you are using replicated Fractional Factorial\n");
          printOutTS(PL_INFO, "enter the number of replications.\n");
-         sprintf(pString, "Number of replications = (2 - %d) ", nSamples/2);
+         sprintf(pString, "Number of replications = (2 - %d) ",nSamples/2);
          nReps = getInt(2, nSamples/2, pString);
          break;
       }
@@ -207,9 +207,9 @@ double FFAnalyzer::analyze(aData &adata)
             if (checkSample == 0)
             {
                printOutTS(PL_ERROR, 
-                    "FFAnalysis ERROR: sample not fractional factorial.\n");
+                  "FFAnalysis ERROR: sample not fractional factorial.\n");
                printOutTS(PL_ERROR, 
-                    "                  nor replicated fractional factorial.\n");
+                  "                  nor replicated fractional factorial.\n");
                delete [] twArray;
                delete [] txArray;
                delete [] tyArray;
@@ -252,8 +252,8 @@ double FFAnalyzer::analyze(aData &adata)
          mEffects_[ii][rr] = mEffects[ii][rr+1];
       }
    }
-   printOutTS(PL_INFO, "* Fractional Factorial Main Effect (normalized)\n");
-   printOutTS(PL_INFO, "* Note: std err is the standard error or mean.\n");
+   printOutTS(PL_INFO,"* Fractional Factorial Main Effect (normalized)\n");
+   printOutTS(PL_INFO,"* Note: std err is the standard error or mean.\n");
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -278,7 +278,7 @@ double FFAnalyzer::analyze(aData &adata)
       stds_[ii]  = stdev/sqrt(1.0*nReps);
    }
    printDashes(PL_INFO, 0);
-   printOutTS(PL_INFO, "* Fractional Factorial Main Effect (ordered)\n");
+   printOutTS(PL_INFO,"* Fractional Factorial Main Effect (ordered)\n");
    printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++) twArray[ii] = PABS(mEffects[ii][0]);
    sortDbleList2a(nInputs, twArray, iArray);
@@ -345,14 +345,15 @@ double FFAnalyzer::analyze(aData &adata)
    }
 
    printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "* Fractional Factorial (2-level) Interaction Analysis\n");
+   printOutTS(PL_INFO, 
+        "* Fractional Factorial (2-level) Interaction Analysis\n");
    if (adata.samplingMethod_ == PSUADE_SAMP_FF4 ||
        adata.samplingMethod_ == PSUADE_SAMP_RFF4)
    {
       printOutTS(PL_INFO, 
-           "* Note: Since Fractional Factorial Resolution 4 is used,\n");
+         "* Note: Since Fractional Factorial Resolution 4 is used,\n");
       printOutTS(PL_INFO, 
-           "* the first and second order effects are confounded.\n");
+         "* the first and second order effects are confounded.\n");
    }
    printDashes(PL_INFO, 0);
 
@@ -394,7 +395,8 @@ double FFAnalyzer::analyze(aData &adata)
                accum += tyArray[ss];
             hilos[ii][ii2][rr+1] += accum;
             iEffects[ii][ii2][rr+1] = 0.5 * (lolos[ii][ii2][rr+1] +
-               hihis[ii][ii2][rr+1]-lohis[ii][ii2][rr+1]-hilos[ii][ii2][rr+1]);
+               hihis[ii][ii2][rr+1]-lohis[ii][ii2][rr+1]-
+               hilos[ii][ii2][rr+1]);
          }
       }
       accum = 0.0;
@@ -423,10 +425,12 @@ double FFAnalyzer::analyze(aData &adata)
          }
          iEffects[ii][ii2][nReps+1] = stdev/sqrt(1.0*nReps);
          if (nReps == 1)
-            printOutTS(PL_INFO,"* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
+            printOutTS(PL_INFO,
+                 "* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
          else
-            printOutTS(PL_INFO,"* Input %3d %3d =  %12.4e (std err = %12.4e)\n",
-                   ii+1,ii2+1, mean, stdev/sqrt(1.0*nReps));
+            printOutTS(PL_INFO,
+                 "* Input %3d %3d =  %12.4e (std err = %12.4e)\n",
+                 ii+1,ii2+1, mean, stdev/sqrt(1.0*nReps));
       }
    }
    printAsterisks(PL_INFO, 0);
@@ -434,8 +438,8 @@ double FFAnalyzer::analyze(aData &adata)
    if (fp != NULL)
    {
       if (psPlotTool_ == 1)
-           fprintf(fp,"// matrix of interaction effect: ind1,ind2,effect\n");
-      else fprintf(fp,"%% matrix of interaction effect: ind1,ind2,effect\n");
+           fprintf(fp,"// matrix of pairwise effect: ind1,ind2,effect\n");
+      else fprintf(fp,"%% matrix of pairwise effect: ind1,ind2,effect\n");
       fprintf(fp,"figure(2)\n");
       fprintf(fp,"clf\n");
       fprintf(fp,"nInputs = %d;\n", nInputs);
@@ -516,7 +520,8 @@ double FFAnalyzer::analyze(aData &adata)
       fprintf(fp,"        plot(Y2,'b')\n");
       fprintf(fp,"        xlabel(strcat(Str(ii),'&',Str(jj)),'FontWeight',");
       fprintf(fp,"'bold','FontSize',12)\n");
-      fprintf(fp,"        ylabel(Str(ii),'FontWeight','bold','FontSize',12)\n");
+      fprintf(fp,"        ylabel(Str(ii),'FontWeight','bold',");
+      fprintf(fp,"'FontSize',12)\n");
       if (psPlotTool_ == 1) 
          fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
       else
@@ -640,3 +645,4 @@ double **FFAnalyzer::get_mEffects()
    }
    return retVal;
 }
+

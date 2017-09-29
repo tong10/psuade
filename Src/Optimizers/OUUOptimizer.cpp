@@ -588,12 +588,16 @@ extern "C"
             {
                index = ss / psOUUZ4nSamples_;
                if (psOUUZ3nSamples_ == 1)
+               {
                   if (psOUUSamOutputs_[ss] < 0.98*PSUADE_UNDEFINED) 
                      stdev += pow(psOUUSamOutputs_[ss]-mean,2.0)/
                               (double) (nSamp - failCnt);
+               }
                else
+               {
                   stdev += pow(psOUUSamOutputs_[ss]-mean, 2.0)*
                            psOUUSamProbs_[index] / (double) psOUUZ4nSamples_;
+               }
             }
             (*YValue) = mean + psOUUStdevMultiplier_ * sqrt(stdev);
          }

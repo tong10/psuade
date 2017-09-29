@@ -92,10 +92,11 @@ double CorrelationAnalyzer::analyze(aData &adata)
       if (count > 0)
       {
          printOutTS(PL_INFO, 
-              "Correlation INFO: non-uniform probability distributions\n");
+            "Correlation INFO: non-uniform probability distributions\n");
          printOutTS(PL_INFO, 
-              "           have been defined in the data file, but they\n");
-         printOutTS(PL_INFO,"           will not be used in this analysis.\n");
+            "           have been defined in the data file, but they\n");
+         printOutTS(PL_INFO,
+            "           will not be used in this analysis.\n");
       }
    }
    ioPtr = adata.ioPtr_;
@@ -128,8 +129,10 @@ double CorrelationAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*ss+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printOutTS(PL_ERROR,"Correlation ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR,"                   Prune the undefined's first.\n");
+      printOutTS(PL_ERROR,
+           "Correlation ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR,
+           "                   Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    } 
    
@@ -170,8 +173,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
                      ymean,yvar,outputID,Xvals);
    for (ii = 0; ii < nInputs; ii++)
    {
-      printOutTS(PL_INFO,"* Pearson Correlation coeff.  (Input %3d) = %e\n", 
-                 ii+1, Xvals[ii]);
+      printOutTS(PL_INFO,
+           "* Pearson Correlation coeff.  (Input %3d) = %e\n", 
+           ii+1, Xvals[ii]);
       inputPearsonCoef_[ii] = Xvals[ii];
    }
 
@@ -252,8 +256,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
       {
          fprintf(fp,"axis([0 nn+1 ymin ymax])\n");
          fprintf(fp,"set(gca,'XTickLabel',[]);\n");
-         fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str1,");
-         fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),");
+         fprintf(fp,"Str1,'HorizontalAlignment','left','rotation',90);\n");
          fprintf(fp,"set(th, 'fontsize', 12)\n");
          fprintf(fp,"set(th, 'fontweight', 'bold')\n");
       }
@@ -352,17 +356,18 @@ double CorrelationAnalyzer::analyze(aData &adata)
          fprintf(fp, "a.x_ticks(3) = Str2';\n");
          fprintf(fp, "a.x_label.font_size = 3;\n");
          fprintf(fp, "a.x_label.font_style = 4;\n");
-         printOutTS(PL_INFO, " Correlation analysis plot file = scilab.sci.\n");
+         printOutTS(PL_INFO, 
+              " Correlation analysis plot file = scilab.sci.\n");
       }
       else
       {
-         fprintf(fp, "axis([0 nn+1 ymin ymax])\n");
-         fprintf(fp, "set(gca,'XTickLabel',[]);\n");
-         fprintf(fp, "th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str2,");
-         fprintf(fp, "'HorizontalAlignment','left','rotation',90);\n");
-         fprintf(fp, "set(th, 'fontsize', 12)\n");
-         fprintf(fp, "set(th, 'fontweight', 'bold')\n");
-         printOutTS(PL_INFO, " Correlation analysis plot file = matlabca.m.\n");
+         fprintf(fp,"axis([0 nn+1 ymin ymax])\n");
+         fprintf(fp,"set(gca,'XTickLabel',[]);\n");
+         fprintf(fp,"th=text(1:nn,repmat(ymin-0.05*(ymax-ymin),nn,1),");
+         fprintf(fp,"Str2,'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp,"set(th, 'fontsize', 12)\n");
+         fprintf(fp,"set(th, 'fontweight', 'bold')\n");
+         printOutTS(PL_INFO,"Correlation analysis plot file = matlabca.m\n");
       }
       fclose(fp);
       fp = NULL;
@@ -372,8 +377,9 @@ double CorrelationAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs; ii++) Xvals[ii] = PABS(Xvals[ii]);
    sortDbleList2(nInputs, Xvals, xmeans);
    for (ii = nInputs-1; ii >= 0; ii--)
-      printOutTS(PL_INFO,"* Spearman coefficient(ordered) (Input %3d ) = %e\n",
-             (int) (xmeans[ii]+1), Xvals[ii]);
+      printOutTS(PL_INFO,
+           "* Spearman coefficient(ordered) (Input %3d ) = %e\n",
+           (int) (xmeans[ii]+1), Xvals[ii]);
 
    Ylocal = new double[nSamples];
    outputSpearmanCoef_ = new double[nOutputs_];
@@ -381,7 +387,7 @@ double CorrelationAnalyzer::analyze(aData &adata)
    {
       printEquals(PL_INFO, 0);
       printOutTS(PL_INFO,
-           "*  SPEA (nonlinear) for Y_i's versus Y.                     *\n");
+         "*  SPEA (nonlinear) for Y_i's versus Y.                     *\n");
       printDashes(PL_INFO, 0);
       for (ii = 0; ii < nOutputs; ii++)
       {
@@ -402,8 +408,8 @@ double CorrelationAnalyzer::analyze(aData &adata)
                               ymean,yvar,0,&(Yvals[ii]));
             outputSpearmanCoef_[ii] = Yvals[ii];
             printOutTS(PL_INFO,
-                 "* Spearman coefficient        (Input %3d ) = %e\n", ii+1,
-                 Yvals[ii]);
+               "* Spearman coefficient        (Input %3d ) = %e\n", ii+1,
+               Yvals[ii]);
          }
       }
    }

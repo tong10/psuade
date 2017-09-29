@@ -191,6 +191,7 @@ int PDFBeta::genSample(int length,double *outData,double lower,double upper)
    }
 
    mult = 1.0 / Beta_Function(alpha_,beta_);
+   printf("PDFBeta: genSample begins (Take too long? Check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -203,7 +204,7 @@ int PDFBeta::genSample(int length,double *outData,double lower,double upper)
       else if (UU >= yhi) outData[ii] = xhi;
       else
       {
-         while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
+         while (PABS(UU-ylo) > 1.0e-10 || PABS(UU-yhi) > 1.0e-10)
          {
             xmi = 0.5 * (xhi + xlo);
             ymi = mult*Incomplete_Beta_Function(xmi,alpha_,beta_);
@@ -222,6 +223,7 @@ int PDFBeta::genSample(int length,double *outData,double lower,double upper)
          else                             outData[ii] = xhi;
       }
    }
+   printf("PDFBeta: genSample ends.\n");
    return 0;
 }
 

@@ -172,6 +172,7 @@ int PDFTriangle::genSample(int length, double *outData, double lower,
    getCDF(iOne, &lower, &low);
    getCDF(iOne, &upper, &range);
    range = range - low;
+   printf("PDFTriangle: genSample begins (Take too long? check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       xlo = lower;
@@ -202,6 +203,7 @@ int PDFTriangle::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
+   printf("PDFTriangle: genSample ends.\n");
    return 0;
 }
 

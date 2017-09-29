@@ -99,8 +99,10 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       for (iI = 0; iI < nInputs; iI++) count += adata.inputPDFs_[iI];
       if (count > 0)
       {
-         printOutTS(PL_INFO,"RSAnalysis INFO: some inputs have non-uniform PDFs,\n");
-         printOutTS(PL_INFO,"    but they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO,
+              "RSAnalysis INFO: some inputs have non-uniform PDFs,\n");
+         printOutTS(PL_INFO,
+              "    but they are not relevant in this analysis.\n");
       }
    }
 
@@ -139,9 +141,12 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (PABS(YLocal[ss]) < ymin) ymin = PABS(YLocal[ss]);
    }
    printOutTS(PL_INFO,"RSA: Output ID = %d\n", outputID+1);
-   printOutTS(PL_INFO,"RSA: Output Maximum/Minimum = %14.6e %14.6e\n",ymax,ymin);
-   printOutTS(PL_INFO,"INFO: Set printlevel higher (1-4) to display more information.\n");
-   printOutTS(PL_INFO,"INFO: Set print level to 4 for interpolation error graphics file.\n");
+   printOutTS(PL_INFO,
+        "RSA: Output Maximum/Minimum = %14.6e %14.6e\n",ymax,ymin);
+   printOutTS(PL_INFO,
+        "INFO: Set printlevel higher (1-4) to display more information.\n");
+   printOutTS(PL_INFO,
+        "INFO: Set print level to 4 for interpolation error graphics file.\n");
    if (ymax == PSUADE_UNDEFINED)
    {
       printOutTS(PL_ERROR,"RSAnalyzer ERROR: some outputs are undefined.\n");
@@ -159,7 +164,8 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       faPtr = genFA(rsType_, nInputs, iOne, nLast);
       if (faPtr == NULL)
       {
-         printOutTS(PL_INFO,"RSFAnalyzer INFO: cannot create response surface.\n");
+         printOutTS(PL_INFO,
+              "RSFAnalyzer INFO: cannot create response surface.\n");
          delete [] YLocal;
          delete faPtr;
          delete [] YT;
@@ -180,7 +186,8 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (psRSCodeGen_ == 1) psRSCodeGen_ = 2;
       if (status != 0)
       {
-         printOutTS(PL_ERROR,"RSAnalysis ERROR: something wrong in FA initialize.\n");
+         printOutTS(PL_ERROR,
+              "RSAnalysis ERROR: something wrong in FA initialize.\n");
          delete [] YLocal;
          delete faPtr;
          delete [] YT;
@@ -220,21 +227,29 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       sumErr2s = sqrt(sumErr2s / (double) nLast);
       if (printLevel > 2 || iL == nLevels-1)
       {
-         printOutTS(PL_INFO,"RSAnalysis: L %2d: interpolation error on training set \n", iL);
-         printOutTS(PL_INFO,"             avg error far from 0 ==> systematic bias.\n");
-         printOutTS(PL_INFO,"             rms error large      ==> average   error large.\n");
-         printOutTS(PL_INFO,"             max error large      ==> pointwise error large.\n");
-         printOutTS(PL_INFO,"             R-square may not always be a reliable measure.\n");
+         printOutTS(PL_INFO,
+              "RSAnalysis: L %2d: interpolation error on training set \n", iL);
+         printOutTS(PL_INFO,
+              "             avg error far from 0 ==> systematic bias.\n");
+         printOutTS(PL_INFO,
+              "             rms error large      ==> average   error large.\n");
+         printOutTS(PL_INFO,
+              "             max error large      ==> pointwise error large.\n");
+         printOutTS(PL_INFO,
+              "             R-square may not always be a reliable measure.\n");
          printOutTS(PL_INFO,"  avg error   = %11.3e (unscaled)\n", sumErr11);
          printOutTS(PL_INFO,"  avg error   = %11.3e (scaled)\n", sumErr11s);
          printOutTS(PL_INFO,"  rms error   = %11.3e (unscaled)\n", sumErr2);
          printOutTS(PL_INFO,"  rms error   = %11.3e (scaled)\n", sumErr2s);
          printOutTS(PL_INFO,"  max error   = %11.3e (unscaled, BASE=%9.3e)\n",
                 maxErr, maxBase);
-         printOutTS(PL_INFO,"  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
-                maxErrs, maxBases);
-         printOutTS(PL_INFO,"  R-square    = %16.8e\n",1.0-sumErr2*sumErr2*nLast/yvar);
-         printOutTS(PL_INFO,"Based on %d training points (total=%d).\n",nLast,nSamples);
+         printOutTS(PL_INFO,
+              "  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
+              maxErrs, maxBases);
+         printOutTS(PL_INFO,
+              "  R-square    = %16.8e\n",1.0-sumErr2*sumErr2*nLast/yvar);
+         printOutTS(PL_INFO,
+              "Based on %d training points (total=%d).\n",nLast,nSamples);
       }
 
       if (nLevels > 1 && iL < nLevels-1)
@@ -266,19 +281,22 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          sumErr2   = sqrt(sumErr2 / (double) (nSamples-nLast));
          sumErr2s  = sqrt(sumErr2s / (double) (nSamples-nLast));
 
-         printOutTS(PL_INFO,"RSAnalysis: L %2d: Prediction error on the remaining data:\n",
-                   iL);
+         printOutTS(PL_INFO,
+              "RSAnalysis: L %2d: Prediction error on the remaining data:\n",
+              iL);
          printOutTS(PL_INFO,"  avg error = %11.3e (unscaled)\n", sumErr11);
          printOutTS(PL_INFO,"  avg error = %11.3e (scaled)\n", sumErr11s);
          printOutTS(PL_INFO,"  rms error = %11.3e (unscaled)\n", sumErr2);
          printOutTS(PL_INFO,"  rms error = %11.3e (scaled)\n", sumErr2s);
-         printOutTS(PL_INFO,"  max error = %11.3e (unscaled, BASE=%11.3e)\n",maxErr,
-                   maxBase);
-         printOutTS(PL_INFO,"  max error = %11.3e (  scaled, BASE=%11.3e)\n",maxErrs,
-                   maxBases);
-         printOutTS(PL_INFO, "Based on %d training points (rest=%d).\n",nLast,
-                   nSamples-nLast);
-
+         printOutTS(PL_INFO,
+              "  max error = %11.3e (unscaled, BASE=%11.3e)\n",maxErr,
+              maxBase);
+         printOutTS(PL_INFO,
+              "  max error = %11.3e (  scaled, BASE=%11.3e)\n",maxErrs,
+              maxBases);
+         printOutTS(PL_INFO, 
+              "Based on %d training points (rest=%d).\n",nLast,
+              nSamples-nLast);
       }
 
       if (psAnaExpertMode_ == 1 && iL == nLevels-1) 
@@ -287,13 +305,15 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          {
             fpErr = fopen("RSFA_training_err.sci", "w");
             if (fpErr == NULL)
-               printOutTS(PL_INFO,"INFO: cannot open file RSFA_training_err.sci.\n");
+               printOutTS(PL_INFO,
+                    "INFO: cannot open file RSFA_training_err.sci.\n");
          }
          else
          {
             fpErr = fopen("RSFA_training_err.m", "w");
             if (fpErr == NULL)
-               printOutTS(PL_INFO,"INFO: cannot open file RSFA_training_err.m.\n");
+               printOutTS(PL_INFO,
+                    "INFO: cannot open file RSFA_training_err.m.\n");
          }
          if (fpErr != NULL)
          {
@@ -424,7 +444,8 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                fprintf(fpErr, "bar(xk,nk/%d,1.0)\n",nSamples);
             }
             fwritePlotAxes(fpErr);
-            fwritePlotTitle(fpErr, "Interpolation Errors Histogram (normalized)");
+            fwritePlotTitle(fpErr, 
+                  "Interpolation Errors Histogram (normalized)");
             fwritePlotXLabel(fpErr, "Error");
             fwritePlotYLabel(fpErr, "Probabilities");
 
@@ -486,9 +507,11 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             }
             fclose(fpErr);
             if (psPlotTool_ == 1)
-               printOutTS(PL_INFO,"Interpolation error info are in RSFA_training_err.sci\n");
+               printOutTS(PL_INFO,
+                    "Interpolation error info are in RSFA_training_err.sci\n");
             else
-               printOutTS(PL_INFO,"Interpolation error info are in RSFA_training_err.m\n");
+               printOutTS(PL_INFO,
+                    "Interpolation error info are in RSFA_training_err.m\n");
          }
          sumErr1   = sumErr1 / (double) nSamples;
          sumErr1s  = sumErr1s / (double) nSamples;
@@ -510,7 +533,8 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (cString != NULL)
       {
          useCV_ = 1;
-         printOutTS(PL_INFO, "RSFA: turn on cross validation (from config file)\n");
+         printOutTS(PL_INFO, 
+              "RSFA: turn on cross validation (from config file)\n");
       }
       cString = psConfig_->getParameter("RSFA_cv_ngroups");
       if (cString != NULL)
@@ -534,12 +558,18 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
    if (rsType_ != PSUADE_RS_REGSG) 
    {
       printAsterisks(PL_INFO, 0);
-      printOutTS(PL_INFO,"Next you will be asked whether to do cross validation or not.\n");
-      printOutTS(PL_INFO,"Since cross validation iterates as many times as the number\n");
-      printOutTS(PL_INFO,"of groups. The rs_expert mode will be turned off. To change\n");
-      printOutTS(PL_INFO,"the default parameters for different response surface, you\n");
-      printOutTS(PL_INFO,"will need to exit, create a config file (use genconfigfile\n");
-      printOutTS(PL_INFO,"in command line mode), and set config option in your data file.\n");
+      printOutTS(PL_INFO,
+           "Next you will be asked whether to do cross validation or not.\n");
+      printOutTS(PL_INFO,
+           "Since cross validation iterates as many times as the number\n");
+      printOutTS(PL_INFO,
+           "of groups. The rs_expert mode will be turned off. To change\n");
+      printOutTS(PL_INFO,
+           "the default parameters for different response surface, you\n");
+      printOutTS(PL_INFO,
+           "will need to exit, create a config file (use genconfigfile\n");
+      printOutTS(PL_INFO,
+           "in command line mode), and set config option in your data file.\n");
       printDashes(PL_INFO,0);
       sprintf(pString, "Perform cross validation ? (y or n) ");
       getString(pString, winput1);
@@ -574,8 +604,9 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       faPtr = genFA(rsType_, nInputs, iOne, nSamples-nSubSamples);
       if (faPtr == NULL)
       {
-	 printOutTS(PL_INFO,"RSAnalysis: genFA returned NULL in file %s line %d\n",
-                __FILE__, __LINE__ );
+	 printOutTS(PL_INFO,
+              "RSAnalysis: genFA returned NULL in file %s line %d\n",
+              __FILE__, __LINE__ );
          exit(1);
       }
       faPtr->setNPtsPerDim(nPtsPerDim);
@@ -624,8 +655,9 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       cvMaxBase = cvMaxBases = 0.0;
       for (ss = 0; ss < nSamples; ss+=nSubSamples)
       {
-         printOutTS(PL_INFO,"RSAnalysis:: L %2d:CV processes %d out of %d.\n",
-                    nLevels,ss/nSubSamples+1, nSamples/nSubSamples);
+         printOutTS(PL_INFO,
+              "RSAnalysis:: L %2d:CV processes %d out of %d.\n",
+              nLevels,ss/nSubSamples+1, nSamples/nSubSamples);
 
          count = 0;
          for (ss2 = 0; ss2 < nSamples; ss2++)
@@ -672,8 +704,9 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                cvMaxBases = PABS(YY[ss+ss2]);
             }
             if (printLevel > 4) 
-               printOutTS(PL_INFO, "Sample %6d: predicted =  %e, actual =  %e\n",
-                      iArray2[iArray[ss+ss2]], YT[ss2], YY[ss+ss2]);
+               printOutTS(PL_INFO, 
+                    "Sample %6d: predicted =  %e, actual =  %e\n",
+                    iArray2[iArray[ss+ss2]], YT[ss2], YY[ss+ss2]);
          }
          adata.sampleErrors_[ss/nSubSamples] = cvErr2s;
          CVErr1  += cvErr1;
@@ -689,19 +722,25 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
 
          printOutTS(PL_INFO,"RSA: first member of sample group %5d = %d\n",
                 ss/nSubSamples+1, iArray[ss]+1);
-         printOutTS(PL_INFO,"RSA: CV error for sample group %5d = %11.3e (avg unscaled)\n",
-               ss/nSubSamples+1, cvErr1);
-         printOutTS(PL_INFO,"RSA: CV error for sample group %5d = %11.3e (avg scaled)\n",
-               ss/nSubSamples+1, cvErr1s);
-         printOutTS(PL_INFO,"RSA: CV error for sample group %5d = %11.3e (rms unscaled)\n",
-               ss/nSubSamples+1, cvErr2);
-         printOutTS(PL_INFO,"RSA: CV error for sample group %5d = %11.3e (rms scaled)\n",
-               ss/nSubSamples+1, cvErr2s);
-         printOutTS(PL_INFO,"RSA: CV error for sample group %5d = %11.3e (max",
-               ss/nSubSamples+1, cvMax);
+         printOutTS(PL_INFO,
+              "RSA: CV error for sample group %5d = %11.3e (avg unscaled)\n",
+              ss/nSubSamples+1, cvErr1);
+         printOutTS(PL_INFO,
+              "RSA: CV error for sample group %5d = %11.3e (avg scaled)\n",
+              ss/nSubSamples+1, cvErr1s);
+         printOutTS(PL_INFO,
+              "RSA: CV error for sample group %5d = %11.3e (rms unscaled)\n",
+              ss/nSubSamples+1, cvErr2);
+         printOutTS(PL_INFO,
+              "RSA: CV error for sample group %5d = %11.3e (rms scaled)\n",
+              ss/nSubSamples+1, cvErr2s);
+         printOutTS(PL_INFO,
+              "RSA: CV error for sample group %5d = %11.3e (max",
+              ss/nSubSamples+1, cvMax);
          printOutTS(PL_INFO," unscaled,BASE=%9.3e)\n", cvMaxBase);
-         printOutTS(PL_INFO,"RSA: CV error for sample group %5d = %11.3e (max",
-               ss/nSubSamples+1, cvMaxs);
+         printOutTS(PL_INFO,
+              "RSA: CV error for sample group %5d = %11.3e (max",
+              ss/nSubSamples+1, cvMaxs);
          printOutTS(PL_INFO,"   scaled,BASE=%9.3e)\n", cvMaxBases);
       }
       if (status >= 0)
@@ -710,26 +749,33 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          CVErr1s = CVErr1s / (double) nSamples;
          CVErr2  = sqrt(CVErr2 / nSamples);
          CVErr2s = sqrt(CVErr2s / nSamples);
-         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (avg unscaled)\n",CVErr1);
-         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (avg   scaled)\n",CVErr1s);
-         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (rms unscaled)\n",CVErr2);
-         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (rms   scaled)\n",CVErr2s);
-         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (max unscaled, BASE=%9.3e)\n",
+         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (avg unscaled)\n",
+                    CVErr1);
+         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (avg   scaled)\n",
+                    CVErr1s);
+         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (rms unscaled)\n",
+                    CVErr2);
+         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (rms   scaled)\n",
+                    CVErr2s);
+         printOutTS(PL_INFO,
+              "RSA: final CV error  = %11.3e (max unscaled, BASE=%9.3e)\n",
                 CVMax, CVMaxBase);
-         printOutTS(PL_INFO,"RSA: final CV error  = %11.3e (max   scaled, BASE=%9.3e)\n",
+         printOutTS(PL_INFO,
+              "RSA: final CV error  = %11.3e (max   scaled, BASE=%9.3e)\n",
                 CVMaxs, CVMaxBases);
-         printOutTS(PL_INFO,"RSA: L %2d:cross validation (CV) completed.\n",nLevels);
+         printOutTS(PL_INFO,
+              "RSA: L %2d:cross validation (CV) completed.\n",nLevels);
          if (psPlotTool_ == 1)
          {
             fpData = fopen("RSFA_CV_err.sci", "w");
             if (fpData != NULL)
-               printOutTS(PL_INFO, "INFO: cannot open file RSFA_CV_err.sci.\n");
+               printOutTS(PL_INFO,"INFO: cannot open file RSFA_CV_err.sci.\n");
          }
          else
          {
             fpData = fopen("RSFA_CV_err.m", "w");
             if (fpData == NULL)
-               printOutTS(PL_INFO, "INFO: cannot open file RSFA_CV_err.m.\n");
+               printOutTS(PL_INFO,"INFO: cannot open file RSFA_CV_err.m.\n");
          }
          if (fpData != NULL)
          {
@@ -743,7 +789,8 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             fwriteComment(fpData, pString);
             strcpy(pString,"Column 4: standard deviations"); 
             fwriteComment(fpData, pString);
-            strcpy(pString,"Set morePlots=1 for normalized residual error plot");
+            strcpy(pString,
+                   "Set morePlots=1 for normalized residual error plot");
             fwriteComment(fpData, pString);
             ssum = 0.0;
             fprintf(fpData, "morePlots = 0;\n");
@@ -785,8 +832,10 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             fwritePlotYLabel(fpData, "Probabilities");
             if (psPlotTool_ != 1)
             {
-               fprintf(fpData,"disp(['Error Mean  = ' num2str(mean(A(:,1)))])\n");
-               fprintf(fpData,"disp(['Error stdev = ' num2str(std(A(:,1)))])\n");
+               fprintf(fpData,
+                   "disp(['Error Mean  = ' num2str(mean(A(:,1)))])\n");
+               fprintf(fpData,
+                   "disp(['Error stdev = ' num2str(std(A(:,1)))])\n");
             }
             fprintf(fpData, "subplot(1,2,2)\n");
             fprintf(fpData, "xmax = max(A(:,2));\n");
@@ -824,15 +873,39 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             if (ssum > 0.0)
             {
                if (psPlotTool_ == 1) fprintf(fpData,"drawlater\n");
+               fprintf(fpData,"cnt1 = 0;\n");
+               fprintf(fpData,"cnt2 = 0;\n");
+               fprintf(fpData,"cnt3 = 0;\n");
+               fprintf(fpData,"cnt4 = 0;\n");
                fprintf(fpData,"for ii = 1 : %d\n", nSamples);
                fprintf(fpData,"  xx = [A(ii,2) A(ii,2)];\n");
                fprintf(fpData,"  d1 = A(ii,3)-A(ii,4);\n");
                fprintf(fpData,"  d2 = A(ii,3)+A(ii,4);\n");
                fprintf(fpData,"  yy = [d1 d2];\n");
-               fprintf(fpData,"  if (xx(1) < d1 | xx(1) > d2);\n");
-               fprintf(fpData,"    plot(xx, yy, 'r-', 'lineWidth', 1);\n");
-               fprintf(fpData,"   else\n");
-               fprintf(fpData,"     plot(xx, yy, 'g-', 'lineWidth', 1);\n");
+               fprintf(fpData,"  if (xx(1) < d1 | xx(1) > d2)\n");
+               fprintf(fpData,"    plot(xx, yy, 'r-', 'lineWidth', 1)\n");
+               fprintf(fpData,"    d3 = A(ii,3)-2*A(ii,4);\n");
+               fprintf(fpData,"    d4 = A(ii,3)+2*A(ii,4);\n");
+               fprintf(fpData,"    if (xx(1) < d3 | xx(1) > d4)\n");
+               fprintf(fpData,"      d5 = A(ii,3)-3*A(ii,4);\n");
+               fprintf(fpData,"      d6 = A(ii,3)+3*A(ii,4);\n");
+               fprintf(fpData,"      if (xx(1) > d5 & xx(1) < d6)\n");
+               fprintf(fpData,"        cnt3 = cnt3 + 1;\n");
+               fprintf(fpData,"      else\n");
+               fprintf(fpData,"        d7 = A(ii,3)-4*A(ii,4);\n");
+               fprintf(fpData,"        d8 = A(ii,3)+4*A(ii,4);\n");
+               fprintf(fpData,"        if (xx(1) > d7 & xx(1) < d8)\n");
+               fprintf(fpData,"          cnt4 = cnt4 + 1;\n");
+               fprintf(fpData,"        else\n");
+               fprintf(fpData,"          disp(['Bad point = ',int2str(ii)])\n");
+               fprintf(fpData,"        end;\n");
+               fprintf(fpData,"      end;\n");
+               fprintf(fpData,"    else\n");
+               fprintf(fpData,"      cnt2 = cnt2 + 1;\n");
+               fprintf(fpData,"    end;\n");
+               fprintf(fpData,"  else\n");
+               fprintf(fpData,"    plot(xx, yy, 'g-', 'lineWidth', 1);\n");
+               fprintf(fpData,"    cnt1 = cnt1 + 1;\n");
                fprintf(fpData,"  end;\n");
                fprintf(fpData,"%%plot(xx(1), yy(1),'rv','markerSize',10);\n");
                fprintf(fpData,"%%plot(xx(2), yy(2),'r^','markerSize',10);\n");
@@ -840,15 +913,34 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                if (psPlotTool_ == 1) fprintf(fpData,"drawnow\n");
                else
                {
-                  fprintf(fpData,"text(0.1,0.9,'RED: predicion outside +/- 1 std ");
-                  fprintf(fpData,"dev','sc','fontSize',11,'fontweight','bold')\n");
+                  fprintf(fpData,"cnt4 = cnt1 + cnt2 + cnt3 + cnt4;\n");
+                  fprintf(fpData,"cnt3 = cnt1 + cnt2 + cnt3;\n");
+                  fprintf(fpData,"cnt2 = cnt1 + cnt2;\n");
+                  fprintf(fpData,"disp('Total sample size = %d')\n",nSamples);
+                  fprintf(fpData,
+                     "disp(['Num points inside 1 sigma = ',int2str(cnt1)])\n");
+                  fprintf(fpData,
+                     "disp(['Num points inside 2 sigma = ',int2str(cnt2)])\n");
+                  fprintf(fpData,
+                     "disp(['Num points inside 3 sigma = ',int2str(cnt3)])\n");
+                  fprintf(fpData,
+                     "disp(['Num points inside 4 sigma = ',int2str(cnt4)])\n");
+                  fprintf(fpData,
+                      "text(0.1,0.9,'RED: predicion outside +/- 1 std ");
+                  fprintf(fpData,
+                      "dev','sc','fontSize',11,'fontweight','bold')\n");
                }
             }
             fwriteHold(fpData, 0);
             fwritePlotAxes(fpData);
-            fwritePlotTitle(fpData, "Actual vs predicted data with CV");
+            sprintf(pString,
+               "CV Predictions (scaled rmse=%12.4e, R2=%12.4e)",
+               CVErr2s,1.0-CVErr2*CVErr2*nSamples/yvar);
+            fwritePlotTitle(fpData, pString);
             fwritePlotXLabel(fpData, "actual data");
             fwritePlotYLabel(fpData, "predicted data");
+            fprintf(fpData, "rsme_scaled = %e;\n", CVErr2s);
+            fprintf(fpData, "R2 = %e;\n",1.0-CVErr2*CVErr2*nSamples/yvar);
             fprintf(fpData,"if morePlots == 1\n");
             strcpy(pString," For the following B matrix");
             fwriteComment(fpData, pString);
@@ -974,7 +1066,8 @@ int RSFuncApproxAnalyzer::setParams(int argc, char **argv)
       rsType_ = *(int *) argv[1];
       if (rsType_ < 0 || rsType_ > PSUADE_NUM_RS)
       {
-         printOutTS(PL_ERROR, "RSAnalysis ERROR: INVALID rstype, set to REGR2.\n");
+         printOutTS(PL_ERROR, 
+              "RSAnalysis ERROR: INVALID rstype, set to REGR2.\n");
          rsType_ = PSUADE_RS_REGR2;
       }
    }
@@ -1049,9 +1142,11 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
    }
    if (nTestIn != nInputs)
    {
-      printOutTS(PL_WARN, "RSAnalysis: test data has different number of inputs (%d)\n",
-              nTestIn);
-      printOutTS(PL_WARN, "            than that of the sample (%d)\n", nInputs);
+      printOutTS(PL_WARN, 
+           "RSAnalysis: test data has different number of inputs (%d)\n",
+           nTestIn);
+      printOutTS(PL_WARN,
+           "            than that of the sample (%d)\n", nInputs);
       delete ioPtr;
       delete [] YLocal;
       return 1.0e12;
@@ -1064,7 +1159,8 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
    fa = genFA(fatype, nInputs, iOne, nSamples);
    if (fa == NULL)
    {
-      printOutTS(PL_INFO, "RSAnalysis INFO: cannot create function approximator.\n");
+      printOutTS(PL_INFO, 
+           "RSAnalysis INFO: cannot create function approximator.\n");
       delete [] YLocal;
       delete ioPtr;
       return 1.0e12;
@@ -1159,20 +1255,28 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
    sumErr1s = sumErr1s / (double) nTestSam;
    sumErr2  = sqrt(sumErr2 / (double) nTestSam);
    sumErr2s = sqrt(sumErr2s / (double) nTestSam);
-   printOutTS(PL_INFO, "RSA: Test data maximum/minimum      = %9.3e %9.3e\n",
+   printOutTS(PL_INFO,"RSA: Test data maximum/minimum      = %9.3e %9.3e\n",
           dataMax, dataMin);
-   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (max unscaled, BASE=%9.3e)\n",
+   printOutTS(PL_INFO, 
+        "RSA: Prediction errors = %11.3e (max unscaled, BASE=%9.3e)\n",
           maxErr, maxBase);
-   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (max   scaled, BASE=%9.3e)\n",
+   printOutTS(PL_INFO, 
+        "RSA: Prediction errors = %11.3e (max   scaled, BASE=%9.3e)\n",
           maxErrs, maxBases);
-   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (rms unscaled)\n",sumErr2);
-   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (rms   scaled)\n",sumErr2s);
-   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (avg unscaled)\n",sumErr1);
-   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (avg   scaled)\n",sumErr1s);
+   printOutTS(PL_INFO, 
+        "RSA: Prediction errors = %11.3e (rms unscaled)\n",sumErr2);
+   printOutTS(PL_INFO, 
+        "RSA: Prediction errors = %11.3e (rms   scaled)\n",sumErr2s);
+   printOutTS(PL_INFO, 
+        "RSA: Prediction errors = %11.3e (avg unscaled)\n",sumErr1);
+   printOutTS(PL_INFO, 
+        "RSA: Prediction errors = %11.3e (avg   scaled)\n",sumErr1s);
    ssum = 0.0;
    for (ii = 0; ii < nTestSam; ii++) ssum += stdevs[ii];
    if (ssum != 0)
-      printOutTS(PL_INFO, "RSA: Average std. dev. = %11.3e (sum of all points)\n",ssum/nSamples);
+      printOutTS(PL_INFO, 
+           "RSA: Average std. dev. = %11.3e (sum of all points)\n",
+           ssum/nSamples);
 
    if (fpErr != NULL) 
    {
@@ -1299,8 +1403,9 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
 #endif
       fclose(fpErr);
       fpErr = NULL;
-      printOutTS(PL_INFO, "RSAnalysis: individual prediction errors can be found in %s.\n",
-             errFile);
+      printOutTS(PL_INFO, 
+           "RSAnalysis: individual prediction errors can be found in %s.\n",
+           errFile);
    }
 
    delete [] YLocal;
@@ -1313,9 +1418,11 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
 // ************************************************************************
 // equal operator
 // ------------------------------------------------------------------------
-RSFuncApproxAnalyzer& RSFuncApproxAnalyzer::operator=(const RSFuncApproxAnalyzer &)
+RSFuncApproxAnalyzer& 
+RSFuncApproxAnalyzer::operator=(const RSFuncApproxAnalyzer &)
 {
-   printOutTS(PL_ERROR, "RSAnalysis operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, 
+        "RSAnalysis operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

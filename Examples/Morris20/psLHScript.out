@@ -1,8 +1,8 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.7.4)
+*      Welcome to PSUADE (version 1.7.5)
 **********************************************************************
 PSUADE - A Problem Solving environment for 
-         Uncertainty Analysis and Design Exploration (1.7.4)
+         Uncertainty Analysis and Design Exploration (1.7.5)
 (for help, enter <help>)
 ======================================================================
 psuade> load complete : nSamples = 1000
@@ -15,10 +15,13 @@ This test has the characteristics that the more important
 a parameter is relative to the others, the smaller the 
 subset is at the end of the test (sharp zoom into the most
 important subset).
+Thus, the purpose of this test is to identify a subset of
+important parameters.
 Note: If both nInputs and nSamples are large, this test
       may take a long time to run. So, be patient.)
 ======================================================================
 Current best solution for output 1:
+To stop the search, create a psuade_stop file in local directory.
 ----------------------------------------------------------------------
 0 1 1 0 1 1 1 0 0 0 1 1 0 1 0 0 1 1 1 0  = 9.775168e+02
 1 1 1 1 1 1 1 1 0 1 1 0 1 0 1 1 1 0 0 0  = 5.096323e+02 (1 of 100)

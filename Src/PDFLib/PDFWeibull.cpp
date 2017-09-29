@@ -166,6 +166,7 @@ int PDFWeibull::genSample(int length, double *outData, double lower,
       exit(1);
    }
 
+   printf("PDFWeibull: genSample begins (Take too long? Check ranges)\n");
    for (ii = 0; ii < length; ii++)
    {
       UU = PSUADE_drand();
@@ -197,6 +198,7 @@ int PDFWeibull::genSample(int length, double *outData, double lower,
          else                             outData[ii] = xhi;
       }
    }
+   printf("PDFWeibull: genSample ends.\n");
    return 0;
 }
 

@@ -612,7 +612,13 @@ int Regression::analyze(double *Xin, double *Y)
    }
 
    X = new double[nSamples_*nInputs_];
-   initInputScaling(Xin, X, 1);
+   if (psMasterMode_ == 1) 
+   {
+      printf("* Regression INFO: scaling turned off.\n");
+      printf("*            To turn on scaling, use rs_expert mode.\n");
+      initInputScaling(Xin, X, 0);
+   }
+   else initInputScaling(Xin, X, 1);
 
    N = loadXMatrix(X, &XX); 
    if (N == 0)
@@ -872,6 +878,7 @@ int Regression::analyze(double *Xin, double *Y)
    if (outputLevel_ >= 0)
    {
       printRC(N, B, Bstd, XX, Y);
+      //printCoefs(N, B);
       printf("* Regression R-square = %12.4e (SSresid,SStotal=%10.2e,%10.2e)\n",
              R2, SSresid, SStotal);
       if ((M - N - 1) > 0)
@@ -1589,7 +1596,7 @@ int Regression::computeCoeffVariance(int N,double *XX,double var,double *B)
 // -------------------------------------------------------------------------
 int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
 {
-   int    nn, ii, ind, nn2, nn3, nn4, mm;
+   int    nn1, ii, ind, nn2, nn3, nn4;
    double coef, Bmax;
    char   fname[200];
    FILE   *fp;
@@ -1597,13 +1604,12 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    if (order_ < 0 || order_ > 4) return 0;
    printEquals(PL_INFO, 0);
    printf("*** Note: these coefficients may not be true coefficients due\n");
-   printf("***       to sample matrix scaling (that is, they may be scaled).\n");
+   printf("***       to sample matrix scaling (i.e., they may be scaled).\n");
    printDashes(PL_INFO, 0);
    printf("*            ");
    for (ii = 1; ii < order_; ii++) printf("    ");
    printf("  coefficient   std. error   t-value\n");
    printDashes(PL_INFO, 0);
-
    if (PABS(Bvar[0]) < 1.0e-15) coef = 0.0;
    else                         coef = B[0] / Bvar[0]; 
    printf("* Constant  ");
@@ -1611,14 +1617,14 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    printf("= %12.4e %12.4e %12.4e\n", B[0], Bvar[0], coef);
    if (order_ >= 1)
    {
-      for (nn = 1; nn <= nInputs_; nn++)
+      for (nn1 = 1; nn1 <= nInputs_; nn1++)
       {
-         if (PABS(Bvar[nn]) < 1.0e-15) coef = 0.0;
-         else                          coef = B[nn] / Bvar[nn]; 
+         if (PABS(Bvar[nn1]) < 1.0e-15) coef = 0.0;
+         else                           coef = B[nn1] / Bvar[nn1]; 
          {
-            printf("* Input %3d ", nn);
+            printf("* Input %3d ", nn1);
             for (ii = 1; ii < order_; ii++) printf("    ");
-            printf("= %12.4e %12.4e %12.4e\n", B[nn], Bvar[nn], coef);
+            printf("= %12.4e %12.4e %12.4e\n", B[nn1], Bvar[nn1], coef);
          }
          strcpy(fname, "dataVariance1");
       }
@@ -1626,19 +1632,19 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    if (order_ >= 2)
    {
       Bmax = 0.0;
-      for (nn = nInputs_+1; nn < N; nn++)
-         if (PABS(B[nn]) > Bmax) Bmax = PABS(B[nn]); 
+      for (nn1 = nInputs_+1; nn1 < N; nn1++)
+         if (PABS(B[nn1]) > Bmax) Bmax = PABS(B[nn1]); 
       ind = nInputs_ + 1;
-      for (nn = 0; nn < nInputs_; nn++)
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
       {
-         for (nn2 = nn; nn2 < nInputs_; nn2++)
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
          {
             if (PABS(B[ind]) > 1.0e-6 * Bmax) 
             {
                if (PABS(Bvar[ind]) < 1.0e-15) coef = 0.0;
                else coef = B[ind] / Bvar[ind]; 
                {
-                  printf("* Input %3d %3d ", nn+1, nn2+1);
+                  printf("* Input %3d %3d ", nn1+1, nn2+1);
                   for (ii = 2; ii < order_; ii++) printf("    ");
                   printf("= %12.4e %12.4e %12.4e\n",B[ind],Bvar[ind],coef); 
                }
@@ -1651,11 +1657,11 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    if (order_ >= 3)
    {
       Bmax = 0.0;
-      for (nn = ind; nn < N; nn++)
-         if (PABS(B[nn]) > Bmax) Bmax = PABS(B[nn]); 
-      for (nn = 0; nn < nInputs_; nn++)
+      for (nn1 = ind; nn1 < N; nn1++)
+         if (PABS(B[nn1]) > Bmax) Bmax = PABS(B[nn1]); 
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
       {
-         for (nn2 = nn; nn2 < nInputs_; nn2++)
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
          {
             for (nn3 = nn2; nn3 < nInputs_; nn3++)
             {
@@ -1664,7 +1670,7 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
                   if (PABS(Bvar[ind]) < 1.0e-15) coef = 0.0;
                   else coef = B[ind] / Bvar[ind]; 
                   {
-                     printf("* Input %3d %3d %3d ", nn+1, nn2+1, nn3+1);
+                     printf("* Input %3d %3d %3d ", nn1+1, nn2+1, nn3+1);
                      for (ii = 3; ii < order_; ii++) printf("    ");
                      printf("= %12.4e %12.4e %12.4e\n",B[ind],Bvar[ind],
                             coef);
@@ -1678,9 +1684,9 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    }
    if (order_ >= 4)
    {
-      for (nn = 0; nn < nInputs_; nn++)
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
       {
-         for (nn2 = nn; nn2 < nInputs_; nn2++)
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
          {
             for (nn3 = nn2; nn3 < nInputs_; nn3++)
             {
@@ -1691,7 +1697,7 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
                      if (PABS(Bvar[ind]) < 1.0e-15) coef = 0.0;
                      else coef = B[ind] / Bvar[ind]; 
                      {
-                        printf("* Input %3d %3d %3d %3d ",nn+1,nn2+1,nn3+1,
+                        printf("* Input %3d %3d %3d %3d ",nn1+1,nn2+1,nn3+1,
                                nn4+1);
                         for (ii = 4; ii < order_; ii++) printf("    ");
                         printf("= %12.4e %12.4e %12.4e\n",B[ind],Bvar[ind],
@@ -1717,11 +1723,12 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
          exit(1);
       }
       fprintf(fp, "data number     data         standard error\n");
-      for (mm = 0; mm < nSamples_; mm++)
+      for (ii = 0; ii < nSamples_; ii++)
       {
          coef = 0.0;
-         for (nn = 0; nn < N; nn++) coef += PABS(XX[nn*nSamples_+mm]*Bvar[nn]);
-         fprintf(fp,"%7d         %12.4e %12.4e\n",mm+1,Y[mm],sqrt(coef));
+         for (nn1 = 0; nn1 < N; nn1++) 
+            coef += PABS(XX[nn1*nSamples_+ii]*Bvar[nn1]);
+         fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,Y[ii],sqrt(coef));
       }
       fclose(fp);
       printf("FILE %s contains output data standard errors.\n",fname);
@@ -1969,4 +1976,527 @@ int Regression::printSRC(double *X, double *B, double SStotal)
    printAsterisks(PL_INFO, 0);
    return 0;
 }
+
+// *************************************************************************
+// print coefficients 
+// -------------------------------------------------------------------------
+int Regression::printCoefs(int N, double *B)
+{
+   int    ii, jj, nn1, nn2, nn3, nn4, **indexTable, ptr2, ptr3, ptr4, cnt;
+   int    mm1, mm2, kk, *indices;
+   double *trueCoefs, Bmax, ddata;
+
+   indexTable = new int*[N];
+   for (ii = 0; ii < N; ii++) indexTable[ii] = new int[nInputs_];
+   for (ii = 0; ii < nInputs_; ii++) indexTable[0][ii] = 0; 
+   for (ii = 0; ii < nInputs_; ii++) 
+   {
+      for (jj = 0; jj < nInputs_; jj++) 
+         indexTable[ii+1][jj] = 0; 
+      indexTable[ii+1][ii] = 1; 
+   }
+   ptr2 = ptr3 = nInputs_ + 1;
+   if (order_ >= 2)
+   {
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (jj = 0; jj < nInputs_; jj++) 
+               indexTable[ptr3][jj] = 0; 
+            indexTable[ptr3][nn1]++; 
+            indexTable[ptr3][nn2]++; 
+            ptr3++;
+         }
+      }
+   }
+   ptr4 = ptr3;
+   if (order_ >= 3)
+   {
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (nn3 = nn2; nn3 < nInputs_; nn3++)
+            {
+               for (jj = 0; jj < nInputs_; jj++) 
+                  indexTable[ptr4][jj] = 0; 
+               indexTable[ptr4][nn1]++; 
+               indexTable[ptr4][nn2]++; 
+               indexTable[ptr4][nn3]++; 
+               ptr4++;
+            }
+         }
+      }
+   }
+   cnt = ptr4;
+   if (order_ >= 4)
+   {
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (nn3 = nn2; nn3 < nInputs_; nn3++)
+            {
+               for (nn4 = nn3; nn4 < nInputs_; nn4++)
+               {
+                  for (jj = 0; jj < nInputs_; jj++) 
+                     indexTable[cnt][jj] = 0; 
+                  indexTable[cnt][nn1]++; 
+                  indexTable[cnt][nn2]++; 
+                  indexTable[cnt][nn3]++; 
+                  indexTable[cnt][nn4]++; 
+                  cnt++;
+               }
+            }
+         }
+      }
+   }
+   for (ii = 0; ii < N; ii++)
+   {
+      for (jj = 0; jj < nInputs_; jj++)
+         printf("%d ", indexTable[ii][jj]);
+      printf("\n");
+   }
+    
+   printEquals(PL_INFO, 0);
+   printf("*** Note: these coefficients are true coefficients.\n");
+   printDashes(PL_INFO, 0);
+   printf("*            ");
+   for (ii = 1; ii < order_; ii++) printf("    ");
+   printf("  coefficient\n");
+   printDashes(PL_INFO, 0);
+
+   trueCoefs = new double[N];
+   for (ii = 0; ii < N; ii++) trueCoefs[ii] = 0.0;
+   trueCoefs[0] = B[0];
+   indices = new int[nInputs_];
+   if (order_ >= 1)
+   {
+      for (nn1 = 1; nn1 <= nInputs_; nn1++)
+      {
+         trueCoefs[nn1] = B[nn1] / XStds_[nn1-1];
+         trueCoefs[0]  -= B[nn1] * XMeans_[nn1-1] / XStds_[nn1-1];
+      }
+   }
+   if (order_ >= 2)
+   {
+      cnt = ptr2;
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            trueCoefs[cnt] = B[cnt] / (XStds_[nn1] * XStds_[nn2]);
+            trueCoefs[nn1+1] -= B[cnt]*XMeans_[nn2]/
+                                (XStds_[nn1]*XStds_[nn2]);
+            trueCoefs[nn2+1] -= B[cnt]*XMeans_[nn1]/
+                                (XStds_[nn1]*XStds_[nn2]);
+            trueCoefs[0] += B[cnt]*(XMeans_[nn1]*XMeans_[nn2])/
+                                   (XStds_[nn1]*XStds_[nn2]);
+            cnt++;
+         }
+      }
+   }
+   if (order_ >= 3)
+   {
+      cnt = ptr3;
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (nn3 = nn2; nn3 < nInputs_; nn3++)
+            {
+               ddata = B[cnt];
+               ddata /= XStds_[nn1];
+               ddata /= XStds_[nn2];
+               ddata /= XStds_[nn3];
+               trueCoefs[cnt] = ddata;
+
+               ddata = XMeans_[nn1] / XStds_[nn1];
+               ddata *= XMeans_[nn2] / XStds_[nn2];
+               ddata *= XMeans_[nn3] / XStds_[nn3];
+               trueCoefs[0] -= B[cnt] * ddata;
+
+               ddata = 1.0 / XStds_[nn1];
+               ddata *= XMeans_[nn2] / XStds_[nn2];
+               ddata *= XMeans_[nn3] / XStds_[nn3];
+               trueCoefs[nn1+1] += B[cnt] * ddata;
+
+               ddata = 1.0 / XStds_[nn2];
+               ddata *= XMeans_[nn1] / XStds_[nn1];
+               ddata *= XMeans_[nn3] / XStds_[nn3];
+               trueCoefs[nn2+1] += B[cnt] * ddata;
+
+               ddata = 1.0 / XStds_[nn3];
+               ddata *= XMeans_[nn1] / XStds_[nn1];
+               ddata *= XMeans_[nn2] / XStds_[nn2];
+               trueCoefs[nn3+1] += B[cnt] * ddata;
+
+               ii = ptr2;
+               for (mm1 = 0; mm1 < nInputs_; mm1++) indices[mm1] = 0;
+               indices[nn1]++;
+               indices[nn2]++;
+               indices[nn3]++;
+               
+               for (mm1 = 0; mm1 < nInputs_; mm1++)
+               {
+                  for (mm2 = mm1; mm2 < nInputs_; mm2++)
+                  {
+                     ddata = 1.0;
+                     if (indices[nn1] >= indexTable[ii][nn1] &&
+                         indices[nn2] >= indexTable[ii][nn2])
+                     {
+                        ddata = 1.0 / XStds_[nn1];
+                        ddata /= XStds_[nn2];
+                        ddata  *= XMeans_[nn3] / XStds_[nn3];
+                        trueCoefs[ii] -= B[cnt] * ddata;
+                        printf("(a) ii = %d\n",ii+1);
+                     }
+                     else if (indices[nn1] >= indexTable[ii][nn1] &&
+                              indices[nn3] >= indexTable[ii][nn3])
+                     {
+                        ddata = 1.0 / XStds_[nn1];
+                        ddata /= XStds_[nn3];
+                        ddata  *= XMeans_[nn2] / XStds_[nn2];
+                        trueCoefs[ii] -= B[cnt] * ddata;
+                        printf("(b) ii = %d\n",ii+1);
+                     }
+                     else if (indices[nn2] >= indexTable[ii][nn2] &&
+                              indices[nn3] >= indexTable[ii][nn3])
+                     {
+                        ddata = 1.0 / XStds_[nn2];
+                        ddata /= XStds_[nn3];
+                        ddata  *= XMeans_[nn1] / XStds_[nn1];
+                        trueCoefs[ii] -= B[cnt] * ddata;
+                        printf("(c) ii = %d\n",ii+1);
+                     }
+                     ii++;
+                  }
+               }
+               cnt++;
+            }
+         }
+      }
+   }
+#if 0
+   if (order_ >= 4)
+   {
+      cnt = ptr4;
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (nn3 = nn2; nn3 < nInputs_; nn3++)
+            {
+               for (nn4 = nn3; nn4 < nInputs_; nn4++)
+               {
+                  ddata = B[cnt];
+                  ddata /= XStds_[nn1];
+                  ddata /= XStds_[nn2];
+                  ddata /= XStds_[nn3];
+                  ddata /= XStds_[nn4];
+                  trueCoefs[cnt] = ddata;
+
+                  ddata = XMeans_[nn1] / XStds_[nn1];
+                  ddata *= XMeans_[nn2] / XStds_[nn2];
+                  ddata *= XMeans_[nn3] / XStds_[nn3];
+                  ddata *= XMeans_[nn4] / XStds_[nn4];
+                  trueCoefs[0] += B[cnt] * ddata;
+
+                  if (indexTable[cnt][0] = 2)
+                  {
+                     ddata = 1.0 / XStds_[nn1];
+                     ddata *= XMeans_[nn2] / XStds_[nn2];
+                     ddata *= XMeans_[nn3] / XStds_[nn3];
+                     ddata *= XMeans_[nn4] / XStds_[nn4];
+                     trueCoefs[nn1+1] -= B[cnt] * ddata;
+                  }
+
+                  if (indexTable[cnt][1] = 1)
+                  {
+                     ddata = 1.0 / XStds_[nn2];
+                     ddata *= XMeans_[nn1] / XStds_[nn1];
+                     ddata *= XMeans_[nn3] / XStds_[nn3];
+                     ddata *= XMeans_[nn4] / XStds_[nn4];
+                     trueCoefs[nn2+1] -= B[cnt] * ddata;
+                  }
+
+                  if (indexTable[cnt][2] == 1)
+                  {
+                     ddata = 1.0 / XStds_[nn3];
+                     ddata *= XMeans_[nn1] / XStds_[nn1];
+                     ddata *= XMeans_[nn2] / XStds_[nn2];
+                     ddata *= XMeans_[nn4] / XStds_[nn4];
+                     trueCoefs[nn3+1] -= B[cnt] * ddata;
+                  }
+
+                  if (indexTable[cnt][3] == 1)
+                  {
+                     ddata = 1.0 / XStds_[nn4];
+                     ddata *= XMeans_[nn1] / XStds_[nn1];
+                     ddata *= XMeans_[nn2] / XStds_[nn2];
+                     ddata *= XMeans_[nn3] / XStds_[nn3];
+                     trueCoefs[nn4+1] -= B[cnt] * ddata;
+                  }
+
+                  ii = ptr2;
+                  while (ii < ptr3)
+                  {
+                     if ((nn1 != nn2) && (indexTable[ii][nn1] >= 1 && 
+                         indexTable[ii][nn2] == 1))
+                        break;
+                     ii++;
+                  }
+                  if (ii < ptr3)
+                  {
+                     ddata  = XMeans_[nn3] / XStds_[nn3];
+                     ddata  *= XMeans_[nn4] / XStds_[nn4];
+                     ddata  /= XStds_[nn1];
+                     ddata  /= XStds_[nn2];
+                     trueCoefs[ii] += B[cnt] * ddata;
+                  }
+
+                  ii = ptr2;
+                  while (ii < ptr3)
+                  {
+                     if ((nn1 != nn3) && (indexTable[ii][nn1] == 1 && 
+                         indexTable[ii][nn3] == 1))
+                        break;
+                     ii++;
+                  }
+                  if (ii < ptr3)
+                  {
+                     ddata  = XMeans_[nn2] / XStds_[nn2];
+                     ddata  *= XMeans_[nn4] / XStds_[nn4];
+                     ddata  /= XStds_[nn1];
+                     ddata  /= XStds_[nn3];
+                     trueCoefs[ii] += B[cnt] * ddata;
+                  }
+
+                  ii = ptr2;
+                  while (ii < ptr3)
+                  {
+                     if ((nn1 != nn4) && (indexTable[ii][nn1] >= 1 && 
+                         indexTable[ii][nn4] == 1))
+                        break;
+                     ii++;
+                  }
+                  if (ii < ptr3)
+                  {
+                     ddata  = XMeans_[nn2] / XStds_[nn2];
+                     ddata  *= XMeans_[nn3] / XStds_[nn3];
+                     ddata  /= XStds_[nn1];
+                     ddata  /= XStds_[nn4];
+                     trueCoefs[ii] += B[cnt] * ddata;
+                  }
+
+                  ii = ptr2;
+                  while (ii < ptr3)
+                  {
+                     if ((nn2 != nn3) && (indexTable[ii][nn2] == 1 && 
+                         indexTable[ii][nn3] == 1))
+                        break;
+                     ii++;
+                  }
+                  if (ii < ptr3)
+                  {
+                     ddata  = XMeans_[nn1] / XStds_[nn1];
+                     ddata  *= XMeans_[nn4] / XStds_[nn4];
+                     ddata  /= XStds_[nn2];
+                     ddata  /= XStds_[nn3];
+                     trueCoefs[ii] += B[cnt] * ddata;
+                  }
+
+                  ii = ptr2;
+                  while (ii < ptr3)
+                  {
+                     if ((nn2 != nn4) && (indexTable[ii][nn2] == 1 && 
+                         indexTable[ii][nn4] == 1))
+                        break;
+                     ii++;
+                  }
+                  if (ii < ptr3)
+                  {
+                     ddata  = XMeans_[nn1] / XStds_[nn1];
+                     ddata  *= XMeans_[nn3] / XStds_[nn3];
+                     ddata  /= XStds_[nn2];
+                     ddata  /= XStds_[nn4];
+                     trueCoefs[ii] += B[cnt] * ddata;
+                  }
+
+                  ii = ptr2;
+                  while (ii < ptr3)
+                  {
+                     if ((nn3 != nn4) && (indexTable[ii][nn3] == 1 && 
+                         indexTable[ii][nn4] == 1))
+                        break;
+                     ii++;
+                  }
+                  if (ii < ptr3)
+                  {
+                     ddata  = XMeans_[nn1] / XStds_[nn1];
+                     ddata  *= XMeans_[nn2] / XStds_[nn2];
+                     ddata  /= XStds_[nn3];
+                     ddata  /= XStds_[nn4];
+                     trueCoefs[ii] += B[cnt] * ddata;
+                  }
+
+                  ii = ptr3;
+                  while (ii < N)
+                  {
+                     if (indexTable[ii][nn1] >= 1 && 
+                         indexTable[ii][nn2] >= 1 && 
+                         indexTable[ii][nn3] >= 1) 
+                        break;
+                     ii++;
+                  }
+                  ddata  = XMeans_[nn4] / XStds_[nn4];
+                  ddata  /= XStds_[nn1];
+                  ddata  /= XStds_[nn2];
+                  ddata  /= XStds_[nn3];
+                  trueCoefs[ii] -= B[cnt] * ddata;
+
+                  ii = ptr3;
+                  while (ii < N)
+                  {
+                     if (indexTable[ii][nn1] >= 1 && 
+                         indexTable[ii][nn2] >= 1 && 
+                         indexTable[ii][nn4] >= 1) 
+                        break;
+                     ii++;
+                  }
+                  ddata  = XMeans_[nn3] / XStds_[nn3];
+                  ddata  /= XStds_[nn1];
+                  ddata  /= XStds_[nn2];
+                  ddata  /= XStds_[nn4];
+                  trueCoefs[ii] -= B[cnt] * ddata;
+
+                  ii = ptr3;
+                  while (ii < N)
+                  {
+                     if (indexTable[ii][nn1] >= 1 && 
+                         indexTable[ii][nn3] >= 1 && 
+                         indexTable[ii][nn4] >= 1) 
+                        break;
+                     ii++;
+                  }
+                  ddata  = XMeans_[nn2] / XStds_[nn2];
+                  ddata  /= XStds_[nn1];
+                  ddata  /= XStds_[nn3];
+                  ddata  /= XStds_[nn4];
+                  trueCoefs[ii] -= B[cnt] * ddata;
+
+                  ii = ptr3;
+                  while (ii < N)
+                  {
+                     if (indexTable[ii][nn2] >= 1 && 
+                         indexTable[ii][nn3] >= 1 && 
+                         indexTable[ii][nn4] >= 1) 
+                        break;
+                     ii++;
+                  }
+                  ddata  = XMeans_[nn1] / XStds_[nn1];
+                  ddata  /= XStds_[nn2];
+                  ddata  /= XStds_[nn3];
+                  ddata  /= XStds_[nn4];
+                  trueCoefs[ii] -= B[cnt] * ddata;
+                  cnt++;
+               }
+            }
+         }
+      }
+   }
+#endif
+   Bmax = trueCoefs[0];
+   for (nn1 = 1; nn1 < N; nn1++)
+      if (PABS(trueCoefs[nn1]) > Bmax) 
+         Bmax = PABS(trueCoefs[nn1]);
+   if (Bmax == 0) Bmax = 1;
+   for (nn1 = 0; nn1 < N; nn1++)
+      if (PABS(trueCoefs[nn1]/Bmax) < 1.0e-8)
+         trueCoefs[nn1] = 0;
+
+   printf("* Constant  ");
+   for (ii = 1; ii < order_; ii++) printf("    ");
+   printf("= %16.8e \n", trueCoefs[0]);
+   if (order_ >= 1)
+   {
+      for (nn1 = 1; nn1 <= nInputs_; nn1++)
+      {
+         if (trueCoefs[nn1] != 0)
+         {
+            printf("* Input %3d ", nn1);
+            for (ii = 1; ii < order_; ii++) printf("    ");
+            printf("= %16.8e \n", trueCoefs[nn1]);
+         }
+      }
+   }
+   if (order_ >= 2)
+   {
+      cnt = nInputs_ + 1;
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            if (trueCoefs[cnt] != 0)
+            {
+               printf("* Input %3d %3d ", nn1+1, nn2+1);
+               for (ii = 2; ii < order_; ii++) printf("    ");
+                  printf("= %16.8e \n",trueCoefs[cnt]);
+            }
+            cnt++;
+         }
+      }
+   }
+   if (order_ >= 3)
+   {
+      cnt = ptr3;
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (nn3 = nn2; nn3 < nInputs_; nn3++)
+            {
+               if (trueCoefs[cnt] != 0)
+               {
+                  printf("* Input %3d %3d %3d ", nn1+1, nn2+1, nn3+1);
+                  for (ii = 3; ii < order_; ii++) printf("    ");
+                     printf("= %16.8e \n",trueCoefs[cnt]);
+               }
+               cnt++;
+            }
+         }
+      }
+   }
+   if (order_ >= 4)
+   {
+      cnt = ptr4;
+      for (nn1 = 0; nn1 < nInputs_; nn1++)
+      {
+         for (nn2 = nn1; nn2 < nInputs_; nn2++)
+         {
+            for (nn3 = nn2; nn3 < nInputs_; nn3++)
+            {
+               for (nn4 = nn3; nn4 < nInputs_; nn4++)
+               {
+                  if (trueCoefs[cnt] != 0)
+                  {
+                     printf("* Input %3d %3d %3d %3d ",nn1+1,nn2+1,
+                            nn3+1, nn4+1);
+                     for (ii = 4; ii < order_; ii++) printf("    ");
+                        printf("= %16.8e \n",trueCoefs[cnt]);
+                  }
+                  cnt++;
+               }
+            }
+         }
+      }
+   }
+   printDashes(PL_INFO, 0);
+   delete [] trueCoefs;
+   for (ii = 0; ii < N; ii++) delete [] indexTable[ii];
+   delete [] indexTable;
+   return 0;
+}
+
 

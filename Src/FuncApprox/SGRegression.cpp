@@ -71,7 +71,6 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
       exit(1);
    }
    fscanf(fp, "%d %d %d", &nSamples_, &nInputs_, &pOrder_);
-   pOrder_--;
    printf("SparseGridRegression INFO: polynomial order = %d.\n", pOrder_);
    if (nSamples != nSamples_ || nInputs != nInputs_)
    {
@@ -522,9 +521,7 @@ int SparseGridRegression::GenPermutations()
 {
    int  ii, kk, orderTmp, rvTmp;
 
-   numPerms_ = 1;
-   for (ii = nInputs_+pOrder_; ii > pOrder_; ii--) numPerms_ *= ii;
-   for (ii = 2; ii <= nInputs_; ii++) numPerms_ /= ii;
+   numPerms_ = computeNumPCEPermutations(nInputs_, pOrder_);
 
    pcePerms_ = new int*[numPerms_];
    for (ii = 0; ii < numPerms_; ii++) pcePerms_[ii] = new int[nInputs_];

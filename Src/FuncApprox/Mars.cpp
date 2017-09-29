@@ -34,6 +34,7 @@
 #include "PsuadeUtil.h"
 #include "Psuade.h"
 #include "PsuadeConfig.h"
+#include "PrintingTS.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -76,13 +77,17 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          sscanf(cString, "%s %s %d", winput1, winput2, &ii);
          if (ii < 10 || ii > nSamples)
          {
-            printf("Mars INFO: nbasis from config file not valid.\n");
-            printf("           nbasis kept at %d.\n", nBasisFcns_);
+            printOutTS(PL_INFO,
+                 "Mars INFO: nbasis from config file not valid.\n");
+            printOutTS(PL_INFO,
+                 "           nbasis kept at %d.\n", nBasisFcns_);
          }
          else 
          {
             nBasisFcns_ = ii;
-            printf("Mars INFO: number of basis set to %d (config).\n",nBasisFcns_);
+            printOutTS(PL_INFO,
+                 "Mars INFO: number of basis set to %d (config).\n",
+                 nBasisFcns_);
          }
       }
       cString = psConfig_->getParameter("MARS_interaction");
@@ -91,20 +96,25 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          sscanf(cString, "%s %s %d", winput1, winput2, &ii);
          if (ii > nInputs || ii < 1)
          {
-            printf("Mars INFO: interaction from config file not valid.\n");
-            printf("           interaction kept at %d.\n", maxVarPerBasis_);
+            printOutTS(PL_INFO,
+                 "Mars INFO: interaction from config file not valid.\n");
+            printOutTS(PL_INFO,
+                 "           interaction kept at %d.\n", maxVarPerBasis_);
          }
          else 
          {
             maxVarPerBasis_ = ii;
-            printf("Mars INFO: interaction set to %d (config).\n", maxVarPerBasis_);
+            printOutTS(PL_INFO,
+                 "Mars INFO: interaction set to %d (config).\n", 
+                 maxVarPerBasis_);
          }
       }
    }
 
    if (psRSExpertMode_ == 1 && psInteractive_ == 1)
    {
-      printf("Mars: Current number of basis functions = %d\n", nBasisFcns_);
+      printOutTS(PL_INFO,
+           "Mars: Current number of basis functions = %d\n", nBasisFcns_);
       if (nSamples > 10)
       {
          sprintf(pString,"Enter the number of basis functions (>=10, <= %d): ",
@@ -117,7 +127,8 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
                  nSamples, nSamples);
          nBasisFcns_ = getInt(nSamples, nSamples, pString);
       }
-      printf("Mars: Current degree of interactions    = %d\n",maxVarPerBasis_);
+      printOutTS(PL_INFO,
+           "Mars: Current degree of interactions    = %d\n",maxVarPerBasis_);
       sprintf(pString, "Enter the degree of interactions (<=%d) : ", nInputs);
       maxVarPerBasis_ = getInt(1, nInputs, pString);
    }
@@ -215,8 +226,8 @@ int Mars::initialize(double *XIn, double *YIn)
    delete [] XX;
 
    if (outputLevel_ >= 2) 
-      printf("Mars: nBasis, maxVarPerBasis = %d %d\n", 
-             nBasisFcns_, maxVarPerBasis_);
+      printOutTS(PL_INFO,"Mars: nBasis, maxVarPerBasis = %d %d\n", 
+           nBasisFcns_, maxVarPerBasis_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (process)\n");
@@ -226,7 +237,7 @@ int Mars::initialize(double *XIn, double *YIn)
    mars_process(nSamples_, nInputs_, X, Y, wgts_, nBasisFcns_,
                 maxVarPerBasis_, varFlags_, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1) 
-      printf("Returned from Mars (process).\n");
+      printOutTS(PL_INFO,"Returned from Mars (process).\n");
    for (ss = 0; ss < nSamples_; ss++) delete [] X[ss];
    delete [] X;
 
@@ -269,7 +280,8 @@ int Mars::initialize(double *XIn, double *YIn)
    fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
    fprintf(fp,"    exit(1);\n");
    fprintf(fp,"  }\n");
-   fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+   fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",
+           nInputs_);
    fprintf(fp,"  fclose(fIn);\n");
    fprintf(fp,"  interpolate(iOne,X,&Y);\n");
    fprintf(fp,"  printf(\"Y = %%e\\n\", Y);\n");
@@ -445,7 +457,7 @@ int Mars::initialize(double *XIn, double *YIn)
    fp = fopen("psuade_rs.py", "w");
    if (fp == NULL)
    {
-      printf("ERROR: Cannot open file psuade_rs.py.\n");
+      printOutTS(PL_ERROR,"ERROR: Cannot open file psuade_rs.py.\n");
       return 0;
    }
    fwriteRSPythonHeader(fp);
@@ -635,8 +647,8 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *NN, double **XX,
    } 
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
-      printf("Entering Mars (fmod)\n");
-      printf("If it crashes here, it is mars_fmod problem.\n");
+      printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+      printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1) 
@@ -696,8 +708,8 @@ int Mars::gen1DGridData(double *XIn, double *YIn, int ind1,
 
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
-      printf("Entering Mars (fmod)\n");
-      printf("If it crashes here, it is mars_fmod problem.\n");
+      printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+      printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1) 
@@ -763,8 +775,8 @@ int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
 
    if (outputLevel_ >= 2 || psMasterMode_ == 1) 
    {
-      printf("Entering Mars (fmod)\n");
-      printf("If it crashes here, it is mars_fmod problem.\n");
+      printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+      printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
@@ -834,12 +846,12 @@ int Mars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
 
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
-      printf("Entering Mars (fmod)\n");
-      printf("If it crashes here, it is mars_fmod problem.\n");
+      printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+      printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
-      printf("Returned from Mars (fmod).\n");
+      printOutTS(PL_INFO,"Returned from Mars (fmod).\n");
 
    for (ii = 0; ii < totPts; ii++)
       (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
@@ -918,12 +930,12 @@ int Mars::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
    }
    if (outputLevel_ >= 2 || psMasterMode_ == 1) 
    {
-      printf("Entering Mars (fmod)\n");
-      printf("If it crashes here, it is mars_fmod problem.\n");
+      printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+      printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
-      printf("Returned from Mars (fmod).\n");
+      printOutTS(PL_INFO,"Returned from Mars (fmod).\n");
 
    for (ii = 0; ii < totPts; ii++)
       (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
@@ -969,14 +981,16 @@ int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
 
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
-      printf("Entering Mars (process)\n");
-      printf("If it crashes here, it is mars_process problem.\n");
-      printf("One way to solve the problem is to use different nSamples.\n");
+      printOutTS(PL_INFO,"Entering Mars (process)\n");
+      printOutTS(PL_INFO,
+           "If it crashes here, it is mars_process problem.\n");
+      printOutTS(PL_INFO,
+           "One way to solve the problem is to use different nSamples.\n");
    }
    mars_process(nSamples_, nInputs_, X, Y, wgts_, nBasisFcns_,
                 maxVarPerBasis_, varFlags_, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
-      printf("Returned from Mars (process)\n");
+      printOutTS(PL_INFO,"Returned from Mars (process)\n");
    for (ss = 0; ss < nSamples_; ss++) delete [] X[ss];
    delete [] X;
 
@@ -1005,17 +1019,17 @@ int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
 
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
-      printf("Entering Mars (fmod)\n");
-      printf("If it crashes here, it is mars_fmod problem.\n");
+      printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+      printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, YY, fm_, im_);
    if (outputLevel_ >= 2 || psMasterMode_ == 1)
-      printf("Returned from Mars (fmod)\n");
+      printOutTS(PL_INFO,"Returned from Mars (fmod)\n");
 
    fp = fopen("psuade_grid_data", "w");
    if(fp == NULL)
    {
-      printf("fopen returned NULL in file %s line %d, exiting\n", 
+      printOutTS(PL_ERROR,"fopen returned NULL in file %s line %d, exiting\n", 
              __FILE__, __LINE__);
       exit(1);
    }
@@ -1207,7 +1221,8 @@ void Mars::printStat()
    fclose(fp);
    if (nk <= 0) 
    {
-      printf("Mars::printStat ERROR - no. of basis functions = %d <= 0.\n",nk);
+      printf("Mars::printStat ERROR - no. of basis functions = %d <= 0.\n",
+             nk);
       return;
    }
 
@@ -1263,120 +1278,6 @@ void Mars::printStat()
       return;
    }
  
-#if 0
-   fp = fopen(".psuade_mars", "r");
-   while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
-   {
-      sscanf(line,"%s %s %s", word1, word2, word3);
-      if (!strcmp(word1,"forward") && !strcmp(word2,"stepwise"))
-      {
-         nGroups = nk;
-         groupMembers = new int*[nk];
-         for (i1 = 0; i1 < nk; i1++) 
-         {
-            groupMembers[i1] = new int[2];
-            for (i2 = 0; i2 < 2; i2++) groupMembers[i1][i2] = -1; 
-         }
-         knots = new double[nk+1];
-         vars = new double[nk+1];
-         ivars = new int[nk+1];
-         parent = new int[nk+1];
-         fgets(line, lineLeng, fp);
-         fgets(line, lineLeng, fp);
-         ind1 = 0;
-         nGroups = 0;
-         while (ind1 < nk)
-         {
-            fgets(line, lineLeng, fp);
-            sscanf(line, "%d %lg", &i1, &dtmp1);
-            i2 = (int) dtmp1;
-            if ((dtmp1 - (double) i2) != 0) i2 = -1;
-            if ((i1 - i2) != 1)
-            {
-               if (i1 == 0)
-               {
-                  sscanf(line, "%d %lg %lg %lg",&groupMembers[nGroups][0], 
-                         &dtmp1, &dtmp2, &dtmp3); 
-                  ivars[i1] = 0;
-                  knots[i1] = 0.0;
-                  parent[i1] = 0;
-               }
-               else
-               {
-                  sscanf(line, "%d %lg %lg %lg %lg %lg %lg", 
-                      &groupMembers[nGroups][0], &dtmp1, &dtmp2, &dtmp3, 
-                      &dtmp4, &dtmp5, &dtmp6);
-                  ivars[i1] = (int) dtmp4;
-                  knots[i1] = dtmp5;
-                  parent[i1] = dtmp6;
-               }
-               nGroups++;
-            }
-            else
-            {   
-               sscanf(line, "%d %d %lg %lg %lg %lg %lg %lg", 
-                      &groupMembers[nGroups][0], &groupMembers[nGroups][1],
-                      &dtmp1, &dtmp2, &dtmp3, &dtmp4, &dtmp5, &dtmp6);
-               ivars[i1] = ivars[ind1+1] = (int) dtmp4;
-               knots[i1] = knots[ind1+1] = dtmp5;
-               parent[i1] = parent[ind1+1] = (int) dtmp6;
-               nGroups++;
-            }
-            ind1 = groupMembers[nGroups-1][0];
-         }
-
-         // analyze and print out
-
-         for (i1 = 0; i1 < nGroups; i1++)
-         {
-            ind1 = groupMembers[i1][0];
-            ind2 = groupMembers[i1][1];
-            if (parent[ind1] == 0)
-            {
-               if (ind2 > 0 && coefs[ind2] != 0.0)
-               {
-                  printf("BF%4d : variable %3d > %9.3e has coefficient = %9.3e\n",
-                         ind2, ivars[ind2], knots[ind2], coefs[ind2]);
-               }
-               if (ind1 > 0 && ind2 > 0 && coefs[ind1] != 0.0)
-               {
-                  printf("BF%4d : variable %3d < %9.3e has coefficient = %9.3e\n",
-                         ind1, ivars[ind1], knots[ind1], coefs[ind1]);
-               }
-               else if (ind1 > 0 && ind2 < 0 && coefs[ind1] != 0.0)
-               {
-                  printf("BF%4d : variable %3d > %9.3e has coefficient = %9.3e\n",
-                         ind1, ivars[ind1], knots[ind1], coefs[ind1]);
-               }
-            }
-         }
-         for (i1 = 0; i1 < nGroups; i1++)
-         {
-            ind1 = groupMembers[i1][0];
-            if (parent[ind1] != 0)
-            {
-               if (coefs[ind1] != 0.0)
-                  printf("Interaction: variables (%3d, %3d) with strength = %9.3e\n",
-                         ivars[ind1], ivars[parent[ind1]], PABS(coefs[ind1]));
-               ind1 = groupMembers[i1][1];
-               if (ind1 > 0 && coefs[ind1] != 0.0)
-                  printf("Interaction: variables (%3d, %3d) with strength = %9.3e\n",
-                         ivars[ind1], ivars[parent[ind1]], PABS(coefs[ind1]));
-            }
-         }
-         for (i1 = 0; i1 < nk; i1++) delete [] groupMembers[i1];
-         delete [] groupMembers;
-         delete [] knots;
-         delete [] vars;
-         delete [] ivars;
-         delete [] parent;
-         break;
-      }
-   }
-   delete [] coefs;
-   fclose(fp);
-#endif
-
    fp = fopen(".psuade_mars", "r");
    if(fp == NULL)
    {
@@ -1537,7 +1438,8 @@ double Mars::setParams(int targc, char **targv)
          nBasisFcns_ = ii;
          if (nBasisFcns_ < 20) nBasisFcns_ = 20;
          if (outputLevel_ >= 2)
-            printf("Mars: numBasis    set to = %d.\n", nBasisFcns_);
+            printOutTS(PL_INFO,
+                 "Mars: numBasis    set to = %d.\n", nBasisFcns_);
       }
       jj = *(int *) targv[2];
       if (jj > 0)
@@ -1545,7 +1447,8 @@ double Mars::setParams(int targc, char **targv)
          maxVarPerBasis_ = jj;
          if (maxVarPerBasis_ < 1) maxVarPerBasis_ = 1;
          if (outputLevel_ >= 2)
-         printf("Mars: varPerBasis set to = %d.\n", maxVarPerBasis_);
+         printOutTS(PL_INFO,
+              "Mars: varPerBasis set to = %d.\n", maxVarPerBasis_);
       }
    }
    else if (targc == 1 && !strcmp(targv[0], "no_gen"))
