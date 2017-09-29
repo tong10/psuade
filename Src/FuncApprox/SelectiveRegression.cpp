@@ -31,16 +31,17 @@
 #include "Psuade.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
-#include "PDFBase.h"
-#include "PDFNormal.h"
+#include "PDFManager.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 extern "C" {
-   void dgels_(char *, int *, int *, int *, double *A, int *LDA,
-               double *B, int *LDB, double *WORK, int *LWORK, int *INFO);
+   void dgels_(char *, int *, int *, int *, double *, int *,
+               double *, int *, double *, int *, int *);
    void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
                double *, int *, double *, int *, double *, int *, int *);
+   void dgetrf_(int *, int *, double *, int *, int *, int *);
+   void dgetri_(int *, double *, int *, int *, double*, int *, int *);
 }
 
 // ************************************************************************
@@ -57,8 +58,15 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
    if (fp == NULL)
    {
       printf("SelectiveRegression ERROR: selective_regression_file not found.\n");
-      printf("  file format : first line - numTerms.\n");
-      printf("                2nd line on - term, length, indices(1-based).\n");
+      printf("This file is needed to identify selected terms.\n");
+      printf("This file should have the following format: \n");
+      printf("line   1: PSUADE_BEGIN\n");
+      printf("line   2: the number of terms.\n");
+      printf("line   3: 1  number of inputs, input list (1-based).\n");
+      printf("line   4: 2  number of inputs, input list (1-based).\n");
+      printf(".........\n");
+      printf("line   m: 1 0 (meaning constant term).\n");
+      printf("lastline: END\n");
       exit(1);
    }
    else
@@ -69,12 +77,13 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
    if (strcmp(inStr, "PSUADE_BEGIN"))
    {
       printf("SelectiveRegression: wrong format in selective_regression_file.\n");
-      printf("First  line: PSUADE_BEGIN\n");
-      printf("Second line: the number of terms.\n");
-      printf("Third  line: 1  number of inputs, input list (1-based).\n");
-      printf("Fourth line: 2  number of inputs, input list (1-based).\n");
+      printf("line   1: PSUADE_BEGIN\n");
+      printf("line   2: the number of terms.\n");
+      printf("line   3: 1  number of inputs, input list (1-based).\n");
+      printf("line   4: 2  number of inputs, input list (1-based).\n");
       printf(".........\n");
-      printf("Last   line : END\n");
+      printf("line   m: 1 0 (meaning constant term).\n");
+      printf("lastline: END\n");
       fclose(fp);
       exit(1);
    }
@@ -82,12 +91,21 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
    if (numTerms_ >= nSamples)
    {
       printf("SelectiveRegression ERROR: no. of terms should be < nSamples.\n");
+      printf("                    nTerms   = %d\n", numTerms_);
+      printf("                    nSamples = %d\n", nSamples);
+      printf("Check your selective_regression_file file format as follow: \n");
+      printf("line   1: PSUADE_BEGIN\n");
+      printf("line   2: the number of terms.\n");
+      printf("line   3: 1  number of inputs, input list (1-based).\n");
+      printf("line   4: 2  number of inputs, input list (1-based).\n");
+      printf(".........\n");
+      printf("line   m: 1 0 (meaning constant term).\n");
+      printf("lastline: END\n");
       exit(1);
    }
-   regCoeffs_ = new double[numTerms_+1];
-   for (i = 0; i <= numTerms_; i++) regCoeffs_[i] = 0.0;
-   regStdevs_ = new double[numTerms_+1];
-   for (i = 0; i <= numTerms_; i++) regStdevs_[i] = 0.0;
+   regCoeffs_ = NULL;
+   regStdevs_ = NULL;
+   fuzzyC_ = NULL;
    coefTerms_ = new int*[numTerms_];
    for (i = 0; i < numTerms_; i++)
    {
@@ -109,7 +127,12 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
       for (j = 0; j < length; j++) 
       {
          fscanf(fp, "%d", &coefTerms_[i][j+1]);
-         if (coefTerms_[i][j+1] < 1 || coefTerms_[i][j+1] > nInputs)
+         if (coefTerms_[i][j+1] == 0 && length != 1)
+         {
+            printf("SelectiveRegression ERROR : constant term should have length=1\n");
+            exit(1);
+         }
+         if (coefTerms_[i][j+1] < 0 || coefTerms_[i][j+1] > nInputs)
          {
             printf("SelectiveRegression ERROR : nTerms should be <= %d\n",
                    nInputs);
@@ -122,8 +145,16 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
    fclose(fp);
    if (strcmp(inStr, "PSUADE_END"))
    {
-      printf("SelectiveRegression: wrong format in user regression file.\n");
+      printf("SelectiveRegression ERROR: wrong format in user regression file.\n");
       printf("The file should end with PSUADE_END\n");
+      printf("Check your selective_regression_file file format as follow: \n");
+      printf("line   1: PSUADE_BEGIN\n");
+      printf("line   2: the number of terms.\n");
+      printf("line   3: 1  number of inputs, input list (1-based).\n");
+      printf("line   4: 2  number of inputs, input list (1-based).\n");
+      printf(".........\n");
+      printf("line   m: 1 0 (meaning constant term).\n");
+      printf("lastline: END\n");
       exit(1);
    }
 }
@@ -133,6 +164,7 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
 // ------------------------------------------------------------------------
 SelectiveRegression::~SelectiveRegression()
 {
+   int ii;
    if (regCoeffs_ != NULL) delete [] regCoeffs_;
    if (regStdevs_ != NULL) delete [] regStdevs_;
    if (coefTerms_ != NULL)
@@ -141,44 +173,82 @@ SelectiveRegression::~SelectiveRegression()
          if (coefTerms_[i] != NULL) delete [] coefTerms_[i];
       delete [] coefTerms_;
    }
+   if (fuzzyC_ != NULL)
+   {
+      for (ii = 0; ii < numTerms_; ii++)
+         if (fuzzyC_[ii] != NULL) delete [] fuzzyC_[ii];
+      delete [] fuzzyC_;
+   }
+}
+
+// ************************************************************************
+// initialize
+// ------------------------------------------------------------------------
+int SelectiveRegression::initialize(double *X, double *Y)
+{
+   int    ii, status;
+   double *XX;
+   if (nSamples_ <= nInputs_)
+   {
+      printf("SelectiveRegression::initialize INFO- not enough points.\n");
+      printf("                nSamples should be larger than nInputs.\n");
+      return -1;
+   }
+   
+   if (fuzzyC_ != NULL)
+   {
+      for (ii = 0; ii < numTerms_; ii++)
+         if (fuzzyC_[ii] != NULL) delete [] fuzzyC_[ii];
+      delete [] fuzzyC_;
+      fuzzyC_ = NULL;
+   }
+   if (regCoeffs_ != NULL) delete [] regCoeffs_;
+   if (regStdevs_ != NULL) delete [] regStdevs_;
+   regCoeffs_ = NULL;
+   regStdevs_ = NULL;
+
+   printEquals(PL_INFO, 0);
+   printf("* Selective Regression Analysis\n");
+   printf("* You have the option to scale the sample matrix for\n");
+   printf("* conditioning, but it may require more terms than\n");
+   printf("* what you have provided.\n");
+   printf("* To turn on scaling, first set rs_expert mode.\n");
+   printEquals(PL_INFO, 0);
+   XX = new double[nSamples_*nInputs_];
+   initInputScaling(X, XX, 0);
+   status = analyze(XX,Y);
+   delete [] XX;
+   if (status != 0)
+   {
+      printf("SelectiveRegression::initialize - ERROR detected.\n");
+      return -1;
+   }
+   return 0;
 }
 
 // ************************************************************************
 // Generate lattice data based on the input set
 // ------------------------------------------------------------------------
-int SelectiveRegression::genNDGridData(double *X, double *Y, int *N2,
-                                       double **X2, double **Y2)
+int SelectiveRegression::genNDGridData(double *X, double *Y, int *NN,
+                                       double **XX, double **YY)
 {
-   int totPts, ss, status;
+   int totPts, ss;
 
-   if (nInputs_ <= 0 || nSamples_ <= 0)
-   {
-      printf("SelectiveRegression::genNDGridData ERROR- invalid argument.\n");
-      exit(1);
-   } 
-   if (nSamples_ <= nInputs_)
-   {
-      printf("SelectiveRegression::genNDGridData INFO- not enough points.\n");
-      printf("                nSamples should be larger than nInputs.\n");
-      return -1;
-   }
-   
-   status = analyze(X, Y);
-   if (status != 0)
+   if (initialize(X,Y) != 0)
    {
       printf("SelectiveRegression::genNDGridData - ERROR detected.\n");
       return -1;
    }
 
-   if ((*N2) == -999) return 0;
+   if ((*NN) == -999) return 0;
 
-   genNDGrid(N2, X2);
-   if ((*N2) == 0) return 0;
-   totPts = (*N2);
+   genNDGrid(NN, XX);
+   if ((*NN) == 0) return 0;
+   totPts = (*NN);
 
-   (*Y2) = new double[totPts];
+   (*YY) = new double[totPts];
    for (ss = 0; ss < totPts; ss++)
-      (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
+      (*YY)[ss] = evaluatePoint(&((*XX)[ss*nInputs_]));
 
    return 0;
 }
@@ -193,8 +263,11 @@ int SelectiveRegression::gen1DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn;
    double HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("SelectiveRegression::gen1DGridData - ERROR detected.\n");
+      return -1;
+   }
 
    totPts = nPtsPerDim_;
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -226,8 +299,11 @@ int SelectiveRegression::gen2DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn, index;
    double *HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("SelectiveRegression::gen2DGridData - ERROR detected.\n");
+      return -1;
+   }
 
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[2];
@@ -268,8 +344,11 @@ int SelectiveRegression::gen3DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn, pp, index;
    double *HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("SelectiveRegression::gen3DGridData - ERROR detected.\n");
+      return -1;
+   }
 
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[3];
@@ -316,8 +395,11 @@ int SelectiveRegression::gen4DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn, pp, qq, index;
    double *HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("SelectiveRegression::gen4DGridData - ERROR detected.\n");
+      return -1;
+   }
 
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[4];
@@ -366,17 +448,22 @@ int SelectiveRegression::gen4DGridData(double *X, double *Y, int ind1,
 // ------------------------------------------------------------------------
 double SelectiveRegression::evaluatePoint(double *X)
 {
-   int    i, j;
-   double Y, multiplier;
+   int    ii, jj, kk;
+   double Y, multiplier, x;
 
    if (regCoeffs_ == NULL) return 0.0;
-   Y = regCoeffs_[numTerms_];
-   for (i = 0; i < numTerms_; i++)
+   Y = 0.0;
+   for (ii = 0; ii < numTerms_; ii++)
    {
       multiplier = 1.0;
-      for (j = 0; j < coefTerms_[i][0]; j++)
-         multiplier *= X[coefTerms_[i][j+1]]; 
-      Y += regCoeffs_[i] * multiplier;
+      for (jj = 0; jj < coefTerms_[ii][0]; jj++)
+      {
+         kk = coefTerms_[ii][jj+1]; 
+         if (kk < 0) x = 1.0;
+         else        x = (X[kk] - XMeans_[kk]) / XStds_[kk];
+         multiplier *= x;
+      }
+      Y += regCoeffs_[ii] * multiplier;
    }
    return Y;
 }
@@ -396,74 +483,52 @@ double SelectiveRegression::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double SelectiveRegression::evaluatePointFuzzy(double *X, double &std)
 {
-   int    mm, nn, cc, nTimes=100;
-   double dtmp, *Ys, C1, C2, mean, stds, *uppers, *lowers, multiplier;
-   PDFBase **PDFPtrs;
-
-   if (regCoeffs_ == NULL) return 0.0;
-
-   PDFPtrs = new PDFBase*[numTerms_+1];
-   uppers = new double[numTerms_+1];
-   lowers = new double[numTerms_+1];
-   for (mm = 0; mm <= numTerms_; mm++) 
-   {
-      mean = regCoeffs_[mm];
-      stds = regStdevs_[mm];
-      uppers[mm] = mean + 2.0 * stds;
-      lowers[mm] = mean - 2.0 * stds;
-      if (uppers[mm] > lowers[mm])
-           PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, std);
-      else PDFPtrs[mm] = NULL;
-   }
-   Ys = new double[nTimes];
-
-   mean = 0.0;
-   for (cc = 0; cc < nTimes; cc++)
-   {
-      C1 = PSUADE_drand();
-      if (PDFPtrs[numTerms_] != NULL)
-           PDFPtrs[numTerms_]->invCDF(1, &C1, &C2, lowers[numTerms_], 
-                                      uppers[numTerms_]);
-      else C2 = regCoeffs_[numTerms_];
-      dtmp = C2;
-      for (mm = 0; mm < numTerms_; mm++)
-      {
-         multiplier = 1.0;
-         for (nn = 0; nn < coefTerms_[mm][0]; nn++)
-            multiplier *= X[coefTerms_[mm][nn+1]]; 
-         C1 = PSUADE_drand();
-         if (PDFPtrs[mm] != NULL)
-              PDFPtrs[mm]->invCDF(1, &C1, &C2, lowers[mm], uppers[mm]);
-         else C2 = regCoeffs_[mm];
-         dtmp += C2 * multiplier;
-      }
-      Ys[cc] = dtmp;
-      mean += dtmp;
-   }
-   mean /= (double) nTimes;
-   stds = 0.0;
-   for (cc = 0; cc < nTimes; cc++)
-      stds += (Ys[cc] - mean) * (Ys[cc] - mean);
-   stds = sqrt(stds / (nTimes - 1));
-
-   for (mm = 0; mm <= numTerms_; mm++) 
-      if (PDFPtrs[mm] != NULL) delete [] PDFPtrs[mm];
-   delete [] PDFPtrs;
-   delete [] uppers;
-   delete [] lowers;
-   delete [] Ys;
-   std = stds; 
-   return mean;
+   int    iOne=1;
+   double Y, ddata;
+   evaluatePointFuzzy(iOne, X, &Y, &ddata);
+   std = ddata;
+   return Y;
 }
 
 // ************************************************************************
 // Evaluate a number of points and also their standard deviations
 // ------------------------------------------------------------------------
 double SelectiveRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
-                                          double *Ystd)
+                                               double *Ystd)
 {
-   for (int kk = 0; kk < npts; kk++)
-      Y[kk] = evaluatePointFuzzy(&X[kk*nInputs_], Ystd[kk]);
+   int    tt, kk, ii, ntimes=100;
+   double *regStore, *Ys, *Xs, mean, std;
+
+   if (regCoeffs_ == NULL)
+   {
+      printf("SelectiveRegression ERROR: initialize has not been called.\n");
+      exit(1);
+   }
+
+   regStore = new double[numTerms_];
+   for (kk = 0; kk < numTerms_; kk++) regStore[kk] = regCoeffs_[kk];
+   Ys = new double[ntimes];
+   for (kk = 0; kk < npts; kk++)
+   {
+      Xs = &(X[kk*nInputs_]);
+      for (tt = 0; tt < ntimes; tt++)
+      {
+         for (ii = 0; ii < numTerms_; ii++) regCoeffs_[ii] = fuzzyC_[ii][tt];
+         Ys[tt] = evaluatePoint(Xs);
+      }
+      mean = 0.0;
+      for (tt = 0; tt < ntimes; tt++) mean += Ys[tt];
+      mean /= (double) ntimes;
+      std = 0.0;
+      for (tt = 0; tt < ntimes; tt++) std += (Ys[tt]-mean)*(Ys[tt]-mean);
+      std = sqrt(std/(ntimes-1));
+      Y[kk] = mean;
+      Ystd[kk] = std;
+   }
+
+   for (kk = 0; kk < numTerms_; kk++) regCoeffs_[kk] = regStore[kk];
+   delete [] regStore;
+   delete [] Ys;
    return 0.0;
 }
 
@@ -479,11 +544,6 @@ int SelectiveRegression::analyze(double *X, double *Y)
    char   pString[100];
    FILE   *fp;
 
-   if (nInputs_ <= 0 || nSamples_ <= 0)
-   {
-      printf("SelectiveRegression::analyze ERROR - invalid arguments.\n");
-      exit(1);
-   } 
    if (nSamples_ <= nInputs_) 
    {
       printf("SelectiveRegression::analyze ERROR - sample size too small.\n");
@@ -492,11 +552,11 @@ int SelectiveRegression::analyze(double *X, double *Y)
    
    if (outputLevel_ >= 1)
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("*          Selective Regression Analysis\n");
       printf("* R-square gives a measure of the goodness of the model.\n");
       printf("* R-square should be close to 1 if it is a good model.\n");
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
    N = loadXMatrix(X, &XX);
    M = nSamples_;
@@ -515,7 +575,8 @@ int SelectiveRegression::analyze(double *X, double *Y)
    if (outputLevel_ > 3) printf("Running SVD ...\n");
    dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
            &wlen, &info);
-   if (outputLevel_ > 3) printf("SVD completed: status = %d (should be 0).\n",info);
+   if (outputLevel_ > 3) 
+      printf("SVD completed: status = %d (should be 0).\n",info);
 
    if (info != 0)
    {
@@ -532,6 +593,14 @@ int SelectiveRegression::analyze(double *X, double *Y)
       return -1;
    }
 
+   mm = 0;
+   for (nn = 0; nn < N; nn++) if (SS[nn] < 0) mm++;
+   if (mm > 0)
+   {
+      printf("* SelectiveRegression WARNING: some of the singular values\n");
+      printf("*            are < 0. May spell trouble but will\n");
+      printf("*            proceed anyway (%d).\n", mm);
+   }
    if (SS[0] == 0.0) NRevised = 0;
    else
    {
@@ -541,7 +610,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
    }
    if (NRevised < N)
    {
-      printf("* SelectiveRegression ERROR: sample true rank = %d (need %d)\n",
+      printf("* SelectiveRegression ERROR: sample rank = %d (need %d)\n",
              NRevised, N);
       delete [] XX;
       delete [] AA;
@@ -552,28 +621,33 @@ int SelectiveRegression::analyze(double *X, double *Y)
       delete [] B;
       return -1;
    }
-   if (psRSExpertMode_ == 1)
+   if (psMasterMode_ == 1)
    {
-      printf("SelectiveRegression: singular values for the Vandermonde matrix\n");
+      printf("SelectiveRegression: matrix singular values \n");
       printf("The VERY small ones may cause poor numerical accuracy,\n");
       printf("but not keeping them may ruin the approximation power.\n");
       printf("So, select them judiciously.\n");
       for (nn = 0; nn < N; nn++)
          printf("Singular value %5d = %e\n", nn+1, SS[nn]);
-      sprintf(pString, "How many to keep (1 - %d) ? ", N);
-      NRevised = getInt(1,N,pString);
+      sprintf(pString, "How many to keep (1 - %d, 0 - all) ? ", N);
+      NRevised = getInt(0,N,pString);
+      if (NRevised == 0) NRevised = N;
       for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
    }
    else
    {
-      NRevised = 1;
+      NRevised = N;
       for (nn = 1; nn < N; nn++)
       {
-         if (SS[nn-1] > 0.0 && SS[nn]/SS[nn-1] < 1.0e-8) SS[nn] = 0.0;
-         else NRevised++;
+         if (SS[nn-1] > 0.0 && SS[nn]/SS[nn-1] < 1.0e-8)
+         {
+            SS[nn] = 0.0;
+            NRevised--;
+         }
       }
    }
-   if (NRevised < N) printf("Number of singular values deleted = %d\n",N-NRevised);
+   if (NRevised < N)
+      printf("Number of singular values deleted = %d\n",N-NRevised);
    for (mm = 0; mm < NRevised; mm++)
    {
       WW[mm] = 0.0;
@@ -592,7 +666,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
    delete [] UU;
    delete [] VV;
 
-   if (outputLevel_ > 5)
+   if (psMasterMode_ == 1)
    {
       fp = fopen("selective_regression_error.m", "w");
       if(fp == NULL)
@@ -613,7 +687,8 @@ int SelectiveRegression::analyze(double *X, double *Y)
          WW[mm] = WW[mm] + XX[mm+nn*nSamples_] * B[nn];
       WW[mm] = WW[mm] - Y[mm];
       esum = esum + WW[mm] * WW[mm] * weights_[mm];
-      if (fp != NULL) fprintf(fp, "%6d %24.16e\n",mm+1,WW[mm]*sqrt(weights_[mm]));
+      if (fp != NULL) 
+         fprintf(fp, "%6d %24.16e\n",mm+1,WW[mm]*sqrt(weights_[mm]));
       if (PABS(Y[mm]) > ymax) ymax = PABS(Y[mm]);
    }
    esum /= (double) nSamples_;
@@ -624,17 +699,70 @@ int SelectiveRegression::analyze(double *X, double *Y)
    if (fp != NULL)
    {
       fclose(fp);
-      printf("FILE selective_regression_error contains data errors.\n");
+      printf("FILE selective_regression_error.m contains data errors.\n");
    }
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
-   R2  = 1.0 - SSresid / SStotal;
+   if (SStotal == 0) R2 = 1.0;
+   else              R2  = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
+   if (var < 0)
+   { 
+      if (PABS(var) > 1.0e-12)
+           printf("SelectiveRegression WARNING: var < 0.\n");
+      else var = 0;
+   }
 
    Bvar = new double[N];
    computeXTX(N, XX, &XTX);
    computeCoeffVariance(N, XTX, var, Bvar);
+   regCoeffs_ = B;
+   regStdevs_ = Bvar;
+
+   PDFManager *pdfman = new PDFManager();
+   int    cc, nTimes=100;
+   int    *inPDFs = new int[numTerms_];
+   double *inMeans = new double[numTerms_];
+   double *inStds = new double[numTerms_];
+   double *inUppers = new double[numTerms_];
+   double *inLowers = new double[numTerms_];
+   for (nn = 0; nn < numTerms_; nn++)
+   {
+      inPDFs[nn] = PSUADE_PDF_NORMAL;
+      inMeans[nn] = regCoeffs_[nn];
+      inStds[nn] = regStdevs_[nn];
+      inUppers[nn] = inMeans[nn] + 4.0 * inStds[nn];
+      inLowers[nn] = inMeans[nn] - 4.0 * inStds[nn];
+      if (inUppers[nn] == inLowers[nn])
+      {
+         if (inUppers[nn] > 0) inUppers[nn] *= (1.0 + 1.0e-14);
+         else                  inUppers[nn] *= (1.0 - 1.0e-14);
+         if (inLowers[nn] > 0) inLowers[nn] *= (1.0 - 1.0e-14);
+         else                  inLowers[nn] *= (1.0 + 1.0e-14);
+         if (inUppers[nn] == 0.0) inUppers[nn] = 1e-14;
+         if (inLowers[nn] == 0.0) inLowers[nn] = -1e-14;
+      }
+   }
+   pdfman->initialize(numTerms_,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
+   Vector vLower, vUpper, vOut;
+   vLower.load(numTerms_, inLowers);
+   vUpper.load(numTerms_, inUppers);
+   vOut.setLength(numTerms_*nTimes);
+   pdfman->genSample(nTimes, vOut, vLower, vUpper);
+   fuzzyC_ = new double*[numTerms_];
+   for (nn = 0; nn < numTerms_; nn++)
+   {
+      fuzzyC_[nn] = new double[nTimes];
+      for (cc = 0; cc < nTimes; cc++)
+         fuzzyC_[nn][cc] = vOut[cc*numTerms_+nn];
+   }
+   delete pdfman;
+   delete [] inPDFs;
+   delete [] inStds;
+   delete [] inMeans;
+   delete [] inLowers;
+   delete [] inUppers;
 
    if (outputLevel_ >= 0)
    {
@@ -644,12 +772,240 @@ int SelectiveRegression::analyze(double *X, double *Y)
              1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
       if (outputLevel_ > 1) printSRC(X, B, SStotal);
    }
+   fp = NULL;
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "w");
+   if (fp != NULL)
+   {
+      fprintf(fp,"/* ************************************************/\n");
+      fprintf(fp,"/* Selective regression interpolator from PSUADE. */\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fprintf(fp,"/* This file contains information for interpolation\n");
+      fprintf(fp,"   using response surface. Follow the steps below:\n");
+      fprintf(fp,"   1. move this file to *.c file (e.g. main.c)\n");
+      fprintf(fp,"   2. Compile main.c (cc -o main main.c -lm) \n");
+      fprintf(fp,"   3. run: main input output\n");
+      fprintf(fp,"          where input has the number of inputs and\n");
+      fprintf(fp,"          the input values\n");
+      fprintf(fp,"*/\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fprintf(fp,"#include <math.h>\n");
+      fprintf(fp,"#include <stdlib.h>\n");
+      fprintf(fp,"#include <stdio.h>\n");
+      fprintf(fp,"int interpolate(int,double*,double*,double*);\n");
+      fprintf(fp,"main(int argc, char **argv) {\n");
+      fprintf(fp,"  int    i, iOne=1, nInps;\n");
+      fprintf(fp,"  double X[%d], Y, S;\n",nInputs_);
+      fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
+      fprintf(fp,"  if (argc != 3) {\n");
+      fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fIn = fopen(argv[1], \"r\");\n");
+      fprintf(fp,"  if (fIn == NULL) {\n");
+      fprintf(fp,"     printf(\"ERROR: cannot open input file.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fscanf(fIn, \"%%d\", &nInps);\n");
+      fprintf(fp,"  if (nInps != %d) {\n", nInputs_);
+      fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
+      fprintf(fp,"    exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+      fprintf(fp,"  fclose(fIn);\n");
+      fprintf(fp,"  interpolate(iOne, X, &Y, &S);\n");
+      fprintf(fp,"  printf(\"Y = %%e\\n\", Y);\n");
+      fprintf(fp,"  printf(\"S = %%e\\n\", S);\n");
+      fprintf(fp,"  fOut = fopen(argv[2], \"w\");\n");
+      fprintf(fp,"  if (fOut == NULL) {\n");
+      fprintf(fp,"     printf(\"ERROR: cannot open output file.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fprintf(fOut,\" %%e\\n\", Y);\n");
+      fprintf(fp,"  fclose(fOut);\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fprintf(fp,"/* Selective regression interpolation function    */\n");
+      fprintf(fp,"/* X[0], X[1],   .. X[m-1]   - first point\n");
+      fprintf(fp," * X[m], X[m+1], .. X[2*m-1] - second point\n");
+      fprintf(fp," * ... */\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fprintf(fp,"static int\n");
+      fprintf(fp,"CoefTerms[%d][%d] = \n", numTerms_, nInputs_+1);
+      fprintf(fp,"{\n");
+      for (mm = 0; mm < numTerms_; mm++)
+      {
+         fprintf(fp,"  { %d", coefTerms_[mm][0]);
+         for (nn = 0; nn < coefTerms_[mm][0]; nn++)
+            fprintf(fp," , %d", coefTerms_[mm][nn+1]);
+         for (nn = coefTerms_[mm][0]; nn < nInputs_; nn++)
+            fprintf(fp," , 0");
+         fprintf(fp," },\n");
+      }
+      fprintf(fp,"};\n");
+      fprintf(fp,"static double\n");
+      fprintf(fp,"Coefs[%d][2] = \n", N);
+      fprintf(fp,"{\n");
+      for (mm = 0; mm < numTerms_; mm++)
+         fprintf(fp,"  { %24.16e , %24.16e},\n",B[mm],Bvar[mm]);
+      fprintf(fp,"};\n");
+      fprintf(fp,"static double\n");
+      fprintf(fp,"XStat[%d][2] = \n", nInputs_);
+      fprintf(fp,"{\n");
+      for (mm = 0; mm < nInputs_; mm++)
+         fprintf(fp,"  { %24.16e , %24.16e},\n",XMeans_[mm],XStds_[mm]);
+      fprintf(fp,"};\n");
+      fprintf(fp,"void getCoefs(int kk, double *coefs);\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fprintf(fp,"int interpolate(int npts,double *X,double *Y,double *S){\n");
+      fprintf(fp,"  int    ii,jj,kk,ll,mm,nterms=%d,nInps=%d;\n",
+              numTerms_,nInputs_);
+      fprintf(fp,"  int    ntimes=%d;\n",nTimes);
+      fprintf(fp,"  double y, d, u, *yt, *x, *coefs, mean, std;\n");
+      fprintf(fp,"  coefs = (double *) malloc(nterms *sizeof(double));\n");
+      fprintf(fp,"  yt = (double *) malloc(ntimes * sizeof(double));\n");
+      fprintf(fp,"  for (ii = 0; ii < npts; ii++) {\n");
+      fprintf(fp,"    x = &(X[ii* nInps]);\n");
+      fprintf(fp,"    for (kk = 0; kk < ntimes; kk++) {\n");
+      fprintf(fp,"      getCoefs(kk, coefs);\n");
+      fprintf(fp,"      y = 0.0;\n");
+      fprintf(fp,"      for (jj = 0; jj < nterms; jj++) {\n");
+      fprintf(fp,"        u = 1;\n");
+      fprintf(fp,"        for (ll = 0; ll < CoefTerms[jj][0]; ll++){\n");
+      fprintf(fp,"          mm = CoefTerms[jj][ll+1];\n");
+      fprintf(fp,"          if (mm >= 0)\n");
+      fprintf(fp,"            u = u * (x[mm]-XStat[mm][0])/XStat[mm][1];\n");
+      fprintf(fp,"        }\n");
+      fprintf(fp,"        y += coefs[jj] * u;\n");
+      fprintf(fp,"      }\n");
+      fprintf(fp,"      yt[kk] = y * %e + %e;\n", YStd_, YMean_);
+      fprintf(fp,"    }\n");
+      fprintf(fp,"    mean = 0.0;\n");
+      fprintf(fp,"    for (kk = 0; kk < ntimes; kk++) mean += yt[kk];\n");
+      fprintf(fp,"    mean /= ntimes;\n");
+      fprintf(fp,"    Y[ii] = mean;\n");
+      fprintf(fp,"    std = 0.0;\n");
+      fprintf(fp,"    for (kk = 0; kk < ntimes; kk++) ");
+      fprintf(fp," std += (yt[kk] - mean) * (yt[kk] - mean);\n");
+      fprintf(fp,"    std = sqrt(std / (ntimes - 1.0));\n");
+      fprintf(fp,"    S[ii] = std;\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  free(yt);\n");
+      fprintf(fp,"  free(coefs);\n");
+      fprintf(fp,"  return 0;\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fprintf(fp,"static double\n");
+      fprintf(fp,"CoefEnsemble[%d][%d] = \n", numTerms_, nTimes);
+      fprintf(fp,"{\n");
+      for (mm = 0; mm < numTerms_; mm++)
+      {
+         fprintf(fp," { %24.16e", fuzzyC_[mm][0]);
+         for (nn = 1; nn < nTimes; nn++)
+            fprintf(fp,", %24.16e", fuzzyC_[mm][nn]);
+         fprintf(fp," },\n");
+      }
+      fprintf(fp," };\n");
+      fprintf(fp,"void getCoefs(int kk, double *coefs) {\n");
+      fprintf(fp,"  int mm;\n");
+      fprintf(fp,"  for (mm = 0; mm < %d; mm++)\n",numTerms_);
+      fprintf(fp,"    coefs[mm] = CoefEnsemble[mm][kk];\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* ===============================================*/\n");
+      fclose(fp);
+      printf("FILE psuade_rs.info contains the polynomial functional\n");
+      printf("     form.\n");
+   }
+   fp = NULL;
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "w");
+   if (fp != NULL)
+   {
+      fwriteRSPythonHeader(fp);
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"# Selective regression interpolation\n");
+      fprintf(fp,"#==================================================\n");
+      fwriteRSPythonCommon(fp);
+      fprintf(fp,"CoefTerms = [\n");
+      for (mm = 0; mm < numTerms_; mm++)
+      {
+         fprintf(fp," [ %d", coefTerms_[mm][0]);
+         for (nn = 0; nn < coefTerms_[mm][0]; nn++)
+            fprintf(fp,", %d", coefTerms_[mm][nn+1]);
+         for (nn = coefTerms_[mm][0]; nn < nInputs_; nn++)
+            fprintf(fp,", 0");
+         fprintf(fp," ],\n");
+      }
+      fprintf(fp,"]\n");
+      fprintf(fp,"XStat = [\n");
+      for (mm = 0; mm < nInputs_; mm++)
+         fprintf(fp," [ %24.16e, %24.16e ],\n", XMeans_[mm], XStds_[mm]);
+      fprintf(fp,"]\n");
+      fprintf(fp,"CoefEnsemble = [\n");
+      for (mm = 0; mm < numTerms_; mm++)
+      {
+         fprintf(fp," [ %24.16e", fuzzyC_[mm][0]);
+         for (nn = 1; nn < nTimes; nn++)
+            fprintf(fp,", %24.16e", fuzzyC_[mm][nn]);
+         fprintf(fp," ],\n");
+      }
+      fprintf(fp,"]\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"def getCoefs(kk) :\n");
+      fprintf(fp,"  coefs = %d * [0.0]\n",numTerms_);
+      fprintf(fp,"  for mm in range(%d) : \n", numTerms_);
+      fprintf(fp,"    coefs[mm] = CoefEnsemble[mm][kk];\n");
+      fprintf(fp,"  return coefs\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"# Regression interpolation function  \n");
+      fprintf(fp,"# X[0], X[1],   .. X[m-1]   - first point\n");
+      fprintf(fp,"# X[m], X[m+1], .. X[2*m-1] - second point\n");
+      fprintf(fp,"# ... \n");
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"def interpolate(X): \n");
+      fprintf(fp,"  nSamp = int(len(X) / %d)\n",nInputs_);
+      fprintf(fp,"  Yt = %d * [0.0]\n", nTimes);
+      fprintf(fp,"  Xt = %d * [0.0]\n", nInputs_);
+      fprintf(fp,"  Ys = 2 * nSamp * [0.0]\n");
+      fprintf(fp,"  for ss in range(nSamp) : \n");
+      fprintf(fp,"    for ii in range(%d) : \n", nInputs_);
+      fprintf(fp,"      Xt[ii] = X[ss*%d+ii]\n",nInputs_);
+      fprintf(fp,"    for kk in range(%d) : \n", nTimes);
+      fprintf(fp,"      coefs = getCoefs(kk)\n");
+      fprintf(fp,"      Y = 0.0\n");
+      fprintf(fp,"      for jj in range(%d) : \n", numTerms_);
+      fprintf(fp,"        u = 1;\n");
+      fprintf(fp,"        for ll in range(CoefTerms[jj][0]) : \n");
+      fprintf(fp,"          mm = CoefTerms[jj][ll+1]\n");
+      fprintf(fp,"          if (mm >= 0) :\n");
+      fprintf(fp,"            u = u * (Xt[mm]-XStat[mm][0])/XStat[mm][1]\n");
+      fprintf(fp,"        Y += coefs[jj] * u\n");
+      fprintf(fp,"      Yt[kk] = Y * %e + %e;\n", YStd_, YMean_);
+      fprintf(fp,"    mean = 0.0;\n");
+      fprintf(fp,"    for kk in range(%d) : \n", nTimes);
+      fprintf(fp,"      mean += Yt[kk]\n");
+      fprintf(fp,"    mean /= %d\n", nTimes);
+      fprintf(fp,"    std = 0.0;\n");
+      fprintf(fp,"    for kk in range(%d) : \n", nTimes);
+      fprintf(fp,"      std += (Yt[kk] - mean) * (Yt[kk] - mean)\n");
+      fprintf(fp,"    std = math.sqrt(std / (%d - 1.0))\n",nTimes);
+      fprintf(fp,"    Ys[2*ss] = mean\n");
+      fprintf(fp,"    Ys[2*ss+1] = std\n");
+      fprintf(fp,"  return Ys\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"# main program\n");
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"infileName  = sys.argv[1]\n");
+      fprintf(fp,"outfileName = sys.argv[2]\n");
+      fprintf(fp,"inputs = getInputData(infileName)\n");
+      fprintf(fp,"outputs = interpolate(inputs)\n");
+      fprintf(fp,"genOutputFile(outfileName, outputs)\n");
+      fprintf(fp,"###################################################\n");
+      printf("FILE psuade_rs.py contains the final selective polynomial\n");
+      printf("     functional form.\n");
+      fclose(fp);
+   }
  
-   if (regCoeffs_ != NULL) delete [] regCoeffs_;
-   regCoeffs_ = B;
    delete [] XX;
    delete [] XTX;
-   delete [] Bvar;
    delete [] WW;
    return 0;
 }
@@ -663,18 +1019,18 @@ int SelectiveRegression::loadXMatrix(double *X, double **XXOut)
    double *XX=NULL, multiplier;
 
    M = nSamples_;
-   N = numTerms_ + 1;
+   N = numTerms_;
    XX = new double[M*N];
    for (m = 0; m < M; m++)
    {
-      for (n = 0; n < N-1; n++)
+      for (n = 0; n < N; n++)
       {
          multiplier = 1.0;
          for (k = 0; k < coefTerms_[n][0]; k++)
-            multiplier *= X[m*nInputs_+coefTerms_[n][k+1]];
+            if (coefTerms_[n][k+1] >= 0)
+               multiplier *= X[m*nInputs_+coefTerms_[n][k+1]];
          XX[M*n+m] = multiplier;
       }
-      XX[M*(N-1)+m] = 1.0;
    }
    (*XXOut) = XX;
    return N;
@@ -710,7 +1066,7 @@ int SelectiveRegression::computeSS(int N, double *XX, double *Y,
                               double *B, double &SSresid, double &SStotal)
 {
    int    nn, mm;
-   double ymean, SSreg, ddata, rdata;
+   double ymean, SSreg, SSresidCheck, ddata, rdata;
                                                                                 
    SSresid = SStotal = ymean = SSreg = 0.0;
    for (mm = 0; mm < nSamples_; mm++) ymean += (sqrt(weights_[mm]) * Y[mm]);
@@ -721,12 +1077,20 @@ int SelectiveRegression::computeSS(int N, double *XX, double *Y,
       for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
       rdata = Y[mm] - ddata;
       SSresid += rdata * Y[mm] * weights_[mm];
+      SSresidCheck += rdata * rdata * weights_[mm];
       SSreg += (ddata - ymean) * (ddata - ymean);
    }
    for (mm = 0; mm < nSamples_; mm++)
       SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   printf("UserRegression: SStot, SSreg, SSres = %e %e %e\n",
-          SStotal, SSreg, SSresid);
+   printf("* SelectiveRegression: SStot  = %24.16e\n", SStotal);
+   printf("* SelectiveRegression: SSreg  = %24.16e\n", SSreg);
+   printf("* SelectiveRegression: SSres  = %24.16e\n", SSresid);
+   printf("* SelectiveRegression: SSres  = %24.16e (true)\n", SSresidCheck);
+   if (nSamples_ != N)
+   {
+      printf("* SelectiveRegression: eps(Y) = %24.16e\n",
+             SSresidCheck/(nSamples_-N));
+   }
    return 0;
 }
 
@@ -736,9 +1100,10 @@ int SelectiveRegression::computeSS(int N, double *XX, double *Y,
 int SelectiveRegression::computeCoeffVariance(int N,double *XX,double var,
                                               double *B)
 {
-   int    ii, jj, lwork, iOne=1, info;
+   int    ii, jj, lwork, iOne=1, info, errCnt=0;
    double *B2, *work, *XT;
    char   trans[1];
+   FILE   *fp;
 
    (*trans) = 'N';
    B2 = new double[N];
@@ -753,12 +1118,116 @@ int SelectiveRegression::computeCoeffVariance(int N,double *XX,double var,
       dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
       if (info != 0)
          printf("SelectiveRegression WARNING: dgels returns error %d.\n",info);
-      if (B2[ii] < 0) B[ii] = 0;
+      if (B2[ii] < 0) errCnt++;
+      if (B2[ii] < 0) B[ii] = sqrt(-B2[ii]);
       else            B[ii] = sqrt(B2[ii]);
    }
+   if (errCnt > 0)
+   {
+      printf("* SelectiveRegression WARNING: some of the coefficient\n");
+      printf("*            variances are < 0. May spell trouble but\n");
+      printf("*            will proceed anyway (%d).\n",errCnt);
+   }
    delete [] B2;
-   delete [] work;
    delete [] XT;
+
+   int    *ipiv = new int[N+1];
+   double *invA = new double[lwork];
+   double ddata, ddata2;
+   for (ii = 0; ii < N*N; ii++) invA[ii] = XX[ii];
+   dgetrf_(&N, &N, invA, &N, ipiv, &info);
+   if (info != 0)
+      printf("LegendreRegression WARNING: dgels returns error %d.\n",info);
+   dgetri_(&N, invA, &N, ipiv, work, &lwork, &info);
+   covMatrix_.setDim(N,N);
+   for (ii = 0; ii < N; ii++)
+   {
+      for (jj = 0; jj < N; jj++)
+      {
+         ddata = invA[ii*N+jj] * var;
+         covMatrix_.setEntry(ii,jj,ddata);
+      }
+   }
+   for (ii = 0; ii < N; ii++)
+   {
+      ddata = covMatrix_.getEntry(ii,ii);
+      ddata = sqrt(ddata);
+      for (jj = 0; jj < N; jj++)
+      {
+         if (ii != jj)
+         {
+            ddata2 = covMatrix_.getEntry(ii,jj);
+            if (ddata != 0) ddata2 /= ddata;
+            covMatrix_.setEntry(ii,jj,ddata2);
+         }
+      }
+   }
+   for (jj = 0; jj < N; jj++)
+   {
+      ddata = covMatrix_.getEntry(jj,jj);
+      ddata = sqrt(ddata);
+      for (ii = 0; ii < N; ii++)
+      {
+         if (ii != jj)
+         {
+            ddata2 = covMatrix_.getEntry(ii,jj);
+            if (ddata != 0) ddata2 /= ddata;
+            covMatrix_.setEntry(ii,jj,ddata2);
+         }
+      }
+   }
+   ddata = 1.0;
+   for (ii = 0; ii < N; ii++) covMatrix_.setEntry(ii,ii,ddata);
+   for (ii = 0; ii < N; ii++)
+   {
+      for (jj = 0; jj < ii; jj++)
+      {
+         ddata  = covMatrix_.getEntry(ii,jj);
+         ddata2 = covMatrix_.getEntry(jj,ii);
+         ddata  = 0.5 * (ddata + ddata2);
+         covMatrix_.setEntry(ii,jj,ddata);
+         covMatrix_.setEntry(jj,ii,ddata);
+      }
+   }
+   if (psMasterMode_ == 1)
+   {
+      fp = fopen("user_regression_correlation_matrix","w");
+      for (ii = 0; ii < N; ii++)
+      {
+          for (jj = 0; jj < N; jj++)
+             fprintf(fp, "%e ", covMatrix_.getEntry(ii,jj));
+          fprintf(fp, "\n");
+      }
+      fclose(fp);
+   }
+   errCnt = 0;
+   for (ii = 0; ii < N; ii++)
+   {
+      for (jj = 0; jj < N; jj++)
+      {
+         ddata = covMatrix_.getEntry(ii,jj);
+         if (ii != jj && (ddata >=1 || ddata <= -1))
+         {
+            errCnt++;
+            covMatrix_.setEntry(ii,jj,0.0);
+         }
+      }
+   }
+   char inStr[1001];
+   if (errCnt > 0)
+   {
+      printf("UserRegression WARNING:\n");
+      printf("  Correlation matrix has invalid entries (%d out of %d).\n",
+             errCnt, N*(N-1));
+      printf("  EVALUATION MAY BE INCORRECT.\n");
+      printf("  CONTINUE ANYWAY (will set them to zeros)? (y or n)");
+      scanf("%s", inStr);
+      if (inStr[0] != 'y') exit(1);
+      fgets(inStr, 100, stdin);
+   }
+   delete [] work;
+   delete [] ipiv;
+   delete [] invA;
    return info;
 }
 
@@ -782,14 +1251,6 @@ int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
    for (jj = 0; jj < maxTerms; jj++) printf("    ");
    printf("   coefficient   std. error   t-value\n");
 
-   if (PABS(Bvar[numTerms_]) < 1.0e-15) coef = 0.0;
-   else                                 coef = B[numTerms_] / Bvar[numTerms_]; 
-   if (PABS(coef) > 0.0)
-   {
-      printf("* Constant ");
-      for (jj = 1; jj < maxTerms; jj++) printf("    ");
-      printf("= %12.4e %12.4e %12.4e\n", B[numTerms_], Bvar[numTerms_], coef);
-   }
    for (ii = 0; ii < numTerms_; ii++)
    {
       if (PABS(Bvar[ii]) < 1.0e-15) coef = 0.0;
@@ -804,9 +1265,9 @@ int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
       }
    }
    strcpy(fname, "dataVariance");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
 
-   if (outputLevel_ >= 3)
+   if (psMasterMode_ == 1)
    {
       fp = fopen(fname, "w");
       if(fp == NULL)
@@ -838,11 +1299,11 @@ int SelectiveRegression::printSRC(double *X, double *B, double SStotal)
    int    nn, mm, ii, index, length, maxTerms;
    double denom, xmean, coef, Bmax, coef1, *B2;
 
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("* Standardized Regression Coefficients (SRC)\n");
    printf("* When R-square is acceptable (order assumption holds), the*\n");
    printf("* absolute values of SRCs provide variable importance.     *\n"); 
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    printf("* based on nSamples = %d\n", nSamples_);
 
    maxTerms = 0;
@@ -857,15 +1318,18 @@ int SelectiveRegression::printSRC(double *X, double *B, double SStotal)
       length = coefTerms_[nn][0];
       for (ii = 0; ii < length; ii++)
       {
-         index = coefTerms_[nn][ii+1];
-         xmean = 0.0;
-         for (mm = 0; mm < nSamples_; mm++) xmean += X[mm*nInputs_+index];
-         xmean /= (double) nSamples_;
+         xmean = 1.0;
          coef1 = 0.0;
-         for (mm = 0; mm < nSamples_; mm++)
-            coef1 += (X[mm*nInputs_+index]-xmean) * (X[mm*nInputs_+index]-xmean);
-         coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
-         coef *= coef1;
+         index = coefTerms_[nn][ii+1];
+         if (index >= 0)
+         {
+            for (mm = 0; mm < nSamples_; mm++) xmean += X[mm*nInputs_+index];
+            xmean /= (double) nSamples_;
+            for (mm = 0; mm < nSamples_; mm++)
+               coef1 += (X[mm*nInputs_+index]-xmean) * (X[mm*nInputs_+index]-xmean);
+            coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
+            coef *= coef1;
+         }
       }
       B2[nn] = B[nn] * coef / denom;
       if (PABS(B2[nn]) > Bmax) Bmax = PABS(B2[nn]);
@@ -882,7 +1346,7 @@ int SelectiveRegression::printSRC(double *X, double *B, double SStotal)
       }
    }
    delete [] B2;
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    return 0;
 }
 

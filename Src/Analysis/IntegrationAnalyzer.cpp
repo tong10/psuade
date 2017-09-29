@@ -29,12 +29,14 @@
 #include "IntegrationAnalyzer.h"
 #include "PsuadeUtil.h"
 #include "sysdef.h"
+#include "PrintingTS.h"
+
 #define PABS(x) (((x) > 0) ? x : -(x))
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-IntegrationAnalyzer::IntegrationAnalyzer() : Analyzer()
+IntegrationAnalyzer::IntegrationAnalyzer() : Analyzer(), integral_(0)
 {
    setName("INTEGRATION");
 }
@@ -71,33 +73,33 @@ double IntegrationAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printf("Integration INFO: some inputs have non-uniform PDFs,\n");
-         printf("            but they are not relevant in this analysis\n");
+         printOutTS(PL_INFO,"Integration INFO: some inputs have non-uniform PDFs,\n");
+         printOutTS(PL_INFO,"            but they are not relevant in this analysis\n");
       }
    }
 
    if (nInputs <= 0)
    {
-      printf("Integration ERROR: invalid nInputs.\n");
-      printf("    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR,  "Integration ERROR: invalid nInputs.\n");
+      printOutTS(PL_ERROR,  "    nInputs  = %d\n", nInputs);
       return PSUADE_UNDEFINED;
    } 
    if (nOutputs <= 0)
    {
-      printf("Integration ERROR: invalid nOutputs.\n");
-      printf("    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR,  "Integration ERROR: invalid nOutputs.\n");
+      printOutTS(PL_ERROR,  "    nOutputs = %d\n", nOutputs);
       return PSUADE_UNDEFINED;
    } 
    if (nSamples <= 0)
    {
-      printf("Integration ERROR: invalid nSamples.\n");
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR,  "Integration ERROR: invalid nSamples.\n");
+      printOutTS(PL_ERROR,  "    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    whichOutput = outputID;
    if (whichOutput < 0 || whichOutput >= nOutputs)
    {
-      printf("Integration ERROR: invalid outputID (%d).\n",
+      printOutTS(PL_ERROR,  "Integration ERROR: invalid outputID (%d).\n",
              whichOutput+1);
       return PSUADE_UNDEFINED;
    }
@@ -105,8 +107,8 @@ double IntegrationAnalyzer::analyze(aData &adata)
    {
       if (Y[ss] == PSUADE_UNDEFINED)
       {
-         printf("Integration ERROR: some outputs are undefined.\n");
-         printf("                   Prune them before analyze.\n");
+         printOutTS(PL_ERROR,  "Integration ERROR: some outputs are undefined.\n");
+         printOutTS(PL_ERROR,  "                   Prune them before analyze.\n");
          return PSUADE_UNDEFINED;
       }
    }
@@ -115,9 +117,11 @@ double IntegrationAnalyzer::analyze(aData &adata)
    for (ss = 0; ss < nSamples; ss++) result += Y[ss];
    result /= (double) nSamples;
    for (ii = 0; ii < nInputs; ii++) result *= (iUpper[ii] - iLower[ii]);
-   printAsterisks(0);
-   printf("Integration: numerical integral = %14.4e\n", result);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO,  "Integration: numerical integral = %14.4e\n", result);
+   printAsterisks(PL_INFO, 0);
+
+   integral_ = result;
 
    if (nLevels <= 0) return result;
 
@@ -129,7 +133,7 @@ double IntegrationAnalyzer::analyze(aData &adata)
    if (result == 0.0) error = result;
    else               error = PABS((last-result)/result); 
    if (adata.printLevel_ > 0)
-      printf("Integration: numerical error    = %14.4e\n", error);
+      printOutTS(PL_INFO,  "Integration: numerical error    = %14.4e\n", error);
 
    return error;
 }
@@ -139,8 +143,16 @@ double IntegrationAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 IntegrationAnalyzer& IntegrationAnalyzer::operator=(const IntegrationAnalyzer &)
 {
-   printf("Integration operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,  "Integration operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+double IntegrationAnalyzer::get_integral()
+{
+   return integral_;
 }
 

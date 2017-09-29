@@ -35,7 +35,16 @@
 
 class DeltaAnalyzer : public Analyzer
 {
-   int mode_;
+private:
+
+   int    mode_;
+   int    nBins_;
+   int    nInputs_;
+   int    nConfig_;
+   double *minDeltas_; //length nBins_
+   int    **deltaBins_;   //length nBins_, nInputs_
+   double *dOrder_;    //length nInputs_
+   int    *ranks_; 	   //length nInputs_
 
 public:
 
@@ -48,6 +57,16 @@ public:
    DeltaAnalyzer& operator=(const DeltaAnalyzer &analyzer);
 
    int setParams(int nParams, char **params);
+
+   /** Getters for analysis results */
+   int    get_mode();
+   int    get_nBins();
+   int    get_nInputs();
+   int    get_nConfig();
+   double *get_minDeltas();
+   int    **get_deltaBins();
+   double *get_dOrder();
+   int    *get_ranks();
 };
 
 #endif // __DELTAANALYZERH__

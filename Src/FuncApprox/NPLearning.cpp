@@ -77,6 +77,15 @@ NPLearning::~NPLearning()
 }
 
 // ************************************************************************
+// initialize 
+// ------------------------------------------------------------------------
+int NPLearning::initialize(double *X, double *Y)
+{
+   learn(X, Y);
+   return 0;
+}
+
+// ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
 int NPLearning::genNDGridData(double *X, double *Y, int *N2, double **X2, 

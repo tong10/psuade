@@ -24,11 +24,11 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __USERREGRESSIONH__
 #define __USERREGRESSIONH__
 
 #include "FuncApprox.h"
+#include "Matrix.h"
 
 // ************************************************************************
 // class definition
@@ -36,15 +36,24 @@
 class UserRegression : public FuncApprox 
 {
    int    numTerms_;
+   int    noAnalysis_;
    double *regCoeffs_;
    double *regStdevs_;
+   double **fuzzyC_;
+   double *XNShift_;
+   double *XNScale_;
+   int    *XScales_;
    int    **coefTerms_;
-   char   regFile_[500];
+   char   regFile_[1001];
+   Matrix covMatrix_;
+   int    numArgs_;
+   char   auxArg_[501];
  
 public:
    UserRegression(int, int);
    ~UserRegression();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);
@@ -59,6 +68,7 @@ public:
    double evaluatePoint(int, double *, double *);
    double evaluatePointFuzzy(double *, double &);
    double evaluatePointFuzzy(int, double *, double *, double *);
+   double setParams(int, char **);
 
 private:
    int    analyze(double *, double *);

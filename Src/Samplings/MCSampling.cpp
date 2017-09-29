@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-using namespace std;
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "MCSampling.h"
@@ -52,6 +51,11 @@ int MCSampling::initialize(int initLevel)
    int    ii, inputID;
    double range;
 
+   if (nSamples_ == 0)
+   {
+      printf("MCSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("MCSampling::initialize ERROR - input not set up.\n");

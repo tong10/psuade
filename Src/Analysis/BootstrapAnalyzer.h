@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2007
 // ************************************************************************
-
 #ifndef __BOOTSTRAPANALYZERH__
 #define __BOOTSTRAPANALYZERH__
 
@@ -39,7 +38,7 @@ class BootstrapAnalyzer : public Analyzer
    int    nSteps_;
    double mean_;
    double stdev_;
-   double *storedValues_;
+   double *storedValues_; //length is nSteps_+1
 
 public:
 
@@ -64,6 +63,12 @@ public:
    int setupNormalCDF(double mean, double stdev);
 
    double normalCDFInv(double &value);
+
+   /** Getters for analysis results */
+   int get_nSteps();
+   double get_mean();
+   double get_stdev();
+   double *get_storedValues();
 
 };
 

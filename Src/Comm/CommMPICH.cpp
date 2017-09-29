@@ -53,7 +53,6 @@
 // ************************************************************************
 // Constructor
 // ------------------------------------------------------------------------
-
 CommMPICH::CommMPICH(int argc, void **argv)
 {
    // get MPI information
@@ -69,7 +68,6 @@ CommMPICH::CommMPICH(int argc, void **argv)
 // ************************************************************************
 // Destructor
 // ------------------------------------------------------------------------
-
 CommMPICH::~CommMPICH()
 {
    shutdown();
@@ -79,7 +77,6 @@ CommMPICH::~CommMPICH()
 // ************************************************************************
 // get processor ID 
 // ------------------------------------------------------------------------
-
 int CommMPICH::getPID()
 {
    return mypid_;
@@ -88,7 +85,6 @@ int CommMPICH::getPID()
 // ************************************************************************
 // get number of processors
 // ------------------------------------------------------------------------
-
 int CommMPICH::getNumProcs()
 {
    return numProcs_;
@@ -97,7 +93,6 @@ int CommMPICH::getNumProcs()
 // ************************************************************************
 // synchronize all processors
 // ------------------------------------------------------------------------
-
 void CommMPICH::synchronize()
 {
    ::MPI_Barrier(MPI_COMM_WORLD);
@@ -106,7 +101,6 @@ void CommMPICH::synchronize()
 // ************************************************************************
 // Send message to a given destination
 // ------------------------------------------------------------------------
-
 int CommMPICH::send(void *msg,int length,int dtype,int msgID,int dest) 
 {
    MPI_Datatype  mpiDtype;
@@ -119,7 +113,6 @@ int CommMPICH::send(void *msg,int length,int dtype,int msgID,int dest)
 // ************************************************************************
 // receive data from a given source processor
 // ------------------------------------------------------------------------
-
 int CommMPICH::recv(void *msg,int length,int dtype,int msgID,int src)
 {
    MPI_Datatype mpiDtype;
@@ -142,7 +135,6 @@ int CommMPICH::recv(void *msg,int length,int dtype,int msgID,int src)
 // ************************************************************************
 // post a nonblocking receive from a given processor
 // ------------------------------------------------------------------------
-
 int CommMPICH::iRecv(void *msg,int length,int dtype,int msgID,int src)
 {
    MPI_Datatype  mpiDtype;
@@ -161,7 +153,6 @@ int CommMPICH::iRecv(void *msg,int length,int dtype,int msgID,int src)
 // ************************************************************************
 // disableIrecv
 // ------------------------------------------------------------------------
-
 int CommMPICH::disableIrecv(int procID)
 {
    if ( procID > 0 && procID < numProcs_ )
@@ -177,7 +168,6 @@ int CommMPICH::disableIrecv(int procID)
 // comm.  If found, return flag = 1, and status will contain the
 // same information as in MPI_Recv.
 // ------------------------------------------------------------------------
-
 int CommMPICH::iProbe(int src, int msgID) 
 {
    int        flag;
@@ -201,7 +191,6 @@ int CommMPICH::iProbe(int src, int msgID)
 // ************************************************************************
 // wait for a request to be completed
 // ------------------------------------------------------------------------
-
 void CommMPICH::wait(int procID)
 {
    MPI_Status status;
@@ -218,7 +207,6 @@ void CommMPICH::wait(int procID)
 // ************************************************************************
 // wait for any request to be completed
 // ------------------------------------------------------------------------
-
 int CommMPICH::waitAny()
 {
    int        errStat, procID;
@@ -236,7 +224,6 @@ int CommMPICH::waitAny()
 // ************************************************************************
 // broadcast data 
 // ------------------------------------------------------------------------
-
 void CommMPICH::bcast(void *msg, int length, int dtype, int root)
 {
    MPI_Datatype  mpiDtype;
@@ -248,7 +235,6 @@ void CommMPICH::bcast(void *msg, int length, int dtype, int root)
 // ************************************************************************
 // reduce and broadcast data using MPI primitive
 // ------------------------------------------------------------------------
-
 void CommMPICH::allReduce(void *msg,int length,int dtype,char op)
 {
    int           i, nb;
@@ -280,7 +266,6 @@ void CommMPICH::allReduce(void *msg,int length,int dtype,char op)
 // ************************************************************************
 // exiting from the MPI
 // ------------------------------------------------------------------------
-
 void CommMPICH::shutdown()
 {
    ::MPI_Finalize ();
@@ -289,7 +274,6 @@ void CommMPICH::shutdown()
 // ************************************************************************
 // setting MPI data type 
 // ------------------------------------------------------------------------
-
 MPI_Datatype CommMPICH::setDataType(int intype)
 {
    MPI_Datatype mpiDtype;

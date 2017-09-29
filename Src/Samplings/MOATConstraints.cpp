@@ -125,7 +125,7 @@ MOATConstraints::~MOATConstraints()
 // ------------------------------------------------------------------------
 int MOATConstraints::initialize(PsuadeData *psuadeIO)
 {
-   int        printLevel, ii, jj, *sortArray, nInputsChk;
+   int        printLevel, ii, jj, status, *sortArray, nInputsChk;
    double     *filterLBounds, *filterUBounds;
    char       **filterIndexFiles, **filterDataFiles;
    FILE       *fp;
@@ -192,7 +192,8 @@ int MOATConstraints::initialize(PsuadeData *psuadeIO)
          if (strcmp(filterDataFiles[ii], "NULL"))
          {
             pIO = new PsuadeData();
-            pIO->readPsuadeFile(filterDataFiles[ii]);
+            status = pIO->readPsuadeFile(filterDataFiles[ii]);
+            if (status != 0) exit(1);
             constraintFAs_[ii] = genFAInteractive(pIO, 2);
             pIO->getParameter("input_ninputs", pPtr);
             nInputsChk = pPtr.intData_;

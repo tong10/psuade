@@ -56,7 +56,7 @@ ANALYSIS
 #  optimization num_fmin = 0
 #  optimization fmin = not defined
 #  optimization cutoff = not defined
-   diagnostics 1
+   diagnostics 3
 #  fileWrite matlab
 END
 END

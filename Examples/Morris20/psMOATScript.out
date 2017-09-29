@@ -1,14 +1,14 @@
 **********************************************************************
-*      Welcome to PSUADE (version 1.6.0)
+*      Welcome to PSUADE (version 1.7.1)
 **********************************************************************
 PSUADE - A Problem Solving environment for 
-         Uncertainty Analysis and Design Exploration (1.6.0)
+         Uncertainty Analysis and Design Exploration (1.7.1)
 (for help, enter <help>)
 ======================================================================
 psuade> load complete : nSamples = 210
                 nInputs  = 20
                 nOutputs = 1
-psuade> No transformation (e.g. log) on sample inputs nor outputs.
+psuade> Enter output number (1 - 1) = No transformation (e.g. log) on sample inputs nor outputs.
 **********************************************************************
 *********************** MOAT Analysis ***********************
 ----------------------------------------------------------------------
@@ -56,6 +56,10 @@ Input  17 (mod. mean & std) =   2.4208e+00   3.0023e+00
 Input  18 (mod. mean & std) =   3.6653e+00   4.0824e+00 
 Input  19 (mod. mean & std) =   2.5559e+00   2.9100e+00 
 Input  20 (mod. mean & std) =   3.2688e+00   4.1931e+00 
+**********************************************************************
+MOATAnalyzer: Creating modified mean plot 
+MOAT bootstrap plot file = matlabmoatbs.m.
+**********************************************************************
 **********************************************************************
 ****************** MOAT Analysis (ordered) ******************
 ----------------------------------------------------------------------

@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __INTEGERANALYZERH__
 #define __INTEGERANALYZERH__
 
@@ -36,6 +35,9 @@
                                                                                 
 class IntegrationAnalyzer : public Analyzer
 {
+private:
+
+   double integral_;
 
 public:
 
@@ -46,6 +48,9 @@ public:
    double analyze(aData &adata);
 
    IntegrationAnalyzer& operator=(const IntegrationAnalyzer &analyzer);
+
+   /** Getters for analysis results */
+   double get_integral();
 };
 
 #endif // __INTEGRATIONANALYZERH__

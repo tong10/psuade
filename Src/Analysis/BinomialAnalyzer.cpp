@@ -31,15 +31,19 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
+
 #include "BinomialAnalyzer.h"
 #include "sysdef.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-BinomialAnalyzer::BinomialAnalyzer() : Analyzer()
+BinomialAnalyzer::BinomialAnalyzer() : Analyzer(), nSamples_(0), Ybin_(0), 
+                     nBelow_(0), BinomialCDF_(0), typeI_(0)
 {
    setName("BINOMIAL");
 }
@@ -49,6 +53,8 @@ BinomialAnalyzer::BinomialAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 BinomialAnalyzer::~BinomialAnalyzer()
 {
+   if (Ybin_) delete [] Ybin_;
+   if (BinomialCDF_) delete BinomialCDF_;
 }
 
 // ************************************************************************
@@ -56,57 +62,62 @@ BinomialAnalyzer::~BinomialAnalyzer()
 // ------------------------------------------------------------------------
 double BinomialAnalyzer::analyze(aData &adata)
 {
-   int     nSamples, ss, nBelow, printLevel, info;
-   double  *Y, p0=0.5, thresh, *Ybin, *BinomialCDF, typeI;
+   int     ss,  printLevel, info;
+   double  *Y, p0=0.5, thresh;
 
    printLevel = adata.printLevel_;
-   nSamples   = adata.nSamples_;
+   nSamples_   = adata.nSamples_;
    Y          = adata.sampleOutputs_;
    thresh     = adata.analysisThreshold_;
 
-   if (nSamples <= 1)
+   if (nSamples_ <= 1)
    {
-      printf("BinomialAnalyzer INFO: not meaningful to ");
-      printf("do this when nSamples <= 1.\n");
+      printOutTS(PL_ERROR, "BinomialAnalyzer INFO: not meaningful to ");
+      printOutTS(PL_ERROR, "do this when nSamples_ <= 1.\n");
       return PSUADE_UNDEFINED;
    } 
    if (Y == NULL)
    {
-      printf("BinomialAnalyzer ERROR: no data.\n");
+      printOutTS(PL_ERROR, "BinomialAnalyzer ERROR: no data.\n");
       return PSUADE_UNDEFINED;
    } 
    info = 0;
-   for (ss = 0; ss < nSamples; ss++)
+   for (ss = 0; ss < nSamples_; ss++)
       if (Y[ss] == PSUADE_UNDEFINED) info++;
    if (info > 0)
    {
-      printf("BinomialAnalyzer ERROR: Some outputs are undefined.\n");
-      printf("                        Prune them first before analyze.\n");
+      printOutTS(PL_ERROR, "BinomialAnalyzer ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR, "                        Prune them first before analyze.\n");
       return PSUADE_UNDEFINED;
    }
+
+   if (Ybin_) delete [] Ybin_;
+   if (BinomialCDF_) delete BinomialCDF_;
+   Ybin_ = NULL;
+   BinomialCDF_ = NULL;
    
-   Ybin = new double[nSamples];
-   for (ss = 0; ss < nSamples; ss++)
+   Ybin_ = new double[nSamples_];
+   for (ss = 0; ss < nSamples_; ss++)
    {
-      if (PABS(Y[ss]) <= thresh) Ybin[ss] = 1.0;
-      else                       Ybin[ss] = 0.0;
+      if (PABS(Y[ss]) <= thresh) Ybin_[ss] = 1.0;
+      else                       Ybin_[ss] = 0.0;
    }
 
-   nBelow = 0;
-   for (ss = 0; ss < nSamples; ss++) if (Ybin[ss] == 1.0) nBelow++;
+   nBelow_ = 0;
+   for (ss = 0; ss < nSamples_; ss++) if (Ybin_[ss] == 1.0) nBelow_++;
    if (printLevel > 2)
-      printf("   ====> BinomialAnalyzer: number below threshold = %d (%d)\n",
-             nBelow, nSamples);
+      printOutTS(PL_INFO, "   ====> BinomialAnalyzer: number below threshold = %d (%d)\n",
+             nBelow_, nSamples_);
 
-   BinomialCDF = setupBinomialCDF(nSamples, p0);
-   for (ss = 0; ss <= nSamples; ss++)
-      BinomialCDF[ss] = 1.0 - BinomialCDF[ss];
+   BinomialCDF_ = setupBinomialCDF(nSamples_, p0);
+   for (ss = 0; ss <= nSamples_; ss++)
+      BinomialCDF_[ss] = 1.0 - BinomialCDF_[ss];
 
-   typeI = BinomialCDF[nBelow];
+   typeI_ = BinomialCDF_[nBelow_];
 
-   delete [] Ybin;
-   delete [] BinomialCDF;
-   return typeI;
+   //delete [] Ybin_;
+   //delete [] BinomialCDF_;
+   return typeI_;
 }
 
 // *************************************************************************
@@ -149,8 +160,44 @@ double BinomialAnalyzer::factorial(int n)
 // ------------------------------------------------------------------------
 BinomialAnalyzer& BinomialAnalyzer::operator=(const BinomialAnalyzer &)
 {
-   printf("BinomialAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "BinomialAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+
+// ************************************************************************
+// Getters for analysis results
+// ------------------------------------------------------------------------
+int BinomialAnalyzer::get_nSamples()
+{
+   return nSamples_;
+}
+double *BinomialAnalyzer::get_Ybin()
+{
+   double* retVal = NULL;
+   if (Ybin_)
+   {
+      retVal = new double[nSamples_];
+      std::copy(Ybin_, Ybin_+nSamples_, retVal);
+   }
+   return retVal;
+}
+int BinomialAnalyzer::get_nBelow()
+{
+   return nBelow_;
+}
+double *BinomialAnalyzer::get_BinomialCDF()
+{
+   double* retVal = NULL;
+   if (Ybin_)
+   {
+      retVal = new double[nSamples_+1];
+      std::copy(BinomialCDF_, BinomialCDF_+nSamples_+1, retVal);
+   }
+   return retVal;
+}
+double BinomialAnalyzer::get_typeI()
+{
+   return typeI_;
 }
 

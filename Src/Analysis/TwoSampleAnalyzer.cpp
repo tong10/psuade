@@ -36,6 +36,7 @@
 #include "Vector.h"
 #include "sysdef.h"
 #include "PDFManager.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -221,32 +222,32 @@ double TwoSampleAnalyzer::analyze(aData &adata)
 
    (void) adata;
 
-   printAsterisks(0);
-   printf("* The available 2-sample tests are: \n");
-   printf("* (1) Student's T-test: \n");
-   printf("*          DO two NORMALLY DISTRIBUTED populations differ?\n");
-   printf("* (2) Mann-Whitney test: (non-parametric) \n");
-   printf("*          Do the two samples come from the same population \n");
-   printf("*          (thus the same probability distribution)? \n");
-   printf("*          (The MW test, roughly speaking, compares medians.)\n");
-   printf("*          (Therefore, if one sample occupies the high and)\n");
-   printf("*          (low ends and the other the middle, the MW test)\n");
-   printf("*          (may not be effective. Also, the MW test may not)\n");
-   printf("*          (be effective if there are too many ties. Use the)\n");
-   printf("*          (K-S test instead. The MW test is thus more)\n");
-   printf("*          (sensitive to differences in means or medians and\n");
-   printf("*          (less so for differences in shapes.) \n");
-   printf("* (3) Kolmogorov Smirnov test: (non-parametric)\n");
-   printf("*          Does the sample come from a population with a\n");
-   printf("*          specific distribution (given mean/stdev)? \n");
-   printf("*          (The K-S test is less likely to detect small)\n");
-   printf("*          (differences in the mean. It is sensitive to large)\n");
-   printf("*          (data differences ==> shape of the distribution.)\n");
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "* The available 2-sample tests are: \n");
+   printOutTS(PL_INFO, "* (1) Student's T-test: \n");
+   printOutTS(PL_INFO, "*          DO two NORMALLY DISTRIBUTED populations differ?\n");
+   printOutTS(PL_INFO, "* (2) Mann-Whitney test: (non-parametric) \n");
+   printOutTS(PL_INFO, "*          Do the two samples come from the same population \n");
+   printOutTS(PL_INFO, "*          (thus the same probability distribution)? \n");
+   printOutTS(PL_INFO, "*          (The MW test, roughly speaking, compares medians.)\n");
+   printOutTS(PL_INFO, "*          (Therefore, if one sample occupies the high and)\n");
+   printOutTS(PL_INFO, "*          (low ends and the other the middle, the MW test)\n");
+   printOutTS(PL_INFO, "*          (may not be effective. Also, the MW test may not)\n");
+   printOutTS(PL_INFO, "*          (be effective if there are too many ties. Use the)\n");
+   printOutTS(PL_INFO, "*          (K-S test instead. The MW test is thus more)\n");
+   printOutTS(PL_INFO, "*          (sensitive to differences in means or medians and\n");
+   printOutTS(PL_INFO, "*          (less so for differences in shapes.) \n");
+   printOutTS(PL_INFO, "* (3) Kolmogorov Smirnov test: (non-parametric)\n");
+   printOutTS(PL_INFO, "*          Does the sample come from a population with a\n");
+   printOutTS(PL_INFO, "*          specific distribution (given mean/stdev)? \n");
+   printOutTS(PL_INFO, "*          (The K-S test is less likely to detect small)\n");
+   printOutTS(PL_INFO, "*          (differences in the mean. It is sensitive to large)\n");
+   printOutTS(PL_INFO, "*          (data differences ==> shape of the distribution.)\n");
+   printAsterisks(PL_INFO, 0);
    while (testOption < 1 || testOption > 3)
    {
-      printf("Choose your test: \n");
-      printf("(1) Student's t-test\n");
+      printf( "Choose your test: \n");
+      printf( "(1) Student's t-test\n");
       printf("(2) Kolmogorov Smirnov test\n");
       printf("(3) Mann-Whitney test\n");
       printf("Your choice (1, 2, or 3): ");
@@ -260,13 +261,13 @@ double TwoSampleAnalyzer::analyze(aData &adata)
    file1 = fopen(filename1, "r");
    if (file1 == NULL)
    {
-      printf("TwoSampleAnalyzer ERROR: file1 %s does not exist.\n", filename1);
+      printOutTS(PL_ERROR, "TwoSampleAnalyzer ERROR: file1 %s does not exist.\n", filename1);
       return PSUADE_UNDEFINED;
    }
    fscanf(file1, "%d", &length1); 
    if (length1 <= 0)
    {
-      printf("TwoSampleAnalyzer ERROR: file1 has invalid length %d.\n",length1);
+      printOutTS(PL_ERROR, "TwoSampleAnalyzer ERROR: file1 has invalid length %d.\n",length1);
       fclose(file1);
       return PSUADE_UNDEFINED;
    }
@@ -274,13 +275,13 @@ double TwoSampleAnalyzer::analyze(aData &adata)
    file2 = fopen(filename2, "r");
    if (file2 == NULL)
    {
-      printf("TwoSampleAnalyzer ERROR: file2 %s does not exist.\n", filename2);
+      printOutTS(PL_ERROR, "TwoSampleAnalyzer ERROR: file2 %s does not exist.\n", filename2);
       return PSUADE_UNDEFINED;
    }
    fscanf(file2, "%d", &length2); 
    if (length2 <= 0)
    {
-      printf("TwoSampleAnalyzer ERROR: file2 has invalid length %d.\n",length2);
+      printOutTS(PL_ERROR, "TwoSampleAnalyzer ERROR: file2 has invalid length %d.\n",length2);
       fclose(file2);
       return PSUADE_UNDEFINED;
    }
@@ -293,7 +294,7 @@ double TwoSampleAnalyzer::analyze(aData &adata)
    }
    else
    {
-      printf("file %s does not exist when trying to open in file %s, LINE %d\n", 
+      printOutTS(PL_ERROR, "file %s does not exist when trying to open in file %s, LINE %d\n",
               filename1, __FILE__, __LINE__);
       exit(1);
    }
@@ -307,7 +308,7 @@ double TwoSampleAnalyzer::analyze(aData &adata)
    }
    else
    {
-      printf("file %s does not exist when trying to open in file %s, Line %d\n",
+      printOutTS(PL_ERROR, "file %s does not exist when trying to open in file %s, Line %d\n",
              filename2, __FILE__, __LINE__);
       exit(1);
    }
@@ -347,58 +348,72 @@ double TwoSampleAnalyzer::TAnalyze(int length1, double *Y1, int length2,
    for (ss = 0; ss < length2; ss++) var2 += pow(Y2[ss] - mean2, 2.0);
    var1 = var1 / (length1 - 1.0);
    var2 = var2 / (length2 - 1.0);
-   stdev = (var1*(length1-1.0)+var2*(length2-1.0))/(length1+length2-2.0);
-   stdev = stdev * (1.0 / length1 + 1.0 / length2);
-   stdev = sqrt(stdev);
+   stdev = sqrt(var1/length1+var2/length2);
    tval = (mean1 - mean2) / stdev;
+   if (tval < 0) tval = - tval;
 
    dofs = length1 + length2 - 2;
    if (dofs > TMaxSampleSize) dofs = TMaxSampleSize;
    for (ii = 0; ii < TMaxSignificanceLevels; ii++)
       localTable[ii] = TTable[dofs-1][ii];
 
-   if (pLevel > 0)
+   if (pLevel > 1)
    {
-      printAsterisks(0);
-      printAsterisks(0);
-      printf(" STUDENT'S T-TEST:\n\n");
-      printf(" NULL HYPOTHESIS H0: dataset means do not differ.\n");
-      printf("                     significantly.\n");
-      printf(" (This test is applied when sample sizes are small enough\n");
-      printf("  that using an assumption of normality and the associated\n");
-      printf("  z-test leads to incorrect inference. For this test, the\n");
-      printf("  variance of the two populations do not need to be equal.\n");
-      printf("  The T-value is calculated and used to find the p-value\n");
-      printf("  from the lookup table. If the p-value is > 0.05, then the\n");
-      printf("  NULL HYPOTHESIS is rejected.)\n");
-      printEquals(0);
-      printf(" SIZE OF DATASET 1        = %d\n", length1);
-      printf(" SIZE OF DATASET 2        = %d\n", length2);
-      printf(" T-statistic (mu1-mu2)/sd = %e\n", tval);
-      printEquals(0);
-      printf(" What ALPHA means: larger ALPHA ==> wider acceptance interval\n");
-      printEquals(0);
-      printf(" ALPHA LEVEL (2-sided)   CUTOFF         CONCLUSION\n");
-      printf(" 0.05                    %5.3f", localTable[0]);
-      if (tval <= localTable[0]) printf("          ACCEPT H0\n");
-      else                       printf("          REJECT H0\n");
-      printf(" 0.025                   %5.3f", localTable[1]);
-      if (tval <= localTable[1]) printf("          ACCEPT H0\n");
-      else                       printf("          REJECT H0\n");
-      printf(" 0.0125                  %5.3f", localTable[2]);
-      if (tval <= localTable[2]) printf("          ACCEPT H0\n");
-      else                       printf("          REJECT H0\n");
-      printf(" 0.005                   %5.3f", localTable[3]);
-      if (tval <= localTable[3]) printf("          ACCEPT H0\n");
-      else                       printf("          REJECT H0\n");
-      printf(" 0.0025                  %5.3f", localTable[4]);
-      if (tval <= localTable[4]) printf("          ACCEPT H0\n");
-      else                       printf("          REJECT H0\n");
-      printf(" 0.0005                  %5.3f", localTable[5]);
-      if (tval <= localTable[5]) printf("          ACCEPT H0\n");
-      else                       printf("          REJECT H0\n");
-      printAsterisks(0);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, " STUDENT'S T-TEST:\n\n");
+      printOutTS(PL_INFO, " NULL HYPOTHESIS H0: dataset means do not differ.\n");
+      printOutTS(PL_INFO, "                     significantly.\n");
+      printOutTS(PL_INFO, " (This test is applied when sample sizes are small enough\n");
+      printOutTS(PL_INFO, "  that using an assumption of normality and the associated\n");
+      printOutTS(PL_INFO, "  z-test leads to incorrect inference. For this test, the\n");
+      printOutTS(PL_INFO, "  variance of the two populations do not need to be equal.\n");
+      printOutTS(PL_INFO, "  The T-value is calculated and used to find the p-value\n");
+      printOutTS(PL_INFO, "  from the lookup table. If the p-value is > 0.05, then the\n");
+      printOutTS(PL_INFO, "  NULL HYPOTHESIS is rejected.)\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " SIZE OF DATASET 1        = %d\n", length1);
+      printOutTS(PL_INFO, " SIZE OF DATASET 2        = %d\n", length2);
+      printOutTS(PL_INFO, " T-statistic (mu1-mu2)/sd = %e\n", tval);
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " What ALPHA means: larger ALPHA ==> wider acceptance interval\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " ALPHA LEVEL (2-sided)   CUTOFF         CONCLUSION\n");
+      printOutTS(PL_INFO, " 0.05                    %5.3f", localTable[0]);
+      if (tval <= localTable[0]) printOutTS(PL_INFO, "          ACCEPT H0\n");
+      else                       printOutTS(PL_INFO, "          REJECT H0\n");
+      printOutTS(PL_INFO, " 0.025                   %5.3f", localTable[1]);
+      if (tval <= localTable[1]) printOutTS(PL_INFO, "          ACCEPT H0\n");
+      else                       printOutTS(PL_INFO, "          REJECT H0\n");
+      printOutTS(PL_INFO, " 0.0125                  %5.3f", localTable[2]);
+      if (tval <= localTable[2]) printOutTS(PL_INFO, "          ACCEPT H0\n");
+      else                       printOutTS(PL_INFO, "          REJECT H0\n");
+      printOutTS(PL_INFO, " 0.005                   %5.3f", localTable[3]);
+      if (tval <= localTable[3]) printOutTS(PL_INFO, "          ACCEPT H0\n");
+      else                       printOutTS(PL_INFO, "          REJECT H0\n");
+      printOutTS(PL_INFO, " 0.0025                  %5.3f", localTable[4]);
+      if (tval <= localTable[4]) printOutTS(PL_INFO, "          ACCEPT H0\n");
+      else                       printOutTS(PL_INFO, "          REJECT H0\n");
+      printOutTS(PL_INFO, " 0.0005                  %5.3f", localTable[5]);
+      if (tval <= localTable[5]) printOutTS(PL_INFO, "          ACCEPT H0\n");
+      else                       printOutTS(PL_INFO, "          REJECT H0\n");
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
+   }
+   else if (pLevel > 0)
+   {
+      if (tval <= localTable[0]) 
+      {
+         printOutTS(PL_INFO, "          ACCEPT H0 (%e < %e)\n",tval,localTable[0]);
+         printOutTS(PL_INFO, "          Mean, Std. dev 1 = %e  %e\n",mean1,sqrt(var1));
+         printOutTS(PL_INFO, "          Mean, Std. dev 2 = %e  %e\n",mean2,sqrt(var2));
+      }
+      else
+      {
+         printOutTS(PL_INFO, "          REJECT H0 (%e > %e)\n",tval,localTable[0]);
+         printOutTS(PL_INFO, "          Mean, Std. dev 1 = %e  %e\n",mean1,sqrt(var1));
+         printOutTS(PL_INFO, "          Mean, Std. dev 2 = %e  %e\n",mean2,sqrt(var2));
+      }
    }
 
    if      (tval < -localTable[0]) retval = -1.0;
@@ -427,14 +442,14 @@ double TwoSampleAnalyzer::KSAnalyze(int length1, double *Y1, int length2,
          outfile = fopen("scilabks.sci", "w");
          if (outfile != NULL)
               fprintf(outfile, "// Kolmogorov Smirnov test\n");
-         else printf("INFO: cannot open file scilabks.sci\n");
+         else printOutTS(PL_INFO, "INFO: cannot open file scilabks.sci\n");
       }
       else
       {
          outfile = fopen("matlabks.m", "w");
          if (outfile != NULL)
               fprintf(outfile, "%% Kolmogorov Smirnov test\n");
-         else printf("INFO: cannot open file matlabks.m\n");
+         else printOutTS(PL_INFO, "INFO: cannot open file matlabks.m\n");
       }
       if (outfile != NULL)
       { 
@@ -481,8 +496,8 @@ double TwoSampleAnalyzer::KSAnalyze(int length1, double *Y1, int length2,
          fwritePlotTitle(outfile, "Kolgomorov Smirnov Test");
          fclose(outfile);
          if (psPlotTool_ == 1)
-              printf("KSAnalyzer: scilabks.sci created.\n");
-         else printf("KSAnalyzer: matlabks.m created.\n");
+              printOutTS(PL_INFO, "KSAnalyzer: scilabks.sci created.\n");
+         else printOutTS(PL_INFO, "KSAnalyzer: matlabks.m created.\n");
       }
    }
 
@@ -510,36 +525,36 @@ double TwoSampleAnalyzer::KSAnalyze(int length1, double *Y1, int length2,
    }
    if (pLevel > 0)
    {
-      printAsterisks(0);
-      printAsterisks(0);
-      printf(" KOLMOGOROV SMIRNOV TWO-SAMPLE TEST NONPARAMETRIC TEST: \n\n");
-      printf(" NULL HYPOTHESIS H0 : datasets do not differ significantly.\n");
-      printf(" ALTERNATIVE HYPOTHESIS : datasets differ significantly.\n");
-      printEquals(0);
-      printf(" ALPHA LEVEL : level of significance (the higher the better).\n");
-      printEquals(0);
-      printf(" SIZE OF DATASET 1 = %d\n", length1);
-      printf(" SIZE OF DATASET 2 = %d\n", length2);
-      printf(" KS D-Statistic    = %e\n", DStat);
-      printEquals(0);
-      printf(" ALPHA LEVEL       CUTOFF         CONCLUSION\n");
-      printf(" 20%%              %5.3f", localTable[0]);
-      if (DStat <= localTable[0]) printf("           ACCEPT H0\n");
-      else                        printf("           REJECT H0\n");
-      printf(" 15%%              %5.3f", localTable[1]);
-      if (DStat <= localTable[1]) printf("           ACCEPT H0\n");
-      else                        printf("           REJECT H0\n");
-      printf(" 10%%              %5.3f", localTable[2]);
-      if (DStat <= localTable[2]) printf("           ACCEPT H0\n");
-      else                        printf("           REJECT H0\n");
-      printf("  5%%              %5.3f", localTable[3]);
-      if (DStat <= localTable[3]) printf("           ACCEPT H0\n");
-      else                        printf("           REJECT H0\n");
-      printf("  1%%              %5.3f", localTable[4]);
-      if (DStat <= localTable[4]) printf("           ACCEPT H0\n");
-      else                        printf("           REJECT H0\n");
-      printAsterisks(0);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, " KOLMOGOROV SMIRNOV TWO-SAMPLE TEST NONPARAMETRIC TEST: \n\n");
+      printOutTS(PL_INFO, " NULL HYPOTHESIS H0 : datasets do not differ significantly.\n");
+      printOutTS(PL_INFO, " ALTERNATIVE HYPOTHESIS : datasets differ significantly.\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " ALPHA LEVEL : level of significance (the higher the better).\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " SIZE OF DATASET 1 = %d\n", length1);
+      printOutTS(PL_INFO, " SIZE OF DATASET 2 = %d\n", length2);
+      printOutTS(PL_INFO, " KS D-Statistic    = %e\n", DStat);
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " ALPHA LEVEL       CUTOFF         CONCLUSION\n");
+      printOutTS(PL_INFO, " 20%%              %5.3f", localTable[0]);
+      if (DStat <= localTable[0]) printOutTS(PL_INFO, "           ACCEPT H0\n");
+      else                        printOutTS(PL_INFO, "           REJECT H0\n");
+      printOutTS(PL_INFO, " 15%%              %5.3f", localTable[1]);
+      if (DStat <= localTable[1]) printOutTS(PL_INFO, "           ACCEPT H0\n");
+      else                        printOutTS(PL_INFO, "           REJECT H0\n");
+      printOutTS(PL_INFO, " 10%%              %5.3f", localTable[2]);
+      if (DStat <= localTable[2]) printOutTS(PL_INFO, "           ACCEPT H0\n");
+      else                        printOutTS(PL_INFO, "           REJECT H0\n");
+      printOutTS(PL_INFO, "  5%%              %5.3f", localTable[3]);
+      if (DStat <= localTable[3]) printOutTS(PL_INFO, "           ACCEPT H0\n");
+      else                        printOutTS(PL_INFO, "           REJECT H0\n");
+      printOutTS(PL_INFO, "  1%%              %5.3f", localTable[4]);
+      if (DStat <= localTable[4]) printOutTS(PL_INFO, "           ACCEPT H0\n");
+      else                        printOutTS(PL_INFO, "           REJECT H0\n");
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
    }
 
    return (DStat);
@@ -592,7 +607,7 @@ double TwoSampleAnalyzer::MWAnalyze(int length1, double *Y1, int length2,
    ptype = PSUADE_PDF_NORMAL;
    mean = dZero;
    std  = dOne;
-   pdfman->initialize(1, &ptype, &mean, &std, corMat);
+   pdfman->initialize(1, &ptype, &mean, &std, corMat, NULL, NULL);
    vecOut.setLength(1);
    vecIn.load(1, &Z);
    vecUpper.load(1, &dOne);
@@ -602,24 +617,24 @@ double TwoSampleAnalyzer::MWAnalyze(int length1, double *Y1, int length2,
    cval = vecOut[0];
    if (pLevel > 0)
    {
-      printAsterisks(0);
-      printAsterisks(0);
-      printf(" MANN-WHITNEY TEST:\n");
-      printf(" NULL HYPOTHESIS H0 : datasets do not differ significantly.\n");
-      printEquals(0);
-      printf(" SIZE OF DATASET 1   = %d\n", length1);
-      printf(" SIZE OF DATASET 2   = %d\n", length2);
-      printf(" MW TEST U statistic = %e (high = %e) \n", U, Uh);
-      printf(" MW TEST Z statistic = %e\n", Z);
-      printEquals(0);
-      printf(" Significance level                = 0.05 (one-sided)\n");
-      printf(" Critical value (Prob[0.05,0.95])  = %e\n", cval);
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, " MANN-WHITNEY TEST:\n");
+      printOutTS(PL_INFO, " NULL HYPOTHESIS H0 : datasets do not differ significantly.\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " SIZE OF DATASET 1   = %d\n", length1);
+      printOutTS(PL_INFO, " SIZE OF DATASET 2   = %d\n", length2);
+      printOutTS(PL_INFO, " MW TEST U statistic = %e (high = %e) \n", U, Uh);
+      printOutTS(PL_INFO, " MW TEST Z statistic = %e\n", Z);
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, " Significance level                = 0.05 (one-sided)\n");
+      printOutTS(PL_INFO, " Critical value (Prob[0.05,0.95])  = %e\n", cval);
       if (cval >= 0.05 && cval <= 0.95)
-         printf(" ACCEPT the NULL HYPOTHESIS.\n");
+         printOutTS(PL_INFO, " ACCEPT the NULL HYPOTHESIS.\n");
       else
-         printf(" REJECT the NULL HYPOTHESIS.\n");
-      printAsterisks(0);
-      printAsterisks(0);
+         printOutTS(PL_INFO, " REJECT the NULL HYPOTHESIS.\n");
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
    }
 
    delete [] Y;
@@ -634,7 +649,7 @@ double TwoSampleAnalyzer::MWAnalyze(int length1, double *Y1, int length2,
 // ------------------------------------------------------------------------
 TwoSampleAnalyzer& TwoSampleAnalyzer::operator=(const TwoSampleAnalyzer &)
 {
-   printf("TwoSampleAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "TwoSampleAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

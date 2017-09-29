@@ -436,6 +436,11 @@ int LPtauSampling::initialize(int initLevel)
    int    sampleID, inputID;
    double *ranges, ddata, ddata2, perturb;
 
+   if (nSamples_ == 0)
+   {
+      printf("LPtauSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("LPtauSampling::initialize ERROR - input not set up.\n");

@@ -26,7 +26,6 @@
 // ************************************************************************
 #include <stdio.h>
 #include <sstream>
-using namespace std;
 
 #include "Psuade.h"
 #include "sysdef.h"
@@ -59,6 +58,11 @@ int RFractFactSampling::initialize(int initLevel)
    double width;
    char   pString[500];
 
+   if (nSamples_ == 0)
+   {
+      printf("RFractFactSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("RFractFactSampling::initialize ERROR - input not set up.\n");

@@ -28,6 +28,7 @@
 #define __GRADLEGENDREREGRESSIONH__
 
 #include "FuncApprox.h"
+#include "Matrix.h"
 
 // ************************************************************************
 // class definition
@@ -43,11 +44,13 @@ class GradLegendreRegression: public FuncApprox
    int    normalizeFlag_;
    double **fuzzyC_;
    char   gradFile_[1000];
+   Matrix covMatrix_;
 
 public:
    GradLegendreRegression(int, int);
    ~GradLegendreRegression();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, int *, 
                         double **, double **);

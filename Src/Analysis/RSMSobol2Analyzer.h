@@ -25,10 +25,9 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2006
 // ************************************************************************
-
 #ifndef __RSMSOBOL2ANALYZERH__
 #define __RSMSOBOL2ANALYZERH__
-
+#include <vector>
 #include "Analyzer.h"
 
 // ************************************************************************
@@ -37,6 +36,19 @@
                                                                                 
 class RSMSobol2Analyzer : public Analyzer
 {
+private:
+
+   int    nInputs_;
+   double outputMean_;
+   double outputStd_;
+   struct record
+   {
+      int index1;
+      int index2;
+      double value;
+   };
+   std::vector<record> vces_;  //length is nInputs_ * (nInputs_-1)/2
+   std::vector<record> ecvs_;	//length is nInputs_ * (nInputs_-1)/2
 
 public:
 
@@ -49,6 +61,13 @@ public:
    double analyze2(aData &adata);
 
    RSMSobol2Analyzer& operator=(const RSMSobol2Analyzer &analyzer);
+
+   /** Getters for analysis results */
+   int    get_nInputs();
+   double get_outputMean();
+   double get_outputStd();
+   std::vector<record>  get_vces();
+   std::vector<record>  get_ecvs();
 };
 
 #endif // __RSMSOBOL2ANALYZERH__

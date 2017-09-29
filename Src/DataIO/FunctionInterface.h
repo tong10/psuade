@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __FUNCTIONINTERFACEH__
 #define __FUNCTIONINTERFACEH__
 
@@ -154,6 +153,8 @@ private :
 // function to instantiate this class
 // ------------------------------------------------------------------------
 FunctionInterface *createFunctionInterface(PsuadeData *psuadeIO);
+
+//** Blows away the appDriver for some reason. That's simpler?*/
 FunctionInterface *createFunctionInterfaceSimplified(PsuadeData *psuadeIO);
 FunctionInterface *createFunctionInterfaceGivenAppDriver(int, int, char *fname);
 

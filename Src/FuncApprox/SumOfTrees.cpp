@@ -80,6 +80,17 @@ SumOfTrees::~SumOfTrees()
 }
 
 // ************************************************************************
+// initialize 
+// ------------------------------------------------------------------------
+int SumOfTrees::initialize(double *X, double *Y)
+{
+   initTrees();
+
+   buildTrees(X, Y);
+   return 0;
+}
+  
+// ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
 int SumOfTrees::genNDGridData(double *X, double *Y, int *N2, double **X2, 
@@ -339,22 +350,28 @@ double SumOfTrees::evaluatePoint(int npts, double *X, double *Y)
 // ************************************************************************
 // Evaluate a given point with standard deviation
 // ------------------------------------------------------------------------
-double SumOfTrees::evaluatePointFuzzy(double *X, double &std)
+double SumOfTrees::evaluatePointFuzzy(double *X, double &Ystd)
 {
-   double Y=0.0;
-   Y = evaluatePoint(X);
-   std = 0.0;
-   return Y;
+   int    ii;
+   double Ymean;
+   Ymean = 0.0;
+   for (ii = 0; ii < numTrees_; ii++) Ymean += evaluateTree(treePtrs_[ii], X);
+   Ymean /= (double) numTrees_;
+   Ystd = 0.0;
+   for (ii = 0; ii < numTrees_; ii++) 
+      Ystd += pow(evaluateTree(treePtrs_[ii], X) - Ymean, 2.0);
+   Ystd = sqrt(Ystd/(numTrees_-1.0));
+   return Ymean;
 }
 
 // ************************************************************************
 // Evaluate a number of points with standard deviations
 // ------------------------------------------------------------------------
 double SumOfTrees::evaluatePointFuzzy(int npts, double *X, double *Y,
-                                       double *Ystd)
+                                      double *Ystd)
 {
-   evaluatePoint(npts, X, Y);
-   for (int ss = 0; ss < npts; ss++) Ystd[ss] = 0.0;
+   for (int ss = 0; ss < npts; ss++) 
+      Y[ss] = evaluatePointFuzzy(&X[ss*nInputs_], Ystd[ss]);
    return 0.0;
 }
 
@@ -388,8 +405,9 @@ int SumOfTrees::initTrees()
 // ------------------------------------------------------------------------
 int SumOfTrees::buildTrees(double *X, double *Y)
 {
-   int      jj, kk, mm, ss;
-   double   *XT, *YT, *YY, mult, checksum, *inputScores;
+   int    jj, kk, mm, ss;
+   double *XT, *YT, *YY, mult, checksum, *inputScores;
+   FILE   *fp=NULL;
 
    //** allocate temporary storage
    XT = new double[nSamples_*nInputs_];
@@ -401,11 +419,49 @@ int SumOfTrees::buildTrees(double *X, double *Y)
    for (jj = 0; jj < nInputs_; jj++) inputScores[jj] = 0.0; 
    for (jj = 0; jj < nSamples_; jj++) YY[jj] = Y[jj];
 
+   if (psRSCodeGen_ == 1) fp  = fopen("psuade_rs.info", "w");
+   if (fp != NULL)
+   {
+      fprintf(fp,"This file contains information to re-construct sum-of-trees\n");
+      fprintf(fp,"response surface offline. Follow the steps below:\n");
+      fprintf(fp,"1. Search for the keywords 'SPLIT HERE' in this file.\n");
+      fprintf(fp,"2. Store the lines below keywords into main.cpp\n");
+      fprintf(fp,"3. Compile main.cpp (g++ -o main main.cpp -lm) and run\n");
+      fprintf(fp,"\n");
+      fprintf(fp,"PSUADE_BEGIN\n");
+      fprintf(fp,"NT = %d\n", numTrees_);
+      fclose(fp);
+   }
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "w");
+   if (fp != NULL)
+   {
+      fwriteRSPythonHeader(fp);
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"# Sum-of-trees interpolation\n");
+      fprintf(fp,"#==================================================\n");
+      fwriteRSPythonCommon(fp);
+      fclose(fp);
+   }
    mult = shrinkFactor_;
    printf("SumOfTrees: building %d trees.\n", numTrees_);
    for (mm = 0; mm < numTrees_; mm++)
    {
       if (outputLevel_ > 0) printf("   building tree #%d\n",mm+1);
+      if (psRSCodeGen_ == 1)
+      {
+         fp = fopen("psuade_rs.info", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "TREE %d\n", mm);
+            fclose(fp);
+         }
+         fp = fopen("psuade_rs.py", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "T%d = [\n", mm);
+            fclose(fp);
+         }
+      }
       if (mode_ == 0)
       {
          for (ss = 0; ss < nSamples_; ss++)
@@ -434,8 +490,296 @@ int SumOfTrees::buildTrees(double *X, double *Y)
          if (mm == numTrees_-1) mult = 1.0;
          printf("mult %d = %e\n", mm, mult);
       }
+      if (psRSCodeGen_ == 1)
+      {
+         fp = fopen("psuade_rs.info", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "TREE %d\n", mm);
+            fclose(fp);
+         }
+         fp = fopen("psuade_rs.py", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "]\n");
+            fclose(fp);
+         }
+      }
    }
-
+   fp = NULL;
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "a");
+   if (fp != NULL)
+   {
+      fprintf(fp,"====================== SPLIT HERE =====================\n");
+      fprintf(fp,"/* *******************************************/\n");
+      fprintf(fp,"/* User regression interpolator form PSUADE. */\n");
+      fprintf(fp,"/* ==========================================*/\n");
+      fprintf(fp,"#include <math.h>\n");
+      fprintf(fp,"#include <stdlib.h>\n");
+      fprintf(fp,"#include <stdio.h>\n");
+      fprintf(fp,"#include <string.h>\n");
+      fprintf(fp,"// ============================================\n");
+      fprintf(fp,"// class definition\n");
+      fprintf(fp,"// ============================================\n");
+      fprintf(fp,"class TreeNode {\n");
+      fprintf(fp,"public:\n");
+      fprintf(fp,"   TreeNode *leftNode_;\n");
+      fprintf(fp,"   TreeNode *rightNode_;\n");
+      fprintf(fp,"   int      whichInput_;\n");
+      fprintf(fp,"   double   cutPoint_;\n");
+      fprintf(fp,"   double   nodeValue_;\n");
+      fprintf(fp,"   double   nodeStdev_;\n");
+      fprintf(fp,"   TreeNode() {};\n");
+      fprintf(fp,"   ~TreeNode() {};\n");
+      fprintf(fp,"};\n");
+      fprintf(fp,"int    initialize(int *, TreeNode ***);\n");
+      fprintf(fp,"int    buildOneTree(FILE *, TreeNode *);\n");
+      fprintf(fp,"double interpolate(int,TreeNode **,double *,double &);\n");
+      fprintf(fp,"// ============================================\n");
+      fprintf(fp,"// main program\n");
+      fprintf(fp,"// ============================================\n");
+      fprintf(fp,"main(int argc, char **argv) {\n");
+      fprintf(fp,"  int    ii,nInps,nTrees;\n");
+      fprintf(fp,"  double X[%d], Y, Std;\n",nInputs_);
+      fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
+      fprintf(fp,"  TreeNode **treePtrs;\n");
+      fprintf(fp,"  if (argc != 3) {\n");
+      fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fIn = fopen(argv[1], \"r\");\n");
+      fprintf(fp,"  if (fIn == NULL) {\n");
+      fprintf(fp,"     printf(\"ERROR: cannot open input file.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fscanf(fIn, \"%%d\", &nInps);\n");
+      fprintf(fp,"  if (nInps != %d) {\n", nInputs_);
+      fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
+      fprintf(fp,"    exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  for (ii=0;ii<%d;ii++) fscanf(fIn,\"%%lg\",&X[ii]);\n",nInputs_);
+      fprintf(fp,"  fclose(fIn);\n");
+      fprintf(fp,"  initialize(&nTrees,&treePtrs);\n");
+      fprintf(fp,"  Y = interpolate(nTrees,treePtrs, X, Std);\n");
+      fprintf(fp,"  printf(\"Y = %%e (stdev = %%e)\\n\", Y, Std);\n");
+      fprintf(fp,"  fOut = fopen(argv[2], \"w\");\n");
+      fprintf(fp,"  if (fOut == NULL) {\n");
+      fprintf(fp,"    printf(\"ERROR: cannot open output file.\\n\");\n");
+      fprintf(fp,"    exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fprintf(fOut,\" %%e\\n\", Y);\n");
+      fprintf(fp,"  fclose(fOut);\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* *******************************************/\n");
+      fprintf(fp,"/* initialize */\n");
+      fprintf(fp,"/* ==========================================*/\n");
+      fprintf(fp,"int initialize(int *nTrees, TreeNode ***treePtrs) {\n");
+      fprintf(fp,"  int  ntrees, ii, tind, status;\n");
+      fprintf(fp,"  char line[1001], word[500], equal[5];\n");
+      fprintf(fp,"  FILE *fp=NULL;\n");
+      fprintf(fp,"  TreeNode **treeptrs;\n");
+      fprintf(fp,"  fp = fopen(\"psuade_rs.info\",\"r\");\n");
+      fprintf(fp,"  if (fp == NULL){\n");
+      fprintf(fp,"     printf(\"Data file (psuade_rs.info) not found.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  while (1) {\n");
+      fprintf(fp,"    fgets(line, 500, fp);\n");
+      fprintf(fp,"    sscanf(line, \"%%s\",word);\n");
+      fprintf(fp,"    if (!strcmp(word, \"PSUADE_BEGIN\")) break;\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fscanf(fp,\"%%s %%s %%d\", word, equal, nTrees);\n");
+      fprintf(fp,"  if (strcmp(word, \"NT\") && equal[0] != '=') {\n");
+      fprintf(fp,"    printf(\"ERROR: reading tree info (0)\\n\");\n");
+      fprintf(fp,"    exit(1); }\n");
+      fprintf(fp,"  treeptrs = new TreeNode*[ntrees];\n");
+      fprintf(fp,"  for (ii = 0; ii < *nTrees; ii++) {\n");
+      fprintf(fp,"    fscanf(fp, \"%%s %%d\", word, &tind);\n");
+      fprintf(fp,"    if (tind != ii) {\n");
+      fprintf(fp,"      printf(\"ERROR: reading tree info (1)\\n\");\n");
+      fprintf(fp,"      exit(1); }\n");
+      fprintf(fp,"    treeptrs[ii] = new TreeNode();\n");
+      fprintf(fp,"    status = buildOneTree(fp, treeptrs[ii]);\n");
+      fprintf(fp,"    if (status != 0) {\n");
+      fprintf(fp,"      printf(\"ERROR: reading tree info (2)\\n\");\n");
+      fprintf(fp,"      exit(1); }\n");
+      fprintf(fp,"    fscanf(fp, \"%%s %%d\", word, &tind);\n");
+      fprintf(fp,"    if (tind != ii) {\n");
+      fprintf(fp,"      printf(\"ERROR: reading tree info (3)\\n\");\n");
+      fprintf(fp,"      exit(1); }\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fclose(fp);\n");
+      fprintf(fp,"  (*treePtrs) = treeptrs;\n");
+      fprintf(fp,"  return 0;\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* *******************************************/\n");
+      fprintf(fp,"/* build trees */\n");
+      fprintf(fp,"/* ==========================================*/\n");
+      fprintf(fp,"int buildOneTree(FILE *fp, TreeNode *treePtr) {\n");
+      fprintf(fp,"  int    inp, level; double ddata;\n");
+      fprintf(fp,"  char   word1[1001], colon[5], word2[1001], equal[5];\n");
+      fprintf(fp,"  fscanf(fp,\"%%s %%d %%s %%s\",word1,&level,equal,word2);\n");
+      fprintf(fp,"  if (strcmp(word1, \"Level\")) {\n");
+      fprintf(fp,"    printf(\"ERROR: reading tree info\\n\");\n");
+      fprintf(fp,"    exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  if (word2[0] == 'N') {\n");
+      fprintf(fp,"    treePtr->leftNode_ = NULL;\n");
+      fprintf(fp,"    treePtr->rightNode_ = NULL;\n");
+      fprintf(fp,"    treePtr->whichInput_ = -1;\n");
+      fprintf(fp,"    fscanf(fp,\"%%s %%d %%s %%s %%s %%lg\",word1,&level,\n");
+      fprintf(fp,"           colon,word2,equal,&ddata);\n");
+      fprintf(fp,"    treePtr->nodeValue_ = ddata;\n");
+      fprintf(fp,"    fscanf(fp,\"%%s %%d %%s %%s %%s %%lg\",word1,&level,\n");
+      fprintf(fp,"           colon,word2,equal,&ddata);\n");
+      fprintf(fp,"    treePtr->nodeStdev_ = ddata;\n");
+      fprintf(fp,"    return 0;\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  if (word2[0] == 'C') {\n");
+      fprintf(fp,"    fscanf(fp,\"%%s %%lg\",word1,&ddata);\n");
+      fprintf(fp,"    treePtr->cutPoint_ = ddata;\n");
+      fprintf(fp,"    fscanf(fp,\"%%s %%d %%s %%s %%s %%d\",word1,&level,\n");
+      fprintf(fp,"           colon,word2,equal,&inp);\n");
+      fprintf(fp,"    treePtr->whichInput_ = inp;\n");
+      fprintf(fp,"    treePtr->leftNode_ = new TreeNode();\n");
+      fprintf(fp,"    buildOneTree(fp, treePtr->leftNode_);\n");
+      fprintf(fp,"    treePtr->rightNode_ = new TreeNode();\n");
+      fprintf(fp,"    buildOneTree(fp, treePtr->rightNode_);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  return 0;\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* *******************************************/\n");
+      fprintf(fp,"/* evaluate */\n");
+      fprintf(fp,"/* ==========================================*/\n");
+      fprintf(fp,"double evaluateTree(TreeNode *tptr, double *X) {\n");
+      fprintf(fp,"   int    ind; double Y=0.0;\n");
+      fprintf(fp,"   if (tptr->whichInput_ < 0) Y = tptr->nodeValue_;\n");
+      fprintf(fp,"   else {\n");
+      fprintf(fp,"      ind = tptr->whichInput_;\n");
+      fprintf(fp,"      if (X[ind] <= tptr->cutPoint_)\n");
+      fprintf(fp,"           Y = evaluateTree(tptr->leftNode_, X);\n");
+      fprintf(fp,"      else Y = evaluateTree(tptr->rightNode_, X);\n");
+      fprintf(fp,"   }\n");
+      fprintf(fp,"   return Y;\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"double interpolate(int nTrees, TreeNode **treePtrs,\n");
+      fprintf(fp,"                   double *X, double &Ystd) {\n");
+      fprintf(fp,"   int    ii; double Ymean=0.0;\n");
+      fprintf(fp,"   for (ii = 0; ii < nTrees; ii++)\n");
+      fprintf(fp,"      Ymean += evaluateTree(treePtrs[ii],X);\n");
+      fprintf(fp,"   Ymean /= (double) nTrees;\n");
+      fprintf(fp,"   Ystd = 0.0;\n");
+      fprintf(fp,"   for (ii = 0; ii < nTrees; ii++)\n");
+      fprintf(fp,"      Ystd += pow(evaluateTree(treePtrs[ii],X)-Ymean,2.0);\n");
+      fprintf(fp,"   Ystd = sqrt(Ystd/(nTrees-1.0));\n");
+      fprintf(fp,"   return Ymean;\n");
+      fprintf(fp,"}\n");
+      fclose(fp);
+      printf("FILE psuade_rs.info contains sum-of-trees information.\n");
+   }
+   fp = NULL;
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "a");
+   if (fp != NULL)
+   {
+      fprintf(fp,"nInputs = %d\n", nInputs_);
+      fprintf(fp,"nTrees = %d\n", numTrees_);
+      fprintf(fp,"Trees = []\n");
+      fprintf(fp,"T = []\n");
+      for (mm = 0; mm < numTrees_; mm++) fprintf(fp,"T.append(T%d)\n",mm);
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"class treeNode :\n");
+      fprintf(fp,"  def __init__(self,level=0,tlist=None,listInd=0,listLen=0):\n");
+      fprintf(fp,"    self.level = level\n");
+      fprintf(fp,"    self.index = 0\n");
+      fprintf(fp,"    self.whichInput = -1\n");
+      fprintf(fp,"    self.cutPoint = 0\n");
+      fprintf(fp,"    self.left = None\n");
+      fprintf(fp,"    self.right = None\n");
+      fprintf(fp,"    self.nodeValue  = 0.0\n");
+      fprintf(fp,"    self.nodeStdev  = 0.0\n");
+      fprintf(fp,"    dataLen = listLen\n");
+      fprintf(fp,"    if listLen == 0 : \n");
+      fprintf(fp,"      dataLen = len(tlist) - listInd\n");
+      fprintf(fp,"    if listInd < dataLen : \n");
+      fprintf(fp,"      item = tlist[listInd]\n");
+      fprintf(fp,"      lvl  = item[0]\n");
+      fprintf(fp,"      typ  = item[1]\n");
+      fprintf(fp,"      val  = item[2]\n");
+      fprintf(fp,"      if lvl == self.level : \n");
+      fprintf(fp,"        if typ == 'N' : \n");
+      fprintf(fp,"          self.whichInput = -1\n");
+      fprintf(fp,"          item1 = tlist[listInd+1]\n");
+      fprintf(fp,"          self.nodeValue  = item1[2]\n");
+      fprintf(fp,"          item2 = tlist[listInd+2]\n");
+      fprintf(fp,"          self.nodeStdev  = item2[2]\n");
+      fprintf(fp,"          self.left  = None\n");
+      fprintf(fp,"          self.right = None\n");
+      fprintf(fp,"          self.cutPoint = 0.0\n");
+      fprintf(fp,"          self.index = 3\n");
+      fprintf(fp,"        elif typ == 'C' : \n");
+      fprintf(fp,"          self.cutPoint = item[2]\n");
+      fprintf(fp,"          item1 = tlist[listInd+1]\n");
+      fprintf(fp,"          self.whichInput = item1[2]\n");
+      fprintf(fp,"          self.nodeValue  = 0.0\n");
+      fprintf(fp,"          self.nodeStdev  = 0.0\n");
+      fprintf(fp,"          self.left  = treeNode(level+1,tlist,listInd+2,dataLen)\n");
+      fprintf(fp,"          depth1 = self.left.getIndex()\n");
+      fprintf(fp,"          self.right = treeNode(level+1,tlist,listInd+depth1+2,dataLen)\n");
+      fprintf(fp,"          depth2 = self.right.getIndex()\n");
+      fprintf(fp,"          self.index = depth1 + depth2 + 2\n");
+      fprintf(fp,"  def getIndex(self): \n");
+      fprintf(fp,"    return self.index\n");
+      fprintf(fp,"  def evaluate(self, X): \n");
+      fprintf(fp,"    inp = self.whichInput\n");
+      fprintf(fp,"    if inp < 0 : \n");
+      fprintf(fp,"      return(self.nodeValue)\n");
+      fprintf(fp,"    else : \n");
+      fprintf(fp,"      if X[inp] <= self.cutPoint :\n");
+      fprintf(fp,"        return self.left.evaluate(X)\n");
+      fprintf(fp,"      else : \n");
+      fprintf(fp,"        return self.right.evaluate(X)\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"# Interpolation function  \n");
+      fprintf(fp,"# X[0], X[1],   .. X[m-1]   - first point\n");
+      fprintf(fp,"# X[m], X[m+1], .. X[2*m-1] - second point\n");
+      fprintf(fp,"# ... \n");
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"def interpolate(XX): \n");
+      fprintf(fp,"  nSamp = int(len(XX) / nInputs + 1.0e-8)\n");
+      fprintf(fp,"  Xt = nInputs * [0.0]\n");
+      fprintf(fp,"  Yt = nTrees * [0.0]\n");
+      fprintf(fp,"  Ys = 2 * nSamp * [0.0]\n");
+      fprintf(fp,"  for ss in range(nSamp) : \n");
+      fprintf(fp,"    for ii in range(nInputs) : \n");
+      fprintf(fp,"      Xt[ii] = XX[ss*nInputs+ii]\n");
+      fprintf(fp,"    for tt in range(nTrees) : \n");
+      fprintf(fp,"      Yt[tt] = Trees[tt].evaluate(Xt)\n");
+      fprintf(fp,"    Ymean = 0.0\n");
+      fprintf(fp,"    for tt in range(nTrees) : \n");
+      fprintf(fp,"      Ymean = Ymean + Yt[tt]\n");
+      fprintf(fp,"    Ymean = Ymean / nTrees\n");
+      fprintf(fp,"    Ystd = 0.0\n");
+      fprintf(fp,"    for tt in range(nTrees) : \n");
+      fprintf(fp,"      Ystd = Ystd + (Yt[tt] - Ymean) * (Yt[tt] - Ymean)\n");
+      fprintf(fp,"    Ystd = math.sqrt(Ystd / (nTrees - 1.0))\n");
+      fprintf(fp,"    Ys[ss*2] = Ymean\n");
+      fprintf(fp,"    Ys[ss*2+1] = Ystd\n");
+      fprintf(fp,"  return Ys\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"# main program\n");
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"infileName  = sys.argv[1]\n");
+      fprintf(fp,"outfileName = sys.argv[2]\n");
+      fprintf(fp,"inputs = getInputData(infileName)\n");
+      fprintf(fp,"for ii in range(nTrees):\n");
+      fprintf(fp,"  tree = treeNode(0,T[ii])\n");
+      fprintf(fp,"  Trees.append(tree)\n");
+      fprintf(fp,"outputs = interpolate(inputs)\n");
+      fprintf(fp,"genOutputFile(outfileName, outputs)\n");
+      fprintf(fp,"###################################################\n");
+      fclose(fp);
+      printf("FILE psuade_rs.py contains the sum-of-trees interpolator.\n");
+   }
    delete [] XT;
    delete [] YT;
    delete [] YY;
@@ -452,6 +796,7 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
    int    ii, jj, kk, minInd, repeatCnt, inpImpurity, locImpurity;
    double mean1, mean2, sosSum, sosMin, Ymax, *X1, *Y1;
    double lmean1, lmean2, sos1, sos2, sos, mean, maxImpurity, ddata;
+   FILE   *fp;
 
    if (leng < 2*minPtsPerNode_)
    {
@@ -466,6 +811,25 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
       ddata = 0.0;
       for (jj = 0; jj < leng; jj++) ddata += pow(YT[jj]-mean,2.0);
       tnode->nodeStdev_ = sqrt(ddata/leng);
+      if (psRSCodeGen_ == 1)
+      {
+         fp = fopen("psuade_rs.info", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "Level %d : N\n", level);
+            fprintf(fp, "Level %d : M = %e\n", level, mean);
+            fprintf(fp, "Level %d : S = %e\n", level, tnode->nodeStdev_);
+            fclose(fp);
+         }
+         fp = fopen("psuade_rs.py", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "[ %d , 'N', 0.0 ],\n", level);
+            fprintf(fp, "[ %d , 'M', %e ],\n", level, mean);
+            fprintf(fp, "[ %d , 'S', %e ],\n", level, tnode->nodeStdev_);
+            fclose(fp);
+         }
+      }
       return -1;
    }
 
@@ -565,6 +929,23 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
 
       tnode->cutPoint_ = XT[locImpurity*nInputs_+inpImpurity]; 
       tnode->whichInput_ = inpImpurity; 
+      if (psRSCodeGen_ == 1)
+      {
+         fp = fopen("psuade_rs.info", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "Level %d : C = %e\n", level, tnode->cutPoint_);
+            fprintf(fp, "Level %d : I = %d\n",level, inpImpurity);
+            fclose(fp);
+         }
+         fp = fopen("psuade_rs.py", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "[ %d , 'C',  %e ],\n", level, tnode->cutPoint_);
+            fprintf(fp, "[ %d , 'I',  %d ],\n",level, inpImpurity);
+            fclose(fp);
+         }
+      }
       if (outputLevel_ >= 3)
          printf("SumTree Level = %d, Cutting input %d at %e\n", level, 
                 inpImpurity+1, tnode->cutPoint_);
@@ -588,6 +969,25 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
       ddata = 0.0;
       for (jj = 0; jj < leng; jj++) ddata += pow(YT[jj]-mean,2.0);
       tnode->nodeStdev_ = sqrt(ddata/leng);
+      if (psRSCodeGen_ == 1)
+      {
+         fp = fopen("psuade_rs.info", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "Level %d : N\n", level);
+            fprintf(fp, "Level %d : M = %e\n", level, mean);
+            fprintf(fp, "Level %d : S = %e\n", level, tnode->nodeStdev_);
+            fclose(fp);
+         }
+         fp = fopen("psuade_rs.py", "a");
+         if (fp != NULL)
+         {
+            fprintf(fp, "[ %d , 'N', 0.0 ],\n", level);
+            fprintf(fp, "[ %d , 'M', %e ],\n", level, mean);
+            fprintf(fp, "[ %d , 'S', %e ],\n", level, tnode->nodeStdev_);
+            fclose(fp);
+         }
+      }
    }
    delete [] X1;
    delete [] Y1;
@@ -700,16 +1100,16 @@ double SumOfTrees::setParams(int targc, char **targv)
       sortDbleList2a(nInputs_, inputScores, iArray);
       if (targc == 1)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("* SumOfTrees screening rankings ");
          if (mode_ == 0) printf("(with bootstrapping)\n");
          else            printf("(with boosting)\n");
          printf("* Minimum points per node = %d\n", minPtsPerNode_);
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          for (ii = nInputs_-1; ii >= 0; ii--)
             printf("*  Rank %3d : Input = %3d (score = %4.1f)\n",
                    nInputs_-ii, iArray[ii]+1, inputScores[ii]);
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete [] iArray;
       delete [] inputScores;

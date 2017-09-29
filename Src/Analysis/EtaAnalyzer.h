@@ -35,7 +35,14 @@
 
 class EtaAnalyzer : public Analyzer
 {
-   int mode_;
+private:
+
+   int    mode_;
+   int    nInputs_;
+   double *dOrder_;       //length nInputs_
+   double *dRanks_;       //length nInputs_
+   int *inputViolations_; //length nInputs_
+   double totalViolation_;
 
 public:
 
@@ -46,6 +53,15 @@ public:
    double analyze(aData &adata);
 
    EtaAnalyzer& operator=(const EtaAnalyzer &analyzer);
+
+   /** Getters for analysis results */
+   int    get_mode();
+   int    get_nInputs();
+   double *get_dOrder();
+   double *get_dRanks();
+   double *get_inputViolations();
+   double get_totalViolation();
+
 };
 
 #endif // __ETAANALYZERH__

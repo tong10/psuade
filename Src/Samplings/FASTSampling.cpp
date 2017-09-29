@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -82,6 +81,11 @@ int FASTSampling::initialize(int initLevel)
    int    M=4, *omegas, inputID, ii;
    double *ranges, ds, ss, ps_pi=3.14159, ddata;
 
+   if (nSamples_ == 0)
+   {
+      printf("FASTSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("FASTSampling::initialize ERROR - input not set up.\n");

@@ -29,7 +29,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-using namespace std;
 
 #include "CobylaOptimizer.h"
 #include "Psuade.h"
@@ -262,7 +261,7 @@ void CobylaOptimizer::optimize(oData *odata)
    outputID = odata->outputID_;
    if (nOutputs > 1)
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("* You have multiple outputs in your problem definition.\n");
       printf("* Minimization will be performed with respect to output %d.\n",
              outputID+1);
@@ -290,7 +289,7 @@ void CobylaOptimizer::optimize(oData *odata)
       printf("\t2  <double>  /* C_2 if output 2 is used in Lagrange */\n");
       printf("\t...\n");
       printf("\tPSUADE_END\n");
-      printDashes(0);
+      printDashes(PL_INFO, 0);
       if (psOptExpertMode_ != 0)
       {
          strcpy(filename, "psuadeCobylaSpecial");
@@ -385,14 +384,14 @@ void CobylaOptimizer::optimize(oData *odata)
       psCCurrDriver_ = odata->funcIO_->getDriver();
       odata->funcIO_->setDriver(1);
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf("Cobyla optimizer: max fevals = %d\n", odata->maxFEval_*ntimes);
    printf("Cobyla optimizer: tolerance  = %e\n", odata->tolerance_);
    if (printLevel > 1)
       printf("Cobyla optimizer: rho1, rho2 = %e %e\n",rhobeg,rhoend);
    if (psNumOVars_ + psNumLVars_ == 0)
       printf("Cobyla optimizer: selected output = %d\n", outputID+1);
-   printEquals(0);
+   printEquals(PL_INFO, 0);
 
 #ifdef HAVE_COBYLA
    int tfevals = 0;

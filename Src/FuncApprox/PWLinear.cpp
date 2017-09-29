@@ -69,6 +69,36 @@ PWLinear::~PWLinear()
 }
 
 // ************************************************************************
+// initialize
+// ------------------------------------------------------------------------
+int PWLinear::initialize(double *X, double *Y)
+{
+   int     totPts, mm, iOne=1;
+   if (nInputs_ <= 0 || nSamples_ <= 0)
+   {
+      printf("PWLinear::genNDGridData ERROR - invalid argument.\n");
+      exit(1);
+   }
+   if (nSamples_ <= nInputs_)
+   {
+      printf("PWLinear::genNDGridData INFO - not enough points.\n");
+      return 0;
+   }
+
+   if (nInputs_ > 12)
+   {
+      printf("PWLinear::genNDGridData INFO - nInputs > 12.\n");
+      printf("          No lattice points generated.\n");
+      return 0;
+   }
+
+   if (ROMStorePts_ == NULL) setParams(iOne, NULL);
+   if (psRSCodeGen_ == 1) 
+      printf("PWLinear INFO: response surface stand-alone code not available.\n");
+   return 0;
+}
+
+// ************************************************************************
 // Generate lattice data based on the input set
 // ------------------------------------------------------------------------
 int PWLinear::genNDGridData(double *X, double *Y, int *N2, double **X2,

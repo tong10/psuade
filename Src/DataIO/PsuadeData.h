@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __PSUADEDATAH__
 #define __PSUADEDATAH__
 
@@ -35,7 +34,7 @@
 #include <string.h>
 #include "pData.h"
 #include "Matrix.h"
-
+#include "PsuadeSession.h"
 
 // ************************************************************************
 // subclasses
@@ -61,7 +60,8 @@ public:
    double *sampleInputs_;
    Matrix corMatrix_;
    int    useInputPDFs_;
-   char   sampleFileName_[500];
+   int    *inputSIndices_;
+   char   **sampleFileNames_;
 
    psuadeInputSection();
    ~psuadeInputSection();
@@ -232,7 +232,8 @@ public:
    // Note : set to NULL or -1 if update not requested.
    void updateInputSection(int nSamples, int nInputs, int *nSymbols,
                            double *lowerB, double *upperB,
-                           double *sampleInputs, char **names);
+                           double *sampleInputs, char **names,
+                           int *, double *, double *, Matrix *);
 
    // Basic creation of the output section (no samples)
    // param nOutputs - number of output variables (for checking only)
@@ -283,6 +284,10 @@ public:
    // @param tolerance - opt tolerance 
    void updateOptimizationSection(int methods, double tolerance);
 
+   // get sample information 
+   // @param session   - place holder
+   int getSession(PsuadeSession *session);
+
    // special processing of output (e.g. write to file in matlab format)
    void processOutputData();
 
@@ -318,7 +323,6 @@ public:
    Matrix  getInput_corMatrix();
    int     getInput_useInputPDFs();
 
-   
    //Output getters
    int getOutput_nOutputs();
    char** getOutput_outputNames();
@@ -386,7 +390,8 @@ public:
    char* getAnalysis_specsFile();
    char* getAnalysis_rsIndexFile();
    
-   // Use the GetParameter interface to get information on RSFilters and MOATFilters
+   // Use the GetParameter interface to get information on RSFilters 
+   // and MOATFilters
    //   int getAnalysis_numRSFilters();
    //int getAnalysis_numMOATFilters();
    //psuadeFilter **RSFilters_;

@@ -38,22 +38,27 @@ class Kriging : public FuncApprox
    double *Thetas_;
    double *XNormalized_;
    double *YNormalized_;
-   double *Cmatrix_;
+   double *Rmatrix_;
+   double *Mmatrix_;
+   double *V1_;
+   double *V2_;
    int    workLength_;
    double *workArray_;
    double *workX_;
    double optTolerance_;
    int    pOrder_;
-   int    *LUPivots_;
    int    initFlag_;
    int    fastMode_;
    double *dataStdDevs_;
+   double KrigingVariance_;
+   double noReuse_;
 
 public:
 
    Kriging(int, int);
    ~Kriging();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);

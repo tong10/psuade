@@ -119,6 +119,33 @@ SparseGridRegression::~SparseGridRegression()
 }
 
 // ************************************************************************
+// initialize
+// ------------------------------------------------------------------------
+int SparseGridRegression::initialize(double *X, double *Y)
+{
+   int totPts, ss;
+
+   if (sampleInputs_ == NULL)
+   {
+      printf("SparseGridRegression::initialize ERROR - invalid sample.\n");
+      return -1;
+   }
+   if (nInputs_ <= 0 || nSamples_ <= 0)
+   {
+      printf("SparseGridRegression::initialize ERROR - invalid argument.\n");
+      exit(1);
+   } 
+   
+   analyze(X, Y);
+   if (psRSCodeGen_ == 1) 
+   {
+      printf("SparseGrdiRegression INFO: response surface stand-alone ");
+      printf("code not available.\n");
+   }
+   return 0;
+}
+
+// ************************************************************************
 // Generate lattice data based on the input set
 // ------------------------------------------------------------------------
 int SparseGridRegression::genNDGridData(double *X, double *Y, int *N2,

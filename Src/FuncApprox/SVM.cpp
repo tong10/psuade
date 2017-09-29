@@ -54,6 +54,7 @@ extern "C"
 // ------------------------------------------------------------------------
 SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
+#ifdef HAVE_SVM
    int    idata;
    double ddata;
    char   *inStr, winput1[500], winput2[500];
@@ -70,7 +71,7 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          sscanf(inStr, "%s %s %lg\n", winput1, winput2, &ddata);
          if (winput2[0] != '=')
             printf("SVM read config file syntax error : %s\n", inStr);
-         else if (ddata < 0.0 || ddata < 1.0-6 || ddata >= 1.0)
+         else if (ddata < 0.0 || ddata < 1.0-6 || ddata >= 1e6)
          {
             printf("SVM read config file : read tol error : %e\n", ddata);
             printf("                       tol kept at %e\n", tolerance_);
@@ -119,20 +120,6 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    }
    if (psRSExpertMode_ == 1)
    {
-      printf("SVM: enter tolerance (1.0e-6 to 1) : ");
-      scanf("%lg", &tolerance_);
-      if (tolerance_ < 1.0-6 || tolerance_ >= 1.0)
-      {
-         printf("SVM ERROR : invalid tolerance, set to 1.0e-4\n");
-         tolerance_ = 1.0e-4;
-      }
-      printf("SVM: enter gamma (1.0e-6 to 1.0e6) : ");
-      scanf("%lg", &gamma_);
-      if (gamma_ < 1.0-6 || gamma_ >= 1.0e6)
-      {
-         printf("SVM ERROR : invalid gamma, set to 1.0\n");
-         gamma_ = 1.0;
-      }
       printf("SVM kernel options: \n");
       printf("1. linear\n");
       printf("2. third order polynomial\n");
@@ -146,8 +133,30 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          kernel_ = 3;
       }
       kernel_--;
+      printf("SVM: enter tolerance (1.0e-6 to 1e6) : ");
+      scanf("%lg", &tolerance_);
+      if (tolerance_ < 1.0-6 || tolerance_ > 1e6)
+      {
+         printf("SVM ERROR : invalid tolerance, set to 1.0e-4\n");
+         tolerance_ = 1.0e-4;
+      }
+      if (kernel_ == 2)
+      {
+         printf("SVM: enter RBF_gamma (1.0e-6 to 1.0e6) : ");
+         scanf("%lg", &gamma_);
+         if (gamma_ < 1.0-6 || gamma_ > 1.0e6)
+         {
+            printf("SVM ERROR : invalid RBF_gamma, set to 1.0\n");
+            gamma_ = 1.0;
+         }
+      }
       fgets(winput1, 500, stdin);
    }
+   if (kernel_ != -1) SVMSetKernel(kernel_);
+   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
+#else
+   printf("PSUADE ERROR : SVM not installed.\n");
+#endif
 }
 
 // ************************************************************************
@@ -155,6 +164,42 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 SVM::~SVM()
 {
+   printf("PSUADE ERROR : SVM not installed.\n");
+}
+
+// ************************************************************************
+// initialize 
+// ------------------------------------------------------------------------
+int SVM::initialize(double *X, double *Y)
+{
+#ifdef HAVE_SVM
+   int    ss;
+   double *stds;
+
+   stds = new double[nSamples_];
+   if (outputLevel_ >= 1)
+   {
+      printf("SVM training begins....\n");
+      if (kernel_ == 0) printf("SVM kernel = linear\n");
+      if (kernel_ == 1) printf("SVM kernel = third order polynomial\n");
+      if (kernel_ == 2) printf("SVM kernel = radial basis function\n");
+      if (kernel_ == 3) printf("SVM kernel = sigmoid function\n");
+      printf("SVM epsilon   = %e\n",tolerance_);
+      if (kernel_ == 2)
+      printf("SVM RBF_gamma = %e\n",gamma_);
+   }
+   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
+   if (kernel_ != -1) SVMSetKernel(kernel_);
+   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, stds);
+   for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
+   if (outputLevel_ >= 1) printf("SVM training completed.\n");
+   if (psRSCodeGen_ == 1) 
+      printf("SVM INFO: response surface stand-alone code not available.\n");
+#else
+   printf("PSUADE ERROR : SVM not installed.\n");
+   return -1;
+#endif
+   return 0;
 }
 
 // ************************************************************************
@@ -164,37 +209,24 @@ int SVM::genNDGridData(double *X, double *Y, int *N2, double **X2,
                       double **Y2)
 {
 #ifdef HAVE_SVM
-   int    totPts, ss;
-   double *stds;
+   int totPts;
 
-   stds = new double[nSamples_];
-   if (outputLevel_ >= 1)
-   {
-      printf("SVM training begins....\n");
-      printf("SVM gamma, epsilon = %e %e\n",tolerance_,gamma_);
-      if (kernel_ == 0) printf("SVM kernel = linear\n");
-      if (kernel_ == 1) printf("SVM kernel = third order polynomial\n");
-      if (kernel_ == 2) printf("SVM kernel = radial basis function\n");
-      if (kernel_ == 3) printf("SVM kernel = sigmoid function\n");
-   }
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
-   if (kernel_ != -1) SVMSetKernel(kernel_);
-   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, stds);
-   for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
-   if (outputLevel_ >= 1) printf("SVM training completed.\n");
-  
+   // initialization
+   initialize(X,Y);
    if ((*N2) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
+   // generating regular grid data
    genNDGrid(N2, X2);
    if ((*N2) == 0) return 0;
    totPts = (*N2);
 
+   // generate the data points 
    (*Y2) = new double[totPts];
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
    SVMInterp(totPts, nInputs_, *X2, *Y2, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
    return -1;
 #endif
    return 0;
@@ -210,15 +242,10 @@ int SVM::gen1DGridData(double *X, double *Y, int ind1,
    int    ii, kk, totPts;
    double HX, *XX, *YY;
 
-   if (outputLevel_ >= 1)
-   {
-      printf("SVM training begins....\n");
-      printf("SVM gamma, epsilon = %e %e\n",tolerance_,gamma_);
-   }
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
-   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("SVM training completed.\n");
+   // initialization
+   initialize(X,Y);
   
+   // generating regular grid data
    totPts = nPtsPerDim_;
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
 
@@ -240,7 +267,7 @@ int SVM::gen1DGridData(double *X, double *Y, int ind1,
    (*Y2) = YY;
    delete [] XX;
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return 0;
 }
@@ -255,15 +282,10 @@ int SVM::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    int    ii, jj, kk, totPts, index;
    double *HX, *XX, *YY;
 
-   if (outputLevel_ >= 1)
-   {
-      printf("SVM training begins....\n");
-      printf("SVM gamma, epsilon = %e %e\n",tolerance_,gamma_);
-   }
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
-   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("SVM training completed.\n");
+   // initialization
+   initialize(X,Y);
   
+   // generating regular grid data
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[2];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -294,7 +316,7 @@ int SVM::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    delete [] XX;
    delete [] HX;
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return 0;
 }
@@ -309,15 +331,10 @@ int SVM::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    int    ii, jj, ll, kk, totPts, index;
    double *HX, *XX, *YY;
 
-   if (outputLevel_ >= 1)
-   {
-      printf("SVM training begins....\n");
-      printf("SVM gamma, epsilon = %e %e\n",tolerance_,gamma_);
-   }
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
-   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("SVM training completed.\n");
+   // initialization
+   initialize(X,Y);
   
+   // set up for generating regular grid data
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[3];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -354,7 +371,7 @@ int SVM::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    delete [] XX;
    delete [] HX;
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return 0;
 }
@@ -370,15 +387,10 @@ int SVM::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    int    ii, jj, ll, mm, kk, totPts, index;
    double *HX, *XX, *YY;
 
-   if (outputLevel_ >= 1)
-   {
-      printf("SVM training begins....\n");
-      printf("SVM gamma, epsilon = %e %e\n",tolerance_,gamma_);
-   }
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
-   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("SVM training completed.\n");
+   // initialization
+   initialize(X,Y);
   
+   // generating regular grid data
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[4];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -422,7 +434,7 @@ int SVM::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    delete [] XX;
    delete [] HX;
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return 0;
 }
@@ -437,7 +449,7 @@ double SVM::evaluatePoint(double *X)
    int    iOne=1;
    SVMInterp(iOne, nInputs_, X, &Y, NULL);
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return Y;
 }
@@ -450,7 +462,7 @@ double SVM::evaluatePoint(int npts, double *X, double *Y)
 #ifdef HAVE_SVM
    SVMInterp(npts, nInputs_, X, Y, NULL);
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return 0.0;
 }
@@ -464,7 +476,7 @@ double SVM::evaluatePointFuzzy(double *X, double &std)
 #ifdef HAVE_SVM
    SVMInterp(1, nInputs_, X, &Y, &std);
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return Y;
 }
@@ -477,7 +489,7 @@ double SVM::evaluatePointFuzzy(int npts,double *X,double *Y,double *Ystd)
 #ifdef HAVE_SVM
    SVMInterp(npts, nInputs_, X, Y, Ystd);
 #else
-   printf("PSUADE ERROR : SVM not used.\n");
+   printf("PSUADE ERROR : SVM not installed.\n");
 #endif
    return 0.0;
 }

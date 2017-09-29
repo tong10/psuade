@@ -8,34 +8,34 @@ double getClock();
 
 main(int argc, char **argv)
 {
-   int    ii, nInputs, ntime;
-   double X[2], Y, X1, X2, X3, dtime;
-   FILE   *fIn  = fopen(argv[1], "r");
-   FILE   *fOut;
-                                                                                
-   if (fIn == NULL)
+   int    ii, ntime;
+   double X1, X2, Y, dtime;
+   FILE   *fp;
+
+   fp = fopen("expdata","w");
+   if (fp == NULL)
    {
-      printf("Experiment ERROR - cannot open in/out files.\n");
+      printf("ERROR - cannot write to expdata file.\n");
       exit(1);
    }
-   fscanf(fIn, "%d", &nInputs);
-   for (ii = 0; ii < nInputs; ii++) fscanf(fIn, "%lg", &X[ii]);
-   fclose(fIn);
    dtime = getClock();
    ntime = (int) (dtime * 1.0E6);
    ntime = ntime % 10000;
    dtime = getClock();
    ntime = ntime * 10000 + (int) (dtime * 1.0E6);
    srand48((long) ntime);
-   X1 = X[0];
+   fprintf(fp, "PSUADE_BEGIN\n");
+   fprintf(fp, "21 1 1 1\n");
    X2 = 0.9;
-   X3 = drand48();
-   fOut = fopen(argv[2], "w");
-   /*Y = X1 + X2 + X1 * X2 + X2 * X3 * 0.5;
-   */
-   Y = X1 + X2 + X1 * X2;
-   fprintf(fOut, " %24.16e\n", Y);
-   fclose(fOut);
+   X1 = 0.6;
+   for (ii = 0; ii < 21; ii++) 
+   {
+      Y = X1 + X2 + X1 * X2;
+      fprintf(fp, "%d %e %e 0.01\n", ii+1, X1, Y);
+      X1 = X1 + 0.3/20;
+   }
+   fprintf(fp, "PSUADE_END\n");
+   fclose(fp);
 }
 
 double getClock()

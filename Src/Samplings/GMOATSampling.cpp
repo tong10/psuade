@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -135,6 +134,11 @@ int GMOATSampling::initialize(int initLevel)
    char   partitionFile[500], pString[500], pString2[500];
    FILE   *fp;
 
+   if (nSamples_ == 0)
+   {
+      printf("GMOATSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("GMOATSampling::initialize ERROR - input not set up.\n");
@@ -938,7 +942,7 @@ int GMOATSampling::merge()
       strcpy(inpNames[nInps1+ii], inpNames2[ii]);
    }
    psuadeIO1->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                 sampleInputs,inpNames);
+                                 sampleInputs,inpNames,NULL,NULL,NULL,NULL);
    psuadeIO1->updateOutputSection(nSamples,nOutputs,sampleOutputs,
                                   sampleStates,NULL);
    psuadeIO1->updateMethodSection(-1,nSamples,-1,-1,-1);

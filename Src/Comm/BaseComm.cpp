@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-                                                                                
 #include <stdio.h>
 #include <stdlib.h>
 #include "BaseComm.h"
@@ -32,7 +31,6 @@
 // ************************************************************************
 // Constructor
 // ------------------------------------------------------------------------
-
 BaseComm::BaseComm()
 {
 }
@@ -40,7 +38,6 @@ BaseComm::BaseComm()
 // ************************************************************************
 // Destructor
 // ------------------------------------------------------------------------
-
 BaseComm::~BaseComm()
 {
 }
@@ -48,7 +45,6 @@ BaseComm::~BaseComm()
 // ************************************************************************
 // get processor ID
 // ------------------------------------------------------------------------
-
 int BaseComm::getPID()
 {
    return 0;
@@ -57,7 +53,6 @@ int BaseComm::getPID()
 // ************************************************************************
 // get number of processors
 // ------------------------------------------------------------------------
-
 int BaseComm::getNumProcs()
 {
    return 1;
@@ -66,7 +61,6 @@ int BaseComm::getNumProcs()
 // ************************************************************************
 // synchronize all processors
 // ------------------------------------------------------------------------
-
 void BaseComm::synchronize()
 {
 }
@@ -74,7 +68,6 @@ void BaseComm::synchronize()
 // ************************************************************************
 // shutdown 
 // ------------------------------------------------------------------------
-
 void BaseComm::shutdown()
 {
 }
@@ -82,7 +75,6 @@ void BaseComm::shutdown()
 // ************************************************************************
 // Send message to a given destination
 // ------------------------------------------------------------------------
-
 int BaseComm::send(void *msg,int leng,int dtype,int msgid,int dest) 
 {
    (void) msg;
@@ -96,7 +88,6 @@ int BaseComm::send(void *msg,int leng,int dtype,int msgid,int dest)
 // ************************************************************************
 // receive data from a given source processor
 // ------------------------------------------------------------------------
-
 int BaseComm::recv(void *msg,int leng,int dtype,int msgid,int src)
 {
    (void) msg;
@@ -110,7 +101,6 @@ int BaseComm::recv(void *msg,int leng,int dtype,int msgid,int src)
 // ************************************************************************
 // post a nonblocking receive from a given processor
 // ------------------------------------------------------------------------
-
 int BaseComm::iRecv(void *msg,int leng,int dtype,int msgid,int src)
 {
    (void) msg;
@@ -124,7 +114,6 @@ int BaseComm::iRecv(void *msg,int leng,int dtype,int msgid,int src)
 // ************************************************************************
 // disableIrecv
 // ------------------------------------------------------------------------
-
 int BaseComm::disableIrecv(int proc)
 {
    (void) proc;
@@ -134,7 +123,6 @@ int BaseComm::disableIrecv(int proc)
 // ************************************************************************
 // iProbe
 // ------------------------------------------------------------------------
-
 int BaseComm::iProbe(int proc, int msgID)
 {
    (void) proc;
@@ -145,7 +133,6 @@ int BaseComm::iProbe(int proc, int msgID)
 // ************************************************************************
 // wait for a request to be completed
 // ------------------------------------------------------------------------
-
 void BaseComm::wait(int index)
 {
    (void) index;
@@ -154,7 +141,6 @@ void BaseComm::wait(int index)
 // ************************************************************************
 // wait for any request to be completed
 // ------------------------------------------------------------------------
-
 int BaseComm::waitAny()
 {
    return -1;
@@ -163,7 +149,6 @@ int BaseComm::waitAny()
 // ************************************************************************
 // broadcast data 
 // ------------------------------------------------------------------------
-
 void BaseComm::bcast(void *msg, int leng, int dtype, int root)
 {
    (void) msg;
@@ -175,7 +160,6 @@ void BaseComm::bcast(void *msg, int leng, int dtype, int root)
 // ************************************************************************
 // reduce and broadcast data using MPI primitive
 // ------------------------------------------------------------------------
-
 void BaseComm::allReduce(void *msg,int leng,int dtype,char op)
 {
    (void) msg;

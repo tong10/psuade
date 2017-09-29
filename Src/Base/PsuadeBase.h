@@ -31,9 +31,9 @@
 #include "PsuadeData.h"
 #include "FunctionInterface.h"
 #include "Sampling.h"
-#include "Analyzer.h"
 #include "AnalysisManager.h"
 #include "Exceptions.h"
+#include "PsuadeSession.h"
 
 // ************************************************************************
 // class definition 
@@ -75,7 +75,7 @@ public:
    // get input data from a given file
    // @param filename - name of file from which data are to be read
    // @param psuadeio_filename - optional - file to read psuade_io data from
-   int  getInputFromFile(const char *filename, const char *psuadeio_filename = NULL);
+   int  getInputFromFile(const char *filename,const char *psuadeio_filename=NULL);
 
    // run the experiments
    int  run() throw(Psuade_Stop_Exception);
@@ -99,6 +99,7 @@ private:
    void   pgPlotResponseSurface();
    void   cleanUp();
    int    interpretInteractive();
+   int    RSBasedAnalysis(char *, PsuadeSession *);
    int    setupAnalysis(int, int);
    int    deleteAnalysis(int);
    void   *genRSModel(char *fname, int numInputs, int outputID);

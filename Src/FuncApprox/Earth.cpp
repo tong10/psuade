@@ -95,21 +95,20 @@ Earth::Earth(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 Earth::~Earth()
 {
-  if (bestSet_ != NULL) delete [] bestSet_;
-  if (dirs_    != NULL) delete [] dirs_;
-  if (cuts_    != NULL) delete [] cuts_;
-  if (betas_   != NULL) delete [] betas_;
-  if (wgts_    != NULL) delete [] wgts_;
+   if (bestSet_ != NULL) delete [] bestSet_;
+   if (dirs_    != NULL) delete [] dirs_;
+   if (cuts_    != NULL) delete [] cuts_;
+   if (betas_   != NULL) delete [] betas_;
+   if (wgts_    != NULL) delete [] wgts_;
 }
 
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int Earth::genNDGridData(double *X, double *Y, int *N, double **X2, 
-                        double **Y2)
+int Earth::initialize(double *X, double *Y)
 {
 #ifdef HAVE_EARTH
-   int    *LinPreds, ss, ii, jj, iOne=1, totPts;
+   int    *LinPreds, ii, jj, iOne=1;
    double *Residuals, *BX, BestGcv, *XX;
 
    Residuals = new double[nSamples_];
@@ -140,6 +139,24 @@ int Earth::genNDGridData(double *X, double *Y, int *N, double **X2,
                   maxTerms_,3,0);
    if (outputLevel_ >= 2) 
       printf("Returning from Earth, BestGcv = %e\n",BestGcv);
+   if (psRSCodeGen_ == 1) 
+      printf("Earth INFO: response surface stand-alone code not available.\n");
+   return 0;
+#else
+   printf("PSUADE ERROR : Earth not used.\n");
+   return -1;
+#endif
+}
+  
+// ************************************************************************
+// Generate results for display
+// ------------------------------------------------------------------------
+int Earth::genNDGridData(double *X, double *Y, int *N, double **X2, 
+                        double **Y2)
+{
+#ifdef HAVE_EARTH
+   int ss, iOne=1, totPts;
+   initialize(X,Y);
    if ((*N) == -999) return 0;
   
    genNDGrid(N, X2);
@@ -171,35 +188,9 @@ int Earth::gen1DGridData(double *X, double *Y, int ind1, double *settings,
                          int *N, double **X2, double **Y2)
 {
 #ifdef HAVE_EARTH
-   int    *LinPreds, ss, ii, jj, iOne=1, totPts;
-   double *Residuals, *BX, BestGcv, *XX, HX;
-
-   Residuals = new double[nSamples_];
-   BX = new double[nSamples_ * maxTerms_];
-   LinPreds = new int[nInputs_];
-   for (jj = 0; jj < nInputs_; jj++) LinPreds[jj] = 0;
-
-   XX = new double[nSamples_ * nInputs_];
-   for (ii = 0; ii < nSamples_; ii++)
-      for (jj = 0; jj < nInputs_; jj++)
-         XX[jj*nSamples_+ii] = X[ii*nInputs_+jj]; 
-
-   if (outputLevel_ >= 2) printf("Entering Earth processing\n");
-   if (outputLevel_ >= 1) 
-      printf("If it crashes here, it is earth's problem (try larger N).\n");
-   TrainEarth(&BestGcv, &numTerms_, bestSet_, BX, dirs_, cuts_, Residuals, 
-         betas_, XX, Y, NULL, nSamples_, iOne, nInputs_, maxDegree_, maxTerms_,
-         penalty_, thresh_, nMinSpan_, prune_, nFastK_, fastBeta_, 
-         newVarPenalty_, LinPreds, useBetaCache_, nTrace_, NULL);
-   delete [] XX;
-   delete [] Residuals;
-   delete [] BX;
-   delete [] LinPreds;
-   if (outputLevel_ >= 5) 
-      FormatEarth(bestSet_,dirs_,cuts_,betas_,nInputs_,iOne,numTerms_,
-                  maxTerms_,3,0);
-   if (outputLevel_ >= 2) 
-      printf("Returning from Earth, BestGcv = %e\n",BestGcv);
+   int    ss, ii, iOne=1, totPts;
+   double *XX, HX;
+   initialize(X,Y);
    if ((*N) == -999) return 0;
   
    totPts = nPtsPerDim_;
@@ -241,35 +232,10 @@ int Earth::gen2DGridData(double *X, double *Y, int ind1, int ind2,
                          double *settings, int *N, double **X2, double **Y2)
 {
 #ifdef HAVE_EARTH
-   int    *LinPreds, ss, ii, jj, index, iOne=1, totPts;
-   double *Residuals, *BX, BestGcv, *XX, *HX;
+   int    ss, ii, jj, index, iOne=1, totPts;
+   double *XX, *HX;
 
-   Residuals = new double[nSamples_];
-   BX = new double[nSamples_ * maxTerms_];
-   LinPreds = new int[nInputs_];
-   for (jj = 0; jj < nInputs_; jj++) LinPreds[jj] = 0;
-
-   XX = new double[nSamples_ * nInputs_];
-   for (ii = 0; ii < nSamples_; ii++)
-      for (jj = 0; jj < nInputs_; jj++)
-         XX[jj*nSamples_+ii] = X[ii*nInputs_+jj]; 
-
-   if (outputLevel_ >= 2) printf("Entering Earth processing\n");
-   if (outputLevel_ >= 1) 
-      printf("If it crashes here, it is earth's problem (try larger N).\n");
-   TrainEarth(&BestGcv, &numTerms_, bestSet_, BX, dirs_, cuts_, Residuals, 
-         betas_, XX, Y, NULL, nSamples_, iOne, nInputs_, maxDegree_, maxTerms_,
-         penalty_, thresh_, nMinSpan_, prune_, nFastK_, fastBeta_, 
-         newVarPenalty_, LinPreds, useBetaCache_, nTrace_, NULL);
-   delete [] XX;
-   delete [] Residuals;
-   delete [] BX;
-   delete [] LinPreds;
-   if (outputLevel_ >= 2) 
-      printf("Returning from Earth, BestGcv = %e\n",BestGcv);
-   if (outputLevel_ >= 5) 
-      FormatEarth(bestSet_,dirs_,cuts_,betas_,nInputs_,iOne,numTerms_,
-                  maxTerms_,3,0);
+   initialize(X,Y);
    if ((*N) == -999) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_;
@@ -316,38 +282,13 @@ int Earth::gen2DGridData(double *X, double *Y, int ind1, int ind2,
 // Generate 3D results for display
 // ------------------------------------------------------------------------
 int Earth::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
-                        double *settings, int *N, double **X2, double **Y2)
+                         double *settings, int *N, double **X2, double **Y2)
 {
 #ifdef HAVE_EARTH
-   int    *LinPreds, ss, ii, jj, ll, index, iOne=1, totPts;
-   double *Residuals, *BX, BestGcv, *XX, *HX;
+   int    ss, ii, jj, ll, index, iOne=1, totPts;
+   double *XX, *HX;
 
-   Residuals = new double[nSamples_];
-   BX = new double[nSamples_ * maxTerms_];
-   LinPreds = new int[nInputs_];
-   for (jj = 0; jj < nInputs_; jj++) LinPreds[jj] = 0;
-
-   XX = new double[nSamples_ * nInputs_];
-   for (ii = 0; ii < nSamples_; ii++)
-      for (jj = 0; jj < nInputs_; jj++)
-         XX[jj*nSamples_+ii] = X[ii*nInputs_+jj]; 
-
-   if (outputLevel_ >= 2) printf("Entering Earth processing\n");
-   if (outputLevel_ >= 1) 
-      printf("If it crashes here, it is earth's problem (try larger N).\n");
-   TrainEarth(&BestGcv, &numTerms_, bestSet_, BX, dirs_, cuts_, Residuals, 
-         betas_, XX, Y, NULL, nSamples_, iOne, nInputs_, maxDegree_, maxTerms_,
-         penalty_, thresh_, nMinSpan_, prune_, nFastK_, fastBeta_, 
-         newVarPenalty_, LinPreds, useBetaCache_, nTrace_, NULL);
-   delete [] XX;
-   delete [] Residuals;
-   delete [] BX;
-   delete [] LinPreds;
-   if (outputLevel_ >= 2) 
-      printf("Returning from Earth, BestGcv = %e\n",BestGcv);
-   if (outputLevel_ >= 5) 
-      FormatEarth(bestSet_,dirs_,cuts_,betas_,nInputs_,iOne,numTerms_,
-                  maxTerms_,3,0);
+   initialize(X,Y);
    if ((*N) == -999) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
@@ -404,35 +345,10 @@ int Earth::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
                         double **Y2)
 {
 #ifdef HAVE_EARTH
-   int    *LinPreds, ss, ii, jj, ll, mm, index, iOne=1, totPts;
-   double *Residuals, *BX, BestGcv, *XX, *HX;
+   int    ss, ii, jj, ll, mm, index, iOne=1, totPts;
+   double *XX, *HX;
 
-   Residuals = new double[nSamples_];
-   BX = new double[nSamples_ * maxTerms_];
-   LinPreds = new int[nInputs_];
-   for (jj = 0; jj < nInputs_; jj++) LinPreds[jj] = 0;
-
-   XX = new double[nSamples_ * nInputs_];
-   for (ii = 0; ii < nSamples_; ii++)
-      for (jj = 0; jj < nInputs_; jj++)
-         XX[jj*nSamples_+ii] = X[ii*nInputs_+jj]; 
-
-   if (outputLevel_ >= 2) printf("Entering Earth processing\n");
-   if (outputLevel_ >= 1) 
-      printf("If it crashes here, it is earth's problem (try larger N).\n");
-   TrainEarth(&BestGcv, &numTerms_, bestSet_, BX, dirs_, cuts_, Residuals, 
-         betas_, XX, Y, NULL, nSamples_, iOne, nInputs_, maxDegree_, maxTerms_,
-         penalty_, thresh_, nMinSpan_, prune_, nFastK_, fastBeta_, 
-         newVarPenalty_, LinPreds, useBetaCache_, nTrace_, NULL);
-   delete [] XX;
-   delete [] Residuals;
-   delete [] BX;
-   delete [] LinPreds;
-   if (outputLevel_ >= 2) 
-      printf("Returning from Earth, BestGcv = %e\n",BestGcv);
-   if (outputLevel_ >= 5) 
-      FormatEarth(bestSet_,dirs_,cuts_,betas_,nInputs_,iOne,numTerms_,
-                  maxTerms_,3,0);
+   initialize(X,Y);
    if ((*N) == -999) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;

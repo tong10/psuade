@@ -29,7 +29,7 @@
 
 #include <string.h>
 #include <iostream>
-using    namespace std;
+using namespace std;
 
 #include "Optimizer.h"
 #include "oData.h"

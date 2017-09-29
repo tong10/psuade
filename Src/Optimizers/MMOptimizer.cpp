@@ -187,7 +187,7 @@ extern "C"
          for (ii = 0; ii < nOutputs; ii++) MM_OptimalY_[ii] = localY[ii];
          if (odata->outputLevel_ > 2)
          {
-            printDashes(0);
+            printDashes(PL_INFO, 0);
             for (ii = 0; ii < nInputs; ii++)
                printf("MMOptimizer %6d : X %3d = %16.8e\n",odata->numFuncEvals_,
                       ii+1, XValues[ii]);
@@ -195,7 +195,7 @@ extern "C"
                    odata->numFuncEvals_, odata->optimalY_);
             printf("MMOptimizer %6d : output 1 = %16.8e\n",
                    odata->numFuncEvals_, localY[0]);
-            printDashes(0);
+            printDashes(PL_INFO, 0);
          }
       }
 
@@ -259,7 +259,7 @@ MMOptimizer::~MMOptimizer()
 void MMOptimizer::optimize(oData *odata)
 {
    int    nInputs, nOutputs, ii, jj, kk, nPts, maxfun, printLevel;
-   int    nIter=1, nIterMAX=200, ncevals=0, nfevals=0;
+   int    nIter=1, nIterMAX=200, ncevals=0, nfevals=0, status;
    int    ldu, ldvt, lwork, info, minkn, minmn, *tempS, nAux;
    int    auxNInputs, auxNOutputs, *auxSStates, auxNSamples=0, match;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp, *auxSInputs;
@@ -333,7 +333,8 @@ void MMOptimizer::optimize(oData *odata)
       if (adaptive_ == 1)
       {
          psData = new PsuadeData();
-         psData->readPsuadeFile(auxDriverName);
+         status = psData->readPsuadeFile(auxDriverName);
+         if (status != 0) exit(1);
          psData->getParameter("input_ninputs", pPtr);
          auxNInputs = pPtr.intData_;
          psData->getParameter("output_noutputs", pPtr);
@@ -353,7 +354,7 @@ void MMOptimizer::optimize(oData *odata)
             auxSOutputs[ii] = pOutputs.dbleArray_[ii];
             if (auxSOutputs[ii] == PSUADE_UNDEFINED)
             {
-               printf("MMOptimizer ERROR: some sample outputs in %d",
+               printf("MMOptimizer ERROR: some sample outputs in %s",
                       auxDriverName);
                printf(" are undefined. Prune and re-run.\n");
                exit(1);
@@ -407,17 +408,17 @@ void MMOptimizer::optimize(oData *odata)
    for (ii = 0; ii < nOutputs; ii++) MM_OptimalY_[ii] = 0.0;
 
    // ------ output target data information
-   printAsterisks(0);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
+   printAsterisks(PL_INFO, 0);
    printf(" *         MANIFOLD MAPPING OPTIMIZATION BEGINS\n");
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    if (odata->outputLevel_ > 1 && MM_normYspec_ != PSUADE_UNDEFINED)
    {
-      printEquals(0);
+      printEquals(PL_INFO, 0);
       printf(" MANIFOLD MAPPING: Specifications: (target output values)\n");
       for (ii = 0; ii < nOutputs; ii++)
          printf("   Output %3d = %20.14f\n", ii+1, MM_Yspec_[ii]);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
 
    // ------ allocate temporary memory
@@ -480,11 +481,11 @@ void MMOptimizer::optimize(oData *odata)
    // ------ call optimizer (coarse model) ------
    if (odata->outputLevel_ > 1)
    {
-      printEquals(0);
+      printEquals(PL_INFO, 0);
       printf(" MANIFOLD MAPPING: Initial coarse model optimization: \n");
       for (ii = 0; ii < nInputs; ii++)
          printf("   Initial X %3d = %20.14f\n", ii+1, XValues[ii]);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
 
 #ifdef HAVE_BOBYQA
@@ -510,13 +511,13 @@ void MMOptimizer::optimize(oData *odata)
 
    if (odata->outputLevel_ > 1)
    {
-      printEquals(0);
+      printEquals(PL_INFO, 0);
       printf(" MANIFOLD MAPPING: Initial coarse model optimum: \n");
       for (ii = 0; ii < nInputs; ii++)
          printf("  Input %3d = %16.8e\n", ii+1, X0[ii]);
       printf("    Output   1 = %16.8e\n", MM_OptimalY_[0]);
       printf(" Optimal function value = %16.8e\n", odata->optimalY_);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
 
    // 1.A.1 EVALUATING THE FINE MODEL AT THE COARSE OPTIMUM 
@@ -539,14 +540,14 @@ void MMOptimizer::optimize(oData *odata)
    for (ii = 0; ii < nOutputs; ii++) optY[ii] = Yf[ii];
    if (odata->outputLevel_ > 1)
    {
-      printEquals(0);
+      printEquals(PL_INFO, 0);
       printf("Fine model evaluated initially at: \n");
       for (ii = 0; ii < nInputs; ii++)
          printf("   Input %d  = %16.8e\n", ii+1, X0[ii]);
       for (ii = 0; ii < nOutputs; ii++)
          printf("      Output %d = %16.8e\n", ii+1, Yf[ii]);
       printf("The corresponding cost function value = %16.8e\n", Fval);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
    initFval = Fval;
 
@@ -562,9 +563,9 @@ void MMOptimizer::optimize(oData *odata)
       Ycs[ii + (nIter-1)*nOutputs] = Yc[ii];
    ncevals = odata->numFuncEvals_;
 
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("Iteration    # fEvals   # cEval   Fine Cost Func\n");
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("%5d       %5d      %5d     %13.6e\n",
           nIter,nfevals,ncevals,Fval);
    nAux = 0;
@@ -590,11 +591,11 @@ void MMOptimizer::optimize(oData *odata)
 
       if (odata->outputLevel_ > 2)
       {
-         printDashes(0);
+         printDashes(PL_INFO, 0);
          printf("===> MM: coarse model initial X at iteration %d:\n",nfevals);
          for (ii = 0; ii < nInputs; ii++)
             printf("===>  Input %3d = %16.8e\n", ii+1, X1[ii]);
-         printDashes(0);
+         printDashes(PL_INFO, 0);
       }
 
 #ifdef HAVE_BOBYQA
@@ -616,13 +617,13 @@ void MMOptimizer::optimize(oData *odata)
 
       if (odata->outputLevel_ > 2)
       {
-         printDashes(0);
+         printDashes(PL_INFO, 0);
          printf("===> MM: coarse model optimum at iteration %d:\n", nfevals);
          for (ii = 0; ii < nInputs; ii++)
             printf("===>  Input %3d = %16.8e\n", ii+1, X0[ii]);
          printf("===>    Output   1 = %16.8e\n", MM_OptimalY_[0]);
          printf("===> Optimal function value = %16.8e\n", odata->optimalY_);
-         printDashes(0);
+         printDashes(PL_INFO, 0);
       }
 
       // 3.A.1 EVALUATING THE FINE MODEL AT X1
@@ -640,7 +641,7 @@ void MMOptimizer::optimize(oData *odata)
       Fval = sqrt(Fval) / normTargetY * 100.0;
       if (odata->outputLevel_ > 0)
       {
-         printEquals(0);
+         printEquals(PL_INFO, 0);
          printf("===> Fine model evaluated at coarse optimum (iter = %d): \n",
                 nfevals);
          for (ii = 0; ii < nInputs; ii++)
@@ -648,7 +649,7 @@ void MMOptimizer::optimize(oData *odata)
          for (ii = 0; ii < nOutputs; ii++)
             printf("      Output %d = %16.8e\n", ii+1, Yf[ii]);
          printf("The corresponding cost function value = %16.8e\n", Fval);
-         printEquals(0);
+         printEquals(PL_INFO, 0);
       }
       if (Fval < optFval)
       {
@@ -704,7 +705,7 @@ void MMOptimizer::optimize(oData *odata)
                auxNSamples++;
             }
             psData->updateInputSection(auxNSamples, auxNInputs, NULL, NULL,
-                                       NULL, auxSInputs, NULL);
+                                       NULL,auxSInputs, NULL,NULL,NULL,NULL,NULL);
             psData->updateOutputSection(auxNSamples, auxNOutputs, auxSOutputs,
                                         auxSStates, NULL);
             psData->writePsuadeFile(auxDriverName,0);
@@ -724,11 +725,11 @@ void MMOptimizer::optimize(oData *odata)
       h = sqrt(h);
       Fh = Fval - lastFval;
       if (Fh < 0) Fh = - Fh;
-      printEquals(0);
+      printEquals(PL_INFO, 0);
       printf("Iteration  # fEvals  # cEval   Fine Cost Func  ||x_{k+1}-x_k||\n");
       printf("%5d     %5d     %5d     %13.6e       %4.2e\n", 
              nIter+1,nfevals,ncevals,Fval,h);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
       if (nIter == nIterMAX || Fh < tolF) break;
 
       // 3.B EVALUATING THE COARSE MODEL AT X1
@@ -745,14 +746,14 @@ void MMOptimizer::optimize(oData *odata)
 
       if (odata->outputLevel_ > 1)
       {
-         printDashes(0);
+         printDashes(PL_INFO, 0);
          printf("===> MM: coarse model evaluated at next guess (iter = %d)\n",
                 nfevals-1);
          for (ii = 0; ii < nInputs; ii++)
             printf("===>    Input %3d = %16.8e\n", ii+1, X1[ii]);
          for (ii = 0; ii < nOutputs; ii++)
             printf("===>    Output %3d = %16.8e\n", ii+1, Yc[ii]);
-         printDashes(0);
+         printDashes(PL_INFO, 0);
       }
 
       // 4. COMPUTING Af AND Ac
@@ -870,7 +871,7 @@ void MMOptimizer::optimize(oData *odata)
    if (psData != NULL)
    {
       psData->updateInputSection(auxNSamples, auxNInputs, NULL, 
-                                 NULL,NULL,auxSInputs, NULL);
+                                 NULL,NULL,auxSInputs,NULL,NULL,NULL,NULL,NULL);
       psData->updateOutputSection(auxNSamples, auxNOutputs, auxSOutputs,
                                   auxSStates, NULL);
       psData->writePsuadeFile(auxDriverName,0);
@@ -881,8 +882,8 @@ void MMOptimizer::optimize(oData *odata)
       printf("\n Maximum number of %4d MM iterations reached.\n\n", nIterMAX);
    else if (Fval < initFval)
    {
-      printAsterisks(0);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
       printf(" MANIFOLD MAPPING: Manifold-mapping solution:\n");
       for(ii = 0; ii < nInputs; ii++)
          printf("   Input %3d = %16.8e\n", ii+1, optX[ii]);
@@ -891,13 +892,13 @@ void MMOptimizer::optimize(oData *odata)
       printf("  Function value = %16.8e\n", optFval);
       printf("  Number of fine   model evaluations = %d\n", nfevals);
       printf("  Number of coarse model evaluations = %d\n", ncevals);
-      printAsterisks(0);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf(" *       MANIFOLD MAPPING OPTIMIZATION ENDS\n");
-   printAsterisks(0);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
+   printAsterisks(PL_INFO, 0);
    odata->optimalY_ = optFval;
    for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = optX[ii];
 

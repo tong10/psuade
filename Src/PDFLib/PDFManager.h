@@ -47,13 +47,13 @@
 // ************************************************************************
 class PDFManager 
 {
-
    int nInputs_;
    int *pdfMap_;
    int nGNormal_;
    int *gnormalInputs_;
    int nGLognormal_;
    int *glognormalInputs_;
+   int *usrPDFFlags_;
    int printLevel_;
    PDFBase        **PDFptrs_;
    PDFMVNormal    *PDFMVNormalPtr_;
@@ -67,12 +67,12 @@ public:
    PDFManager();    
    ~PDFManager();
    int initialize(PsuadeData *);
-   int initialize(int, int *, double *, double *, Matrix &);
    int getPDF(int, Vector &, Vector &, Vector &, Vector &);
    int genSample(int, Vector &, Vector &, Vector &);
    int genSample();
    int invCDF(int, Vector &, Vector &, Vector &, Vector &);
    int getCDF(int, Vector &, Vector &, Vector &, Vector &);
+   int initialize(int,int *,double *,double *,Matrix &,char **, int *);
 };
 
 #endif // __PDFMANAGERH__

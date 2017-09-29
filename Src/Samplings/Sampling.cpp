@@ -261,7 +261,7 @@ int Sampling::doSampling(PsuadeData* psuadeIO_)
    {
       if (nRefines > 0)
       {
-         printf("PSUADE ERROR: you have requested both sample refinement and PDFs.\n");
+         printf("PSUADE ERROR: both sample refinement and PDFs requested.\n");
          printf("       Sample refinement requires that all the input\n");
          printf("       probability distribution be uniform. You need to\n");
          printf("       either reset the number of refinements to be zero,\n");
@@ -308,7 +308,7 @@ int Sampling::doSampling(PsuadeData* psuadeIO_)
       getSamples(nSamples, nInputs, nOutputs, sampleInputs,
                          sampleOutputs, sampleStates);
       psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                  sampleInputs,NULL); 
+                                  sampleInputs,NULL,NULL,NULL,NULL,NULL); 
       psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
                                    sampleStates,NULL); 
       delete [] sampleInputs;
@@ -411,15 +411,18 @@ int Sampling::loadSamples(int nSamples, int nInputs, int nOutputs,
 {
    int ii, jj, offset;
 
+   deleteSampleData();
    if (nSamples != nSamples_) 
    {
       printf("Sampling::loadSamples WARNING: mismatched nSamples. \n");
-      printf("          nSamples reset to incoming nSamples. \n");
+      printf("          nSamples %d reset to incoming nSamples %d. \n",
+             nSamples_, nSamples);
       nSamples_ = nSamples;
    }
    if (nInputs != nInputs_) 
    {
-      printf("Sampling::loadSamples WARNING: invalid nInputs. \n");
+      printf("Sampling::loadSamples WARNING: invalid nInputs (%d,%d).\n",
+             nInputs, nInputs_);
       exit(1);
    }
    if (nOutputs != nOutputs_) 
@@ -427,7 +430,6 @@ int Sampling::loadSamples(int nSamples, int nInputs, int nOutputs,
       printf("Sampling::loadSamples WARNING: invalid nOutputs. \n");
       exit(1);
    }
-   deleteSampleData();
 
    allocSampleData();
    for (ii = 0; ii < nSamples_; ii++) 

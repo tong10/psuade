@@ -18,6 +18,6 @@ APPLICATION
 END
 ANALYSIS
    analyzer method = Moment
-   diagnostics 1
+   diagnostics 2
 END
 END

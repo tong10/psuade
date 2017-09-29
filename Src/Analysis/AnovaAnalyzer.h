@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003 (updated 7/9/2004)
 // ************************************************************************
-
 #ifndef __ANOVAANALYZERH__
 #define __ANOVAANALYZERH__
 
@@ -43,6 +42,14 @@ public:
 
    AnovaAnalyzer& operator=(const AnovaAnalyzer &analyzer);
 
+   /** Getters for analysis results */
+   int    get_tableLeng();
+   int    *get_dofs();
+   double *get_sumSquare();
+   double *get_meanSquares();
+   double *get_fValues();
+   int    **get_code();
+
 private:
 
    double computeSumSquares1(int,int,int,int,int,int,double*,double*);
@@ -51,6 +58,15 @@ private:
    double computeSumSquares3(int,int,int,int,int,int,int,int,int,int,
                              double*,double*,double,double,double,double,
                              double,double);
+
+   /*length of arrays is tableLeng_ */
+   /*added - 4/30/14 - JMcE*/
+   int    tableLeng_;
+   int    *dofs_;
+   double *sumSquares_;
+   double *meanSquares_;
+   double *fValues_;
+   int    **code_;
 };
 
 #endif // __ANOVAANALYZERH__

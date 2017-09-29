@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2006
 // ************************************************************************
-
 #ifndef __BINOMIALANALYZERH__
 #define __BINOMIALANALYZERH__
 
@@ -33,7 +32,6 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class BinomialAnalyzer : public Analyzer
 {
 
@@ -51,6 +49,19 @@ public:
 
    double factorial(int n);
 
+   /** Getters for analysis results */
+   int    get_nSamples();
+   double *get_Ybin();
+   int    get_nBelow();
+   double *get_BinomialCDF();
+   double get_typeI();
+
+private:
+   int nSamples_;
+   double *Ybin_; //length = nSamples_
+   int    nBelow_;
+   double *BinomialCDF_; //length = nSamples_+1
+   double typeI_;
 };
 
 #endif // __BINOMIALANALYZERH__

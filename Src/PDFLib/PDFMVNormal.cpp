@@ -38,7 +38,7 @@
 // ------------------------------------------------------------------------
 PDFMVNormal::PDFMVNormal(Vector &means, Matrix &corMat)
 {
-   int    ii, jj, length;
+   int    ii, jj, length, status;
    double sigmaI, sigmaJ, ddata, *localSds;;
 
    if (means.length() <= 0)
@@ -59,7 +59,7 @@ PDFMVNormal::PDFMVNormal(Vector &means, Matrix &corMat)
       ddata = corMat.getEntry(ii,ii);
       if (ddata <= 0)
       {
-         printf("PDFMVNormal ERROR: stdev should be > 0.\n");
+         printf("PDFMVNormal ERROR: stdev should be > 0 (%d,%e).\n",ii+1,ddata);
          exit(1);
       }
    }
@@ -81,9 +81,13 @@ PDFMVNormal::PDFMVNormal(Vector &means, Matrix &corMat)
          covMat_.setEntry(ii,jj,ddata);
       }
    }
-   covMat_.CholDecompose();
+   status = covMat_.CholDecompose();
+   if (status != 0)
+   {
+      printf("PDFMVNormal ERROR: covariance matrix not positive definite.\n");
+      exit(1);
+   }
    delete [] localSds;
-
 }
 
 // ************************************************************************

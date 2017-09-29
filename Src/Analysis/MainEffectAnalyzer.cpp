@@ -26,6 +26,7 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <math.h>
 #include "MainEffectAnalyzer.h"
 #include "sysdef.h"
@@ -35,13 +36,16 @@
 #include "pData.h"
 #include "PsuadeData.h"
 #include "RSConstraints.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-MainEffectAnalyzer::MainEffectAnalyzer() : Analyzer()
+MainEffectAnalyzer::MainEffectAnalyzer() : Analyzer(), nInputs_(0), 
+                        outputID_(0), inputVCE_(0), totalInputVCE_(0), 
+                        mainEffectMean_(0), mainEffectStd_(0)
 {
    setName("MainEffect");
 }
@@ -51,6 +55,7 @@ MainEffectAnalyzer::MainEffectAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 MainEffectAnalyzer::~MainEffectAnalyzer()
 {
+   if (inputVCE_) delete [] inputVCE_;
 }
 
 // ************************************************************************
@@ -66,15 +71,18 @@ double MainEffectAnalyzer::analyze(aData &adata)
    double *sampleInputs, *sampleOutputs, *X, *Y, ddata;
    double *XX, *YY, **bsVCEs, *iLowerB, *iUpperB;
    char   winput1[500], winput2[500], meFileName[500];
-   char   pString[500];
+   char   pString[500], **inputNames;
    FILE   *fp=NULL, *fp1=NULL;
+   pData  pdata;
    PsuadeData    *ioPtr;
    RSConstraints *constrPtr=NULL;
 
    nInputs       = adata.nInputs_;
+   nInputs_		 = nInputs;
    nOutputs      = adata.nOutputs_;
    nSamples      = adata.nSamples_;
    outputID      = adata.outputID_;
+   outputID_	 = outputID;
    sampleInputs  = adata.sampleInputs_;
    sampleOutputs = adata.sampleOutputs_;
    nSubSamples   = adata.nSubSamples_;
@@ -86,29 +94,29 @@ double MainEffectAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("MainEffect ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "MainEffect ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
       exit(1);
    } 
    if (nSamples/nSubSamples*nSubSamples != nSamples)
    {
-      printf("MainEffect ERROR: nSamples != k*nLevels.\n");
-      printf("    nSamples = %d\n", nSamples);
-      printf("    nLevels  = %d\n", nSubSamples);
+      printOutTS(PL_ERROR, "MainEffect ERROR: nSamples != k*nLevels.\n");
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "    nLevels  = %d\n", nSubSamples);
       exit(1);
    } 
    if (whichOutput >= nOutputs || whichOutput < 0)
    {
-      printf("MainEffect ERROR: invalid outputID.\n");
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    outputID = %d\n", whichOutput+1);
+      printOutTS(PL_ERROR, "MainEffect ERROR: invalid outputID.\n");
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    outputID = %d\n", whichOutput+1);
       exit(1);
    }
    if (ioPtr == NULL)
    {
-      printf("MainEffect ERROR: no data (PsuadeData).\n");
+      printOutTS(PL_ERROR, "MainEffect ERROR: no data (PsuadeData).\n");
       return PSUADE_UNDEFINED;
    }
    if (adata.inputPDFs_ != NULL)
@@ -117,12 +125,14 @@ double MainEffectAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printf("MainEffect INFO: Some inputs have non-uniform PDFs.\n");
-         printf("           However, they are relevant in this analysis\n");
-         printf("           (the sample should have been generated\n");
-         printf("            with the desired distributions.)\n");
+         printOutTS(PL_INFO, "MainEffect INFO: Some inputs have non-uniform PDFs.\n");
+         printOutTS(PL_INFO, "           However, they are relevant in this analysis\n");
+         printOutTS(PL_INFO, "           (the sample should have been generated\n");
+         printOutTS(PL_INFO, "            with the desired distributions.)\n");
       }
    }
+   if (inputVCE_) delete [] inputVCE_;
+   inputVCE_ = NULL;
 
    if (ioPtr != NULL)
    {
@@ -130,7 +140,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
       if(constrPtr != NULL) constrPtr->genConstraints(ioPtr);
       else 
       {
-	 printf("out of memory in file %s line %d, exiting.\n", 
+	 printOutTS(PL_ERROR, "out of memory in file %s line %d, exiting.\n",
                 __FILE__, __LINE__);
 	 exit(1);
       }
@@ -148,48 +158,52 @@ double MainEffectAnalyzer::analyze(aData &adata)
    }
    if (ncount == 0)
    {
-      printf("MainEffect ERROR: no valid sample point.\n");
-      printf("    nSamples before filtering = %d\n", nSamples);
-      printf("    nSamples after  filtering = %d\n", ncount);
-      printf("    INFO: check your data file for undefined's (1e35)\n");
+      printOutTS(PL_ERROR, "MainEffect ERROR: no valid sample point.\n");
+      printOutTS(PL_ERROR, "    nSamples before filtering = %d\n", nSamples);
+      printOutTS(PL_ERROR, "    nSamples after  filtering = %d\n", ncount);
+      printOutTS(PL_ERROR, "    INFO: check your data file for undefined's (1e35)\n");
       delete [] Y;
       if (constrPtr != NULL) delete constrPtr;
       return 1.0;
    } 
    if (ncount != nSamples)
    {
-      printf("MainEffect: nSamples before filtering = %d\n", nSamples);
-      printf("MainEffect: nSamples after  filtering  = %d\n", ncount);
+      printOutTS(PL_INFO, "MainEffect: nSamples before filtering = %d\n", nSamples);
+      printOutTS(PL_INFO, "MainEffect: nSamples after  filtering  = %d\n", ncount);
    }
    if (nSamples < 1000)
    {
-      printf("MainEffect INFO: nSamples may be too small to\n");
-      printf("                 give results with acceptable accuracy.\n");
+      printOutTS(PL_INFO, "MainEffect INFO: nSamples may be too small to\n");
+      printOutTS(PL_INFO, "                 give results with acceptable accuracy.\n");
    }
 
    computeMeanVariance(nInputs,1,nSamples,Y,&aMean,&aVariance,0);
    if (printLevel > 0)
    {
-      printAsterisks(0);
-      printf("* Main Effect Analysis\n");
-      printDashes(0);
-      printf("* total number of samples = %10d                     **\n",
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "* Main Effect Analysis\n");
+      printDashes(PL_INFO, 0);
+      printOutTS(PL_INFO, " - TURN ON HIGHER printlevel TO DISPLAY MORE INFORMATION\n");
+      printOutTS(PL_INFO, " - TURN ON ana_expert MODE FOR MORE PLOTS\n");
+      printDashes(PL_INFO, 0);
+      printOutTS(PL_INFO, "* total number of samples = %10d                     **\n",
              nSamples);
-      printf("* number of Inputs        = %10d                     **\n",
+      printOutTS(PL_INFO, "* number of Inputs        = %10d                     **\n",
              nInputs);
-      printDashes(0);
-      printf("Output %d\n", whichOutput+1);
-      printf("=====> MainEffect: mean               = %12.4e\n",aMean);
-      printf("=====> MainEffect: standard deviation = %12.4e\n",
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, "Output %d\n", whichOutput+1);
+      printOutTS(PL_INFO, "=====> MainEffect: mean               = %12.4e\n",aMean);
+      printOutTS(PL_INFO, "=====> MainEffect: standard deviation = %12.4e\n",
              sqrt(aVariance));
    }
-
+   mainEffectMean_ = aMean;
+   mainEffectStd_ = sqrt(aVariance);
    nSubs = nSubSamples;
    nReplications = nSamples / nSubs;
 #if 0
    if (nReplications <= 1)
    {
-      printf("MainEffectAnalyzer INFO: go no further since nReps = 1.\n");
+      printOutTS(PL_INFO, "MainEffectAnalyzer INFO: go no further since nReps = 1.\n");
       return 1.0;
    }
 #endif
@@ -214,9 +228,9 @@ double MainEffectAnalyzer::analyze(aData &adata)
       }
       if (nReplications <= 1)
       {
-         printf("* MainEffect INFO: nReps = 1 for input %d.\n",ii+1);
-         printf("*            ==> not replicated Latin hypercube\n");
-         printf("*            ==> crude main effect analysis.\n");
+         printOutTS(PL_INFO, "* MainEffect INFO: nReps = 1 for input %d.\n",ii+1);
+         printOutTS(PL_INFO, "*            ==> not replicated Latin hypercube\n");
+         printOutTS(PL_INFO, "*            ==> crude main effect analysis.\n");
          computeVCECrude(nInputs, nSamples, X, Y, iLowerB, iUpperB, 
                          aVariance, vce);
          pData *pPtr = ioPtr->getAuxData();
@@ -240,7 +254,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
    }
 
    fp = NULL;
-   if (psAnaExpertMode_ == 1 || psAnalysisInteractive_ == 1)
+   if (psAnaExpertMode_ == 1)
    {
       sprintf(pString,"Create main effect scatter plot ? (y or n) ");
       getString(pString, winput1);
@@ -255,29 +269,21 @@ double MainEffectAnalyzer::analyze(aData &adata)
          fp = fopen(meFileName, "w");
          if (fp != NULL)
          {
-            printf("MainEffect: main effect file = %s\n", meFileName);
+            printOutTS(PL_INFO, "MainEffect: main effect file = %s\n", meFileName);
          }
       }
    }
 
    if (fp != NULL)
    {
-      if (psPlotTool_ == 1)
-      {
-         fprintf(fp,"// ********************************************** \n");
-         fprintf(fp,"// ********************************************** \n");
-         fprintf(fp,"// *  Main Effect Analysis                     ** \n");
-         fprintf(fp,"// *-------------------------------------------** \n");
-         fprintf(fp,"// file for main effect plots \n");
-      }
-      else
-      {
-         fprintf(fp,"%% ********************************************** \n");
-         fprintf(fp,"%% ********************************************** \n");
-         fprintf(fp,"%% *  Main Effect Analysis                     ** \n");
-         fprintf(fp,"%% *-------------------------------------------** \n");
-         fprintf(fp,"%% file for main effect plots \n");
-      }
+      strcpy(pString," **********************************************");
+      fwriteComment(fp, pString);
+      strcpy(pString," *  Main Effect Analysis                     **");
+      fwriteComment(fp, pString);
+      strcpy(pString," *-------------------------------------------**");
+      fwriteComment(fp, pString);
+      strcpy(pString," file for main effect plots \n");
+      fwriteComment(fp, pString);
    }
 
    if (fp != NULL)
@@ -332,23 +338,20 @@ double MainEffectAnalyzer::analyze(aData &adata)
 #if 1
    if (printLevel >= 0)
    {
-      printAsterisks(0);
-      printf("            McKay's correlation ratio\n");
-      printDashes(0);
-      printf(" - Turn on higher print levels to display more information\n");
-      printf(" - Turn on analysis expert mode for more analysis\n");
-      printEquals(0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "            McKay's correlation ratio\n");
+      printEquals(PL_INFO, 0);
       totalVCE = 0.0;
-      if (aVariance == 0) printf("Total VCE = %9.2e\n", totalVCE);
+      if (aVariance == 0) printOutTS(PL_INFO, "Total VCE = %9.2e\n", totalVCE);
       else
       {
          for (ii = 0; ii < nInputs; ii++)
          {
             totalVCE += vce[ii] / aVariance;
-            printf("Input %4d, Sobol' first order sensitivity = %9.2e (raw = %9.2e)\n",
+            printOutTS(PL_INFO, "Input %4d, first order sensitivity = %9.2e (raw = %9.2e)\n",
                    ii+1, vce[ii]/aVariance, vce[ii]);
          }
-         printf("Total VCE = %9.2e\n", totalVCE);
+         printOutTS(PL_INFO, "Total VCE = %9.2e\n", totalVCE);
       }
    }
 #endif
@@ -356,39 +359,39 @@ double MainEffectAnalyzer::analyze(aData &adata)
 #if 1
    if (printLevel > 2)
    {
-      printAsterisks(0);
-      printf("     McKay's biased correlation ratio (stdVCEMean)\n");
-      printDashes(0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "     McKay's biased correlation ratio (stdVCEMean)\n");
+      printDashes(PL_INFO, 0);
       totalVCE = 0.0;
       for (ii = 0; ii < nInputs; ii++)
       {
-         printf("Input %2d = %9.2e >>? %9.2e\n", ii+1,
+         printOutTS(PL_INFO, "Input %2d = %9.2e >>? %9.2e\n", ii+1,
                 varVCEMean[ii]/aVariance,1.0/(double)(nSubs*nSubs));
          totalVCE += varVCEMean[ii] / aVariance;
       }
-      printf("Total VCE = %9.2e\n", totalVCE);
+      printOutTS(PL_INFO, "Total VCE = %9.2e\n", totalVCE);
    }
 #endif
 
    if (printLevel > 2)
    {
-      printAsterisks(0);
-      printf("           Strength of interaction (varVCEVar)\n");
-      printDashes(0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "           Strength of interaction (varVCEVar)\n");
+      printDashes(PL_INFO, 0);
       for (ii = 0; ii < nInputs; ii++)
-         printf("    Input %2d = %9.2e (meanVCEVar = %9.2e)\n", ii+1, 
+         printOutTS(PL_INFO, "    Input %2d = %9.2e (meanVCEVar = %9.2e)\n", ii+1,
                 varVCEVar[ii], meanVCEVar[ii]);
-      printAsterisks(0);
-      printf("            Hora and Iman sensitivity index\n");
-      printf("   (may not be valid in the presence of constraints)\n");
-      printDashes(0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "            Hora and Iman sensitivity index\n");
+      printOutTS(PL_INFO, "   (may not be valid in the presence of constraints)\n");
+      printDashes(PL_INFO, 0);
       totalVCE = 0.0;
       for (ii = 0; ii < nInputs; ii++) 
          totalVCE += sqrt(aVariance-meanVCEVar[ii]);
       for (ii = 0; ii < nInputs; ii++)
-         printf("    Input %2d = %9.2e\n", ii+1, 
+         printOutTS(PL_INFO, "    Input %2d = %9.2e\n", ii+1,
                 sqrt(aVariance-meanVCEVar[ii])/totalVCE);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
    }
 
 #ifdef HAVE_PYTHON
@@ -438,74 +441,72 @@ double MainEffectAnalyzer::analyze(aData &adata)
 
    if (fp != NULL)
    {
-      fwritePlotCLF(fp);
-      fprintf(fp, "nx = ceil(sqrt(%d));", nInputs);
+      fwriteHold(fp, 0);
+      fprintf(fp,"nx = ceil(sqrt(%d));", nInputs);
       for (ii = 0; ii < nInputs; ii++)
       {
-         fprintf(fp, "subplot(nx, nx, %d)\n", ii+1);
+         fprintf(fp,"subplot(nx, nx, %d)\n", ii+1);
          if (psPlotTool_ == 1)
-            fprintf(fp, "Y = matrix(Y%d_%d,nReps%d,nSymbols%d);\n",
+            fprintf(fp,"Y = matrix(Y%d_%d,nReps%d,nSymbols%d);\n",
                     whichOutput,ii,ii,ii);
          else
-            fprintf(fp, "Y = reshape(Y%d_%d,nReps%d,nSymbols%d);\n",
+            fprintf(fp,"Y = reshape(Y%d_%d,nReps%d,nSymbols%d);\n",
                     whichOutput,ii,ii,ii);
-         fprintf(fp, "ymax = max(Y%d_%d);\n", whichOutput, ii);
-         fprintf(fp, "ymin = min(Y%d_%d);\n", whichOutput, ii);
-         fprintf(fp, "xmax = max(X%d);\n", ii);
-         fprintf(fp, "xmin = min(X%d);\n", ii);
+         fprintf(fp,"ymax = max(Y%d_%d);\n", whichOutput, ii);
+         fprintf(fp,"ymin = min(Y%d_%d);\n", whichOutput, ii);
+         fprintf(fp,"xmax = max(X%d);\n", ii);
+         fprintf(fp,"xmin = min(X%d);\n", ii);
          if (psPlotTool_ == 1)
          {
-            fprintf(fp, "a = get(\"current_axes\");\n");
-            fprintf(fp, "a.data_bounds=[xmin,ymin;xmax,ymax];\n");
+            fprintf(fp,"a = get(\"current_axes\");\n");
+            fprintf(fp,"a.data_bounds=[xmin,ymin;xmax,ymax];\n");
          }
          else
          {
-            fprintf(fp, "axis([xmin xmax ymin ymax])\n");
+            fprintf(fp,"axis([xmin xmax ymin ymax])\n");
          }
-         fprintf(fp, "for k = 1 : nSymbols%d \n",ii);
-         fprintf(fp, "   yt = Y(:, k);\n");
-         fprintf(fp, "   mean = sum(yt) / nReps%d;\n",ii);
-         fprintf(fp, "   x = X%d(k) * ones(nReps%d, 1);\n",ii,ii);
-         fprintf(fp, "   plot(x, yt, '.', 'MarkerSize', 8)\n");
-         if (psPlotTool_ == 0)
-         {
-            fprintf(fp, "   if ( k == 1 )\n");
-            fprintf(fp, "      hold on\n");
-            fprintf(fp, "   end;\n");
-         }
-         fprintf(fp, "   plot(x(1), mean, 'r*', 'MarkerSize', 12)\n");
-         fprintf(fp, "   meanArray(k) = mean;\n");
-         fprintf(fp, "   tmaxArray(k) = max(yt);\n");
-         fprintf(fp, "   tminArray(k) = min(yt);\n");
-         fprintf(fp, "end;\n");
+         fprintf(fp,"for k = 1 : nSymbols%d \n",ii);
+         fprintf(fp,"   yt = Y(:, k);\n");
+         fprintf(fp,"   mean = sum(yt) / nReps%d;\n",ii);
+         fprintf(fp,"   x = X%d(k) * ones(nReps%d, 1);\n",ii,ii);
+         fprintf(fp,"   plot(x, yt, '.', 'MarkerSize', 1)\n");
+         fprintf(fp,"   if ( k == 1 )\n");
+         fwriteHold(fp, 1);
+         fprintf(fp,"   end;\n");
+         fprintf(fp,"   meanArray(k) = mean;\n");
+         fprintf(fp,"   tmaxArray(k) = max(yt);\n");
+         fprintf(fp,"   tminArray(k) = min(yt);\n");
+         fprintf(fp,"end;\n");
          fwritePlotAxes(fp);
          fwritePlotXLabel(fp, "Input");
          fwritePlotYLabel(fp, "Output");
          fprintf(fp, "meanMean = sum(meanArray)/nSymbols%d;\n",ii);
          fprintf(fp, "adjMean  = (meanArray - meanMean);\n");
-         fprintf(fp, "varMean = sum(adjMean.^2)/nSymbols%d\n",ii);
-         fprintf(fp, "[xx,I] = sort(X%d);\n", ii);
-         fprintf(fp, "yy1 = meanArray(I);\n");
-         fprintf(fp, "yy2 = tmaxArray(I);\n");
-         fprintf(fp, "yy3 = tminArray(I);\n");
-         fprintf(fp, "plot(xx, yy1, 'r-', 'lineWidth', 2.0)\n");
-         fprintf(fp, "plot(xx, yy2, 'r-', 'lineWidth', 2.0)\n");
-         fprintf(fp, "plot(xx, yy3, 'r-', 'lineWidth', 2.0)\n");
-         fprintf(fp, "title('Output %d vs Input %d')\n",
-                 whichOutput+1,ii+1);
-         fflush(fp);
+         fprintf(fp,"varMean = sum(adjMean.^2)/nSymbols%d\n",ii);
+         fprintf(fp,"[xx,I] = sort(X%d);\n", ii);
+         fprintf(fp,"yy1 = meanArray(I);\n");
+         fprintf(fp,"yy2 = tmaxArray(I);\n");
+         fprintf(fp,"yy3 = tminArray(I);\n");
+         fprintf(fp,"plot(xx, yy1, 'r-', 'lineWidth', 1)\n");
+         fprintf(fp,"plot(xx, yy2, 'r-', 'lineWidth', 1)\n");
+         fprintf(fp,"plot(xx, yy3, 'r-', 'lineWidth', 1)\n");
+         fprintf(fp,"title('Output %d vs Input %d')\n",whichOutput+1,ii+1);
+         fprintf(fp,"disp('The center red lines are the conditional means.')\n");
+         fprintf(fp,"disp('Conditional means show trends wrt each input.')\n");
+         fprintf(fp,"disp('The upper/lower red lines are upper/lower envelopes.')\n");
+         fwriteHold(fp, 0);
       }
       fclose(fp);
-      printf("Main effect matlab plot %s has been generated.\n", meFileName);
+      printOutTS(PL_INFO, "Main effect matlab plot %s has been generated.\n", meFileName);
    }
 
    if (psAnaExpertMode_ == 1)
    {
-      printf("Bootstrap analysis takes the sample, replicates it n times,\n");
-      printf("and assess whether the sensitivity indices have converged.\n");
-      printf("If you are performed iterative analysis with refinements,\n");
-      printf("you will need to enter 'no index reuse' below at the first\n");
-      printf("iteration and 'yes' afterward until the final refinement.\n");
+      printOutTS(PL_INFO, "Bootstrap analysis takes the sample, replicates it n times,\n");
+      printOutTS(PL_INFO, "and assess whether the sensitivity indices have converged.\n");
+      printOutTS(PL_INFO, "If you are performed iterative analysis with refinements,\n");
+      printOutTS(PL_INFO, "you will need to enter 'no index reuse' below at the first\n");
+      printOutTS(PL_INFO, "iteration and 'yes' afterward until the final refinement.\n");
       sprintf(pString,"Perform bootstrap main effect analysis? (y or n) ");
       getString(pString, winput1);
       ncount = 0;
@@ -522,7 +523,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
          fp1 = fopen(".ME_bootstrap_indset", "r");
          if (fp1 != NULL)
          {
-            printf(".ME_bootstrap_indset file found.\n");
+            printOutTS(PL_INFO, ".ME_bootstrap_indset file found.\n");
             sprintf(pString,"Re-use file? (y or n) ");
             getString(pString, winput1);
             if (winput1[0] == 'y')
@@ -530,9 +531,9 @@ double MainEffectAnalyzer::analyze(aData &adata)
                fscanf(fp1, "%d", &ii);
                if (ii != nReplications*ncount)
                {
-                  printf("ERROR: expect the first line to be %d.\n",
+                  printOutTS(PL_ERROR, "ERROR: expect the first line to be %d.\n",
                          nReplications*ncount);
-                  printf("       Instead found the first line to be %d.n",
+                  printOutTS(PL_ERROR, "       Instead found the first line to be %d.n",
                          ii);
                   exit(1);
                }
@@ -543,7 +544,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
                fp1 = fopen(".ME_bootstrap_indset", "w");
                if (fp1 == NULL)
                {
-                  printf("ERROR: cannot open ME_bootstrap_indset file.\n");
+                  printOutTS(PL_ERROR, "ERROR: cannot open ME_bootstrap_indset file.\n");
                   exit(1);
                }
                fprintf(fp1, "%d\n", nReplications*ncount);
@@ -554,7 +555,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
             fp1 = fopen(".ME_bootstrap_indset", "w");
             if (fp1 == NULL)
             {
-               printf("ERROR: cannot open .ME_bootstrap_indset file.\n");
+               printOutTS(PL_ERROR, "ERROR: cannot open .ME_bootstrap_indset file.\n");
                exit(1);
             }
             fprintf(fp1, "%d\n", nReplications*ncount);
@@ -569,9 +570,9 @@ double MainEffectAnalyzer::analyze(aData &adata)
                   fscanf(fp1, "%d\n", &index);
                   if (index < 0 || index >= nReplications)
                   {
-                     printf("ERROR: reading index from file .ME_bootstrap_indset\n");
-                     printf("       index read = %d\n", index);
-                     printf("       expected   = [0,%d]\n", nReplications-1);
+                     printOutTS(PL_ERROR, "ERROR: reading index from file .ME_bootstrap_indset\n");
+                     printOutTS(PL_ERROR, "       index read = %d\n", index);
+                     printOutTS(PL_ERROR, "       expected   = [0,%d]\n", nReplications-1);
                   }
                }
                else 
@@ -581,7 +582,7 @@ double MainEffectAnalyzer::analyze(aData &adata)
 	       // Bill Oliver range check
 	       if((index*nSubSamples + nSubSamples - 1) >= nSamples)
                {
-		  printf("Buffer overflow in file %s line %d\n", 
+		  printOutTS(PL_ERROR, "Buffer overflow in file %s line %d\n",
                          __FILE__, __LINE__);
 		  exit(1);
 	       }
@@ -608,18 +609,81 @@ double MainEffectAnalyzer::analyze(aData &adata)
          fp = fopen(winput1, "w");
          if (fp != NULL)
          {
-            fprintf(fp, "%%bootstrap sample of main effects\n");
-            fprintf(fp, "%%VCE(i,j) = VCE for input i, bs sample j\n");
+            strcpy(winput2,"bootstrap sample of main effects");
+            fwriteComment(fp, winput2);
+            strcpy(winput2,"VCE(i,j) = VCE for input i, bootstrapped sample j");
+            fwriteComment(fp, winput2);
             fprintf(fp, "VCE = zeros(%d,%d);\n",nInputs,ncount);
             for (ii = 0; ii < ncount; ii++)
                for (jj = 0; jj < nInputs; jj++)
                   fprintf(fp, "VCE(%d,%d) = %e;\n",jj+1,ii+1,
                           bsVCEs[ii][jj]);
+            fprintf(fp, "nn = %d;\n", nInputs);
+            if (ioPtr != NULL) ioPtr->getParameter("input_names",pdata);
+            if (pdata.strArray_ != NULL) inputNames = pdata.strArray_;
+            else                         inputNames = NULL;
+            if (inputNames == NULL)
+            {
+               fprintf(fp, "Str = {");
+               for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
+               fprintf(fp,"'X%d'};\n",nInputs);
+            }
+            else
+            {
+               fprintf(fp, "Str = {");
+               for (ii = 0; ii < nInputs-1; ii++)
+               {
+                  if (inputNames[ii] != NULL) fprintf(fp,"'%s',",inputNames[ii]);
+                  else                        fprintf(fp,"'X%d',",ii+1);
+               }
+               if (inputNames[nInputs-1] != NULL)
+                    fprintf(fp,"'%s'};\n",inputNames[nInputs-1]);
+               else fprintf(fp,"'X%d'};\n",nInputs);
+            }
+            fwriteHold(fp,0);
+            fprintf(fp,"ymin = 0.0;\n");
+            fprintf(fp,"ymax = max(max(VCE));\n");
+            fprintf(fp,"hh = 0.05 * (ymax - ymin);\n");
+            fprintf(fp,"ymax = ymax + hh;\n");
+            fprintf(fp,"VMM = sum(VCE')/%d;\n",ncount);
+            fprintf(fp,"VMA = max(VCE');\n");
+            fprintf(fp,"VMI = min(VCE');\n");
+            fprintf(fp,"bar(VMM,0.8);\n");
+            fwriteHold(fp,1);
+            fprintf(fp,"for ii = 1 : nn\n");
+            fprintf(fp,"  XX = [ii ii];\n");
+            fprintf(fp,"  YY = [VMI(ii)  VMA(ii)];\n");
+            fprintf(fp,"  plot(XX,YY,'-ko','LineWidth',3.0,'MarkerEdgeColor',");
+            fprintf(fp,"'k','MarkerFaceColor','g','MarkerSize',13)\n");
+            fprintf(fp,"end;\n");
+            fwritePlotAxes(fp);
+            if (psPlotTool_ == 1)
+            {
+               fprintf(fp,"a=gca();\n");
+               fprintf(fp,"a.data_bounds=[0, ymin; nn+1, ymax];\n");
+               fprintf(fp,"newtick = a.x_ticks;\n");
+               fprintf(fp,"newtick(2) = [1:nn]';\n");
+               fprintf(fp,"newtick(3) = Str';\n");
+               fprintf(fp,"a.x_ticks = newtick;\n");
+               fprintf(fp,"a.x_label.font_size = 3;\n");
+               fprintf(fp,"a.x_label.font_style = 4;\n");
+            }
+            else
+            {
+               fprintf(fp,"axis([0  nn+1 ymin ymax])\n");
+               fprintf(fp,"set(gca,'XTickLabel',[]);\n");
+               fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str,");
+               fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+               fprintf(fp,"set(th, 'fontsize', 12)\n");
+               fprintf(fp,"set(th, 'fontweight', 'bold')\n");
+            }
+            fwritePlotTitle(fp,"Bootstrapped Sobol first  Order Indices");
+            fwritePlotYLabel(fp,"Sobol Indices");
             fclose(fp);
          }
          else
          {
-            printf("ERROR: cannot open file %s\n", winput1);
+            printOutTS(PL_ERROR, "ERROR: cannot open file %s\n", winput1);
          }
          for (ii = 0; ii < ncount; ii++) delete [] bsVCEs[ii];
          delete [] bsVCEs;
@@ -665,7 +729,7 @@ int MainEffectAnalyzer::computeMeanVariance(int nInputs, int nOutputs,
    }
    if (count <= 0)
    {
-      printf("MainEffect ERROR: no valid data.\n");
+      printOutTS(PL_ERROR, "MainEffect ERROR: no valid data.\n");
       exit(1);
    }
    mean /= (double) count;
@@ -730,7 +794,7 @@ int MainEffectAnalyzer::computeVCE(int nInputs, int nSamples, int nSubSamples,
          validnReps = 0;
          for (repID = 0; repID < nReplications; repID++)
          {
-            if (PABS(txArray[ss+repID] - fixedInput) < 1.0E-8)
+            if (PABS(txArray[ss+repID] - fixedInput) < 1.0E-12)
             {
                ncount++;
                if (tyArray[ss+repID] < 0.9*PSUADE_UNDEFINED)
@@ -812,7 +876,7 @@ int MainEffectAnalyzer::computeVCE(int nInputs, int nSamples, int nSubSamples,
                               bins[subID] / totalCnt);
       }
       if (validnSubs > 0)
-         vce[ii] = varVCEMean[ii] - meanVCEVar[ii]/((double) validnSubs);
+         vce[ii] = varVCEMean[ii];
       else
          vce[ii] = 0.0;
    }
@@ -836,29 +900,34 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
    double *vceMean, *vceVariance, aMean, ddata, hstep;
    char   pString[500];
 
-   nSize = 50;
-   nIntervals = nSamples / nSize;
-   printAsterisks(0);
-   printf("*                Crude Main Effect\n");
-   printEquals(0);
-   printf("* MainEffect: number of levels   = %d\n", nIntervals);
-   printf("* MainEffect: sample size/levels = %d\n", nSize);
-   printDashes(0);
-   printf("* These may need to be adjusted for higher accuracy.\n");
-   printf("* Recommed sample size per level to be at least 50.\n");
-   printf("* Turn on analysis expert mode to change them.\n");
+   nIntervals = (int) sqrt(1.0 * nSamples);
+   nSize = nSamples / nIntervals;
+   if (nSize < 10) nSize = 10;
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "*                Crude Main Effect\n");
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO, "* MainEffect: number of levels   = %d\n", nIntervals);
+   printOutTS(PL_INFO, "* MainEffect: sample size/levels = %d\n", nSize);
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO, "* For small to moderate sample sizes, this method gives\n");
+   printOutTS(PL_INFO, "* rough estimates of main effect (first order sensitivity).\n");
+   printOutTS(PL_INFO, "* These estimates can vary with different choices of internal\n");
+   printOutTS(PL_INFO, "* settings. For example, try different number of bins to assess\n");
+   printOutTS(PL_INFO, "* sensitivity of the computed measures with respect to it.\n");
+   printOutTS(PL_INFO, "* Turn on analysis expert mode to change the settings.\n");
    if (psAnaExpertMode_ == 1)
    {
       sprintf(pString,"number of levels (>5, default = %d): ", nIntervals);
       nIntervals = getInt(5, nSamples/2, pString);
       nSize = nSamples / nIntervals;
    }
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    bins = new int[nIntervals];
    tags = new int[nSamples];
    vceMean     = new double[nIntervals];
    vceVariance = new double[nIntervals];
 
+   inputVCE_ = new double[nInputs_];
    for (ii = 0; ii < nInputs; ii++)
    {
       hstep = (iUpperB[ii] - iLowerB[ii]) / nIntervals;
@@ -916,21 +985,23 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
                         (vceMean[ss] - aMean) * bins[ss]/totalCnt);
          }
       }
+      inputVCE_[ii] = vce[ii];
    }
 
    ddata = 0.0;
-   if (aVariance == 0) printf("Total VCE = %9.2e\n", ddata);
+   if (aVariance == 0) printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
    else
    {
       for (ii = 0; ii < nInputs; ii++)
       {
          ddata += vce[ii] / aVariance;
-         printf("Input %4d, Sobol' first order sensitivity = %9.2e (raw = %9.2e)\n",
+         printOutTS(PL_INFO, "Input %4d, first order sensitivity = %9.2e (raw = %9.2e)\n",
                 ii+1, vce[ii]/aVariance, vce[ii]);
       }
-      printf("Total VCE = %9.2e\n", ddata);
+      printOutTS(PL_INFO, "Total VCE = %9.2e\n", ddata);
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
+   totalInputVCE_ = ddata;
 
 
    delete [] vceMean;
@@ -945,7 +1016,7 @@ int MainEffectAnalyzer::computeVCECrude(int nInputs, int nSamples,
 // ------------------------------------------------------------------------
 MainEffectAnalyzer& MainEffectAnalyzer::operator=(const MainEffectAnalyzer &)
 {
-   printf("MainEffect operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "MainEffect operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -958,34 +1029,28 @@ int MainEffectAnalyzer::printResults(int nInputs, double variance,
 {
    int   ii;
    FILE  *fp;
-   char  **iNames;
+   char  **iNames, pString[500];
    pData qData;
 
    if (ioPtr != NULL) ioPtr->getParameter("input_names", qData);
    if (qData.strArray_ != NULL) iNames = qData.strArray_;
    else                         iNames = NULL;
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    if (variance == 0.0)
    {
-      printf("Total variance = 0. Hence, no main effect plot.\n");
+      printOutTS(PL_WARN, "Total variance = 0. Hence, no main effect plot.\n");
       return 0;
    }
    if (psPlotTool_ == 1) fp = fopen("scilabme.sci", "w");
    else                  fp = fopen("matlabme.m", "w");
    if (fp != NULL)
    {
-      if (psPlotTool_ == 1) 
-      {
-         fprintf(fp, "// This file contains Sobol' first order indices\n");
-         fprintf(fp, "// set sortFlag = 1 and set nn to be the number\n");
-         fprintf(fp, "// of inputs to display.\n");
-      }
-      else
-      {
-         fprintf(fp, "%% This file contains Sobol' first order indices\n");
-         fprintf(fp, "%% set sortFlag = 1 and set nn to be the number\n");
-         fprintf(fp, "%% of inputs to display.\n");
-      }
+      strcpy(pString," This file contains Sobol' first order indices");
+      fwriteComment(fp, pString);
+      strcpy(pString," set sortFlag = 1 and set nn to be the number");
+      fwriteComment(fp, pString);
+      strcpy(pString," of inputs to display.");
+      fwriteComment(fp, pString);
       fprintf(fp, "sortFlag = 0;\n");
       fprintf(fp, "nn = %d;\n", nInputs);
       fprintf(fp, "Mids = [\n");
@@ -1028,37 +1093,72 @@ int MainEffectAnalyzer::printResults(int nInputs, double variance,
       fwritePlotAxes(fp);
       if (psPlotTool_ == 1)
       {
-         fprintf(fp, "a=gca();\n");
-         fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
-         fprintf(fp, "newtick = a.x_ticks;\n");
-         fprintf(fp, "newtick(2) = [1:nn]';\n");
-         fprintf(fp, "newtick(3) = Str';\n");
-         fprintf(fp, "a.x_ticks = newtick;\n");
-         fprintf(fp, "a.x_label.font_size = 3;\n");
-         fprintf(fp, "a.x_label.font_style = 4;\n");
+         fprintf(fp,"a=gca();\n");
+         fprintf(fp,"a.data_bounds=[0, ymin; nn+1, ymax];\n");
+         fprintf(fp,"newtick = a.x_ticks;\n");
+         fprintf(fp,"newtick(2) = [1:nn]';\n");
+         fprintf(fp,"newtick(3) = Str';\n");
+         fprintf(fp,"a.x_ticks = newtick;\n");
+         fprintf(fp,"a.x_label.font_size = 3;\n");
+         fprintf(fp,"a.x_label.font_style = 4;\n");
       }
       else
       {
-         fprintf(fp, "axis([0  nn+1 ymin ymax])\n");
-         fprintf(fp, "set(gca,'XTickLabel',[]);\n");
-         fprintf(fp, "th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str,");
-         fprintf(fp, "'HorizontalAlignment','left','rotation',90);\n");
-         fprintf(fp, "set(th, 'fontsize', 12)\n");
-         fprintf(fp, "set(th, 'fontweight', 'bold')\n");
+         fprintf(fp,"axis([0  nn+1 ymin ymax])\n");
+         fprintf(fp,"set(gca,'XTickLabel',[]);\n");
+         fprintf(fp,"th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str,");
+         fprintf(fp,"'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp,"set(th, 'fontsize', 12)\n");
+         fprintf(fp,"set(th, 'fontweight', 'bold')\n");
       }
       fwritePlotTitle(fp,"Sobol First Order Indices");
-      fwritePlotYLabel(fp, "Sobol Indices");
-      fprintf(fp, "hold off\n");
+      fwritePlotYLabel(fp,"Sobol Indices");
+      fprintf(fp,"disp('Switch sortFlag to display ranked Sobol indices')\n");
+      fwriteHold(fp, 0);
       fclose(fp);
       if (psPlotTool_ == 1) 
-           printf("MainEffect plot matlab file = scilabme.sci\n");
-      else printf("MainEffect plot matlab file = matlabme.m\n");
+           printOutTS(PL_INFO, "MainEffect plot matlab file = scilabme.sci\n");
+      else printOutTS(PL_INFO, "MainEffect plot matlab file = matlabme.m\n");
       return 0;
    }
    else
    {
-      printf("MainEffect ERROR: cannot create matlabme.m file.\n");
+      printOutTS(PL_ERROR, "MainEffect ERROR: cannot create matlabme.m file.\n");
       return 0;
    }
+}
+
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int MainEffectAnalyzer::get_nInputs()
+{
+   return nInputs_;
+}
+int MainEffectAnalyzer::get_outputID()
+{
+   return outputID_;
+}
+double *MainEffectAnalyzer::get_inputVCE()
+{
+   double* retVal = NULL;
+   if (inputVCE_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(inputVCE_, inputVCE_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double MainEffectAnalyzer::get_totalInputVCE()
+{
+   return totalInputVCE_;
+}
+double MainEffectAnalyzer::get_mainEffectMean()
+{
+   return mainEffectMean_;
+}
+double MainEffectAnalyzer::get_mainEffectStd()
+{
+   return mainEffectStd_;
 }
 

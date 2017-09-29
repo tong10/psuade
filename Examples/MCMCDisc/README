@@ -42,39 +42,7 @@ d1 = Ye - Ys
 ******************************************************************
                  Steps
 ------------------------------------------------------------------
-*  STEP 1-4 can be skipped if you use the existing data in expdata)
-*  These 4 steps are for setting up the likelihood function in expdata.
-
-1. Compile the program that generates experimental data
-
-   cc -o experiment experiment.c -lm
-
-2. Run the program 'experiment' to generate data and move the
-   result to the file called 'psd'
-
-   psuade psExper.in
-   mv psuadeData psd
-
-3. Convert the experimental data file from PSUADE to Excel format 
-
-   psuade
-   > load psd
-   > write_xls file
-   > quit
-
-4. Replace the 21 lines of data in 'expdata' with the ones in <file>.
-   Also, add 0.5 at the end of each line to indicate std dev.
-
-5. Compile the program that generates the simulator 
-
-   cc -o simulator simulator.c -lm
-
-6. Run sampling on the simulator and move the result to 'simdata'
-
-   psuade psSim.in
-   mv psuadeData simdata
-
-9. now run psuade < psuade.script1a
+1. now run psuade < psuade.script1a
    After it is completed, 3 files have been created:
    (1) DiscrepancyModel1 - the sample file for the discrepancy model
    (2) MCMCPostSample - a sample drawn from the posterior of the
@@ -82,13 +50,9 @@ d1 = Ye - Ys
                         in the file is the design parameter X1.
    (3) matlabmcmc2.m - for displaying the posteriors (parameter 2)
 
-10. uncertainty analysis based on the posterior
+2. uncertainty analysis based on the posterior
     (The following is captured in psuade.script1b, so you can do
      psuade < psuade.script1b instead)
-
-    ****First modify the second line of MCMCPostSample to set the sample size
-    (the first column of MCMCPostSample is the design parameter, you can change
-     it or leave it the same for testing)
 
     psuade
     > load simdata
@@ -99,20 +63,18 @@ d1 = Ye - Ys
       Sample file: MCMCPostSample
     It should display something like:
 
-Sample mean  = 2.320547e+00
-Sample stdev = 2.696286e-01
+Sample mean  = 2.323119e+00
+Sample stdev = 2.379506e-01
 
-11. now run psuade < psuade.script2a (run with no discrepancy)
+3. now run psuade < psuade.script2a (run with no discrepancy)
     After it is completed, 3 files have been created:
     (1) MCMCPostSample - a sample drawn from the posterior of the
                         calibration parameter. The first parameter
                         in the file is some design parameter X1.
     (2) matlabmcmc2.m - for displaying the posteriors (parameter 2)
 
-12. uncertainty analysis based on the posterior
-
-    First MODIFY the second line of MCMCPostSample to set the sample size
-    (The following is captured in psuade.script2b, so you can do
+4. uncertainty analysis based on the posterior
+    (The following is captured in psuade.script1b, so you can do
      psuade < psuade.script2b instead)
 
     psuade
@@ -123,6 +85,6 @@ Sample stdev = 2.696286e-01
       Sample file: MCMCPostSample
     It should display something like:
 
-Sample mean  = 1.377543e+00
-Sample stdev = 1.899643e-01
+Sample mean  = 1.585929e+00
+Sample stdev = 1.342373e-02
 

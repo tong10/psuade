@@ -35,6 +35,7 @@
 #include "PDFNormal.h"
 #include "PsuadeUtil.h"
 #include "sysdef.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -91,41 +92,41 @@ double GradStatAnalyzer::analyze(aData &adata)
    inputStdevs_ = adata.inputStdevs_;
    if (inputPDFs_ != NULL)
    {
-      printf("GradStatAnalyzer INFO: non-uniform distributions detected.\n");
-      printf("                 Analysis will use these distributions.\n");
+      printOutTS(PL_INFO,"GradStatAnalyzer INFO: non-uniform distributions\n");
+      printOutTS(PL_INFO,"    detected. Analysis will use these distributions.\n");
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("GradStatAnalyzer ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR,  "GradStatAnalyzer ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR,  "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR,  "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR,  "    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    whichOutput = outputID;
    if (whichOutput >= nOutputs || whichOutput < 0) whichOutput = 0;
    if ((whichOutput + nInputs) > nOutputs)
    {
-      printf("GradStatAnalyzer ERROR: not enough outputs.\n");
-      printf("                        nOutpus should be nInputs+1.\n");
+      printOutTS(PL_ERROR,  "GradStatAnalyzer ERROR: not enough outputs.\n");
+      printOutTS(PL_ERROR,  "                        nOutpus should be nInputs+1.\n");
       return PSUADE_UNDEFINED;
    } 
    
-   printAsterisks(0);
-   printf("            Gradient-based Uncertainty Analysis\n");
-   printDashes(0);
-   printf(" This analysis is for models that produce derviative\n");
-   printf(" information in addition to typical outputs. Thus, the\n");
-   printf(" number of outputs is expected to be nInputs+1. The\n");
-   printf(" outputs and derivatives are used to construct a respone\n");
-   printf(" surface which will be probed to compute basic statistics\n");
-   printf(" based on the given distributions.\n");
-   printEquals(0);
-   printf("GradStatAnalyzer: non-Gradient-based analysis\n");
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO,  "            Gradient-based Uncertainty Analysis\n");
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO,  " This analysis is for models that produce derviative\n");
+   printOutTS(PL_INFO,  " information in addition to typical outputs. Thus, the\n");
+   printOutTS(PL_INFO,  " number of outputs is expected to be nInputs+1. The\n");
+   printOutTS(PL_INFO,  " outputs and derivatives are used to construct a respone\n");
+   printOutTS(PL_INFO,  " surface which will be probed to compute basic statistics\n");
+   printOutTS(PL_INFO,  " based on the given distributions.\n");
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO,  "GradStatAnalyzer: non-Gradient-based analysis\n");
    computeMeanVariance(nInputs,nOutputs,nSamples,Y,&sampleMean,
                        &sampleStdDev,whichOutput);
-   printDashes(0);
+   printDashes(PL_INFO, 0);
 
    totalNSamples = levelSeps[nLevels];
    if (nLevels > 0)
@@ -170,7 +171,7 @@ double GradStatAnalyzer::analyze(aData &adata)
       curThresh /= (double) (totalNSamples - prevNSamples);
       totalVol /= (double) (totalNSamples - prevNSamples);
       curThresh /= totalVol;
-      printf("GradStatAnalyzer: convergence check %e < %e ?\n", 
+      printOutTS(PL_INFO,  "GradStatAnalyzer: convergence check %e < %e ?\n",
              curThresh, threshold_);
    }
    else curThresh = 1.0;
@@ -203,7 +204,7 @@ double GradStatAnalyzer::analyze(aData &adata)
    }
    if (nLHSamples == nSamples)
    {
-      printf("GradStatAnalyzer: nSamples >= 8000 - stop.\n");
+      printOutTS(PL_INFO,  "GradStatAnalyzer: nSamples >= 8000 - stop.\n");
       curThresh = 0.0;
    }
    LHSampleInputs = new double[nLHSamples*nInputs];
@@ -268,10 +269,10 @@ double GradStatAnalyzer::analyze(aData &adata)
       }
       LHSampleOutputs[ss] = interpolatedOutput;
    }
-   printf("GradStatAnalyzer: Gradient-based analysis\n");
+   printOutTS(PL_INFO,  "GradStatAnalyzer: Gradient-based analysis\n");
    computeMeanVariance(nInputs,iOne,nLHSamples,LHSampleOutputs,&sampleMean,
                        &sampleStdDev,iZero);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    delete [] LHSampleInputs;
    delete [] LHSampleOutputs;
    delete [] LHSampleStates;
@@ -300,8 +301,8 @@ int GradStatAnalyzer::computeMeanVariance(int nInputs, int nOutputs,
    variance /= (double) nSamples;
    (*aMean) = mean;
    (*stdDev) = sqrt(variance);
-   printf("GradStatAnalyzer: mean     = %24.16e\n", mean);
-   printf("GradStatAnalyzer: std dev  = %24.16e\n", (*stdDev));
+   printOutTS(PL_INFO,  "GradStatAnalyzer: mean     = %24.16e\n", mean);
+   printOutTS(PL_INFO,  "GradStatAnalyzer: std dev  = %24.16e\n", (*stdDev));
    return 0;
 }
 
@@ -310,7 +311,7 @@ int GradStatAnalyzer::computeMeanVariance(int nInputs, int nOutputs,
 // ------------------------------------------------------------------------
 GradStatAnalyzer& GradStatAnalyzer::operator=(const GradStatAnalyzer &)
 {
-   printf("GradStatAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,"GradStatAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

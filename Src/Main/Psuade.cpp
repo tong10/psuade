@@ -112,7 +112,8 @@ public:
   //
   //! \brief Default constructor; set everything to reasonable defaults.
   //--------------------------------------------------------------------------
-  Options(void) : doVerbose(0), parallelMode(0), localParallelMode(0), inputFilename(""), outputFilename("psuadeData"), programName("psuade")
+  Options(void) : doVerbose(0), parallelMode(0), localParallelMode(0), 
+      inputFilename(""), outputFilename("psuadeData"), programName("psuade")
   { }
 
   //--------------------------------------------------------------------------
@@ -123,7 +124,9 @@ public:
   //! \param[in] argc : Number of arguments.
   //! \param[in] argv : The actual arguments.
   //--------------------------------------------------------------------------
-  Options(int argc, char** argv) : doVerbose(0), parallelMode(0), localParallelMode(0), inputFilename(""), outputFilename("psuadeData"), programName("psuade")
+  Options(int argc, char** argv) : doVerbose(0), parallelMode(0), 
+      localParallelMode(0), inputFilename(""), outputFilename("psuadeData"), 
+      programName("psuade")
   {
 
     programName = string(argv[0]);
@@ -150,70 +153,72 @@ public:
 
     for (int ii = 1; ii < argc; ++ii)
     {
-      argp = ii;
-      argn = argc - ii;
-      if (argv[argp][0] != '-') { break; }  // Stop on first non-option. (Hopefully the filename)
+       argp = ii;
+       argn = argc - ii;
+       // Stop on first non-option. (Hopefully the filename)
+       if (argv[argp][0] != '-') { break; }  
 
-      if (argv[argp] == HELP || argv[argp] == HELP_S)
-      {
-        usage();
-        exit(0);
-      }
-      else if (argv[argp] == INFO || argv[argp] == INFO_S)
-      {
-        info();
-        exit(0);
-      }
-      else if (argv[argp] == VERBOSE || argv[argp] == VERBOSE_S)
-      {
-        doVerbose = 1;
-      }
-      else if (argv[argp] == PARALLEL || argv[argp] == PARALLEL_S)
-      {
+       if (argv[argp] == HELP || argv[argp] == HELP_S)
+       {
+          usage();
+          exit(0);
+       }
+       else if (argv[argp] == INFO || argv[argp] == INFO_S)
+       {
+          info();
+          exit(0);
+       }
+       else if (argv[argp] == VERBOSE || argv[argp] == VERBOSE_S)
+       {
+          doVerbose = 1;
+       }
+       else if (argv[argp] == PARALLEL || argv[argp] == PARALLEL_S)
+       {
 #ifdef HAVE_PARALLEL
-        parallelMode = 1;
+          parallelMode = 1;
 #else
-        printf("WARNING: PARALLEL run requested with %s, but psuade was not built\n", argv[argp]);
-        printf("         with PARALLEL_BUILD. Option ignored.\n");
+          printf("WARNING: PARALLEL run requested with %s, but psuade was not built\n", 
+               argv[argp]);
+          printf("         with PARALLEL_BUILD. Option ignored.\n");
 #endif /*HAVE_PARALLEL*/
-      }
-      else if (argv[argp] == L_PARALLEL || argv[argp] == L_PARALLEL_S)
-      {
+       }
+       else if (argv[argp] == L_PARALLEL || argv[argp] == L_PARALLEL_S)
+       {
 #ifdef HAVE_PARALLEL
-        localParallelMode = 1;
+          localParallelMode = 1;
 #else
-        printf("WARNING: LOCAL PARALLEL run requested with %s, but psuade was not built\n", argv[argp]);
-        printf("         with PARALLEL_BUILD. Option ignored.\n");
+          printf("WARNING: LOCAL PARALLEL run requested with %s, but psuade was not built\n", 
+                 argv[argp]);
+          printf("         with PARALLEL_BUILD. Option ignored.\n");
 #endif /*HAVE_PARALLEL*/
-      }
-      else if (OUTPUTFILE.find(argv[argp], 0, OUTPUTFILE.size()) == 0)
-      {
-        outputFilename = argv[argp] + OUTPUTFILE.size();
-        psOutputFilename_ = strdup(outputFilename.c_str());  //The output filename is actually stored as a global...
-        userSetOutputName = true;
-      }
-      else if (OUTPUTFILE_S.find(argv[argp], 0, OUTPUTFILE_S.size()) == 0)
-      {
-        outputFilename = argv[argp] + OUTPUTFILE_S.size();
-        psOutputFilename_ = strdup(outputFilename.c_str()); //The output filename is actually stored as a global...
-        userSetOutputName = true;
-      }
-            else
-      {
-       cerr << "Unknown option: " << argv[argp] << endl;
-       usage();
-       exit(1);
-      }
+       }
+       else if (OUTPUTFILE.find(argv[argp], 0, OUTPUTFILE.size()) == 0)
+       {
+          outputFilename = argv[argp] + OUTPUTFILE.size();
+          psOutputFilename_ = strdup(outputFilename.c_str());  
+          userSetOutputName = true;
+       }
+       else if (OUTPUTFILE_S.find(argv[argp], 0, OUTPUTFILE_S.size()) == 0)
+       {
+          outputFilename = argv[argp] + OUTPUTFILE_S.size();
+          psOutputFilename_ = strdup(outputFilename.c_str()); 
+          userSetOutputName = true;
+       }
+       else
+       {
+          cerr << "Unknown option: " << argv[argp] << endl;
+          usage();
+          exit(1);
+       }
     }
-
     //-----------------------------
     // Sanity checks
     //-----------------------------
-
-    if(parallelMode && localParallelMode) {
-      cerr << "ERROR: Both Parallel Mode and Local Parallel Mode were requested." << endl;
-      usage();
-      exit(1);
+    if(parallelMode && localParallelMode) 
+    {
+       printf("ERROR: Both Parallel Mode and Local Parallel Mode were requested.\n");
+       usage();
+       exit(1);
     }
     
     //--------------------------------------------------------------------
@@ -224,26 +229,29 @@ public:
     if (argp < argc)
     {
       inputFilename = argv[argp];
-      psInputFilename_ = strdup(inputFilename.c_str()); //The global inputfile name is just used for sanity checking
+      psInputFilename_ = strdup(inputFilename.c_str()); 
       userSetInputName = true;
       argp++;
     }
 
-    if (argp < argc)  //If we have too many positional command line args, barf and error out.
+    if (argp < argc)  
     {
-      cerr << "ERROR: Too many positional command line arguments!" << endl;
-      cerr << "       PSUADE only takes one unnamed argument, an input file given as: " << psInputFilename_ << endl;
-      cerr << "       The following arguments are either unknown or need to be moved " << endl;
-      cerr << "       in front of the input filename: " << endl;
-      for(;argp < argc; argp++) {
-        cerr << "   " << argv[argp] << endl;
-      }
-      cerr << endl;
-      usage();
-      exit(1);
+       cerr << "ERROR: Too many positional command line arguments!" << endl;
+       cerr << "       PSUADE only takes one unnamed argument, an input file given as: " 
+            << psInputFilename_ << endl;
+       cerr << "       The following arguments are either unknown or need to be moved " 
+            << endl;
+       cerr << "       in front of the input filename: " << endl;
+       for(;argp < argc; argp++) 
+       {
+          cerr << "   " << argv[argp] << endl;
+       }
+       cerr << endl;
+       usage();
+       exit(1);
     }
-
-  }  // End Options(argc, argv).
+  }
+  // End Options(argc, argv).
 
   //--------------------------------------------------------------------------
   //  usage
@@ -286,7 +294,7 @@ public:
   void
   info(void)
   {
-    printf("PSUADE version %d.%d.%d\n", psuade_VERSION_MAJOR, 
+    printf("PSUADE version %d.%d.%da\n", psuade_VERSION_MAJOR, 
            psuade_VERSION_MINOR, psuade_VERSION_PATCH);
 
 #ifdef HAVE_MARS
@@ -335,11 +343,8 @@ public:
     printf("Use MPICH\n");
 #endif
   }
-
-
 }
 ;  // End struct Options.
-
 
 // ************************************************************************
 // Main driver
@@ -368,42 +373,48 @@ int main(int argc, char** argv)
    // -------------------------------------------------------------- 
    if (opts.parallelMode)
    {
-     if(opts.inputFilename == "") {
-       cerr << "ERROR: parallel mode requires and input file" << endl;
-       opts.usage();
-       exit(1);
-     }
-     RunParallel(opts.inputFilename.c_str());
-   } else if(opts.localParallelMode) {
-     if(opts.inputFilename == "") {
-       cerr << "ERROR: local parallel mode requires and input file" << endl;
-       opts.usage();
-       exit(1);
-     }
-     RunParallelLocal(opts.inputFilename.c_str());
-     continueFlag = 0;
-
-   } else { //Normal serial Run
-      printAsterisks(0);
-      printf("*      Welcome to PSUADE (version %d.%d.%d)\n", 
+      if(opts.inputFilename == "") 
+      {
+         cerr << "ERROR: parallel mode requires and input file" << endl;
+         opts.usage();
+         exit(1);
+      }
+      RunParallel(opts.inputFilename.c_str());
+   } 
+   else if(opts.localParallelMode) 
+   {
+      if(opts.inputFilename == "") 
+      {
+         cerr << "ERROR: local parallel mode requires and input file" << endl;
+         opts.usage();
+         exit(1);
+      }
+      RunParallelLocal(opts.inputFilename.c_str());
+      continueFlag = 0;
+   } 
+   else 
+   // Normal serial Run
+   { 
+      printAsterisks(PL_INFO, 0);
+      printf("*      Welcome to PSUADE (version %d.%d.%da)\n", 
              psuade_VERSION_MAJOR, psuade_VERSION_MINOR, psuade_VERSION_PATCH);
 
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
 
       psuade = new PsuadeBase();
-      try{
-        if (opts.inputFilename != "")
-        {
-          status = psuade->getInputFromFile(opts.inputFilename.c_str());
-          if (status != 0) exit(status);
-          psuade->run();
-        } else {
-          psuade->analyzeInteractive();
-        }
+      try {
+         if (opts.inputFilename != "")
+         {
+            status = psuade->getInputFromFile(opts.inputFilename.c_str());
+            if (status != 0) exit(status);
+            psuade->run();
+         } else {
+            psuade->analyzeInteractive();
+         }
       }
       catch ( Psuade_Stop_Exception ) 
       {
-        exit(1);
+         exit(1);
       }
 
       delete psuade;

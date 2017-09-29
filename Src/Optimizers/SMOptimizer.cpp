@@ -114,7 +114,7 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
       for (i = 0; i < nInputs; i++) odata->optimalX_[i] = XValues[i];
       if (odata->outputLevel_ > 1)
       {
-         printDashes(0);
+         printDashes(PL_INFO, 0);
          for (i = 0; i < nInputs; i++)
             printf("SMOptimizer %6d : X %3d = %16.8e\n",odata->numFuncEvals_,
                    i+1, XValues[i]);
@@ -122,7 +122,7 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
                  odata->numFuncEvals_, odata->optimalY_);
          printf("SMOptimizer %6d : output 1 = %16.8e\n",
                    odata->numFuncEvals_, localY[0]);
-         printDashes(0);
+         printDashes(PL_INFO, 0);
       }
    }
    delete [] localY;
@@ -191,11 +191,11 @@ void SMOptimizer::optimize(oData *odata)
    normy = sqrt(normy);
 
    printf("\n\n");
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf(" SPACE MAPPING: Specifications: \n");
    for(i=0; i<nOutputs; i++)
    printf("                                      %20.14f\n", y[i]);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    // sm auxiliary variables: initialization + storing in file smaux 
    XValues = new double[nInputs+1];
@@ -244,11 +244,11 @@ void SMOptimizer::optimize(oData *odata)
    /* I. INITIAL GUESS */
    for (i = 0; i < nInputs; i++) XValues[i] = odata->initialX_[i];
 
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf(" SPACE MAPPING: Initial Guess: \n");
    for(i=0; i<nInputs; i++)
    printf("                                      %20.14f\n", XValues[i]);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    /* 0. COARSE MODEL OPTIMIZATION */
    // ------ call optimizer ------
@@ -276,11 +276,11 @@ void SMOptimizer::optimize(oData *odata)
    }
 
    printf("\n\n");
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf(" SPACE MAPPING: Coarse model optimum: \n");
    for(i=0; i<nInputs; i++)
    printf("                                      %20.14f\n", x0[i]);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf("\n\n");
 
    /* 1. EVALUATING THE FINE MODEL AT THE COARSE OPTIMUM */
@@ -435,11 +435,11 @@ void SMOptimizer::optimize(oData *odata)
       printf("\n Normal termination.\n\n");
 
    printf("\n\n");
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf(" SPACE MAPPING: Space-mapping solution:\n");
    for(i=0; i<nInputs; i++)
    printf("                                      %20.14f\n", x1[i]);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf("\n\n");
    odata->optimalY_ = Fx;
    for (i = 0; i < nInputs; i++) odata->optimalX_[i] = x1[i];

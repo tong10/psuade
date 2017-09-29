@@ -84,7 +84,7 @@ RSConstraints::~RSConstraints()
 // ------------------------------------------------------------------------
 int RSConstraints::genConstraints(PsuadeData *psuadeIO)
 {
-   int        printLevel, ii, jj, *sortArray, nInputsChk;
+   int        printLevel, ii, jj, status, *sortArray, nInputsChk;
    double     *filterLBounds, *filterUBounds;
    char       **filterIndexFiles, **filterDataFiles;
    FILE       *fp;
@@ -143,7 +143,8 @@ int RSConstraints::genConstraints(PsuadeData *psuadeIO)
          if (strcmp(filterDataFiles[ii], "NULL"))
          {
             pIO = new PsuadeData();
-            pIO->readPsuadeFile(filterDataFiles[ii]);
+            status = pIO->readPsuadeFile(filterDataFiles[ii]);
+            if (status != 0) exit(1);
             if (printLevel > 0)
                printf("RSConstraints: filter data file = %s\n",
                       filterDataFiles[ii]);

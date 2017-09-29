@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #ifndef __SOBOLANALYZERH__
 #define __SOBOLANALYZERH__
 
@@ -33,7 +32,6 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class SobolAnalyzer : public Analyzer 
 {
 
@@ -46,8 +44,22 @@ public:
    double analyze(aData &adata);
 
    SobolAnalyzer& operator=(const SobolAnalyzer &analyzer);
+   /** Getters for analysis results */
+   int get_nInputs();
+   double *get_modifiedMeans();
+   double *get_stds();
+   double *get_S();
+   double *get_ST();
+   double *get_PE();
 
 private:
+   int nInputs_;
+   double *modifiedMeans_;   //length is nInputs_
+   double *stds_;     	     //length is nInputs_
+   double *S_;               //length is nInputs_
+   double *ST_;	             //length is nInputs_
+   double *PE_;	             //length is nInputs_
+
    int MOATAnalyze(int, int, double *, double *, double *, double *, 
                    double *, double *, double*);
 };

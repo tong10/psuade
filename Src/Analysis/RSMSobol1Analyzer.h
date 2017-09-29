@@ -35,6 +35,12 @@
 // ************************************************************************
 class RSMSobol1Analyzer : public Analyzer
 {
+private:
+
+   int    nInputs_;
+   double outputMean_;
+   double outputStd_;
+   double *vces_;  //length is nInputs_
 
 public:
 
@@ -49,6 +55,12 @@ public:
    double analyze3(aData &adata);
 
    RSMSobol1Analyzer& operator=(const RSMSobol1Analyzer &analyzer);
+
+   /** Getters for analysis results */
+   int    get_nInputs();
+   double get_outputMean();
+   double get_outputStd();
+   double *get_vces();
 };
 
 #endif // __RSMSOBOL1ANALYZERH__

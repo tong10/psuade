@@ -23,12 +23,12 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #include <stdio.h>
 #include <assert.h>
 #include "dtype.h"
 #include "sysdef.h"
 #include "aData.h"
+#include "PrintingTS.h"
 
 // ************************************************************************
 // constructor 
@@ -76,7 +76,7 @@ aData::~aData()
 // ------------------------------------------------------------------------
 aData& aData::operator=(const aData &)
 {
-   printf("aData operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "aData operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

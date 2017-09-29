@@ -45,6 +45,7 @@ Matrix::Matrix()
    nCols_ = 0;
    Mat_ = NULL;
    status_ = 0;
+   determinant_ = 0.0;
 #ifdef PS_DEBUG
    printf("Matrix constructor ends\n");
 #endif
@@ -65,6 +66,7 @@ Matrix::Matrix(const Matrix & ma)
       for(int j = 0; j < nCols_; j++)
          Mat_[i][j] = ma.Mat_[i][j];
    }
+   determinant_ = ma.determinant_;
 }
 
 // ************************************************************************
@@ -76,6 +78,7 @@ Matrix & Matrix::operator=(const Matrix & ma)
    nRows_ = ma.nRows_;
    nCols_ = ma.nCols_;
    status_ = ma.status_;
+   determinant_ = ma.determinant_;
 
    for(int i = 0; i < nRows_; i++) delete [] Mat_[i];
    delete [] Mat_;
@@ -148,19 +151,20 @@ int Matrix::load(Matrix &inMat)
    assert(this != &inMat);
    nRows_ = inMat.nrows();
    nCols_ = inMat.ncols();
-   assert(nRows_ > 0);
-   assert(nCols_ > 0);
-   Mat_ = new double*[nRows_];
-   assert(Mat_ != NULL);
-   for (ii = 0; ii < nRows_; ii++)
+   if (nRows_ > 0)
    {
-      if (nCols_ <= 0) Mat_[ii] = NULL;
-      else
+      Mat_ = new double*[nRows_];
+      assert(Mat_ != NULL);
+      for (ii = 0; ii < nRows_; ii++)
       {
-         Mat_[ii] = new double[nCols_];
-         assert(Mat_[ii] != NULL);
+         if (nCols_ <= 0) Mat_[ii] = NULL;
+         else
+         {
+            Mat_[ii] = new double[nCols_];
+            assert(Mat_[ii] != NULL);
+         }
+         for (jj = 0; jj < nCols_; jj++) Mat_[ii][jj] = inMat.getEntry(ii,jj);
       }
-      for (jj = 0; jj < nCols_; jj++) Mat_[ii][jj] = inMat.getEntry(ii,jj);
    }
    status_ = 0;
 #ifdef PS_DEBUG
@@ -215,6 +219,7 @@ void Matrix::setEntry(const int row, const int col, const double ddata)
       exit(1);
    }
    Mat_[row][col] = ddata;
+   status_ = 0;
 }
 
 // ************************************************************************
@@ -318,8 +323,8 @@ int Matrix::CholDecompose()
    }
    assert(nRows_ == nCols_);
 
-   determinant_ = computeDeterminant(nRows_, Mat_); 
 #ifdef PS_DEBUG
+   determinant_ = computeDeterminant(nRows_, Mat_); 
    printf("Matrix determinant = %e\n",<< determinant_);
    for (ii = 0; ii < nRows_; ii++)
       for (jj = ii; jj < nCols_; jj++)
@@ -327,33 +332,33 @@ int Matrix::CholDecompose()
 #endif
    for (ii = 0; ii < nRows_; ii++)
    {
-      for (jj = ii; jj < nCols_; jj++)
+      for (jj = 0; jj <= ii; jj++)
       {
          ddata = Mat_[ii][jj];
-         for (kk = ii-1; kk >= 0; kk--) ddata -= Mat_[ii][kk] * Mat_[jj][kk];
+         for (kk = 0; kk < jj; kk++) ddata -= Mat_[ii][kk] * Mat_[jj][kk];
          if (ii == jj)
          {
             if (ddata <= 0.0)
             {
                printf("CholDecompose : matrix not positive definite.\n");
-               printf("dim = (%d,%d) : %e\n", nRows_, nCols_, ddata);
+               printf("dim = (%d,%d) : %e\n", ii+1, jj+1, ddata);
                return -1;
             }
             Mat_[ii][ii] = sqrt(ddata);
          }
-         else Mat_[jj][ii] = ddata / Mat_[ii][ii];
+         else Mat_[ii][jj] = ddata / Mat_[jj][jj];
 #ifdef PS_DEBUG
          printf("Matrix Chol (%d,%d) = %e\n", ii+1, jj+1, Mat_[jj][ii]);
 #endif
       }
    } 
    for (ii = 0; ii < nRows_; ii++)
-      for (jj = 0; jj < ii; jj++) Mat_[ii][jj] = Mat_[jj][ii];
+      for (jj = ii+1; jj < nCols_; jj++) Mat_[ii][jj] = Mat_[jj][ii];
    status_ = 1;
-   return 0;
 #ifdef PS_DEBUG
    printf("Matrix CholDecompose ends\n");
 #endif
+   return 0;
 }
 
 // ************************************************************************
@@ -426,6 +431,20 @@ void Matrix::CholTSolve(Vector &vec)
 #ifdef PS_DEBUG
    printf("Matrix CholTSolve ends\n");
 #endif
+}
+
+// ************************************************************************
+// Compute determinant (by Bourke)
+// ------------------------------------------------------------------------
+void Matrix::print()
+{
+   int ii, jj;
+   printf("Matrix print: \n");
+   for (ii = 0; ii < nRows_; ii++)
+   {
+      for (jj = 0; jj < nCols_; jj++) printf("%e ", Mat_[ii][jj]);
+      printf("\n");
+   }
 }
 
 // ************************************************************************

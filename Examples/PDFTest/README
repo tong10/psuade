@@ -84,15 +84,11 @@ Case 8: User distribution
 ==========================================================
 PDF 1 S 
 
-To generate a sample distribution, run psuade8.in to give
+run : psuade psuade8.in
+
 psuadeData. Rename psuadeData to psdata.
 
-- Now in the INPUT section of psdata, add new PDFs
-  (copy the commented out PDF from psuade8.in to psdata
-   and uncomment them)
-- launch psuade, load psdata, and do: pdfconvert
-- after that write the new sample into a file
-- optionally, load that sample into memory and do a
-  "rand_draw" to make it truly random
+mean should be around 2.5
+std dev should be around 1.54
 
 

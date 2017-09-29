@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-                                                                                
 #ifndef __BASECOMMH__
 #define __BASECOMMH__
 

@@ -46,6 +46,7 @@ extern "C" {
 #include "PsuadeUtil.h"
 #include "PDFManager.h"
 #include "JobCntl.h"
+#include "PrintingTS.h"
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
@@ -73,14 +74,14 @@ int PsuadeBase::runAdaptiveGradBased()
    pData             pPtr, pLowerB, pUpperB;
    pData             pInputs, pOutputs, pInputs2, pOutputs2;
 
-   printAsterisks(0);
-   printf("PSUADE adaptiveGradBased: adaptive sampling based on using\n");
-   printf("       gradients to form regions of validity.\n");
-   printf("       (METIS sampling recommendated)\n");
-   printDashes(0);
-   printf("Note: Turn on rs_expert mode to set RS parameters.\n");
-   printf("      Turn on outputLevel (>0) to get error histogram.\n");
-   printEquals(0);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: adaptive sampling based on using\n");
+   printOutTS(PL_INFO, "       gradients to form regions of validity.\n");
+   printOutTS(PL_INFO, "       (METIS sampling recommendated)\n");
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO, "Note: Turn on rs_expert mode to set RS parameters.\n");
+   printOutTS(PL_INFO, "      Turn on outputLevel (>0) to get error histogram.\n");
+   printEquals(PL_INFO, 0);
 
    psuadeIO_->getParameter("input_ninputs", pPtr);
    nInputs  = pPtr.intData_;
@@ -88,12 +89,12 @@ int PsuadeBase::runAdaptiveGradBased()
    nOutputs  = pPtr.intData_;
    if (nInputs > 12)
    {
-      printf("PSUADE adaptiveGradBased ERROR: nInputs should be <= 12.\n");
+      printOutTS(PL_ERROR, "PSUADE adaptiveGradBased ERROR: nInputs should be <= 12.\n");
       exit(1);
    }
    if (nOutputs != 1)
    {
-      printf("PSUADE adaptiveGradBased ERROR: nOutputs should be 1.\n");
+      printOutTS(PL_ERROR, "PSUADE adaptiveGradBased ERROR: nOutputs should be 1.\n");
       exit(1);
    }
 
@@ -104,21 +105,21 @@ int PsuadeBase::runAdaptiveGradBased()
    psuadeIO_->getParameter("method_refine_size", pPtr);
    refineSize = pPtr.intData_;
    nROVMax = nSamples + refineSize * nRefines;
-   printf("PSUADE adaptiveGradBased: max no. of sample points = %d\n",
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: max no. of sample points = %d\n",
           nROVMax);
-   printf("PSUADE adaptiveGradBased: no. of refinements (set at 4)   = %d\n",
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: no. of refinements (set at 4)   = %d\n",
           nRefines);
 
    psuadeIO_->getParameter("app_maxparalleljobs", pPtr);
    maxParallelJobs = pPtr.intData_;
    psuadeIO_->getParameter("ana_threshold", pPtr);
    anaThreshold = pPtr.dbleData_;
-   printf("PSUADE adaptiveGradBased: analysis threshold              = %e\n", 
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: analysis threshold              = %e\n",
           anaThreshold);
    if (anaThreshold > 0.5)
    {
-      printf("PSUADE adaptiveGradBased INFO: threshold must be <= 0.5.\n");
-      printf("                               threshold reset to 0.5.\n");
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased INFO: threshold must be <= 0.5.\n");
+      printOutTS(PL_INFO, "                               threshold reset to 0.5.\n");
       anaThreshold = 0.5;
    }
    psuadeIO_->getParameter("input_lbounds", pLowerB);
@@ -130,15 +131,15 @@ int PsuadeBase::runAdaptiveGradBased()
 
    nSamples = 0;
    threshold = anaThreshold;
-   if (psAnalysisInteractive_ != 0)
+   if (psAnaExpertMode_ == 1)
    {
-      printf("The current cutoff threshold (2nd order) is %e.\n", 
+      printOutTS(PL_INFO, "The current cutoff threshold (2nd order) is %e.\n",
              anaThreshold);
       //threshold = 0.0;
       //while (threshold <= 0.0 || threshold < anaThreshold)
       //{
-      //   printf("For progressive thresholding, enter initial ");
-      //   printf("threshold (%e to 0.5): ", anaThreshold);
+      //   printOutTS(PL_INFO, "For progressive thresholding, enter initial ");
+      //   printOutTS(PL_INFO, "threshold (%e to 0.5): ", anaThreshold);
       //   scanf("%lg", &threshold);
       //}
       threshold = anaThreshold;
@@ -151,25 +152,25 @@ int PsuadeBase::runAdaptiveGradBased()
             scanf("%lg", &threshDec);
          }
       }
-      printf("Max eigenvalue of Hessian controls extent of ROV.\n");
-      printf("You can set the minimum value to control the extent.\n");
+      printOutTS(PL_INFO, "Max eigenvalue of Hessian controls extent of ROV.\n");
+      printOutTS(PL_INFO, "You can set the minimum value to control the extent.\n");
       minEigen = -1;
       while (minEigen < 0.0)
       {
          printf("Enter the minimum eigenvalue (0 if no minimum) : ");
          scanf("%lg", &minEigen);
       }
-      printf("Do you have a partial PsuadeGradRSM.rov file? (y or n) ");
+      printOutTS(PL_INFO, "Do you have a partial PsuadeGradRSM.rov file? (y or n) ");
       scanf("%s", lineIn);
       if (lineIn[0] == 'y')
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("Enter ROV file name : ");
          scanf("%s", fileName);
          fileIn = fopen(fileName, "r");
          if (fileIn == NULL)
          {
-            printf("File name %s found.\n", fileName);
+            printOutTS(PL_INFO, "File name %s found.\n", fileName);
             return -1;
          }
          fclose(fileIn);
@@ -177,20 +178,20 @@ int PsuadeBase::runAdaptiveGradBased()
          status = psIO->readPsuadeFile(fileName);
          if (status != 0)
          {
-            printf("ERROR: Problem reading file %s.\n", fileName);
+            printOutTS(PL_ERROR, "ERROR: Problem reading file %s.\n", fileName);
             return 1;
          }
          psIO->getParameter("input_ninputs", pPtr);
          if (pPtr.intData_ != nInputs)
          {
-            printf("nInputs in file %s does not match with current file.\n",
+            printOutTS(PL_INFO, "nInputs in file %s does not match with current file.\n",
                    fileName);
             return -1;
          }
          psIO->getParameter("output_noutputs", pPtr);
          if (pPtr.intData_ != Ysize)
          {
-            printf("nOutputs in file %s (%d) is not valid (should be %d).\n",
+            printOutTS(PL_INFO, "nOutputs in file %s (%d) is not valid (should be %d).\n",
                    fileName, pPtr.intData_, Ysize);
             return -1;
          }
@@ -198,7 +199,7 @@ int PsuadeBase::runAdaptiveGradBased()
          iRov = pPtr.intData_;
          if (iRov > nROVMax || iRov <= 0)
          {
-            printf("ERROR: nROVs in file %s too large (should be <= %d)\n",
+            printOutTS(PL_ERROR, "ERROR: nROVs in file %s too large (should be <= %d)\n",
                    fileName, nROVMax);
             return -1;
          }
@@ -224,13 +225,13 @@ int PsuadeBase::runAdaptiveGradBased()
             Ystore[iR] = pOutputs.dbleArray_[iR];
          delete psIO;
 
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("Enter the corresponding PsuadeGradRSM.sample file name : ");
          scanf("%s", fileName);
          fileIn = fopen(fileName, "r");
          if (fileIn == NULL)
          {
-            printf("Sample file name %s found.\n", fileName);
+            printOutTS(PL_INFO, "Sample file name %s found.\n", fileName);
             return -1;
          }
          fclose(fileIn);
@@ -238,20 +239,20 @@ int PsuadeBase::runAdaptiveGradBased()
          status = psIO->readPsuadeFile(fileName);
          if (status != 0)
          {
-            printf("ERROR: Problem reading sample file %s.\n", fileName);
+            printOutTS(PL_ERROR, "ERROR: Problem reading sample file %s.\n", fileName);
             return 1;
          }
          psIO->getParameter("input_ninputs", pPtr);
          if (pPtr.intData_ != nInputs)
          {
-            printf("nInputs in file %s does not match with current file.\n",
+            printOutTS(PL_INFO, "nInputs in file %s does not match with current file.\n",
                    fileName);
             return -1;
          }
          psIO->getParameter("output_noutputs", pPtr);
          if (pPtr.intData_ != nOutputs)
          {
-            printf("nOutputs in file %s does not match with current file.\n",
+            printOutTS(PL_INFO, "nOutputs in file %s does not match with current file.\n",
                    fileName);
             return -1;
          }
@@ -259,7 +260,7 @@ int PsuadeBase::runAdaptiveGradBased()
          nSamples = pPtr.intData_;
          if (nSamples < iRov)
          {
-            printf("ERROR: sample in file %s too small (should be > %d)\n",
+            printOutTS(PL_ERROR, "ERROR: sample in file %s too small (should be > %d)\n",
                    fileName, iRov);
             return -1;
          }
@@ -320,7 +321,7 @@ int PsuadeBase::runAdaptiveGradBased()
          if (sampleROVInds[kk] < 0) sampleIndex = kk;
          if (sampleIndex == -1)
          {
-            printf("PSUADE adaptiveGradBased: the ROV sample is good to go.\n");
+            printOutTS(PL_INFO, "PSUADE adaptiveGradBased: the ROV sample is good to go.\n");
             delete [] sampleInputs;
             delete [] sampleROVInds;
             delete [] sampleROVVals;
@@ -339,7 +340,7 @@ int PsuadeBase::runAdaptiveGradBased()
          refineSeps[1] = nSamples;
          nRefineCurr = 0;
          nRefines = 0;
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          iRov--;
       }
    }
@@ -366,7 +367,7 @@ int PsuadeBase::runAdaptiveGradBased()
          sampler_->refine(2, 0, 0.0, nSamples, NULL);
          nSamples = sampler_->getNumSamples();
          refineSeps[nRefineCurr+1] = nSamples;
-         printf("PSUADE adaptiveGradBased: refinement %d (%d)\n",
+         printOutTS(PL_INFO, "PSUADE adaptiveGradBased: refinement %d (%d)\n",
                 nRefineCurr, nSamples);
          nRefineCurr++;
       }
@@ -394,7 +395,7 @@ int PsuadeBase::runAdaptiveGradBased()
       psIO = new PsuadeData();
       psIO->updateMethodSection(PSUADE_SAMP_MC,nSamples,1,0,0);
       psIO->updateInputSection(nSamples,nInputs,NULL,iLowerB,iUpperB,
-                               sampleInputs,inNames);
+                               sampleInputs,inNames,NULL,NULL,NULL,NULL);
       psIO->updateOutputSection(nSamples,nOutputs,sampleROVVals,states,
                                 outNames);
       psIO->writePsuadeFile("PsuadeGradBased.sample",0);
@@ -443,35 +444,35 @@ int PsuadeBase::runAdaptiveGradBased()
    error = PSUADE_UNDEFINED;
    if (nRefines > 0)
    {
-      printAsterisks(0);
-      printAsterisks(0);
-      printf("adaptiveGradBased: the first %d points will be evaluated.\n",
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "adaptiveGradBased: the first %d points will be evaluated.\n",
              initNSamples);
-      printAsterisks(0);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
+      printAsterisks(PL_INFO, 0);
    }
    while (iRov < nROVMax && threshold >= anaThreshold)
    {
       iRov++;
-      printAsterisks(0);
-      printf("ROV %4d = Sample %d\n", iRov, sampleIndex+1);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "ROV %4d = Sample %d\n", iRov, sampleIndex+1);
 
       evaluateFull(nInputs, currentPt, funcIO, ranges, maxParallelJobs, 
                    &YVal, gradients, hessian);
       if (outputLevel_ > 2) 
       {
          for (ii = 0; ii < nInputs; ii++)
-         printf("ROV %4d: input %2d value    = %e\n",iRov,ii+1,currentPt[ii]);
-         printf("ROV %4d: function value    = %e\n",iRov,YVal);
+         printOutTS(PL_INFO, "ROV %4d: input %2d value    = %e\n",iRov,ii+1,currentPt[ii]);
+         printOutTS(PL_INFO, "ROV %4d: function value    = %e\n",iRov,YVal);
       }
       if (outputLevel_ > 3) 
       {
          for (ii = 0; ii < nInputs; ii++)
-            printf("ROV %4d: Gradient %3d      = %e\n",iRov,ii+1,
+            printOutTS(PL_INFO, "ROV %4d: Gradient %3d      = %e\n",iRov,ii+1,
                    gradients[ii]);
          for (ii = 0; ii < nInputs; ii++)
             for (kk = 0; kk < nInputs; kk++)
-            printf("ROV %4d: Hessian (%3d,%3d) = %e\n",iRov,ii+1,kk+1,
+            printOutTS(PL_INFO, "ROV %4d: Hessian (%3d,%3d) = %e\n",iRov,ii+1,kk+1,
                    hessian[ii*nInputs+kk]);
       }
 
@@ -482,18 +483,18 @@ int PsuadeBase::runAdaptiveGradBased()
       dsyev_(&jobz,&uplo,&nInputs,hessian,&nInputs,eigs,work,&lwork,&info);
       if (info != 0)
       {
-         printf("adaptiveGradBased INFO: dsyev returns a nonzero (%d).\n",
+         printOutTS(PL_INFO, "adaptiveGradBased INFO: dsyev returns a nonzero (%d).\n",
                 info);
          exit(1);
       }
       eigMax = PABS(eigs[0]);
       for (ii = 1; ii < nInputs; ii++)
          if (PABS(eigs[ii]) > eigMax) eigMax = PABS(eigs[ii]);
-      printf("ROV %4d: max eigenvalue    = %e\n", iRov, eigMax);
+      printOutTS(PL_INFO, "ROV %4d: max eigenvalue    = %e\n", iRov, eigMax);
       if (eigMax < minEigen)
       {
          eigMax = minEigen;
-         printf("ROV %4d: max value set to  = %e\n", iRov, eigMax);
+         printOutTS(PL_INFO, "ROV %4d: max value set to  = %e\n", iRov, eigMax);
       }
 
       for (ii = 0; ii < nInputs; ii++)
@@ -535,12 +536,12 @@ int PsuadeBase::runAdaptiveGradBased()
          }
          if (sampleROVInds[iS] >= 0) rovCnt++;
       }
-      printf("PSUADE adaptiveGradBased: region of validity limit not imposed.\n");
-      printf("PSUADE adaptiveGradBased: current threshold      = %e\n",
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased: region of validity limit not imposed.\n");
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased: current threshold      = %e\n",
              threshold);
-      printf("PSUADE adaptiveGradBased: total number covered   = %d (%d)\n",
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased: total number covered   = %d (%d)\n",
              rovCnt, nSamples);
-      printf("PSUADE adaptiveGradBased: number this ROV covers = %d\n", 
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased: number this ROV covers = %d\n",
              count+1);
 
       count = (iRov - 1) * Ysize;
@@ -552,7 +553,7 @@ int PsuadeBase::runAdaptiveGradBased()
       Ystore[count++] = eigMax;
       psuadeIO_->updateMethodSection(-1,iRov,1,0,0);
       psuadeIO_->updateInputSection(iRov,nInputs,NULL,NULL,NULL,
-                                    ROVStorePts,NULL);
+                                    ROVStorePts,NULL,NULL,NULL,NULL,NULL);
       psuadeIO_->updateOutputSection(iRov,Ysize,Ystore,states,outNames);
       psuadeIO_->writePsuadeFile("PsuadeGradBased.rov",0);
 
@@ -578,7 +579,7 @@ int PsuadeBase::runAdaptiveGradBased()
             }
          }
          if (sampleIndex >= 0) break;
-         //printf("PsuadeGradRSM: advance to refinement level %d (%d)\n",
+         //printOutTS(PL_INFO, "PsuadeGradRSM: advance to refinement level %d (%d)\n",
          //       nRefineCurr, nRefines);
          nRefineCurr++;
       }
@@ -589,7 +590,7 @@ int PsuadeBase::runAdaptiveGradBased()
          for (iS = 1; iS < nSamples; iS++)
             error += pow(sampleROVErrs[iS], 2.0);
          error = sqrt(error / (double) nSamples);
-         printf("PSUADE adaptiveGradBased: current mean error = %e\n", error);
+         printOutTS(PL_INFO, "PSUADE adaptiveGradBased: current mean error = %e\n", error);
 
          mean = 0.0;
          for (iS = 0; iS < nSamples; iS++) mean += sampleROVVals[iS];
@@ -599,15 +600,15 @@ int PsuadeBase::runAdaptiveGradBased()
             stdev += pow(sampleROVVals[iS]-mean, 2.0);
          stdev /= (double) nSamples;
          stdev = sqrt(stdev);
-         printf("PSUADE adaptiveGradBased: Current sample mean   = %16.8e\n",
+         printOutTS(PL_INFO, "PSUADE adaptiveGradBased: Current sample mean   = %16.8e\n",
                 mean);
-         printf("PSUADE adaptiveGradBased: Current std deviation = %16.8e\n",
+         printOutTS(PL_INFO, "PSUADE adaptiveGradBased: Current std deviation = %16.8e\n",
                 stdev);
       
          while (threshold > anaThreshold)
          {
             threshold *= threshDec;
-            printf("PSUADE adaptiveGradBased: threshold down to  = %e\n",
+            printOutTS(PL_INFO, "PSUADE adaptiveGradBased: threshold down to  = %e\n",
                    threshold);
             if (threshold <= anaThreshold) threshold = anaThreshold;
             for (iS = 0; iS < nSamples; iS++)
@@ -683,16 +684,16 @@ int PsuadeBase::runAdaptiveGradBased()
       }
       if (sampleIndex < 0)
       {
-         printAsterisks(0);
-         printf("Cannot find next ROV to evaluate (%d).\n",sampleIndex);
+         printAsterisks(PL_INFO, 0);
+         printOutTS(PL_INFO, "Cannot find next ROV to evaluate (%d).\n",sampleIndex);
          break;
       }
       if (iRov < initNSamples && nRefines > 0) sampleIndex = iRov;
-      printf("PSUADE adaptiveGradBased: next candidate ROV = %d\n", 
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased: next candidate ROV = %d\n",
              sampleIndex+1);
       for (ii = 0; ii < nInputs; ii++)
          currentPt[ii] = sampleInputs[sampleIndex*nInputs+ii];
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
    }
 
    for (iS = 0; iS < nSamples; iS++)
@@ -721,11 +722,11 @@ int PsuadeBase::runAdaptiveGradBased()
          if (sampleROVErrs[iS] >= anaThreshold) sampleROVInds[iS] = -1;
       }
       if (outputLevel_ > 4)
-         printf("Sample %d's (%d)index = %d, %e (%e)\n", iS+1, 
+         printOutTS(PL_INFO, "Sample %d's (%d)index = %d, %e (%e)\n", iS+1,
                 sampleROVInds[iS],nSamples,sampleROVErrs[iS],anaThreshold);
       if (sampleROVInds[iS] == -1)
       {
-         printf("PSUADE adaptiveGradBased: fatal ERROR. Consult developers.\n");
+         printOutTS(PL_ERROR, "PSUADE adaptiveGradBased: fatal ERROR. Consult developers.\n");
          exit(1);
       }
    }
@@ -738,14 +739,14 @@ int PsuadeBase::runAdaptiveGradBased()
       stdev += pow(sampleROVVals[iS]-mean, 2.0);
    stdev /= (double) nSamples;
    stdev = sqrt(stdev);
-   printf("PSUADE adaptiveGradBased: Final sample mean     = %16.8e\n", mean);
-   printf("PSUADE adaptiveGradBased: Final std deviation   = %16.8e\n", stdev);
-   printf("PSUADE adaptiveGradBased: Total number of ROVs  = %d\n", iRov);
-   printf("PSUADE adaptiveGradBased: Total number of runs  = %d\n", 
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: Final sample mean     = %16.8e\n", mean);
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: Final std deviation   = %16.8e\n", stdev);
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: Total number of ROVs  = %d\n", iRov);
+   printOutTS(PL_INFO, "PSUADE adaptiveGradBased: Total number of runs  = %d\n",
           (Ysize-1)*iRov);
    if (iRov > 0)
    {
-      printf("PSUADE adaptiveGradBased: ROV info is in PsuadeGradBased.rov.\n");
+      printOutTS(PL_INFO, "PSUADE adaptiveGradBased: ROV info is in PsuadeGradBased.rov.\n");
    }
 
    if (sampler_ != NULL)

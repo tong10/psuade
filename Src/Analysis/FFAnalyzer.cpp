@@ -26,18 +26,21 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <math.h>
 #include "FFAnalyzer.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "Psuade.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-FFAnalyzer::FFAnalyzer() : Analyzer()
+FFAnalyzer::FFAnalyzer() : Analyzer(), nInputs_(0), nSamples_(0), nReps_(0),
+                           means_(0), stds_(0), mEffects_(0)
 {
    setName("FF");
 }
@@ -47,6 +50,9 @@ FFAnalyzer::FFAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 FFAnalyzer::~FFAnalyzer()
 {
+   if (means_) delete [] means_;
+   if (stds_) delete [] stds_;
+   if (mEffects_) delete [] mEffects_;
 }
 
 // ************************************************************************
@@ -63,8 +69,10 @@ double FFAnalyzer::analyze(aData &adata)
 
    printLevel = adata.printLevel_;
    nInputs    = adata.nInputs_;
+   nInputs_   = nInputs;
    nOutputs   = adata.nOutputs_;
    nSamples   = adata.nSamples_;
+   nSamples_  = nSamples;
    outputID   = adata.outputID_;
    X          = adata.sampleInputs_;
    Y          = adata.sampleOutputs_;
@@ -74,8 +82,8 @@ double FFAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printf("FFAnalysis INFO: some inputs have non-uniform PDFs, but\n");
-         printf("           they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO, "FFAnalysis INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO, "           they are not relevant in this analysis.\n");
       }
    }
    whichOutput = outputID;
@@ -83,35 +91,42 @@ double FFAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("FFAnalysis ERROR: invalid arguments.\n");
-      printf("   nInputs  = %d\n", nInputs);
-      printf("   nOutputs = %d\n", nOutputs); 
-      printf("   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "FFAnalysis ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "   nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "   nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (nSamples / 2 * 2 != nSamples)
    {
-      printf("FFAnalysis ERROR: nSamples has to be even.\n");
-      printf("   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "FFAnalysis ERROR: nSamples has to be even.\n");
+      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
+
+   if (means_)    delete [] means_;
+   if (stds_)     delete [] stds_;
+   if (mEffects_) delete [] mEffects_;
+   means_    = NULL;
+   stds_     = NULL;
+   mEffects_ = NULL;
 
    txArray = new double[nSamples];
    tyArray = new double[nSamples];
    twArray = new double[nSamples];
 
-   printf("\n");
-   printAsterisks(0);
-   printAsterisks(0);
-   printf("* Fractional Factorial Main Effect Analysis\n");
-   printf("* This analysis works for FF4, FF5 and PBD designs\n");
-   printDashes(0);
-   printf("* total number of samples = %10d \n",nSamples);
-   printf("* number of Inputs        = %10d \n",nInputs);
-   printf("* Output number           = %d\n", whichOutput+1);
-   printDashes(0);
+   printOutTS(PL_INFO, "\n");
+   printAsterisks(PL_INFO, 0);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Fractional Factorial Main Effect Analysis\n");
+   printOutTS(PL_INFO, "* This analysis works for FF4, FF5 and PBD designs\n");
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO, "* total number of samples = %10d \n",nSamples);
+   printOutTS(PL_INFO, "* number of Inputs        = %10d \n",nInputs);
+   printOutTS(PL_INFO, "* Output number           = %d\n", whichOutput+1);
+   printDashes(PL_INFO, 0);
    fp = NULL;
-   if (psAnaExpertMode_ == 1 || psAnalysisInteractive_ == 1)
+   if (psAnaExpertMode_ == 1)
    {
       sprintf(pString,"Create main effect plot ? (y or n) ");
       getString(pString, winput);
@@ -161,14 +176,15 @@ double FFAnalyzer::analyze(aData &adata)
          if (txArray[ss] != txArray[nSamples/2]) checkSample = 0;
       if (checkSample == 0)
       {
-         printf("FFAnalysis ERROR: sample not fractional factorial.\n");
-         printf("If you are using replicated Fractional Factorial\n");
-         printf("enter the number of replications.\n");
+         printOutTS(PL_INFO, "FFAnalysis ERROR: sample not fractional factorial.\n");
+         printOutTS(PL_INFO, "If you are using replicated Fractional Factorial\n");
+         printOutTS(PL_INFO, "enter the number of replications.\n");
          sprintf(pString, "Number of replications = (2 - %d) ", nSamples/2);
          nReps = getInt(2, nSamples/2, pString);
          break;
       }
    }
+   nReps_ = nReps;
    if (nReps > 1)
    {
       for (ii = 0; ii < nInputs; ii++)
@@ -189,8 +205,8 @@ double FFAnalyzer::analyze(aData &adata)
                   checkSample = 0;
             if (checkSample == 0)
             {
-               printf("FFAnalysis ERROR: sample not fractional factorial.\n");
-               printf("                  nor replicated fractional factorial.\n");
+               printOutTS(PL_ERROR, "FFAnalysis ERROR: sample not fractional factorial.\n");
+               printOutTS(PL_ERROR, "                  nor replicated fractional factorial.\n");
                delete [] twArray;
                delete [] txArray;
                delete [] tyArray;
@@ -203,6 +219,12 @@ double FFAnalyzer::analyze(aData &adata)
 
    mEffects = new double*[nInputs];
    for (ii = 0; ii < nInputs; ii++) mEffects[ii] = new double[nReps+1];
+
+   mEffects_ = new double*[nInputs_];
+   for (ii = 0; ii < nInputs_; ii++) mEffects_[ii] = new double[nReps_+1];
+   means_ = new double[nInputs_];
+   stds_  = new double[nInputs_];
+
    iArray  = new int[nInputs];
    for (ii = 0; ii < nInputs; ii++) iArray[ii] = ii;
 
@@ -222,11 +244,14 @@ double FFAnalyzer::analyze(aData &adata)
             accum += tyArray[ss];
          for (ss = 0; ss < nSamples/nReps/2; ss++) accum -= tyArray[ss];
          mEffects[ii][rr+1] = accum * 2 / (double) (nSamples/nReps);
+
+         //save main effects
+         mEffects_[ii][rr] = mEffects[ii][rr+1];
       }
    }
-   printf("* Fractional Factorial Main Effect (normalized)\n");
-   printf("* Note: std err is the standard error or mean.\n");
-   printDashes(0);
+   printOutTS(PL_INFO, "* Fractional Factorial Main Effect (normalized)\n");
+   printOutTS(PL_INFO, "* Note: std err is the standard error or mean.\n");
+   printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++)
    {
       mean = 0.0;
@@ -239,18 +264,22 @@ double FFAnalyzer::analyze(aData &adata)
          for (rr = 0; rr < nReps; rr++)
             stdev += pow(mEffects[ii][rr+1]-mean, 2.0);
          stdev = sqrt(stdev / (double) (nReps - 1.0));
-         printf("* Input %3d  =  %12.4e (std err = %12.4e)\n", ii+1,mean,
+         printOutTS(PL_INFO, "* Input %3d  =  %12.4e (std err = %12.4e)\n", ii+1,mean,
                   stdev/sqrt(1.0*nReps));
       }  
-      else printf("* Input %3d  =  %12.4e\n", ii+1, mean);
+      else printOutTS(PL_INFO, "* Input %3d  =  %12.4e\n", ii+1, mean);
+
+      //save means & stds
+      means_[ii] = mean;
+      stds_[ii]  = stdev/sqrt(1.0*nReps);
    }
-   printDashes(0);
-   printf("* Fractional Factorial Main Effect (ordered)\n");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Fractional Factorial Main Effect (ordered)\n");
+   printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++) twArray[ii] = PABS(mEffects[ii][0]);
    sortDbleList2a(nInputs, twArray, iArray);
    for (ii = nInputs-1; ii >= 0; ii--)
-      printf("* Rank %3d : Input %3d (measure = %12.4e)\n", nInputs-ii, 
+      printOutTS(PL_INFO, "* Rank %3d : Input %3d (measure = %12.4e)\n", nInputs-ii,
              iArray[ii]+1, twArray[ii]);
 
    if (fp != NULL)
@@ -309,15 +338,15 @@ double FFAnalyzer::analyze(aData &adata)
       }
    }
 
-   printAsterisks(0);
-   printf("* Fractional Factorial (2-level) Interaction Analysis\n");
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Fractional Factorial (2-level) Interaction Analysis\n");
    if (adata.samplingMethod_ == PSUADE_SAMP_FF4 ||
        adata.samplingMethod_ == PSUADE_SAMP_RFF4)
    {
-      printf("* Note: Since Fractional Factorial Resolution 4 is used,\n");
-      printf("* the first and second order effects are confounded.\n");
+      printOutTS(PL_INFO, "* Note: Since Fractional Factorial Resolution 4 is used,\n");
+      printOutTS(PL_INFO, "* the first and second order effects are confounded.\n");
    }
-   printDashes(0);
+   printDashes(PL_INFO, 0);
 
    for (rr = 0; rr < nReps; rr++)
    {
@@ -383,13 +412,13 @@ double FFAnalyzer::analyze(aData &adata)
          }
          iEffects[ii][ii2][nReps+1] = stdev/sqrt(1.0*nReps);
          if (nReps == 1)
-            printf("* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
+            printOutTS(PL_INFO, "* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
          else
-            printf("* Input %3d %3d =  %12.4e (std err = %12.4e)\n",ii+1, 
+            printOutTS(PL_INFO, "* Input %3d %3d =  %12.4e (std err = %12.4e)\n",ii+1,
                    ii2+1, mean, stdev/sqrt(1.0*nReps));
       }
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    if (fp != NULL)
    {
@@ -478,11 +507,11 @@ double FFAnalyzer::analyze(aData &adata)
       }
       fclose(fp);
       if (psPlotTool_ == 1)
-         printf("The main effect plot has been generated in scilabffme.sci.\n");
+         printOutTS(PL_INFO, "The main effect plot has been generated in scilabffme.sci.\n");
       else
-         printf("The main effect plot has been generated in matlabffme.m.\n");
+         printOutTS(PL_INFO, "The main effect plot has been generated in matlabffme.m.\n");
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    delete [] txArray;
    delete [] twArray;
@@ -519,8 +548,60 @@ double FFAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 FFAnalyzer& FFAnalyzer::operator=(const FFAnalyzer &)
 {
-   printf("FFAnalysis operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "FFAnalysis operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
 
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int FFAnalyzer::get_nInputs()
+{
+   return nInputs_;
+}
+
+int FFAnalyzer::get_nSamples()
+{
+   return nSamples_;
+}
+
+int FFAnalyzer::get_nReps()
+{
+   return nReps_;
+}
+
+double *FFAnalyzer::get_means()
+{
+   double* retVal = NULL;
+   if (means_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(means_, means_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double *FFAnalyzer::get_stds()
+{
+   double* retVal = NULL;
+   if (means_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(stds_, stds_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double **FFAnalyzer::get_mEffects()
+{
+   double** retVal = NULL;
+   if (mEffects_)
+   {
+      retVal = new double*[nInputs_];
+      for (int i=0; i<nInputs_; i++)
+      {
+    	  retVal[i] = new double[nInputs_];
+    	  std::copy(mEffects_[i], mEffects_[i]+nReps_, retVal[i]);
+      }
+   }
+   return retVal;
+}

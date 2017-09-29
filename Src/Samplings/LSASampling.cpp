@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2012
 // ************************************************************************
-using namespace std;
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "LSASampling.h"
@@ -52,9 +51,14 @@ int LSASampling::initialize(int initLevel)
    int    ii, ss;
    double ddata;
 
+   if (nSamples_ == 0)
+   {
+      printf("LSASampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
-      printf("ss::initialize ERROR - input not set up.\n");
+      printf("LSASampling::initialize ERROR - input not set up.\n");
       exit(1);
    }
 

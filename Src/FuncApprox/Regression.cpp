@@ -31,18 +31,19 @@
 #include "sysdef.h"
 #include "Psuade.h"
 #include "Regression.h"
-#include "PDFBase.h"
-#include "PDFNormal.h"
+#include "PDFManager.h"
 #include "PsuadeUtil.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 extern "C"
 {
-   void dgels_(char *, int *, int *, int *, double *A, int *LDA,
-               double *B, int *LDB, double *WORK, int *LWORK, int *INFO);
+   void dgels_(char *, int *, int *, int *, double *, int *,
+               double *, int *, double *, int *, int *);
    void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
                double *, int *, double *, int *, double *, int *, int *);
+   void dgetrf_(int *, int *, double *, int *, int *, int *);
+   void dgetri_(int *, double *, int *, int *, double*, int *, int *);
 }
 
 // ************************************************************************
@@ -73,45 +74,57 @@ Regression::~Regression()
 }
 
 // ************************************************************************
-// Generate lattice data based on the input set
+// initialize
 // ------------------------------------------------------------------------
-int Regression::genNDGridData(double *X, double *Y, int *N2, double **X2, 
-                              double **Y2)
+int Regression::initialize(double *X, double *Y)
 {
-   int mm, totPts, status;
-
-   if (nInputs_ <= 0 || nSamples_ <= 0)
+   int status, ii;
+ 
+   if (regCoeffs_ != NULL) delete [] regCoeffs_;
+   if (regStdevs_ != NULL) delete [] regStdevs_;
+   regCoeffs_ = NULL;
+   regStdevs_ = NULL;
+   if (fuzzyC_ != NULL)
    {
-      printf("Regression ERROR: parameters not selected.\n");
-      printf("    nInputs  = %6d (should be > 0).\n", nInputs_);
-      printf("    nSamples = %6d (should be > 0).\n", nSamples_);
-      return 0;
-   } 
-   if (nSamples_ <= 1)
-   {
-      printf("Regression ERROR: no regression, not enough points.\n");
-      printf("   First order regression needs >= nInputs+1 sample points.\n");
-      return 0;
+      for (ii = 0; ii < numTerms_; ii++) delete [] fuzzyC_[ii];
+      delete [] fuzzyC_;
+      fuzzyC_ = NULL;
    }
    
    status = analyze(X, Y);
    if (status != 0)
    {
       printf("Regression: ERROR detected in regression analysis.\n");
-      (*N2) = 0;
+      return -1;
+   }
+   return 0;
+}
+
+// ************************************************************************
+// Generate lattice data based on the input set
+// ------------------------------------------------------------------------
+int Regression::genNDGridData(double *X, double *Y, int *NN, double **XX, 
+                              double **YY)
+{
+   int mm, totPts;
+
+   if (initialize(X,Y) != 0)
+   {
+      printf("Regression: ERROR detected in regression analysis.\n");
+      (*NN) = 0;
       return -1;
    }
 
-   if ((*N2) == -999) return 0;
+   if ((*NN) == -999) return 0;
 
-   genNDGrid(N2, X2);
-   if ((*N2) == 0) return 0;
-   totPts = (*N2);
+   genNDGrid(NN, XX);
+   if ((*NN) == 0) return 0;
+   totPts = (*NN);
 
-   (*Y2) = new double[totPts];
-   (*N2) = totPts;
+   (*YY) = new double[totPts];
+   (*NN) = totPts;
    for (mm = 0; mm < totPts; mm++)
-      (*Y2)[mm] = evaluatePoint(&((*X2)[mm*nInputs_]));
+      (*YY)[mm] = evaluatePoint(&((*XX)[mm*nInputs_]));
 
    return 0;
 }
@@ -126,8 +139,12 @@ int Regression::gen1DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn;
    double HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("Regression: ERROR detected in regression analysis.\n");
+      (*NN) = 0;
+      return -1;
+   }
 
    totPts = nPtsPerDim_;
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -159,8 +176,12 @@ int Regression::gen2DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn, ind;
    double *HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("Regression: ERROR detected in regression analysis.\n");
+      (*NN) = 0;
+      return -1;
+   }
 
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[2];
@@ -201,8 +222,12 @@ int Regression::gen3DGridData(double *X, double *Y, int ind1,
    int    totPts, mm, nn, pp, ind;
    double *HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   if (initialize(X,Y) != 0)
+   {
+      printf("Regression: ERROR detected in regression analysis.\n");
+      (*NN) = 0;
+      return -1;
+   }
 
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[3];
@@ -249,9 +274,13 @@ int Regression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    int    totPts, mm, nn, pp, qq, ind;
    double *HX, *Xloc;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
-
+   if (initialize(X,Y) != 0)
+   {
+      printf("Regression: ERROR detected in regression analysis.\n");
+      (*NN) = 0;
+      return -1;
+   }
+ 
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[4];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -302,7 +331,11 @@ double Regression::evaluatePoint(double *X)
    int    mm, nn, pp, qq, offset;
    double Xdata, Xdata2, Xdata3, Xdata4, Y;
 
-   if (regCoeffs_ == NULL) return 0.0;
+   if (regCoeffs_ == NULL)
+   {
+      printf("Regression ERROR: need to call initialize first.\n");
+      return 0.0;
+   }
    Y = regCoeffs_[0];
    if (order_ >= 1)
    {
@@ -380,226 +413,99 @@ double Regression::evaluatePoint(int npts, double *X, double *Y)
 double Regression::evaluatePointFuzzy(double *X, double &std)
 {
    int    mm, nn, pp, qq, cc, offset, nTimes=100;
-   double dtmp, *Ys, C1, C2, mean, stds, *uppers, *lowers;
+   double accum, *Ys, coef, mean, stds;
    double Xdata, Xdata2, Xdata3, Xdata4;
-   PDFBase **PDFPtrs;
 
-   if (regCoeffs_ == NULL) return 0.0;
-
-   if (fuzzyC_ == NULL)
+   if (regCoeffs_ == NULL)
    {
-      fuzzyC_ = new double*[numTerms_];
-      for (mm = 0; mm < numTerms_; mm++) 
-         fuzzyC_[mm] = new double[nTimes]; 
-      PDFPtrs = new PDFBase*[numTerms_];
-      uppers = new double[numTerms_];
-      lowers = new double[numTerms_];
-      for (mm = 0; mm < numTerms_; mm++) 
-      {
-         mean = regCoeffs_[mm];
-         stds = regStdevs_[mm];
-         uppers[mm] = mean + 3.0 * stds;
-         lowers[mm] = mean - 3.0 * stds;
-         if (uppers[mm] > lowers[mm])
-              PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, stds);
-         else PDFPtrs[mm] = NULL;
-      }
-      Ys = new double[nTimes];
+      printf("Regression ERROR: initialize has not been called.\n");
+      exit(1);
+   }
+ 
+   Ys = new double[nTimes];
 
-      mean = 0.0;
-      for (cc = 0; cc < nTimes; cc++)
-      {
-         C1 = PSUADE_drand();
-         if (PDFPtrs[0] != NULL)
-             PDFPtrs[0]->invCDF(1, &C1, &C2, lowers[0], uppers[0]);
-         else C2 = regCoeffs_[0];
-         dtmp = C2;
-         fuzzyC_[0][cc] = C2;
+   mean = 0.0;
+   for (cc = 0; cc < nTimes; cc++)
+   {
+      coef = fuzzyC_[0][cc];
+      accum = coef;
 
-         if (order_ >= 1)
+      if (order_ >= 1)
+      {
+         for (mm = 0; mm < nInputs_; mm++)
          {
-            for (mm = 0; mm < nInputs_; mm++)
+            coef = fuzzyC_[mm+1][cc];
+            Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+            accum += coef * Xdata;
+         }
+      }
+      if (order_ >= 2)
+      {
+         offset = nInputs_ + 1;
+         for (mm = 0; mm < nInputs_; mm++)
+         {
+            Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+            for (nn = mm; nn < nInputs_; nn++)
             {
-               C1 = PSUADE_drand();
-               if (PDFPtrs[mm+1] != NULL)
-                    PDFPtrs[mm+1]->invCDF(1,&C1,&C2,lowers[mm+1],uppers[mm+1]);
-               else C2 = regCoeffs_[mm+1];
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               dtmp += C2 * Xdata;
-               fuzzyC_[mm+1][cc] = C2;
+               coef = fuzzyC_[offset][cc];
+               Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
+               accum += (coef * Xdata * Xdata2);
+               offset++;
             }
          }
-         if (order_ >= 2)
+      }
+      if (order_ >= 3)
+      {
+         for (mm = 0; mm < nInputs_; mm++)
          {
-            offset = nInputs_ + 1;
-            for (mm = 0; mm < nInputs_; mm++)
+            Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+            for (nn = mm; nn < nInputs_; nn++)
             {
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               for (nn = mm; nn < nInputs_; nn++)
+               Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
+               for (pp = nn; pp < nInputs_; pp++)
                {
-                  C1 = PSUADE_drand();
-                  if (PDFPtrs[offset] != NULL)
-                        PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],
-                                                uppers[offset]);
-                  else C2 = regCoeffs_[offset];
-                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-                  dtmp += (C2 * Xdata * Xdata2);
-                  fuzzyC_[offset][cc] = C2;
+                  coef = fuzzyC_[offset][cc];
+                  Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
+                  accum += (coef * Xdata * Xdata2 * Xdata3);
                   offset++;
                }
             }
          }
-         if (order_ >= 3)
+      }
+      if (order_ >= 4)
+      {
+         for (mm = 0; mm < nInputs_; mm++)
          {
-            for (mm = 0; mm < nInputs_; mm++)
+            Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+            for (nn = mm; nn < nInputs_; nn++)
             {
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               for (nn = mm; nn < nInputs_; nn++)
+               Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
+               for (pp = nn; pp < nInputs_; pp++)
                {
-                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-                  for (pp = nn; pp < nInputs_; pp++)
+                  Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
+                  for (qq = pp; qq < nInputs_; qq++)
                   {
-                     C1 = PSUADE_drand();
-                     if (PDFPtrs[offset] != NULL)
-                          PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],
-                                                  uppers[offset]);
-                     else C2 = regCoeffs_[offset];
-                     fuzzyC_[offset][cc] = C2;
-                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
-                     dtmp += (C2 * Xdata * Xdata2 * Xdata3);
+                     coef = fuzzyC_[offset][cc];
+                     Xdata4 = (X[qq] - XMeans_[qq]) / XStds_[qq]; 
+                     accum += (coef * Xdata * Xdata2 * Xdata3 * Xdata4);
                      offset++;
                   }
                }
             }
          }
-         if (order_ >= 4)
-         {
-            for (mm = 0; mm < nInputs_; mm++)
-            {
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               for (nn = mm; nn < nInputs_; nn++)
-               {
-                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-                  for (pp = nn; pp < nInputs_; pp++)
-                  {
-                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
-                     for (qq = pp; qq < nInputs_; qq++)
-                     {
-                        C1 = PSUADE_drand();
-                        if (PDFPtrs[offset] != NULL)
-                             PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],
-                                                 uppers[offset]);
-                        else C2 = regCoeffs_[offset];
-                        fuzzyC_[offset][cc] = C2;
-                        Xdata4 = (X[qq] - XMeans_[qq]) / XStds_[qq]; 
-                        dtmp += (C2 * Xdata * Xdata2 * Xdata3 * Xdata4);
-                        offset++;
-                     }
-                  }
-               }
-            }
-         }
-         Ys[cc] = dtmp;
-         mean += dtmp;
       }
-      mean /= (double) nTimes;
-      stds = 0.0;
-      for (cc = 0; cc < nTimes; cc++)
-         stds += (Ys[cc] - mean) * (Ys[cc] - mean);
-      stds = sqrt(stds / (nTimes - 1));
-
-      for (mm = 0; mm < numTerms_; mm++) 
-         if (PDFPtrs[mm] != NULL) delete PDFPtrs[mm];
-      delete [] PDFPtrs;
-      delete [] uppers;
-      delete [] lowers;
-      delete [] Ys;
+      Ys[cc] = accum;
+      mean += accum;
    }
-   else
-   {
-      Ys = new double[nTimes];
-
-      mean = 0.0;
-      for (cc = 0; cc < nTimes; cc++)
-      {
-         C2 = fuzzyC_[0][cc];
-         dtmp = C2;
-
-         if (order_ >= 1)
-         {
-            for (mm = 0; mm < nInputs_; mm++)
-            {
-               C2 = fuzzyC_[mm+1][cc];
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               dtmp += C2 * Xdata;
-            }
-         }
-         if (order_ >= 2)
-         {
-            offset = nInputs_ + 1;
-            for (mm = 0; mm < nInputs_; mm++)
-            {
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               for (nn = mm; nn < nInputs_; nn++)
-               {
-                  C2 = fuzzyC_[offset][cc];
-                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-                  dtmp += (C2 * Xdata * Xdata2);
-                  offset++;
-               }
-            }
-         }
-         if (order_ >= 3)
-         {
-            for (mm = 0; mm < nInputs_; mm++)
-            {
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               for (nn = mm; nn < nInputs_; nn++)
-               {
-                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-                  for (pp = nn; pp < nInputs_; pp++)
-                  {
-                     C2 = fuzzyC_[offset][cc];
-                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
-                     dtmp += (C2 * Xdata * Xdata2 * Xdata3);
-                     offset++;
-                  }
-               }
-            }
-         }
-         if (order_ >= 4)
-         {
-            for (mm = 0; mm < nInputs_; mm++)
-            {
-               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
-               for (nn = mm; nn < nInputs_; nn++)
-               {
-                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-                  for (pp = nn; pp < nInputs_; pp++)
-                  {
-                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
-                     for (qq = pp; qq < nInputs_; qq++)
-                     {
-                        C2 = fuzzyC_[offset][cc];
-                        Xdata4 = (X[qq] - XMeans_[qq]) / XStds_[qq]; 
-                        dtmp += (C2 * Xdata * Xdata2 * Xdata3 * Xdata4);
-                        offset++;
-                     }
-                  }
-               }
-            }
-         }
-         Ys[cc] = dtmp;
-         mean += dtmp;
-      }
-      mean /= (double) nTimes;
-      stds = 0.0;
-      for (cc = 0; cc < nTimes; cc++)
-         stds += (Ys[cc] - mean) * (Ys[cc] - mean);
-      stds = sqrt(stds / (nTimes - 1));
-      delete [] Ys;
-   }
+   mean /= (double) nTimes;
+   stds = 0.0;
+   for (cc = 0; cc < nTimes; cc++)
+      stds += (Ys[cc] - mean) * (Ys[cc] - mean);
+   stds = sqrt(stds / (nTimes - 1));
+   delete [] Ys;
    std = stds; 
+   mean = mean * YStd_ + YMean_;
+   std  = std * YStd_;
    return mean;
 }
 
@@ -609,6 +515,11 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
 double Regression::evaluatePointFuzzy(int npts, double *X, double *Y,
                                       double *Ystd)
 {
+   if (regCoeffs_ == NULL)
+   {
+      printf("Regression ERROR: initialize has not been called.\n");
+      exit(1);
+   }
    for (int kk = 0; kk < npts; kk++)
       Y[kk] = evaluatePointFuzzy(&(X[kk*nInputs_]), Ystd[kk]);
    return 0.0;
@@ -676,7 +587,7 @@ int Regression::analyze(double *Xin, double *Y)
 
    if (outputLevel_ >= 0)
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       if (order_ == 0)
         printf("*               Constant Regression Analysis\n");
       else if (order_ == 1)
@@ -692,17 +603,16 @@ int Regression::analyze(double *Xin, double *Y)
       printf("* TURN ON rs_expert mode to output regression matrix.\n");
       printf("* TURN ON rs_expert mode to output regression function.\n");
       printf("* TURN ON rs_expert mode to condition covariance matrix.\n");
-      printf("* SET print level to 5 to output regression error splot.\n");
       printf("* SET print level to 4 to output data standard deviations.\n");
-      printDashes(0);
+      printDashes(PL_INFO, 0);
       printf("* Suggestion: if your parameter ranges are too high, SCALE\n");
       printf("*             them first using 'irerange' command in PSUADE\n");
       printf("*             command line mode.\n");
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
 
    X = new double[nSamples_*nInputs_];
-   initInputScaling(Xin, X, 0);
+   initInputScaling(Xin, X, 1);
 
    N = loadXMatrix(X, &XX); 
    if (N == 0)
@@ -725,7 +635,6 @@ int Regression::analyze(double *Xin, double *Y)
    }
    M = nSamples_;
 
-
    wlen = 5 * M;
    AA = new double[M*N];
    UU = new double[M*M];
@@ -735,9 +644,9 @@ int Regression::analyze(double *Xin, double *Y)
    for (mm = 0; mm < M; mm++) 
       for (nn = 0; nn < N; nn++) 
          AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
-   if (psRSExpertMode_ == 1)
+   if (psMasterMode_ == 1)
    {
-      sprintf(pString, "Store regression matrix (A = X^T X)? (y or n) ");
+      sprintf(pString, "Store regression matrix? (y or n) ");
       getString(pString, response);
       if (response[0] == 'y')
       {
@@ -753,15 +662,17 @@ int Regression::analyze(double *Xin, double *Y)
          }
          fprintf(fp, "];\n");
          fprintf(fp, "A = AA(:,1:%d);\n", N);
-         fprintf(fp, "B = AA(:,%d);\n", N+1);
+         fprintf(fp, "Y = AA(:,%d);\n", N+1);
+         fprintf(fp, "B = A \\ Y;\n");
          fclose(fp);
-         printf("Regression: regression matrix (X^TX) now in regression_matrix.m\n");
+         printf("Regression matrix now in regression_matrix.m\n");
       }
    }
    if (outputLevel_ > 3) printf("Running SVD ...\n"); 
    dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
            &wlen, &info);
-   if (outputLevel_ > 3) printf("SVD completed: status = %d (should be 0).\n",info); 
+   if (outputLevel_ > 3) 
+      printf("SVD completed: status = %d (should be 0).\n",info); 
 
    if (info != 0)
    {
@@ -776,6 +687,14 @@ int Regression::analyze(double *Xin, double *Y)
       return -1;
    }
 
+   mm = 0;
+   for (nn = 0; nn < N; nn++) if (SS[nn] < 0) mm++;
+   if (mm > 0)
+   {
+      printf("* Regression WARNING: some of the singular values\n");
+      printf("*            are < 0. May spell trouble but will.\n");
+      printf("*            proceed anyway (%d).\n",mm);
+   }
    if (SS[0] == 0.0) NRevised = 0;
    else
    {
@@ -796,16 +715,17 @@ int Regression::analyze(double *Xin, double *Y)
       delete [] WW;
       return -1;
    }
-   if (psRSExpertMode_ == 1)
+   if (psMasterMode_ == 1)
    {
-      printf("Regression: singular values for the Vandermonde matrix\n");
+      printf("Regression: matrix singular values\n");
       printf("The VERY small ones may cause poor numerical accuracy,\n");
       printf("but not keeping them may ruin the approximation power.\n");
       printf("So, select them judiciously.\n");
       for (nn = 0; nn < N; nn++) 
          printf("Singular value %5d = %e\n", nn+1, SS[nn]);
-      sprintf(pString, "How many to keep (1 - %d) ? ", N); 
-      NRevised = getInt(1,N,pString);
+      sprintf(pString, "How many to keep (1 - %d, 0 - all) ? ", N); 
+      NRevised = getInt(0,N,pString);
+      if (NRevised == 0) NRevised = N;
       for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
    }
    else
@@ -839,7 +759,7 @@ int Regression::analyze(double *Xin, double *Y)
    delete [] VV;
 
    fp = NULL;
-   if (outputLevel_ >= 5)
+   if (psMasterMode_ == 1)
    {
       fp = fopen("regression_err_splots.m", "w");
       fprintf(fp, "%% This file contains scatter plots of\n");
@@ -888,13 +808,66 @@ int Regression::analyze(double *Xin, double *Y)
    }
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
-   R2  = 1.0 - SSresid / SStotal;
+   R2 = 1.0;
+   if (SStotal != 0.0) R2  = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
+   if (var < 0)
+   { 
+      if (PABS(var) > 1.0e-12)
+           printf("Regression WARNING: var < 0.\n");
+      else var = 0;
+   }
 
    Bstd = new double[N];
    computeXTX(N, XX, &XTX);
    computeCoeffVariance(N, XTX, var, Bstd);
+   regCoeffs_ = B;
+   regStdevs_ = Bstd;
+
+   PDFManager *pdfman = new PDFManager();
+   int    cc, nTimes=100;
+   int    *inPDFs = new int[N];
+   double *inMeans = new double[N];
+   double *inStds = new double[N];
+   double *inUppers = new double[N];
+   double *inLowers = new double[N];
+   for (nn = 0; nn < N; nn++)
+   {
+      inPDFs[nn] = PSUADE_PDF_NORMAL;
+      inMeans[nn] = regCoeffs_[nn];
+      inStds[nn] = regStdevs_[nn];
+      inUppers[nn] = inMeans[nn] + 4.0 * inStds[nn];
+      inLowers[nn] = inMeans[nn] - 4.0 * inStds[nn];
+      if (inUppers[nn] == inLowers[nn])
+      {
+         if (inUppers[nn] > 0) inUppers[nn] *= (1.0 + 1.0e-14);
+         else                  inUppers[nn] *= (1.0 - 1.0e-14);
+         if (inLowers[nn] > 0) inLowers[nn] *= (1.0 - 1.0e-14);
+         else                  inLowers[nn] *= (1.0 + 1.0e-14);
+         if (inUppers[nn] == 0.0) inUppers[nn] = 1e-14;
+         if (inLowers[nn] == 0.0) inLowers[nn] = -1e-14;
+      }
+   }
+   pdfman->initialize(N,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
+   Vector vLower, vUpper, vOut;
+   vLower.load(N, inLowers);
+   vUpper.load(N, inUppers);
+   vOut.setLength(N*nTimes);
+   pdfman->genSample(nTimes, vOut, vLower, vUpper);
+   fuzzyC_ = new double*[N];
+   for (nn = 0; nn < N; nn++)
+   {
+      fuzzyC_[nn] = new double[nTimes];
+      for (cc = 0; cc < nTimes; cc++)
+         fuzzyC_[nn][cc] = vOut[cc*N+nn];
+   }
+   delete pdfman;
+   delete [] inPDFs;
+   delete [] inStds;
+   delete [] inMeans;
+   delete [] inLowers;
+   delete [] inUppers;
 
    if (outputLevel_ >= 0)
    {
@@ -906,16 +879,85 @@ int Regression::analyze(double *Xin, double *Y)
                 1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
       if (outputLevel_ > 1) printSRC(X, B, SStotal);
    }
-   if (psRSExpertMode_ == 1)
+   fp = NULL;
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "w");
+   if (fp != NULL)
    {
-      fp = fopen("regression_function.m", "w");
-      fprintf(fp, "Y = %24.16e ", B[0]);
+      fprintf(fp,"/* *************************************/\n");
+      fprintf(fp,"/* Regression interpolator from PSUADE.*/\n");
+      fprintf(fp,"/* ====================================*/\n");
+      fprintf(fp,"/* This file contains information for interpolation\n");
+      fprintf(fp,"   using response surface. Follow the steps below:\n");
+      fprintf(fp,"   1. move this file to *.c file (e.g. main.c)\n");
+      fprintf(fp,"   2. Compile main.c (cc -o main main.c -lm) \n");
+      fprintf(fp,"   3. run: main input output\n");
+      fprintf(fp,"          where input has the number of inputs and\n");
+      fprintf(fp,"          the input values\n");
+      fprintf(fp,"*/\n");
+      fprintf(fp,"/* ====================================*/\n");
+      fprintf(fp,"#include <math.h>\n");
+      fprintf(fp,"#include <stdlib.h>\n");
+      fprintf(fp,"#include <stdio.h>\n");
+      fprintf(fp,"int interpolate(int,double*,double*,double*);\n");
+      fprintf(fp,"main(int argc, char **argv) {\n");
+      fprintf(fp,"  int    i, iOne=1, nInps;\n");
+      fprintf(fp,"  double X[%d], Y, S;\n",nInputs_);
+      fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
+      fprintf(fp,"  if (argc != 3) {\n");
+      fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fIn = fopen(argv[1], \"r\");\n");
+      fprintf(fp,"  if (fIn == NULL) {\n");
+      fprintf(fp,"     printf(\"ERROR: cannot open input file.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fscanf(fIn, \"%%d\", &nInps);\n");
+      fprintf(fp,"  if (nInps != %d) {\n", nInputs_);
+      fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
+      fprintf(fp,"    exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+      fprintf(fp,"  fclose(fIn);\n");
+      fprintf(fp,"  interpolate(iOne, X, &Y, &S);\n");
+      fprintf(fp,"  printf(\"Y = %%e\\n\", Y);\n");
+      fprintf(fp,"  printf(\"S = %%e\\n\", S);\n");
+      fprintf(fp,"  fOut = fopen(argv[2], \"w\");\n");
+      fprintf(fp,"  if (fOut == NULL) {\n");
+      fprintf(fp,"     printf(\"ERROR: cannot open output file.\\n\");\n");
+      fprintf(fp,"     exit(1);\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  fprintf(fOut,\" %%e\\n\", Y);\n");
+      fprintf(fp,"  fclose(fOut);\n");
+      fprintf(fp,"}\n\n");
+      fprintf(fp,"/* *************************************/\n");
+      fprintf(fp,"/*  Regression interpolation function  */\n");
+      fprintf(fp,"/* X[0], X[1],   .. X[m-1]   - first point\n");
+      fprintf(fp," * X[m], X[m+1], .. X[2*m-1] - second point\n");
+      fprintf(fp," * ... */\n");
+      fprintf(fp,"/* ====================================*/\n");
+      fprintf(fp,"void getCoefs(int kk, double *coefs);\n");
+      fprintf(fp,"/* ====================================*/\n");
+      fprintf(fp,"int interpolate(int npts,double *X,double *Y,double *S){\n");
+      fprintf(fp,"  int    ii, kk, ntimes=%d,nInps=%d;\n",nTimes,nInputs_);
+      fprintf(fp,"  double y, *x, *yt, *coefs, mean, std;\n");
+      fprintf(fp,"  coefs = (double *) malloc(%d * sizeof(double));\n",N);
+      fprintf(fp,"  yt = (double *) malloc(%d * sizeof(double));\n",nTimes);
+      fprintf(fp,"  for (ii = 0; ii < npts; ii++) {\n");
+      fprintf(fp,"    x = &X[ii * %d];\n", nInputs_);
+      fprintf(fp,"    for (kk = 0; kk < ntimes; kk++) {\n");
+      fprintf(fp,"      getCoefs(kk, coefs);\n");
+      fprintf(fp,"      y = coefs[0];\n");
       if (order_ >= 1)
       {
          for (nn = 1; nn <= nInputs_; nn++)
-            fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e ", B[nn], nn,
-                    XMeans_[nn-1], XStds_[nn-1]);
-
+         {
+            if (XMeans_[nn-1] != 0.0 || XStds_[nn-1] != 1.0)
+               fprintf(fp,"      y += coefs[%d] * (x[%d] - %e) / %e;\n", 
+                       nn, nn-1, XMeans_[nn-1], XStds_[nn-1]);
+            else
+               fprintf(fp,"      y += coefs[%d] * x[%d];\n", nn, nn-1);
+         }
       }
       if (order_ >= 2)
       {
@@ -924,10 +966,17 @@ int Regression::analyze(double *Xin, double *Y)
          {
             for (nn2 = nn; nn2 < nInputs_; nn2++)
             {
-               fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e * ", 
-                       B[ind], nn+1, XMeans_[nn], XStds_[nn]);
-               fprintf(fp, "(X(%d) - %e) / %e ", nn2+1, 
-                       XMeans_[nn2], XStds_[nn2]);
+               if (XMeans_[nn] != 0.0 || XStds_[nn] != 1.0)
+                  fprintf(fp, "      y += coefs[%d]*(x[%d]-%e)/%e * ", 
+                          ind, nn, XMeans_[nn], XStds_[nn]);
+               else
+                  fprintf(fp, "      y += coefs[%d] * x[%d] * ", 
+                          ind, nn);
+               if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
+                  fprintf(fp, "(x[%d] - %e) / %e;\n", nn2, 
+                          XMeans_[nn2], XStds_[nn2]);
+               else
+                  fprintf(fp, "x[%d];\n", nn2); 
                ind++;
             }
          }
@@ -940,12 +989,21 @@ int Regression::analyze(double *Xin, double *Y)
             {
                for (nn3 = nn2; nn3 < nInputs_; nn3++)
                {
-                  fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e * ", 
-                          B[ind], nn+1, XMeans_[nn], XStds_[nn]);
-                  fprintf(fp, "(X(%d) - %e) / %e * ", 
-                          nn2+1, XMeans_[nn2], XStds_[nn2]);
-                  fprintf(fp, "(X(%d) - %e) / %e ", 
-                          nn3+1, XMeans_[nn3], XStds_[nn3]);
+                  if (XMeans_[nn] != 0.0 || XStds_[nn] != 1.0)
+                     fprintf(fp, "      y += coefs[%d]*(x[%d]-%e)/%e * ", 
+                             ind, nn, XMeans_[nn], XStds_[nn]);
+                  else
+                     fprintf(fp, "      y += coefs[%d] * x[%d] * ",ind,nn);
+                  if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
+                     fprintf(fp, "(x[%d] - %e) / %e * ", 
+                             nn2, XMeans_[nn2], XStds_[nn2]);
+                  else
+                     fprintf(fp, "x[%d] * ", nn2);
+                  if (XMeans_[nn3] != 0.0 || XStds_[nn3] != 1.0)
+                     fprintf(fp, "(x[%d] - %e) / %e;\n", 
+                             nn3, XMeans_[nn3], XStds_[nn3]);
+                  else
+                     fprintf(fp, "x[%d];\n", nn3);
                   ind++;
                }
             }
@@ -961,31 +1019,235 @@ int Regression::analyze(double *Xin, double *Y)
                {
                   for (nn4 = nn3; nn4 < nInputs_; nn4++)
                   {
-                     fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e * ", 
-                             B[ind], nn+1, XMeans_[nn], XStds_[nn]);
-                     fprintf(fp, "(X(%d) - %e) / %e * ", 
-                             nn2+1, XMeans_[nn2], XStds_[nn2]);
-                     fprintf(fp, "(X(%d) - %e) / %e * ", 
-                             nn3+1, XMeans_[nn3], XStds_[nn3]);
-                     fprintf(fp, "(X(%d) - %e) / %e ", 
-                             nn4+1, XMeans_[nn4], XStds_[nn4]);
+                     if (XMeans_[nn] != 0.0 || XStds_[nn] != 1.0)
+                        fprintf(fp, "      y += coefs[%d]*(x[%d]-%e)/%e * ", 
+                                ind, nn, XMeans_[nn], XStds_[nn]);
+                     else
+                        fprintf(fp, "      y += coefs[%d] * x[%d] * ",ind,nn);
+                     if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
+                        fprintf(fp, "(x[%d] - %e) / %e * ", 
+                                nn2, XMeans_[nn2], XStds_[nn2]);
+                     else
+                        fprintf(fp, "x[%d] * ", nn2);
+                     if (XMeans_[nn3] != 0.0 || XStds_[nn3] != 1.0)
+                        fprintf(fp, "(x[%d] - %e) / %e * ", 
+                                nn3, XMeans_[nn3], XStds_[nn3]);
+                     else
+                        fprintf(fp, "x[%d] * ", nn3);
+                     if (XMeans_[nn4] != 0.0 || XStds_[nn4] != 1.0)
+                        fprintf(fp, "(x[%d] - %e) / %e;\n", 
+                                nn4, XMeans_[nn4], XStds_[nn4]);
+                     else
+                        fprintf(fp, "x[%d];\n", nn4);
                      ind++;
                   }
                }
             }
          }
       }
-      fprintf(fp, ";\n");
-      printf("FILE regression_function.m contains the final polynomial\n");
+      fprintf(fp,"      yt[kk] = y * %e + %e;\n",YStd_, YMean_);
+      fprintf(fp,"    }\n");
+      fprintf(fp,"    mean = 0.0;\n");
+      fprintf(fp,"    for (kk = 0; kk < ntimes; kk++) mean += yt[kk];\n");
+      fprintf(fp,"    mean /= ntimes;\n");
+      fprintf(fp,"    Y[ii] = mean;\n");
+      fprintf(fp,"    std = 0.0;\n");
+      fprintf(fp,"    for (kk = 0; kk < ntimes; kk++) ");
+      fprintf(fp," std += (yt[kk] - mean) * (yt[kk] - mean);\n");
+      fprintf(fp,"    std = sqrt(std / (ntimes - 1.0));\n");
+      fprintf(fp,"    S[ii] = std;\n");
+      fprintf(fp,"  }\n");
+      fprintf(fp,"  free(coefs);\n");
+      fprintf(fp,"  free(yt);\n");
+      fprintf(fp,"  return 0;\n");
+      fprintf(fp,"}\n\n");
+      fprintf(fp,"/* ==============================================*/\n");
+      fprintf(fp,"static double\n");
+      fprintf(fp,"CoefEnsemble[%d][%d] = \n", N, nTimes);
+      fprintf(fp,"{\n");
+      for (mm = 0; mm < N; mm++)
+      {
+         fprintf(fp," { %24.16e", fuzzyC_[mm][0]);
+         for (nn = 1; nn < nTimes; nn++)
+            fprintf(fp,", %24.16e", fuzzyC_[mm][nn]);
+         fprintf(fp," },\n");
+      }
+      fprintf(fp,"};\n");
+      fprintf(fp,"void getCoefs(int kk, double *coefs) {\n");
+      fprintf(fp,"  int mm;\n");
+      fprintf(fp,"  for (mm = 0; mm < %d; mm++)\n",N);
+      fprintf(fp,"    coefs[mm] = CoefEnsemble[mm][kk];\n");
+      fprintf(fp,"}\n");
+      fprintf(fp,"/* ==============================================*/\n");
+      printf("FILE psuade_rs.info contains the final polynomial\n");
       printf("     functional form.\n");
       fclose(fp);
    }
- 
-   if (regCoeffs_ != NULL) delete [] regCoeffs_;
-   if (regStdevs_ != NULL) delete [] regStdevs_;
+   fp = NULL;
+   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "w");
+   if (fp != NULL)
+   {
+      fwriteRSPythonHeader(fp);
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"# Regression interpolation\n");
+      fprintf(fp,"#==================================================\n");
+      fwriteRSPythonCommon(fp);
+      fprintf(fp,"CoefEnsemble = [\n");
+      for (mm = 0; mm < N; mm++)
+      {
+         fprintf(fp," [ %24.16e", fuzzyC_[mm][0]);
+         for (nn = 1; nn < nTimes; nn++)
+            fprintf(fp,", %24.16e", fuzzyC_[mm][nn]);
+         fprintf(fp," ],\n");
+      }
+      fprintf(fp,"]\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"def getCoefs(kk) :\n");
+      fprintf(fp,"   coefs = %d * [0.0]\n", N);
+      fprintf(fp,"   for ind in range(%d):\n", N);
+      fprintf(fp,"      coefs[ind] = CoefEnsemble[ind][kk]\n");
+      fprintf(fp,"   return coefs\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"# Regression interpolation function  \n");
+      fprintf(fp,"# X[0], X[1],   .. X[m-1]   - first point\n");
+      fprintf(fp,"# X[m], X[m+1], .. X[2*m-1] - second point\n");
+      fprintf(fp,"# ... \n");
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"def interpolate(X): \n");
+      fprintf(fp,"  nSamp = int(len(X) / %d)\n",nInputs_);
+      fprintf(fp,"  Yt = %d * [0.0]\n", nTimes);
+      fprintf(fp,"  Xt = %d * [0.0]\n", nInputs_);
+      fprintf(fp,"  Ys = 2 * nSamp * [0.0]\n");
+      fprintf(fp,"  for ss in range(nSamp) : \n");
+      fprintf(fp,"    for ii in range(%d) : \n", nInputs_);
+      fprintf(fp,"      Xt[ii] = X[ss*%d+ii]\n",nInputs_);
+      fprintf(fp,"    for ind in range(%d): \n", nTimes);
+      fprintf(fp,"      coefs = getCoefs(ind)\n");
+      fprintf(fp,"      Y = coefs[0]\n");
+      if (order_ >= 1)
+      {
+         for (nn = 1; nn <= nInputs_; nn++)
+         {
+            if (XMeans_[nn-1] != 0.0 || XStds_[nn-1] != 1.0)
+               fprintf(fp,"      Y = Y + coefs[%d] * (Xt[%d] - %e) / %e;\n", 
+                       nn, nn-1, XMeans_[nn-1], XStds_[nn-1]);
+            else
+               fprintf(fp,"      Y = Y + coefs[%d] * Xt[%d];\n", nn, nn-1);
+         }
+      }
+      if (order_ >= 2)
+      {
+         ind = nInputs_ + 1;
+         for (nn = 0; nn < nInputs_; nn++)
+         {
+            for (nn2 = nn; nn2 < nInputs_; nn2++)
+            {
+               if (XMeans_[nn] != 0.0 || XStds_[nn] != 1.0)
+                  fprintf(fp, "      Y = Y + coefs[%d]*(Xt[%d]-%e)/%e * ", 
+                          ind, nn, XMeans_[nn], XStds_[nn]);
+               else
+                  fprintf(fp, "      Y = Y + coefs[%d] * Xt[%d] * ", 
+                          ind, nn);
+               if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
+                  fprintf(fp, "(Xt[%d] - %e) / %e;\n", nn2, 
+                          XMeans_[nn2], XStds_[nn2]);
+               else
+                  fprintf(fp, "Xt[%d]\n", nn2); 
+               ind++;
+            }
+         }
+      }
+      if (order_ >= 3)
+      {
+         for (nn = 0; nn < nInputs_; nn++)
+         {
+            for (nn2 = nn; nn2 < nInputs_; nn2++)
+            {
+               for (nn3 = nn2; nn3 < nInputs_; nn3++)
+               {
+                  if (XMeans_[nn] != 0.0 || XStds_[nn] != 1.0)
+                     fprintf(fp, "      Y = Y + coefs[%d]*(Xt[%d]-%e)/%e * ", 
+                             ind, nn, XMeans_[nn], XStds_[nn]);
+                  else
+                     fprintf(fp, "      Y = Y + coefs[%d] * Xt[%d] * ",ind,nn);
+                  if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
+                     fprintf(fp, "(Xt[%d] - %e) / %e * ", 
+                             nn2, XMeans_[nn2], XStds_[nn2]);
+                  else
+                     fprintf(fp, "Xt[%d] * ", nn2);
+                  if (XMeans_[nn3] != 0.0 || XStds_[nn3] != 1.0)
+                     fprintf(fp, "(Xt[%d] - %e) / %e;\n", 
+                             nn3, XMeans_[nn3], XStds_[nn3]);
+                  else
+                     fprintf(fp, "Xt[%d];\n", nn3);
+                  ind++;
+               }
+            }
+         }
+      }
+      if (order_ >= 4)
+      {
+         for (nn = 0; nn < nInputs_; nn++)
+         {
+            for (nn2 = nn; nn2 < nInputs_; nn2++)
+            {
+               for (nn3 = nn2; nn3 < nInputs_; nn3++)
+               {
+                  for (nn4 = nn3; nn4 < nInputs_; nn4++)
+                  {
+                     if (XMeans_[nn] != 0.0 || XStds_[nn] != 1.0)
+                        fprintf(fp, "      Y = Y + coefs[%d]*(Xt[%d]-%e)/%e * ", 
+                                ind, nn, XMeans_[nn], XStds_[nn]);
+                     else
+                        fprintf(fp, "      Y = Y + coefs[%d] * Xt[%d] * ",ind,nn);
+                     if (XMeans_[nn2] != 0.0 || XStds_[nn2] != 1.0)
+                        fprintf(fp, "(Xt[%d] - %e) / %e * ", 
+                                nn2, XMeans_[nn2], XStds_[nn2]);
+                     else
+                        fprintf(fp, "Xt[%d] * ", nn2);
+                     if (XMeans_[nn3] != 0.0 || XStds_[nn3] != 1.0)
+                        fprintf(fp, "(Xt[%d] - %e) / %e * ", 
+                                nn3, XMeans_[nn3], XStds_[nn3]);
+                     else
+                        fprintf(fp, "Xt[%d] * ", nn3);
+                     if (XMeans_[nn4] != 0.0 || XStds_[nn4] != 1.0)
+                        fprintf(fp, "(Xt[%d] - %e) / %e;\n", 
+                                nn4, XMeans_[nn4], XStds_[nn4]);
+                     else
+                        fprintf(fp, "Xt[%d];\n", nn4);
+                     ind++;
+                  }
+               }
+            }
+         }
+      }
+      fprintf(fp,"      Yt[ind] = Y * %e + %e\n",YStd_, YMean_);
+      fprintf(fp,"    mean = 0.0\n");
+      fprintf(fp,"    for kk in range(%d): \n", nTimes);
+      fprintf(fp,"      mean = mean + Yt[kk]\n");
+      fprintf(fp,"    mean = mean / %d\n", nTimes);
+      fprintf(fp,"    std = 0.0\n");
+      fprintf(fp,"    for kk in range(%d): \n", nTimes);
+      fprintf(fp,"      std = std + (Yt[kk] - mean) * (Yt[kk] - mean)\n");
+      fprintf(fp,"    std = math.sqrt(std / (%d - 1.0))\n", nTimes);
+      fprintf(fp,"    Ys[ss*2] = mean\n");
+      fprintf(fp,"    Ys[ss*2+1] = std\n");
+      fprintf(fp,"  return Ys\n");
+      fprintf(fp,"###################################################\n");
+      fprintf(fp,"# main program\n");
+      fprintf(fp,"#==================================================\n");
+      fprintf(fp,"infileName  = sys.argv[1]\n");
+      fprintf(fp,"outfileName = sys.argv[2]\n");
+      fprintf(fp,"inputs = getInputData(infileName)\n");
+      fprintf(fp,"outputs = interpolate(inputs)\n");
+      fprintf(fp,"genOutputFile(outfileName, outputs)\n");
+      fprintf(fp,"###################################################\n");
+      printf("FILE psuade_rs.py contains the final polynomial\n");
+      printf("     functional form.\n");
+      fclose(fp);
+   }
+
    numTerms_  = N;
-   regCoeffs_ = B;
-   regStdevs_ = Bstd;
    delete [] AA;
    delete [] XX;
    delete [] XTX;
@@ -1152,9 +1414,9 @@ int Regression::computeSS(int N, double *XX, double *Y,
                           double *B, double &SSresid, double &SStotal)
 {
    int    nn, mm;
-   double rdata, ymean, SSreg, ddata;
+   double rdata, ymean, SSreg, ddata, SSresidCheck;
 
-   SSresid = SStotal = SSreg = ymean = 0.0;
+   SSresid = SSresidCheck = SStotal = SSreg = ymean = 0.0;
    for (mm = 0; mm < nSamples_; mm++) ymean += sqrt(weights_[mm]) * Y[mm];
    ymean /= (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
@@ -1162,13 +1424,21 @@ int Regression::computeSS(int N, double *XX, double *Y,
       ddata = 0.0;
       for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
       rdata = Y[mm] - ddata;
-      SSresid += rdata * rdata * weights_[mm];
+      SSresidCheck += rdata * rdata * weights_[mm];
+      SSresid += rdata * Y[mm] * weights_[mm];
       SSreg += (ddata - ymean) * (ddata - ymean);
    }
    for (mm = 0; mm < nSamples_; mm++)
       SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   printf("Regression: SStot, SSreg, SSres = %e %e %e\n", 
-          SStotal, SSreg, SSresid);
+   printf("* Regression: SStot  = %24.16e\n", SStotal);
+   printf("* Regression: SSreg  = %24.16e\n", SSreg);
+   printf("* Regression: SSres  = %24.16e\n", SSresid);
+   printf("* Regression: SSres  = %24.16e (true)\n", SSresidCheck);
+   if (nSamples_ != N)
+   {
+      printf("* Regression: eps(Y) = %24.16e\n",
+             SSresidCheck/(nSamples_-N));
+   }
 
    return 0;
 }
@@ -1178,7 +1448,7 @@ int Regression::computeSS(int N, double *XX, double *Y,
 // -------------------------------------------------------------------------
 int Regression::computeCoeffVariance(int N,double *XX,double var,double *B)
 {
-   int    nn, nn2, lwork, iOne=1, info;
+   int    nn, nn2, lwork, iOne=1, info, errCnt=0;
    double *B2, *work, *XT;
    char   trans[1];
 
@@ -1195,13 +1465,118 @@ int Regression::computeCoeffVariance(int N,double *XX,double var,double *B)
       dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
       if (info != 0)
          printf("Regression WARNING: dgels returns error %d.\n",info);
-      if (B2[nn] < 0) B[nn] = 0;
+      if (B2[nn] < 0) errCnt++;
+      if (B2[nn] < 0) B[nn] = sqrt(-B2[nn]);
       else            B[nn] = sqrt(B2[nn]);
    }
-
+   if (errCnt > 0)
+   {
+      printf("* Regression WARNING: some of the coefficient variances\n");
+      printf("*            are < 0. May spell trouble but will\n");
+      printf("*            proceed anyway (%d).\n", errCnt);
+   }
    delete [] B2;
-   delete [] work;
    delete [] XT;
+
+   int    *ipiv = new int[N+1];
+   double *invA = new double[lwork];
+   double ddata, ddata2;
+   FILE   *fp;
+   for (nn = 0; nn < N*N; nn++) invA[nn] = XX[nn];
+   dgetrf_(&N, &N, invA, &N, ipiv, &info);
+   if (info != 0)
+      printf("LegendreRegression WARNING: dgels returns error %d.\n",info);
+   dgetri_(&N, invA, &N, ipiv, work, &lwork, &info);
+   covMatrix_.setDim(N,N);
+   for (nn = 0; nn < N; nn++)
+   {
+      for (nn2 = 0; nn2 < N; nn2++)
+      {
+         ddata = invA[nn*N+nn2] * var;
+         covMatrix_.setEntry(nn,nn2,ddata);
+      }
+   }
+   for (nn = 0; nn < N; nn++)
+   {
+      ddata = covMatrix_.getEntry(nn,nn);
+      ddata = sqrt(ddata);
+      for (nn2 = 0; nn2 < N; nn2++)
+      {
+         if (nn != nn2)
+         {
+            ddata2 = covMatrix_.getEntry(nn,nn2);
+            if (ddata != 0) ddata2 /= ddata;
+            covMatrix_.setEntry(nn,nn2,ddata2);
+         }
+      }
+   }
+   for (nn2 = 0; nn2 < N; nn2++)
+   {
+      ddata = covMatrix_.getEntry(nn2,nn2);
+      ddata = sqrt(ddata);
+      for (nn = 0; nn < N; nn++)
+      {
+         if (nn != nn2)
+         {
+            ddata2 = covMatrix_.getEntry(nn,nn2);
+            if (ddata != 0) ddata2 /= ddata;
+            covMatrix_.setEntry(nn,nn2,ddata2);
+         }
+      }
+   }
+   ddata = 1.0;
+   for (nn = 0; nn < N; nn++) covMatrix_.setEntry(nn,nn,ddata);
+   for (nn = 0; nn < N; nn++)
+   {
+      for (nn2 = 0; nn2 < nn; nn2++)
+      {
+         ddata  = covMatrix_.getEntry(nn,nn2);
+         ddata2 = covMatrix_.getEntry(nn2,nn);
+         ddata  = 0.5 * (ddata + ddata2);
+         covMatrix_.setEntry(nn,nn2,ddata);
+         covMatrix_.setEntry(nn2,nn,ddata);
+      }
+   }
+   
+   if (psMasterMode_ == 1)
+   {
+      fp = fopen("regression_correlation_matrix","w");
+      for (nn = 0; nn < N; nn++)
+      {
+          for (nn2 = 0; nn2 < N; nn2++)
+             fprintf(fp, "%e ", covMatrix_.getEntry(nn,nn2));
+          fprintf(fp, "\n");
+      }
+      fclose(fp);
+   }
+   errCnt = 0;
+   for (nn = 0; nn < N; nn++)
+   {
+      for (nn2 = 0; nn2 < N; nn2++)
+      {
+         ddata = covMatrix_.getEntry(nn,nn2);
+         if (nn != nn2 && (ddata >=1 || ddata <= -1))
+         {
+            errCnt++;
+            covMatrix_.setEntry(nn,nn2,0.0);
+         }
+      }
+   }
+   char inStr[1001];
+   if (errCnt > 0)
+   {
+      printf("Regression WARNING:\n");
+      printf("  Correlation matrix has invalid entries (%d out of %d).\n",
+             errCnt, N*(N-1));
+      printf("  EVALUATION MAY BE INCORRECT.\n");
+      printf("  CONTINUE ANYWAY (will set them to zeros)? (y or n)");
+      scanf("%s", inStr);
+      if (inStr[0] != 'y') exit(1);
+      fgets(inStr, 100, stdin);
+   }
+   delete [] work;
+   delete [] ipiv;
+   delete [] invA;
    return info;
 }
 
@@ -1216,14 +1591,14 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    FILE   *fp;
 
    if (order_ < 0 || order_ > 4) return 0;
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("*** Note: these coefficients may not be true coefficients due\n");
    printf("***       to sample matrix scaling (that is, they may be scaled).\n");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    printf("*            ");
    for (ii = 1; ii < order_; ii++) printf("    ");
    printf("  coefficient   std. error   t-value\n");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
 
    if (PABS(Bvar[0]) < 1.0e-15) coef = 0.0;
    else                         coef = B[0] / Bvar[0]; 
@@ -1326,9 +1701,9 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
       }
       strcpy(fname, "dataVariance4");
    }
-   printDashes(0);
+   printDashes(PL_INFO, 0);
 
-   if (order_ >= 0 && order_ <= 4 && outputLevel_ > 3)
+   if (order_ >= 0 && order_ <= 4 && psMasterMode_ == 1)
    {
       fp = fopen(fname, "w");
       if(fp == NULL)
@@ -1361,11 +1736,11 @@ int Regression::printSRC(double *X, double *B, double SStotal)
 
    if (order_ < 0 || order_ > 4) return 0;
 
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf("*       Standardized Regression Coefficients (SRC)\n");
    printf("* When R-square is acceptable (order assumption holds), the\n");
    printf("* absolute values of SRCs provide variable importance.\n"); 
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("* based on nSamples = %d\n", nSamples_);
 
    B2 = new double[nSamples_];
@@ -1392,9 +1767,9 @@ int Regression::printSRC(double *X, double *B, double SStotal)
          printf("= %12.4e\n", B[nn+1]*coef);
          B2[nn] = PABS(B[nn+1] * coef);
       }
-      printDashes(0);
+      printDashes(PL_INFO, 0);
       printf("*    ordered list of SRCs\n");
-      printDashes(0);
+      printDashes(PL_INFO, 0);
       iArray = new int[nInputs_];
       for (nn = 0; nn < nInputs_; nn++) iArray[nn] = nn;
       sortDbleList2a(nInputs_, B2, iArray); 
@@ -1587,7 +1962,7 @@ int Regression::printSRC(double *X, double *B, double SStotal)
       }
    }
    delete [] B2;
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    return 0;
 }
 

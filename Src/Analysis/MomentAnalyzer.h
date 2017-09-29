@@ -36,6 +36,13 @@
                                                                                 
 class MomentAnalyzer : public Analyzer
 {
+private:
+
+	int nSamples_;
+	int nGroups_;
+	int nInputs_;
+	int nOutputs_;
+	double *moments_;
 
 public:
 
@@ -57,6 +64,13 @@ public:
    int computeSkewnessKurtosis(int nInputs, int nOutputs, int nSamples,
                       double * sampleOutputs, double stdev,
                       double *skewness, double *kurtosis,int outputID);
+
+   /** Getters for analysis results */
+   int get_nSamples();
+   int get_nGroups();
+   int get_nInputs();
+   int get_nOutputs();
+   double *get_moments();
 };
 
 #endif // __MOMENTANALYZERH__

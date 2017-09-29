@@ -26,7 +26,9 @@
 // ************************************************************************
 #ifndef __MOATANALYZERH__
 #define __MOATANALYZERH__
-
+#include <string>
+#include <iostream>
+#include <sstream>
 #include "Analyzer.h"
 
 // ************************************************************************
@@ -57,6 +59,11 @@ public:
   double *get_sigma2LowerBounds();
   double *get_sigma2UpperBounds();
 
+  /*create, save & check output string */
+  void createOutputString();
+  void saveOutputString(char *filename);
+  bool checkOutputString(char *filename);
+
 private:
    int createScreenDiagramFile(int nSamples, int nInputs, double *Y, 
                                int *indices, double *modifiedMeans,
@@ -66,11 +73,14 @@ private:
    int createBootstrapFile(int nSamples, int nInputs, double *Y, double *X,
                            int *indices, char **);
 
+   /* a string that contains the output of MOAT analysis*/
+   std::ostringstream outStr_;
+
    /** All arrays are of length nInputs */
-   int nInputs_;
-   int nOutputs_;
-   int nSamples_;
-   int outputID_;
+   int    nInputs_;
+   int    nOutputs_;
+   int    nSamples_;
+   int    outputID_;
    double analysisError_;
    double *means_;
    double *stds_;

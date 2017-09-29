@@ -27,9 +27,11 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include "FASTAnalyzer.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -60,6 +62,10 @@ PSUADE_FAST_DELTA[PSUADE_FAST_MaxDimension] =
 // ------------------------------------------------------------------------
 FASTAnalyzer::FASTAnalyzer() : Analyzer()
 {
+   nInputs_      = 0;
+   M_            = 0;
+   fourierCoefs_ = NULL;
+   FASTvariance_ = 0.0; 
    setName("FAST");
 }
 
@@ -68,6 +74,7 @@ FASTAnalyzer::FASTAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 FASTAnalyzer::~FASTAnalyzer() 
 { 
+   if (fourierCoefs_ != NULL) delete [] fourierCoefs_;
 } 
 
 // ************************************************************************ 
@@ -82,6 +89,7 @@ double FASTAnalyzer::analyze(aData &adata)
 
    printLevel = adata.printLevel_;
    nInputs    = adata.nInputs_;
+   nInputs_	  = nInputs;
    nOutputs   = adata.nOutputs_;
    nSamples   = adata.nSamples_;
    Y          = adata.sampleOutputs_;
@@ -92,47 +100,63 @@ double FASTAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printf("FAST INFO: some inputs have non-uniform PDFs, but\n");
-         printf("     they are not relevant in this analysis.\n");
-         printf("     (To perform this analysis with desired distributions,\n");
-         printf("     first create a FAST sample, then prescribe PDFs and\n");
-         printf("     run the sample through 'pdfconvert' before running\n");
-         printf("     the simulations.\n");
+         printOutTS(PL_WARN, "FAST INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_WARN, "     they are not relevant in this analysis.\n");
+         printOutTS(PL_WARN, "     (To perform this analysis with desired distributions,\n");
+         printOutTS(PL_WARN, "     first create a FAST sample, then prescribe PDFs and\n");
+         printOutTS(PL_WARN, "     run the sample through 'pdfconvert' before running\n");
+         printOutTS(PL_WARN, "     the simulations.\n");
       }
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("FAST ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "FAST ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
+      return PSUADE_UNDEFINED;
+   } 
+   if (nInputs > PSUADE_FAST_MaxDimension)
+   {
+      printOutTS(PL_ERROR, "FAST ERROR: input dimension needs to be <= 50.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
       return PSUADE_UNDEFINED;
    } 
    if (outputID < 0 || outputID >= nOutputs)
    {
-      printf("FAST ERROR: invalid outputID.\n");
-      printf("    outputID = %d\n", outputID+1);
+      printOutTS(PL_ERROR, "FAST ERROR: invalid outputID.\n");
+      printOutTS(PL_ERROR, "    outputID = %d\n", outputID+1);
       return PSUADE_UNDEFINED;
    } 
+   if (fourierCoefs_ != NULL) delete [] fourierCoefs_;
+   fourierCoefs_ = NULL;
    
    YY = new double[nSamples];
    for (ss = 0; ss < nSamples; ss++) YY[ss] = Y[ss*nOutputs+outputID];
    M = computeCoefficents(nSamples, nInputs, YY, &fourierCoefs,
                           printLevel);
    
-   printEquals(0);
-   printf("* Fourier Amplitude Sampling Test (FAST) coefficients\n");
-   printDashes(0);
-   printf("* M = %d\n", M);
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Fourier Amplitude Sensitivity Test (FAST) coefficients\n");
+   printOutTS(PL_INFO, "* (to estimate the Sobol' total sensitivity indices)\n");
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INTERACTIVE, "* M = %d\n", M);
    fsum = 0.0;
    for (ii = 0; ii < nInputs; ii++)
    {
-      printf("* Input %4d = %14.6e\n", ii+1, fourierCoefs[ii]);
+      printOutTS(PL_INFO, "* Input %4d = %14.6e\n", ii+1, fourierCoefs[ii]);
       fsum += fourierCoefs[ii];
    }
-   printf("* Sum of FAST coefficients = %14.6e\n", fsum);
-   printf("* FAST variance            = %14.6e\n", fourierCoefs[nInputs]);
+   printOutTS(PL_INFO, "* Sum of FAST coefficients = %14.6e\n", fsum);
+   printOutTS(PL_INFO, "* FAST variance            = %14.6e\n", fourierCoefs[nInputs]);
+
+   //save Fourier coefficients
+   fourierCoefs_ = new double[nInputs_];
+   M_ = M;
+   for (ii=0; ii<nInputs_; ii++)
+	   fourierCoefs_[ii] = fourierCoefs[ii];
+   FASTvariance_ = fourierCoefs[nInputs];
 
    if (M % 2 == 0)
    {
@@ -141,15 +165,20 @@ double FASTAnalyzer::analyze(aData &adata)
       M  = computeCoefficents(N2, nInputs, YY, &fourierCoefs2, 0);
       if (printLevel >= 2)
       {
-         printDashes(0);
-         printf("* Fourier Amplitude Sampling Test (FAST) coarse coefficients\n");
-         printDashes(0);
+         printDashes(PL_INFO, 0);
+         printOutTS(PL_INFO, "* Fourier Amplitude Sampling Test (FAST) coarse coefficients\n");
+         printDashes(PL_INFO, 0);
          for (ii = 0; ii < nInputs; ii++)
-            printf("* Input %4d = %14.6e\n", ii+1, fourierCoefs2[ii]);
-         printf("* FAST variance            = %14.6e\n", fourierCoefs2[nInputs]);
+            printOutTS(PL_INFO, "* Input %4d = %14.6e\n", ii+1, fourierCoefs2[ii]);
+         printOutTS(PL_INFO, "* FAST variance            = %14.6e\n", fourierCoefs2[nInputs]);
       }
+
+      //save coarse Fourier coefficients
+      for (ii=0; ii<nInputs_; ii++)
+    	  fourierCoefs_[ii] = fourierCoefs2[ii];
+      FASTvariance_ = fourierCoefs2[nInputs];
    }
-   printEquals(0);
+   printEquals(PL_INFO, 0);
 
    retdata = 1.0;
    if (M % 2 == 0)
@@ -170,7 +199,7 @@ double FASTAnalyzer::analyze(aData &adata)
    delete [] YY;
    delete [] fourierCoefs;
    if (printLevel >= 2)
-      printf("* FAST convergence rate = %12.4e\n",retdata);
+      printOutTS(PL_INFO, "* FAST convergence rate = %12.4e\n",retdata);
    return retdata;
 }
 
@@ -202,7 +231,10 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
    M = (nSamples - 1) / (2 * omegas[nInputs-1]);
    if ((2 * M * omegas[nInputs-1] + 1) != nSamples)
    {
-      printf("FAST ERROR: not FAST samples ?\n");
+      printOutTS(PL_ERROR, "FAST ERROR: not FAST samples ?\n");
+      printOutTS(PL_ERROR, "nSamples = %4d\n", nSamples);
+      printOutTS(PL_ERROR, "omegas[nInputs-1] = %d\n", omegas[nInputs-1]);
+      printOutTS(PL_ERROR, "M = %4d\n", M);
       delete [] omegas;
       exit(1);
    } 
@@ -266,7 +298,7 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
    if (flag >= 3)
    {
       for (jj = 0; jj < nInputs; jj++)
-         printf("FAST: input %4d fundamental frequency = %d\n",jj+1,
+         printOutTS(PL_INFO, "FAST: input %4d fundamental frequency = %d\n",jj+1,
                 omegas[jj]);
    }
    for (ii = 0; ii < N; ii++)
@@ -296,12 +328,12 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
       fastImag += dataImag * dataImag;
       if (flag >= 3)
       {
-         printf("FAST: frequency %5d : data = %9.1e (%9.1e %9.1e) ",
+         printOutTS(PL_INFO, "FAST: frequency %5d : data = %9.1e (%9.1e %9.1e) ",
                 ii+1,dataReal*dataReal+dataImag*dataImag,dataReal,dataImag);
          for (jj = 0; jj < nInputs; jj++)
             if ((ii + 1) / omegas[jj] * omegas[jj] == (ii + 1))
-               printf("(%4d) ", jj+1);
-         printf("\n");
+               printOutTS(PL_INFO, "(%4d) ", jj+1);
+         printOutTS(PL_INFO, "\n");
       }
    }
    fastCoef = 2.0 * (fastReal + fastImag);
@@ -319,8 +351,34 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
 // ------------------------------------------------------------------------
 FASTAnalyzer& FASTAnalyzer::operator=(const FASTAnalyzer &)
 {
-   printf("FAST operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "FAST operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int FASTAnalyzer::get_nInputs()
+{
+   return nInputs_;
+}
+int FASTAnalyzer::get_M()
+{
+   return M_;
+}
+double *FASTAnalyzer::get_fourierCoefs()
+{
+   double* retVal = NULL;
+   if (fourierCoefs_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(fourierCoefs_, fourierCoefs_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double FASTAnalyzer::get_FASTvariance()
+{
+   return FASTvariance_;
 }
 

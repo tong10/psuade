@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __FUNCAPPROXH__
 #define __FUNCAPPROXH__
 
@@ -64,7 +63,8 @@ public:
    virtual int    loadWeights(int, double *);
    virtual void   setNPtsPerDim(int);
    virtual int    getNPtsPerDim();
-   virtual int    genNDGridData(double*,double*,int*,double**,double**)=0;
+   virtual int    initialize(double*,double*)=0;
+   virtual int    genNDGridData(double*,double*,int*,double**,double**);
    virtual int    gen1DGridData(double*,double*,int,double*,int*,
                                 double**,double**);
    virtual int    gen2DGridData(double*,double*,int,int,double*,int*,
@@ -93,7 +93,7 @@ extern "C"
 {
    int        getFAType(char *pString);
    void       printThisFA(int faType);
-   int        writeFAInfo();
+   int        writeFAInfo(int);
    FuncApprox *genFA(int faType, int nInputs, int nOutputs, int nSamples);
    FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag);
    FuncApprox *genFAFromFile(char *name, int outputID);

@@ -44,6 +44,12 @@ class MarsBagg : public FuncApprox
    int    usageIndex_;
    double **dataSetX_;
    double **dataSetY_;
+   double **marsFms_;
+   int    **marsIms_;
+   int    *marsNfms_;
+   int    *marsNims_;
+   double **marsXMeans_;
+   double **marsXStds_;
 
 public:
 
@@ -54,6 +60,7 @@ public:
    int    loadWeights(int, double *);
    void   setNPtsPerDim(int);
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);
@@ -69,10 +76,11 @@ public:
    double evaluatePointFuzzy(int, double *, double *, double *);
    double setParams(int, char **);
 
-
 private:
 
    int    getImportance(int, double *);
+   int    readRSInterpolator(int);
+   int    genRSInterpolator();
 };
 
 #endif // __MARSBAGGH__

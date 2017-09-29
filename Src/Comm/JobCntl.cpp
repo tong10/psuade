@@ -24,15 +24,22 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2008
 // ************************************************************************
+#ifdef WINDOWS
+#define UNICODE
+#include <windows.h>
+//extern void Sleep(unsigned long milliseconds);
+#endif //WINDOWS
 
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 #include "JobCntl.h"
 
 #ifdef HAVE_PYTHON
 #include "Python.h"
 #endif
+
 
 // ************************************************************************
 // Constructor
@@ -159,7 +166,6 @@ int JobCntl::execute()
 {
    int   ss, runJobs, pJobCnt, jobsCompleted;
    int   status, ii;
-   char  systemCommand[500];
 
    if (nSamples_ <= 0 || nInputs_ <= 0 || nOutputs_ <= 0)
    {
@@ -255,8 +261,12 @@ int JobCntl::execute()
 
       if ((jobsCompleted < runJobs) && (jobWaitTime_ > 0))
       {
-         sprintf(systemCommand, "sleep %d", jobWaitTime_);
-         system(systemCommand);
+#ifdef WINDOWS
+         Sleep(1000 * jobWaitTime_);
+#else
+         sleep(jobWaitTime_);
+#endif
+
       }
       if (outputLevel_ > 0) 
          printf("\nPSUADE: jobs completed = %d(of %d)\n",

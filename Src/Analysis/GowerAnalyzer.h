@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2009
 // ************************************************************************
-
 #ifndef __GOWERANALYZERH__
 #define __GOWERANALYZERH__
 

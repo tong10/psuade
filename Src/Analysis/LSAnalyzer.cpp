@@ -32,13 +32,15 @@
 #include "PsuadeUtil.h"
 #include "Psuade.h"
 #include "pData.h"
+#include "PrintingTS.h"
+#include <algorithm>
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-LSAnalyzer::LSAnalyzer() : Analyzer()
+LSAnalyzer::LSAnalyzer() : Analyzer(), nInputs_(0), lsMeasures_(0)
 {
    setName("LSA");
 }
@@ -48,6 +50,7 @@ LSAnalyzer::LSAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 LSAnalyzer::~LSAnalyzer()
 {
+   if (lsMeasures_ != NULL) delete [] lsMeasures_;
 }
 
 // ************************************************************************
@@ -77,8 +80,8 @@ double LSAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printf("LocalSA INFO: some inputs have non-uniform PDFs, but\n");
-         printf("              they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO, "LocalSA INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO, "              they are not relevant in this analysis.\n");
       }
    }
    whichOutput = outputID;
@@ -92,28 +95,28 @@ double LSAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("LocalSA ERROR: invalid arguments.\n");
-      printf("   nInputs  = %d\n", nInputs);
-      printf("   nOutputs = %d\n", nOutputs); 
-      printf("   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "LocalSA ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "   nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "   nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (nSamples != nInputs + 1)
    {
-      printf("LSAnalyzer ERROR: nSamples should be equal to nInputs+1.\n");
-      printf("   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "LSAnalyzer ERROR: nSamples should be equal to nInputs+1.\n");
+      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
 
-   printf("\n");
-   printAsterisks(0);
-   printAsterisks(0);
-   printf("* Local Sensitivity Analysis\n");
-   printDashes(0);
-   printf("* total number of samples = %d\n",nSamples);
-   printf("* number of Inputs        = %d\n",nInputs);
-   printf("* Output number           = %d\n", whichOutput+1);
-   printDashes(0);
+   printOutTS(PL_INFO, "\n");
+   printAsterisks(PL_INFO, 0);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Local Sensitivity Analysis\n");
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO, "* total number of samples = %d\n",nSamples);
+   printOutTS(PL_INFO, "* number of Inputs        = %d\n",nInputs);
+   printOutTS(PL_INFO, "* Output number           = %d\n", whichOutput+1);
+   printDashes(PL_INFO, 0);
    if (psPlotTool_ == 1)
    {
       fp = fopen("scilablsa.sci", "w");
@@ -141,8 +144,12 @@ double LSAnalyzer::analyze(aData &adata)
       }
    }
 
+   if (lsMeasures_) delete [] lsMeasures_;
+   nInputs_ = nInputs;
+   lsMeasures_ = new double[nInputs];
    mEffect = new double[nInputs];
-   for (ii = 0; ii < nInputs; ii++) mEffect[ii] = PSUADE_UNDEFINED;
+   for (ii = 0; ii < nInputs; ii++) 
+      mEffect[ii] = lsMeasures_[ii] = PSUADE_UNDEFINED;
 
    for (ss = 1; ss < nSamples; ss++)
    {
@@ -168,7 +175,7 @@ double LSAnalyzer::analyze(aData &adata)
    {
       if (mEffect[ii] == PSUADE_UNDEFINED)
       {
-         printf("LocalSA ERROR: sample not suitable for LSA.\n");
+         printOutTS(PL_INFO, "LocalSA ERROR: sample not suitable for LSA.\n");
          delete [] mEffect;
          // Bill Oliver added code to close fp prior to returning
          if(fp != NULL) fclose(fp);
@@ -176,8 +183,11 @@ double LSAnalyzer::analyze(aData &adata)
       }
    }
    for (ii = 0; ii < nInputs; ii++)
-      printf("* Input %3d (importance measure = %12.4e)\n", ii+1, 
+   {
+      lsMeasures_[ii] = mEffect[ii];
+      printOutTS(PL_INFO, "* Input %3d (importance measure = %12.4e)\n", ii+1,
              mEffect[ii]);
+   }
 
    if (fp != NULL)
    {
@@ -250,10 +260,10 @@ double LSAnalyzer::analyze(aData &adata)
       fwritePlotYLabel(fp, pString);
       fclose(fp);
       if (psPlotTool_ == 1)
-           printf("LocalSA ranking result in scilablsa.sci\n");
-      else printf("LocalSA ranking result in matlablsa.m\n");
+           printOutTS(PL_INFO, "LocalSA ranking result in scilablsa.sci\n");
+      else printOutTS(PL_INFO, "LocalSA ranking result in matlablsa.m\n");
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    delete [] mEffect;
    return 0.0;
@@ -264,8 +274,26 @@ double LSAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 LSAnalyzer& LSAnalyzer::operator=(const LSAnalyzer &)
 {
-   printf("LocalSA operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "LocalSA operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int LSAnalyzer::get_nInputs()
+{
+   return nInputs_;
+}
+double *LSAnalyzer::get_lsMeasures()
+{
+   double* retVal = NULL;
+   if (lsMeasures_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(lsMeasures_, lsMeasures_+nInputs_, retVal);
+   }
+   return retVal;
 }
 

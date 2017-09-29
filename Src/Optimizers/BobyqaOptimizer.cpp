@@ -29,7 +29,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-using namespace std;
 
 #include "BobyqaOptimizer.h"
 #include "Psuade.h"
@@ -259,7 +258,7 @@ void BobyqaOptimizer::optimize(oData *odata)
    outputID = odata->outputID_;
    if (nOutputs > 1)
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       if (psOptExpertMode_ == 1)
       {
          printf("* You have multiple outputs in your problem definition.\n");
@@ -289,7 +288,7 @@ void BobyqaOptimizer::optimize(oData *odata)
          printf("\t2  <double>  /* C_2 if output 2 is used in Lagrange */\n");
          printf("\t...\n");
          printf("\tPSUADE_END\n");
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       if (psOptExpertMode_ == 1)
       {
@@ -388,14 +387,14 @@ void BobyqaOptimizer::optimize(oData *odata)
       odata->funcIO_->setDriver(1);
    }
    psBobyqaObj_= (void *) odata;
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf("Bobyqa optimizer: max fevals = %d\n", odata->maxFEval_);
    printf("Bobyqa optimizer: tolerance  = %e\n", odata->tolerance_);
    if (printLevel > 1)
       printf("Bobyqa optimizer: rho1, rho2 = %e %e\n", rhobeg, rhoend);
    if (psNumBOVars_ + psNumBLVars_ == 0)
       printf("Bobyqa optimizer: selected output = %d\n", outputID+1);
-   printEquals(0);
+   printEquals(PL_INFO, 0);
 
    nPts = (nInputs + 1) * (nInputs + 2) / 2;
    workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];

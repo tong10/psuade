@@ -64,14 +64,13 @@ GP1::~GP1()
 }
 
 // ************************************************************************
-// Generate results for display
+// initialize
 // ------------------------------------------------------------------------
-int GP1::genNDGridData(double *XIn, double *YIn, int *N, double **X2, 
-                      double **Y2)
+int GP1::initialize(double *XIn, double *YIn)
 {
 #ifdef HAVE_TPROS
-   int    totPts, ss, ii, jj;
-   double *XX, *YY, *stds, *X, *Y;
+   int    ss, ii;
+   double *stds, *X, *Y;
    char   pString[500], response[500], *cString;
 
    response[0] = 'n';
@@ -105,9 +104,39 @@ int GP1::genNDGridData(double *XIn, double *YIn, int *N, double **X2,
    TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, stds);
    for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
    if (outputLevel_ >= 1) printf("GP1 training completed.\n");
+   if (psRSExpertMode_)
+   {
+      double *lengthScales = new double[nInputs_];
+      TprosGetLengthScales(nInputs_, lengthScales);
+      printf("GP1 training information: \n");
+      for (ii = 0; ii < nInputs_; ii++)
+         printf("Input %d mean,std,length scale = %e %e %e\n",
+                ii+1, XMeans_[ii], XStds_[ii], lengthScales[ii]); 
+      delete [] lengthScales;
+   }
    delete [] stds;
    delete [] X;
    delete [] Y;
+   if (psRSCodeGen_ == 1) 
+      printf("GP1 INFO: response surface stand-alone code not available.\n");
+   return 0;
+#else
+   printf("PSUADE ERROR : GP1 not installed.\n");
+   return -1;
+#endif
+}
+
+// ************************************************************************
+// Generate results for display
+// ------------------------------------------------------------------------
+int GP1::genNDGridData(double *XIn, double *YIn, int *N, double **X2, 
+                      double **Y2)
+{
+#ifdef HAVE_TPROS
+   int    totPts, ii, jj;
+   double *XX, *YY, *X;
+
+   initialize(XIn, YIn);
    if ((*N) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    genNDGrid(N, &XX);
@@ -144,41 +173,11 @@ int GP1::gen1DGridData(double *XIn, double *YIn, int ind1,
                        double *settings, int *n, double **X2, double **Y2)
 {
 #ifdef HAVE_TPROS
-   int    ii, jj, kk, totPts;
-   double HX, *XX, *YY, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    totPts, ii, jj, kk;
+   double *XX, *YY, *X, HX;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) response[0] = 'y';
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "GP1: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-   
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-
-   if (outputLevel_ >= 1) printf("GP1 training begins....\n");
-   TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("GP1 training completed.\n");
-   delete [] X;
-   delete [] Y;
+   initialize(XIn, YIn);
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_;
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -194,7 +193,7 @@ int GP1::gen1DGridData(double *XIn, double *YIn, int ind1,
    }
     
    YY = new double[totPts];
-   X = new double[totPts*nInputs_];
+   X  = new double[totPts*nInputs_];
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (jj = 0; jj < totPts; jj++)
@@ -222,41 +221,11 @@ int GP1::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
                        double *settings, int *n, double **X2, double **Y2)
 {
 #ifdef HAVE_TPROS
-   int    ii, jj, kk, totPts, index;
-   double *HX, *XX, *YY, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    totPts, ii, jj, kk, index;
+   double *XX, *YY, *X, *HX;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) response[0] = 'y';
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "GP1: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-   
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-
-   if (outputLevel_ >= 1) printf("GP1 training begins....\n");
-   TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("GP1 training completed.\n");
-   delete [] X;
-   delete [] Y;
+   initialize(XIn, YIn);
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[2];
@@ -310,41 +279,11 @@ int GP1::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
                        double *settings, int *n, double **X2, double **Y2)
 {
 #ifdef HAVE_TPROS
-   int    ii, jj, ll, kk, totPts, index;
-   double *HX, *XX, *YY, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    totPts, ii, jj, kk, ll, index;
+   double *XX, *YY, *X, *HX;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) response[0] = 'y';
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "GP1: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-   
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-
-   if (outputLevel_ >= 1) printf("GP1 training begins....\n");
-   TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("GP1 training completed.\n");
-   delete [] X;
-   delete [] Y;
+   initialize(XIn, YIn);
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[3];
@@ -405,41 +344,11 @@ int GP1::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
                        double **Y2)
 {
 #ifdef HAVE_TPROS
-   int    ii, jj, ll, mm, kk, totPts, index;
-   double *HX, *XX, *YY, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    totPts, ii, jj, kk, ll, mm, index;
+   double *XX, *YY, *X, *HX;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) response[0] = 'y';
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "GP1: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-   
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-
-   if (outputLevel_ >= 1) printf("GP1 training begins....\n");
-   TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, NULL);
-   if (outputLevel_ >= 1) printf("GP1 training completed.\n");
-   delete [] X;
-   delete [] Y;
+   initialize(XIn, YIn);
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[4];
@@ -690,14 +599,14 @@ double GP1::setParams(int targc, char **targv)
       sortDbleList2a(nInputs_, lengthScales, iArray);
       if (targc == 1)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("* GP1 screening rankings \n");
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          for (ii = nInputs_-1; ii >= 0; ii--)
             printf("*  Rank %3d : Input = %3d (score = %5.1f) (ref = %e)\n", 
                    nInputs_-ii, iArray[ii]+1, lengthScales[ii], 
                    lengthScales[ii]*mmax*0.01);
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       if (targc > 1)
       {

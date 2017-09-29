@@ -29,7 +29,6 @@
 
 #include <iostream>
 #include <string.h>
-using    namespace std;
 #include "Sampling.h"
 
 /**
@@ -52,6 +51,7 @@ class MetisSampling : public Sampling
    int *graphI_;
    int *graphJ_;
    int *cellsOccupied_;
+   int changeInfoName_;
 
 public:
 
@@ -76,7 +76,8 @@ public:
        @param nSamples: sample size
        @param sampleErrs: errors for each sample point
     */
-   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+   int refine(int ratio,int randomize,double thresh,int nSamples,
+              double *sampleErrs);
 
    /** This function overloads the assignment operator
        @param obj : Sampling object

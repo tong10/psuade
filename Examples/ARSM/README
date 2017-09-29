@@ -6,7 +6,24 @@ To run it:
 (2) psuade psuadeARSM1.in
     <answer 'n' to random selection or not>
     <answer 'n' to whether a test set is available>
+After completeion:
+- rename psuadeData to, say, psd
+- now launch psuade and run 'rs2' (choose MARS)
+- now use matlab to view the response surface
 
+Then, 
+- comment out the line "analyzer = ARSM" in psuadeARSM1.in.
+- change the sample size to 100 in psuadeARSM1.in
+- run: psuade psuadeARSM1.in
+- rename psuadeData to, say, psd2
+- launch psuade and run 'rs2' (choose MARS)
+- now use matlab to view the response surface
+
+Can you see any differences between the 2 response surfaces?
+- the first one generated from adaptive sampling
+- the second one generated from static sampling (same sample size)
+
+=============================================================
 Note: ARSM1 uses stochastic response surface and metis to
       bisect and estimate errors in order to add new points 
 Note: ARSMNN uses response surface and metis and add new 

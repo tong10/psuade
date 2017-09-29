@@ -71,6 +71,18 @@ TGP::~TGP()
 }
 
 // ************************************************************************
+// initialize 
+// ------------------------------------------------------------------------
+int TGP::initialize(double *X, double *Y)
+{
+   int status=-999;
+   genNDGridData(X, Y, &status, NULL, NULL);
+   if (psRSCodeGen_ == 1) 
+      printf("TGP INFO: response surface stand-alone code not available.\n");
+   return 0;
+}
+
+// ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
 int TGP::genNDGridData(double *X, double *Y, int *N, double **X2, 
@@ -215,7 +227,6 @@ int TGP::genNDGridData(double *X, double *Y, int *N, double **X2,
 
 #if 0
    ZZMean = NULL;
-   gpcs = new double[4];
    if ((*N) != -999 && X2 != NULL && Y2 != NULL)
    {
       essOut = new double[3];  // itemps[1]*2+1
@@ -257,6 +268,7 @@ int TGP::genNDGridData(double *X, double *Y, int *N, double **X2,
    delete [] dparams;
    delete [] itemps;
 
+   gpcs = new double[4];
    tgp_->GetTreeStats(gpcs);
    delete [] gpcs;
 
@@ -1074,7 +1086,7 @@ double TGP::evaluatePoint(double *X)
 double TGP::evaluatePoint(int npts, double *X, double *Y)
 {
 #ifdef HAVE_TGP
-   int    iZero=0, PS_FALSE=0;
+   int    iZero=0, PS_FALSE=0, chunksize;
    double *essOut, *ZpMean, *ZpQ, *ZpS2;
    double *ZpQ1, *ZpMedian, *ZpQ2, *ZZQ, *ZZS2;
    double *ZZQ1, *ZZMedian, *ZZQ2;
@@ -1092,7 +1104,7 @@ double TGP::evaluatePoint(int npts, double *X, double *Y)
    ZZQ2 = new double[nSamples_];
 
    double *XX, *YY;
-   int    ii, jj, nChunks = npts / nSamples_;
+   int    ii, jj, kk, nChunks = npts / nSamples_;
    if (nChunks == 0) nChunks = 1;
    XX = new double[nSamples_*nInputs_];
    YY = new double[nSamples_];
@@ -1101,14 +1113,19 @@ double TGP::evaluatePoint(int npts, double *X, double *Y)
    {
       if (outputLevel_ > 1)
          printf("TGP: evaluate chunk %d (out of %d)\n",ii+1,nChunks);
-      for (jj = 0; jj < nSamples_*nInputs_; jj++)
+      chunksize = nSamples_;
+      if (ii*nSamples_+chunksize > npts) chunksize = npts - ii * nSamples_;
+      for (jj = 0; jj < chunksize*nInputs_; jj++)
          XX[jj] = X[ii*nSamples_*nInputs_+jj]; 
+      for (jj = chunksize; jj < nSamples_; jj++)
+         for (kk = 0; kk < nInputs_; kk++)
+            XX[jj*nInputs_+kk] = X[ii*nSamples_*nInputs_+(chunksize-1)*nInputs_+kk]; 
       tgp_->LoadInterpolatedPts(nSamples_, XX);
       tgp_->Predict();
       tgp_->GetStats(iZero,ZpMean,YY,NULL,NULL,ZpQ,ZZQ,PS_FALSE,
                      ZpS2,ZZS2,NULL,NULL,NULL,ZpQ1,ZpMedian,
                      ZpQ2,ZZQ1,ZZMedian,ZZQ2,NULL,NULL,NULL,essOut);
-      for (jj = 0; jj < nSamples_; jj++) Y[ii*nSamples_+jj] = YY[jj]; 
+      for (jj = 0; jj < chunksize; jj++) Y[ii*nSamples_+jj] = YY[jj]; 
    }
    if (nSamples_*nChunks < npts)
    {

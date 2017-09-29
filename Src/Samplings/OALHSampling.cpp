@@ -70,6 +70,11 @@ int OALHSampling::initialize(int initLevel)
       printf("OALHSampling ERROR: input not set up.\n");
       exit(1);
    }
+   if (nSamples_ == 0)
+   {
+      printf("OALHSampling ERROR: nSamples = 0.\n");
+      exit(1);
+   }
 
    deleteSampleData();
    nReps = nReplications_;

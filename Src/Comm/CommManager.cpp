@@ -46,9 +46,7 @@ CommManager::CommManager(int argc, void **argv)
 #if defined(HAVE_MPICH)
   int mypid;
 
-  // -----------------------------------------------------------------
   // If MPICH communication protocol is requested
-  // -----------------------------------------------------------------
   gComm_    = new CommMPICH(argc,argv);
   numProcs_ = gComm_->getNumProcs();
   mypid     = gComm_->getPID();
@@ -62,9 +60,7 @@ CommManager::CommManager(int argc, void **argv)
 
 #else
 
-  // -----------------------------------------------------------------
   // if no communication protocol is defined, use single processor 
-  // -----------------------------------------------------------------
   gComm_    = NULL;
   numProcs_ = 1;
 #if 0

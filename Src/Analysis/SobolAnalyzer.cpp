@@ -27,17 +27,22 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
+#include <algorithm>
+
 #include "SobolAnalyzer.h"
 #include "Psuade.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------
-SobolAnalyzer::SobolAnalyzer() : Analyzer()
+SobolAnalyzer::SobolAnalyzer() : Analyzer(), nInputs_(0), modifiedMeans_(0),
+                                 stds_(0), S_(0), ST_(0), PE_(0)
 {
    setName("SOBOL");
 }
@@ -47,6 +52,11 @@ SobolAnalyzer::SobolAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 SobolAnalyzer::~SobolAnalyzer()
 {
+   if (modifiedMeans_) delete[] modifiedMeans_;
+   if (stds_) delete[] stds_;
+   if (S_) delete[] S_;
+   if (ST_) delete[] ST_;
+   if (PE_) delete[] PE_;
 }
 
 // ************************************************************************
@@ -61,6 +71,7 @@ double SobolAnalyzer::analyze(aData &adata)
    double  *xIn, *yIn, *xLower, *xUpper, dtemp;
 
    nInputs  = adata.nInputs_;
+   nInputs_ = nInputs;
    nOutputs = adata.nOutputs_;
    nSamples = adata.nSamples_;
    xLower   = adata.iLowerB_;
@@ -75,23 +86,33 @@ double SobolAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printf("SobolAnalyzer INFO: some inputs have non-uniform PDFs.\n");
-         printf("     However, they are not relevant in this analysis\n");
-         printf("     (since the sample should have been generated with\n");
-         printf("     the desired distributions.)\n");
+         printOutTS(PL_INFO, 
+            "SobolAnalyzer INFO: some inputs have non-uniform PDFs.\n");
+         printOutTS(PL_INFO, 
+            "     However, they are not relevant in this analysis\n");
+         printOutTS(PL_INFO, 
+            "     (since the sample should have been generated with\n");
+         printOutTS(PL_INFO, "     the desired distributions.)\n");
       }
    }
 
    if (nInputs <= 0 || nSamples <= 0 || nOutputs <= 0 || 
        outputID < 0 || outputID >= nOutputs)
    {
-      printf("SobolAnalyzer ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
-      printf("    outputID = %d\n", outputID+1);
+      printOutTS(PL_ERROR, "SobolAnalyzer ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "    outputID = %d\n", outputID+1);
       return PSUADE_UNDEFINED;
    } 
+
+   if (modifiedMeans_) delete[] modifiedMeans_;
+   if (stds_) delete[] stds_;
+   if (S_) delete[] S_;
+   if (ST_) delete[] ST_;
+   if (PE_) delete[] PE_;
+   modifiedMeans_ = stds_ = S_ = ST_ = PE_ = NULL;
 
    count = 0;
    for (ss = 0; ss < nSamples; ss++)
@@ -99,13 +120,13 @@ double SobolAnalyzer::analyze(aData &adata)
       errFlag = 0;
       if (sIn[ss] != 1) errFlag = 1;
       for (ii = 0; ii < nOutputs; ii++)
-         if (yIn[ss*nOutputs+ii] < 0.9*PSUADE_UNDEFINED) errFlag = 1;
+         if (yIn[ss*nOutputs+ii] > 0.99*PSUADE_UNDEFINED) errFlag = 1;
       if (errFlag == 0) count++;
    }
-   printf("SobolAnalyzer INFO: there are a total of %d sample points.\n",
+   printOutTS(PL_INFO,"SobolAnalyzer INFO: there are %d sample points.\n",
           nSamples);
-   printf("SobolAnalyzer INFO: there are %d valid sample points.\n",
-          count);
+   printOutTS(PL_INFO,"SobolAnalyzer INFO: there are %d valid sample points.\n",
+              count);
 
    nReps = nSamples / (nInputs + 2);
    if ((nReps * (nInputs+2)) == nSamples)
@@ -126,17 +147,17 @@ double SobolAnalyzer::analyze(aData &adata)
          }
          if (errCount > 0)
          {
-            printf("SobolAnalyzer ERROR: invalid sample (%d,%d).\n",
-                   ss, errCount);
-            printf("SobolAnalyzer requires Sobol samples.\n");
+            printOutTS(PL_ERROR,"SobolAnalyzer ERROR: invalid sample (%d,%d)\n",
+                       ss, errCount);
+            printOutTS(PL_ERROR, "SobolAnalyzer requires Sobol samples.\n");
             return PSUADE_UNDEFINED;
          }
       }
    }
    else
    {
-      printf("SobolAnalyzer ERROR: invalid sample size.\n");
-      printf("SobolAnalyzer requires Sobol samples.\n");
+      printOutTS(PL_ERROR, "SobolAnalyzer ERROR: invalid sample size.\n");
+      printOutTS(PL_ERROR, "SobolAnalyzer requires Sobol samples.\n");
       return PSUADE_UNDEFINED;
    }
    
@@ -145,17 +166,26 @@ double SobolAnalyzer::analyze(aData &adata)
    means = new double[nInputs];
    modifiedMeans = new double[nInputs];
    stds = new double[nInputs];
+   modifiedMeans_ = new double[nInputs_];
+   stds_ = new double[nInputs_];
    for (ii = 0; ii < nInputs; ii++)
-      means[ii] = modifiedMeans[ii] = stds[ii] = 0.0;
+      means[ii]=modifiedMeans[ii]=modifiedMeans_[ii]=stds[ii]=stds_[ii]=0.0;
 
    MOATAnalyze(nInputs,nSamples,xIn,Y,xLower,xUpper,means,
                modifiedMeans,stds);
 
-   printf("Sobol-OAT Analysis : \n");
+   printOutTS(PL_INFO, "Sobol-OAT Analysis : \n");
    for (ii = 0; ii < nInputs; ii++)
-      printf("Input %3d (mod. mean & std) = %12.4e %12.4e\n",
+      printOutTS(PL_INFO, "Input %3d (mod. mean & std) = %12.4e %12.4e\n",
              ii+1, modifiedMeans[ii], stds[ii]);
 
+   //save means & stds
+   for (ii = 0; ii < nInputs_; ii++)
+   {
+	   modifiedMeans_[ii] = modifiedMeans[ii];
+	   stds_[ii] = stds[ii];
+	   //cout << modifiedMeans_[ii] << " " << stds_[ii] << endl;
+   }
 
    for (ss = 0; ss < nSamples; ss++) Y[ss] = yIn[nOutputs*ss+outputID];
 
@@ -171,7 +201,7 @@ double SobolAnalyzer::analyze(aData &adata)
    }
    if (count <= 1)
    {
-      printf("SobolAnalyzer ERROR: too few valid sample points.\n");
+      printOutTS(PL_ERROR,"SobolAnalyzer ERROR: too few valid sample points\n");
       exit(1);
    }
    sMean /= ((double) (count));
@@ -183,13 +213,16 @@ double SobolAnalyzer::analyze(aData &adata)
    sVar = sVar / (double) (count-1.0);
    if (sVar == 0)
    {
-      printf("SobolAnalyzer ERROR: sample variance = 0.0.\n");
+      printOutTS(PL_ERROR, "SobolAnalyzer ERROR: sample variance = 0.0.\n");
       exit(1);
    }
 
    S  = new double[nInputs];
    ST = new double[nInputs];
    PE = new double[nInputs];
+   S_  = new double[nInputs_];
+   ST_ = new double[nInputs_];
+   PE_ = new double[nInputs_];
    for (ii = 0; ii < nInputs; ii++)
    {
       tau = 0.0;
@@ -206,7 +239,8 @@ double SobolAnalyzer::analyze(aData &adata)
       }
       if (count <= 0)
       {
-         printf("SobolAnalyzer ERROR: too few valid sample points for TSI.\n");
+         printOutTS(PL_ERROR,
+            "SobolAnalyzer ERROR: too few valid sample points for TSI.\n");
          exit(1);
       }
       tau /= ((double) count);
@@ -226,7 +260,8 @@ double SobolAnalyzer::analyze(aData &adata)
       }
       if (count <= 0)
       {
-         printf("SobolAnalyzer ERROR: too few valid sample points for VCE.\n");
+         printOutTS(PL_ERROR,
+            "SobolAnalyzer ERROR: too few valid sample points for VCE.\n");
          exit(1);
       }
       tau /= ((double) count);
@@ -258,11 +293,19 @@ double SobolAnalyzer::analyze(aData &adata)
       PE[ii] = 0.6745 * sqrt(sVar2) / sqrt(1.0 * count);
    }
 
-   printf("Sobol Analysis (ST: total sensitivity, PE: probable error):\n");
+   printOutTS(PL_INFO, 
+            "Sobol Analysis (ST: total sensitivity, PE: probable error):\n");
    for (ii = 0; ii < nInputs; ii++)
-      printf("Input %3d (S, ST, PE) = %12.4e %12.4e %12.4e\n",
+      printOutTS(PL_INFO, "Input %3d (S, ST, PE) = %12.4e %12.4e %12.4e\n",
              ii+1, S[ii], ST[ii], PE[ii]);
-
+   //save sensitivities
+   for (ii = 0; ii < nInputs; ii++)
+   {
+	   S_[ii]  = S[ii];
+	   ST_[ii] = ST[ii];
+	   PE_[ii] = PE[ii];
+	   //cout << S_[ii] << " " << ST_[ii] << " " << PE_[ii] << endl;
+   }
    delete [] Y;
    delete [] means;
    delete [] modifiedMeans;
@@ -299,8 +342,8 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
          }
          else
          {
-            printf("SobolAnalyzer ERROR: divide by 0.\n");
-            printf("     Check sample (Is this Sobol?) \n");
+            printOutTS(PL_ERROR, "SobolAnalyzer ERROR: divide by 0.\n");
+            printOutTS(PL_ERROR, "     Check sample (Is this Sobol?) \n");
             exit(1);
          }
       }
@@ -347,7 +390,7 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
    else                  fp = fopen("matlabsmp.m", "w");
    if (fp == NULL)
    {
-      printf("ERROR: cannot open file to write statistics.\n");
+      printOutTS(PL_ERROR, "ERROR: cannot open file to write statistics.\n");
       return 0;
    }
    fprintf(fp, "Y = [\n");
@@ -357,14 +400,20 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
    for (ii = 0; ii < nInputs; ii++) 
    fprintf(fp, "%24.16e\n",modifiedMeans[ii]);
    fprintf(fp, "];\n");
-   fprintf(fp, "plot(X,Y,'*')\n");
+   fprintf(fp, "xh = max(X) - min(X);\n");
+   fprintf(fp, "yh = max(Y) - min(Y);\n");
+   fprintf(fp, "plot(X,Y,'*','MarkerSize',12)\n");
    fwritePlotAxes(fp);
    fwritePlotXLabel(fp, "Modified Means");
    fwritePlotYLabel(fp, "Std Devs");
+   fprintf(fp, "text(X+0.01*xh,Y+0.01*yh,{");
+   for (ii = 0; ii < nInputs-1; ii++) fprintf(fp, "'X%d',",ii+1);
+   fprintf(fp, "'X%d'},'FontWeight','bold','FontSize',12)\n",nInputs);
    fprintf(fp, "title('Std Devs vs Modified mean Plot')\n");
    fclose(fp);
-   if (psPlotTool_ == 1) printf("scilab file ready: scilabsmp.sci");
-   else                  printf("matlab file ready: matlabsmp.m\n");
+   if (psPlotTool_ == 1) 
+        printf("FILE scilabsmp.sci has results for plotting\n");
+   else printf("FILE matlabsmp.m has results for plotting\n");
    return 0;
 }
 
@@ -373,8 +422,67 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
 // ------------------------------------------------------------------------
 SobolAnalyzer& SobolAnalyzer::operator=(const SobolAnalyzer &)
 {
-   printf("SobolAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,
+            "SobolAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int SobolAnalyzer::get_nInputs()
+{
+   return nInputs_;
+}
+double *SobolAnalyzer::get_modifiedMeans()
+{
+   double* retVal = NULL;
+   if (modifiedMeans_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(modifiedMeans_, modifiedMeans_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double *SobolAnalyzer::get_stds()
+{
+   double* retVal = NULL;
+   if (stds_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(stds_, stds_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double *SobolAnalyzer::get_S()
+{
+   double* retVal = NULL;
+   if (S_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(S_, S_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double *SobolAnalyzer::get_ST()
+{
+   double* retVal = NULL;
+   if (ST_)
+   {
+     retVal = new double[nInputs_];
+      std::copy(ST_, ST_+nInputs_, retVal);
+   }
+   return retVal;
+}
+double *SobolAnalyzer::get_PE()
+{
+   double* retVal = NULL;
+   if (PE_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(PE_, PE_+nInputs_, retVal);
+   }
+   return retVal;
 }
 

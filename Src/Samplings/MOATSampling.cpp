@@ -61,7 +61,6 @@ MOATSampling::MOATSampling(const MOATSampling & ms) : Sampling()
    for(int i = 0; i < nInputs_; i++)
      inputSubset_[i] = ms.inputSubset_[i];
 
-   //MetisSampling inherits from Sampling so include the parent class data members
    printLevel_ = ms.printLevel_;
    samplingID_ = ms.samplingID_;
    nSamples_ = ms.nSamples_;
@@ -109,6 +108,11 @@ int MOATSampling::initialize(int initLevel)
    char   *cString, partitionFile[200], winput1[200], winput2[200];
    FILE*  fp;
 
+   if (nSamples_ == 0)
+   {
+      printf("MOATSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("MOATSampling::initialize ERROR - input not set up.\n");
@@ -877,7 +881,7 @@ int MOATSampling::merge()
       strcpy(inpNames[nInps1+ii], inpNames2[ii]);
    }
    psuadeIO1->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                 sampleInputs,inpNames);
+                                 sampleInputs,inpNames,NULL,NULL,NULL,NULL);
    psuadeIO1->updateOutputSection(nSamples,nOutputs,sampleOutputs,
                                   sampleStates,NULL);
    psuadeIO1->updateMethodSection(-1,nSamples,-1,-1,-1);
@@ -1509,7 +1513,8 @@ int MOATSampling::genRepair(PsuadeData *psIO)
    }
    fp = fopen("MOAT_repair_file", "w");
    // add a check for NULL by Bill Oliver
-   if(fp != NULL){
+   if(fp != NULL)
+   {
      fprintf(fp, "BEGIN\n");
      fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
      for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
@@ -1658,7 +1663,6 @@ MOATSampling& MOATSampling::operator=(const MOATSampling & ms)
    for(int i = 0; i < nInputs_; i++)
      inputSubset_[i] = ms.inputSubset_[i];
 
-   //MetisSampling inherits from Sampling so include the parent class data members
    printLevel_ = ms.printLevel_;
    samplingID_ = ms.samplingID_;
    nSamples_ = ms.nSamples_;

@@ -21,7 +21,6 @@
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
 // Functions for the class FuncApprox  
-// Definitions for the class ANN
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
@@ -49,6 +48,10 @@
 #include "GradLegendreRegression.h"
 #include "Kriging.h"
 #include "NPLearning.h"
+#include "Splines.h"
+#include "KNN.h"
+#include "RBF.h"
+#include "PsuadeRegression.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "PDFBase.h"
@@ -79,10 +82,15 @@ FuncApprox::FuncApprox(int nInputs, int nSamples)
       lowerBounds_[ii] = upperBounds_[ii] = 0.0;
    weights_ = new double[nSamples_];;
    for (int jj = 0 ; jj < nSamples_; jj++) weights_[jj] = 1.0;
-   XMeans_ = NULL;
-   XStds_  = NULL;
+   XMeans_ = new double[nInputs_];
+   XStds_ = new double[nInputs_];
+   for (int ii = 0; ii < nInputs_; ii++)
+   {
+      XMeans_[ii] = 0.0;
+      XStds_[ii] = 1.0;
+   }
    YMean_ = 0.0;
-   YStd_ = 0.0;
+   YStd_ = 1.0;
 }
 
 // ************************************************************************
@@ -220,6 +228,14 @@ int FuncApprox::getNPtsPerDim()
 }
 
 // ************************************************************************
+// generate N dimensional data
+// ------------------------------------------------------------------------
+int FuncApprox::genNDGridData(double*,double*,int*,double**,double**) 
+{
+   return -1;
+}
+
+// ************************************************************************
 // generate 1 dimensional data
 // ------------------------------------------------------------------------
 int FuncApprox::gen1DGridData(double*,double*,int,double*,int*,double**,
@@ -320,8 +336,8 @@ int FuncApprox::initInputScaling(double *XIn, double *XOut, int flag)
          for (jj = 0; jj < nSamples_; jj++)
             XOut[jj*nInputs_+ii] = (XIn[jj*nInputs_+ii]-XMeans_[ii])/
                                    XStds_[ii];
-         printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
-                XMeans_[ii], XStds_[ii]);
+         //printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
+         //       XMeans_[ii], XStds_[ii]);
       }
    }
    else if (psRSExpertMode_ == 1)
@@ -449,7 +465,7 @@ int getFAType(char *pString)
 {
    int faType;
 
-   faType = getInt(0, PSUADE_NUM_RS, pString);
+   faType = getInt(0, PSUADE_NUM_RS-1, pString);
 #ifndef HAVE_MARS
    if (faType == 0) faType = -1;
 #endif
@@ -515,7 +531,7 @@ void printThisFA(int faType)
 #endif
       case 10: printf("Derivative-based Legendre polynomial regression\n"); break;
 #ifdef HAVE_TGP
-      case 11: printf("11. Tree-based Gaussian Process\n"); break;
+      case 11: printf("Tree-based Gaussian Process\n"); break;
 #else
       case 11: printf("Tree-based Gaussian Process (not installed)\n");
                break;
@@ -535,6 +551,9 @@ void printThisFA(int faType)
       case 16: printf("User-defined (nonpolynomial) regression\n"); break;
       case 17: printf("Sparse Grid polynomial regression\n"); break;
       case 18: printf("Kriging\n"); break;
+      case 19: printf("Splines on regular grid (1D, 2D, or 3D only)\n"); break;
+      case 20: printf("K-nearest neighbor\n"); break;
+      case 21: printf("Radial Basis Function\n"); break;
    }
 }
 
@@ -542,11 +561,13 @@ void printThisFA(int faType)
 // friend function (print function approximator information)
 // ------------------------------------------------------------------------
 extern "C" 
-int writeFAInfo()
+int writeFAInfo(int level)
 {
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    printf("Available response surface tools: \n");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
+   if (level > 0)
+   {
    printf("Expert advices: \n");
 #ifdef HAVE_MARS
    printf(" MARS - may have accuracy problem near domain boundary. Use\n"); 
@@ -586,8 +607,15 @@ int writeFAInfo()
    printf("   uses deterministic optimization to compute the hyperparameters.\n");
    printf("   This method is good for up to about 2000 sample points;\n");
    printf("   otherwise it may be computationally expensive.\n");
+   printf(" SPLINES - currently only supports 1D, 2D, or 3D. This method only works\n");
+   printf("   with full factorial designs. Also, you cannot use cross validation.\n");
+   printf("   Use a test set (rstest) to validate your response surface.\n");
+   printf(" K-NEAREST NEIGHBOR - for large data set when data points are\n");
+   printf("   relatively close to one another, this may be useful.\n");
+   printf(" RBF - for small to medium data set.\n");
+   }
 #ifdef HAVE_MARS
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    printf("0. MARS \n");
 #endif
    printf("1. Linear regression \n");
@@ -622,6 +650,9 @@ int writeFAInfo()
    printf("16. User-defined (nonpolynomial) regression\n");
    printf("17. Sparse Grid polynomial regression\n"); 
    printf("18. Kriging\n"); 
+   printf("19. Splines on regular grid (1D, 2D, or 3D only)\n");
+   printf("20. K nearest neighbors \n");
+   printf("21. Radial Basis Function\n");
    return PSUADE_NUM_RS;
 }
 
@@ -629,7 +660,7 @@ int writeFAInfo()
 // friend function (create a function approximator from a few parameters)
 // ------------------------------------------------------------------------
 extern "C" 
-FuncApprox *genFA(int faType, int nInputs, int, int nSamples)
+FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
 {
    int        rsType;
    FuncApprox *faPtr=NULL;
@@ -641,7 +672,7 @@ FuncApprox *genFA(int faType, int nInputs, int, int nSamples)
       rsType = -1;
       while (rsType < 0 || rsType >= PSUADE_NUM_RS)
       {
-         writeFAInfo();
+         writeFAInfo(outLevel);
          sprintf(winput, "Please enter your choice ? ");
          rsType = getInt(0, PSUADE_NUM_RS, winput);
       }
@@ -667,10 +698,26 @@ FuncApprox *genFA(int faType, int nInputs, int, int nSamples)
            faPtr = new SparseGridRegression(nInputs, nSamples);
    else if (rsType == PSUADE_RS_KR)
            faPtr = new Kriging(nInputs, nSamples);
-   else if (faType == PSUADE_RS_NPL)
-           faPtr = new NPLearning(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_SPLINES)
+   {
+      if (nInputs > 3)
+      {
+         printf("genFA ERROR: Splines does not support nInputs > 3.\n");
+         exit(1);
+      }
+      faPtr = new Splines(nInputs, nSamples);
+   }
+   else if (rsType == PSUADE_RS_KNN)
+        faPtr = new KNN(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_RBF)
+        faPtr = new RBF(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_LOCAL)
+        faPtr = new PsuadeRegression(nInputs, nSamples);
+   else if (rsType == PSUADE_RS_NPL)
+        faPtr = new NPLearning(nInputs, nSamples);
    else
    {
+      printf("INFO: rstype = regression.\n");
       faPtr = new Regression(nInputs, nSamples);
       params[0] = (char *) &rsType;
       faPtr->setParams(1, params);
@@ -685,7 +732,7 @@ extern "C"
 FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
 {
    int        faType, nInputs, nSamples, nOutputs, wgtID, ii, nPtsPerDim;
-   int        totPts, outputID, length, printLevel;
+   int        totPts, outputID, printLevel;
    double     *wghts, *Y;
    FuncApprox *faPtr;
    char       *params[1], winput[501];
@@ -712,7 +759,7 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
       faType = -1;
       while (faType < 0 || faType >= PSUADE_NUM_RS)
       {
-         writeFAInfo();
+         writeFAInfo(-1);
          sprintf(winput, "Please enter your choice ? ");
          faType = getInt(0, PSUADE_NUM_RS-1, winput);
       }
@@ -774,8 +821,23 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
            faPtr = new SparseGridRegression(nInputs, nSamples);
    else if (faType == PSUADE_RS_KR)
            faPtr = new Kriging(nInputs, nSamples);
+   else if (faType == PSUADE_RS_SPLINES)
+   {
+      if (nInputs > 3)
+      {
+         printf("genFAInteractive ERROR: Splines does not support nInputs > 3.\n");
+         exit(1);
+      }
+      faPtr = new Splines(nInputs, nSamples);
+   }
+   else if (faType == PSUADE_RS_KNN)
+        faPtr = new KNN(nInputs, nSamples);
+   else if (faType == PSUADE_RS_RBF)
+        faPtr = new RBF(nInputs, nSamples);
+   else if (faType == PSUADE_RS_LOCAL)
+        faPtr = new PsuadeRegression(nInputs, nSamples);
    else if (faType == PSUADE_RS_NPL)
-           faPtr = new NPLearning(nInputs, nSamples);
+        faPtr = new NPLearning(nInputs, nSamples);
    else
    {
       faPtr = new Regression(nInputs, nSamples);
@@ -813,9 +875,7 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
       Y = new double[nSamples];
       for (ii = 0; ii < nSamples; ii++)
          Y[ii] = pOutputs.dbleArray_[nOutputs*ii+outputID];
-      length = -999;
-      faPtr->genNDGridData(pInputs.dbleArray_, Y, &length,
-                           NULL, NULL);
+      faPtr->initialize(pInputs.dbleArray_, Y);
       delete [] Y;
    }
    return faPtr;
@@ -838,9 +898,10 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
 
    for (ii = strlen(fname)-1; ii >= 0; ii--) if (fname[ii] == '/') break;
    status = psuadeIO->readPsuadeFile(fname);
-   if (status != 0){
-     delete psuadeIO;
-     return NULL;
+   if (status != 0)
+   {
+      delete psuadeIO;
+      return NULL;
    }
 
    psuadeIO->getParameter("input_ninputs", pPtr);
@@ -868,7 +929,7 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
 
    PDFTransform(psuadeIO, nSamples, nInputs, sampleInputs);
    psuadeIO->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                sampleInputs,NULL);
+                                sampleInputs,NULL,NULL,NULL,NULL,NULL);
    psuadeIO->getParameter("ana_outputid", pPtr);
    ii = pPtr.intData_;
    psuadeIO->updateAnalysisSection(-1,-1,-1,-1,outputID,-1);

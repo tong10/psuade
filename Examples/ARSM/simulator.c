@@ -5,7 +5,7 @@
 main(int argc, char **argv)
 {
    int    i, nInputs, count;
-   double X[2], Y;
+   double X[2], Y, pi=3.1415928;
    FILE   *fIn;
    FILE   *fOut;
 
@@ -18,13 +18,10 @@ main(int argc, char **argv)
    fscanf(fIn, "%d", &nInputs);
    for (i = 0; i < nInputs; i++) fscanf(fIn, "%lg", &X[i]);
    Y = 0;
-   if (X[0] > 0.5) 
-      Y = Y + pow(X[0]-0.5,2.0);
-   if (X[1] > 0.5)
-      Y = Y + pow(X[1]-0.5,2.0);
-/*
-   Y = X[0] + X[1];
-*/
+   if (X[0] > 0.8) 
+      Y = Y + sin(5*(X[0]-0.8)*2*pi);
+   if (X[1] > 0.8)
+      Y = Y + sin(5*(X[1]-0.8)*2*pi);
    fOut = fopen(argv[2], "w");
    fprintf(fOut, " %24.16e\n", Y);
    fclose(fOut);   

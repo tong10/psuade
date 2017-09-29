@@ -55,6 +55,11 @@ int SFASTSampling::initialize(int initLevel)
    int    M=4, NS, *omegas, ii, jj, jj2;
    double *ranges, ds, ss, ps_pi=3.14159, ddata;
 
+   if (nSamples_ == 0)
+   {
+      printf("SFASTSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("SFASTSampling::initialize ERROR - input not set up.\n");

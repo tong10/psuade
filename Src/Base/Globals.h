@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __GLOBALSH__ // header guards
 #define __GLOBALSH__
 
@@ -33,13 +32,15 @@
 
 extern int          psIOExpertMode_;
 extern int          psRSExpertMode_;
+extern int          psRSCodeGen_;
 extern int          psSamExpertMode_;
 extern int          psAnaExpertMode_;
 extern int          psOptExpertMode_;
+extern int          psMasterMode_;
 extern int          psGMMode_;
+extern int          psPythonOverride_;
 extern int          psPlotTool_;
 extern long         psRandomSeed_;
-extern int          psAnalysisInteractive_;
 extern int          psFAMaxDataPts_;
 extern int          psConstraintSetOp_;
 extern char         *psConfigFileName_;
@@ -49,3 +50,4 @@ extern const char   *psInputFilename_;
 extern const char   *psOutputFilename_;
 
 #endif
+

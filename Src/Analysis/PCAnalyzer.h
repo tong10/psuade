@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __PCANALYZERH__
 #define __PCANALYZERH__
 

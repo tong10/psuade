@@ -24,17 +24,38 @@
 // AUTHOR : CHARLES TONG
 // DATE   : updated in 2006
 // ************************************************************************
+
 #ifndef __TWOPARAMANALYZERH__
 #define __TWOPARAMANALYZERH__
 
 #include "Analyzer.h"
+#undef max
+#include <vector>
 
 // ************************************************************************
 // class definition
 // ************************************************************************
 class TwoParamAnalyzer : public Analyzer
 {
+private:
 
+   int nInputs_;
+   double outputMean_;
+   double outputStd_;
+   double *sensitivity_;	//length is nInputs_
+   struct record
+   {
+      int index1;
+      int index2;
+      double value;
+   };
+   std::vector<record> compareSensitivity_;
+
+   int computeMeanVariance(int,int,int,double*,double *,double *,int);
+   int computeVCE2(int,int,int,double*,double*,FILE *,double,
+                   double *, double *, double *, double *);
+   int computeVCECrude(int, int, double *, double *, double, double *,
+                       double *, double *);
 public:
 
    TwoParamAnalyzer();
@@ -50,13 +71,12 @@ public:
                     int inputID, int outputID, int nSubSamples, 
                     double mean, double var, double *retdata);
    
-private:
-   int computeMeanVariance(int,int,int,double*,double *,double *,int);
-   int computeVCE2(int,int,int,double*,double*,FILE *,double,
-                   double *, double *, double *, double *);
-   int computeVCECrude(int, int, double *, double *, double, double *,
-                       double *, double *);
-
+   /** Getters for analysis results */
+   int    get_nInputs();
+   double get_outputMean();
+   double get_outputStd();
+   double *get_sensitivity();
+   std::vector<record>  get_compareSensitivity();
 };
 
 #endif // __TWOPARAMANALYZERH__

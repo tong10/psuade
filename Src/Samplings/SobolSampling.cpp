@@ -60,6 +60,11 @@ int SobolSampling::initialize(int initLevel)
    int    iD, iD2, inputID, nReps, sampleCount, iR;
    double **M1Mat, **M2Mat, *ranges, ddata;
 
+   if (nSamples_ == 0)
+   {
+      printf("SobolSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("SobolSampling::initialize ERROR - input not set up.\n");

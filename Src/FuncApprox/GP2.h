@@ -41,6 +41,7 @@ public:
    GP2(int, int);
    ~GP2();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);

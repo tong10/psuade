@@ -8,8 +8,8 @@ enable_testing ()
 set (PROJECT_NAME psuade)
 # The version number.
 set (psuade_VERSION_MAJOR 1)
-set (psuade_VERSION_MINOR 6)
-set (psuade_VERSION_PATCH 0)
+set (psuade_VERSION_MINOR 7)
+set (psuade_VERSION_PATCH 2)
 
 set (PROJECT_INCLUDE_DIR "${PROJECT_BINARY_DIR}/include")
 set (PROJECT_BIN_DIR "${PROJECT_BINARY_DIR}/bin}")
@@ -108,8 +108,12 @@ SET(CMAKE_Fortran_FLAGS_TESTING "-mfpmath=sse -msse2")
 SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -mfpmath=sse -msse2")
 SET(CMAKE_C_FLAGS_DEBUG "-O0 -g -mfpmath=sse -msse2")
 SET(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -mfpmath=sse -msse2")
-
  
+SET(CMAKE_CXX_FLAGS_RELEASE "-O2")
+SET(CMAKE_C_FLAGS_RELEASE "-O2")
+SET(CMAKE_Fortran_FLAGS_RELEASE "-O2")
+
+
 # add the binary tree to the search path for include files
 # so that we will find PsuadeCmakeConfig.h
 include_directories("${PROJECT_INCLUDE_DIR}")
@@ -293,6 +297,19 @@ if (USE_GPMC)
   add_definitions(-DHAVE_GPMC)
 endif (USE_GPMC)
 
+#LINCOA
+if(EXISTS "${PROJECT_SOURCE_DIR}/External/LINCOA")
+  option (USE_LINCOA
+        "Build and use the LINCOA library." ON)
+endif() 
+if (USE_LINCOA)
+  enable_language(Fortran)
+  include_directories ("${PROJECT_SOURCE_DIR}/External/LINCOA")
+  add_subdirectory (External/LINCOA) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} lincoa)
+  add_definitions(-DHAVE_LINCOA)
+endif (USE_LINCOA)
+
 #optional libraries, see if dir exists, then see if user wants it.  If both yes, build it.
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/MARS")
   option (USE_MARS
@@ -441,8 +458,12 @@ endif()
 # Link psuade library and the binary to the library
 ###################################################
 
-target_link_libraries (psuade-lib  ${EXTRA_LIBS})
-target_link_libraries (psuade-bin  psuade-lib)
+target_link_libraries (psuade-lib ${EXTRA_LIBS})
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+  target_link_libraries (psuade-bin psuade-lib)  #I think OSX doesn't have "whole-archive?"  Linux and Windows need it
+else("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
+  target_link_libraries (psuade-bin -Wl,-whole-archive psuade-lib  -Wl,-no-whole-archive)
+endif("${CMAKE_SYSTEM_NAME}" STREQUAL "MacOSX")
 
 
 ###################################################
@@ -504,6 +525,7 @@ add_subdirectory (Examples/MCMCTest)
 add_subdirectory (Examples/OptRosenbrockM) 
 add_subdirectory (Examples/MOO) 
 
+#C++ tests (using psuade as a library)
 
 # enable dashboard scripting
 include (CTest)

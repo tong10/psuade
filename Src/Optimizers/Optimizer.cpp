@@ -169,7 +169,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
 
    if ((optimizeFlag != 0) && (optimizeUseRS == 0) && optMethod != 10)
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("PSUADE : Search for local minima in sample space.\n");
       printf("         number of samples = %d\n", nSamples);
 
@@ -236,7 +236,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             printf("\t\t %16.8e\n", optInitXData[ind1*nInputs+ii]);
          printf("\t\t\t\t Y = %16.8e\n", optInitYData[ind1]);
       }
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       delete [] tempOutputs;
       delete [] dbleInd;
       if (tmpInitX != NULL) delete [] tmpInitX;
@@ -297,7 +297,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
          optimalYData[ind1] = tmpOptY[ind1]; 
       }
 
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("PSUADE : Search for local minima in RS space.\n");
       printf("         number of samples = %d\n", nSamples);
       optNewCnt = optimalCount - optimizeNumPts;
@@ -334,7 +334,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
          }
          if (optNewCnt >= optimalCount) break;
       }
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       delete [] tmpInitX;
       delete [] tmpInitY;
       delete [] tmpOptX;
@@ -361,7 +361,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       totalEval = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
 
          if (optInitYData[ind1] > optCutOff && ind1 > 0)
@@ -410,7 +410,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete TxMathPtr;
       for (ind1 = 0; ind1 < optimalCount; ind1++)
@@ -440,7 +440,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       odata.numFuncEvals_ = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -487,7 +487,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.upperBounds_ = NULL;
             odata.funcIO_ = NULL;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete APPSPACKPtr;
       delete [] tempInputs;
@@ -519,7 +519,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       odata.numFuncEvals_ = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -565,7 +565,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete MinpackPtr;
       for (ind1 = 0; ind1 < optimalCount; ind1++)
@@ -595,7 +595,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       odata.numFuncEvals_ = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -644,7 +644,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete CobylaPtr;
       for (ind1 = 0; ind1 < optimalCount; ind1++)
@@ -670,7 +670,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       odata.numFuncEvals_ = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
                                                                                 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -719,7 +719,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete SMPtr;
       for (ind1 = 0; ind1 < optimalCount; ind1++)
@@ -747,7 +747,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       int totalCEval = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
                                                                                 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -806,7 +806,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       printf("\t MM total number of fine   function evaluations = %d\n",
              totalEval);
@@ -836,7 +836,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       totalEval = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -887,7 +887,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete BobyqaPtr;
       for (ind1 = 0; ind1 < optimalCount; ind1++)
@@ -914,7 +914,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       odata.numFuncEvals_ = 0;
       for (ind1 = istart; ind1 < optimalCount; ind1++)
       {
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
          printf("PSUADE OPTIMIZATION %d (%d) : \n", ind1+1, optimalCount);
 
          if ((optInitYData[ind1] > optCutOff) && (ind1 > 0))
@@ -963,7 +963,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
             odata.funcIO_ = NULL;
             if (optimalYData[ind1] <= optFmin) numYmin++;
          }
-         printAsterisks(0);
+         printAsterisks(PL_INFO, 0);
       }
       delete SCEPtr;
       for (ind1 = 0; ind1 < optimalCount; ind1++)
@@ -981,7 +981,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
 
    else if ((optimizeFlag == 1) && (optMethod == 10))
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("PSUADE OPTIMIZATION: \n");
       for (ii = 0; ii < nInputs; ii++)
          printf("\t starting X(%6d) = %16.8e\n",ii+1,optInitXData[ii]);
@@ -1007,7 +1007,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
       odata.upperBounds_ = NULL;
       odata.funcIO_ = NULL;
       delete MooPtr;
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
    }
    optCount[0] = optimalCount;
 
@@ -1018,7 +1018,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
    {
       ind2 = 0;
       Ymin = 1e36;
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("PSUADE Optimization Results.\n");
       for (ind1 = 0; ind1 < optimalCount; ind1++)
       {
@@ -1098,7 +1098,7 @@ int OptimizerSearch(PsuadeData *psuadeIO, FunctionInterface *funcIO,
          }
          printf("##################################################\n");
       }
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
    }
    delete [] trackIndices;
    delete [] trackYmin;

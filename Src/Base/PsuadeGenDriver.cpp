@@ -35,51 +35,52 @@
 #include "PsuadeUtil.h"
 #include "PDFBase.h"
 #include "PsuadeData.h"
+#include "PrintingTS.h"
 
 // ************************************************************************
 // interpret command from interactive session
 // ------------------------------------------------------------------------
 int PsuadeBase::setupGuide()
 {
-   printf("Suppose you have an application and you would like to use \n");
-   printf("PSUADE to perform UQ on it. In the following you will find a\n");
-   printf("short guide on how to do it:\n");
-   printf("(0) Suppose the name of your application is called FOO and\n");
-   printf("    it takes its input from a file called FOO.in using the\n");
-   printf("    following command:\n");
-   printf("       srun -n 4 /home/me/FOO FOO.in\n");
-   printf("    and the parameters you will vary live in FOO.in.\n");
-   printf("(1) First create a driver (say, FOOdriver.py) using the\n");
-   printf("    `gendriver' command. This driver will be called PSUADE\n");
-   printf("    to set up and to run your application code. PSUADE will,\n");
-   printf("    for each sample point, outputs a parameter file called\n");
-   printf("    'psuadeApps_ct.in.x', then calls FOOdriver.py with\n");
-   printf("        FOOdriver.py psuadeApps_ct.in.x psuadeApps_ct.out.x\n");
-   printf("    and expects the outputs to be written to psuadeApps_ct.out.x\n");
-   printf("    So FOOdriver.py is expected to do 4 things:\n");
-   printf("    (a) take the inputs from 'psuadeApps_ct.in.x'\n");
-   printf("    (b) insert the input values into FOO.in\n");
-   printf("    (c) run the application code and extract the desired outputs\n");
-   printf("    (d) write the output to 'psuadeApps_ct.out.x'\n");
-   printf("    Again, the python template for this step can be accessed via\n");
-   printf("    the 'gendriver' command.\n");
-   printf("(2) Then use 'geninputfile' to create a PSUADE input file (say \n");
-   printf("    psuade.in).  This file specifies the number and names of \n");
-   printf("    inputs/outputs, sets up the sampling and analysis methods, \n");
-   printf("    and set up a link to the driver created in step (1).\n");
-   printf("(3) Optionally, use 'genbatchfile' to create a batch file.\n");
-   printf("    (If you run the jobs on LLNL's machines).\n");
-   printf("(4) Once these files have been created, run PSUADE on your\n");
-   printf("    application just by typing:\n");
-   printf("         psuade psuade.in\n");
-   printf("    This is done when the run time is relatively short, no more\n");
-   printf("    than a few minutes. If the run time is long, you may want to\n");
-   printf("    break up this step into a few tasks: \n");
-   printf("    (a) create all the parameter files first\n");
-   printf("        (use 'gen_inputfile_only' in the psuade.in file)\n");
-   printf("    (b) launch the jobs in whatever way you desire\n");
-   printf("    (c) run postprocessing to generate all output files\n");
-   printf("    (d) run PSUADE to collect all output files\n");
+   printOutTS(PL_INFO, "Suppose you have an application and you would like to use \n");
+   printOutTS(PL_INFO, "PSUADE to perform UQ on it. In the following you will find a\n");
+   printOutTS(PL_INFO, "short guide on how to do it:\n");
+   printOutTS(PL_INFO, "(0) Suppose the name of your application is called FOO and\n");
+   printOutTS(PL_INFO, "    it takes its input from a file called FOO.in using the\n");
+   printOutTS(PL_INFO, "    following command:\n");
+   printOutTS(PL_INFO, "       srun -n 4 /home/me/FOO FOO.in\n");
+   printOutTS(PL_INFO, "    and the parameters you will vary live in FOO.in.\n");
+   printOutTS(PL_INFO, "(1) First create a driver (say, FOOdriver.py) using the\n");
+   printOutTS(PL_INFO, "    `gendriver' command. This driver will be called PSUADE\n");
+   printOutTS(PL_INFO, "    to set up and to run your application code. PSUADE will,\n");
+   printOutTS(PL_INFO, "    for each sample point, outputs a parameter file called\n");
+   printOutTS(PL_INFO, "    'psuadeApps_ct.in.x', then calls FOOdriver.py with\n");
+   printOutTS(PL_INFO, "        FOOdriver.py psuadeApps_ct.in.x psuadeApps_ct.out.x\n");
+   printOutTS(PL_INFO, "    and expects the outputs to be written to psuadeApps_ct.out.x\n");
+   printOutTS(PL_INFO, "    So FOOdriver.py is expected to do 4 things:\n");
+   printOutTS(PL_INFO, "    (a) take the inputs from 'psuadeApps_ct.in.x'\n");
+   printOutTS(PL_INFO, "    (b) insert the input values into FOO.in\n");
+   printOutTS(PL_INFO, "    (c) run the application code and extract the desired outputs\n");
+   printOutTS(PL_INFO, "    (d) write the output to 'psuadeApps_ct.out.x'\n");
+   printOutTS(PL_INFO, "    Again, the python template for this step can be accessed via\n");
+   printOutTS(PL_INFO, "    the 'gendriver' command.\n");
+   printOutTS(PL_INFO, "(2) Then use 'geninputfile' to create a PSUADE input file (say \n");
+   printOutTS(PL_INFO, "    psuade.in).  This file specifies the number and names of \n");
+   printOutTS(PL_INFO, "    inputs/outputs, sets up the sampling and analysis methods, \n");
+   printOutTS(PL_INFO, "    and set up a link to the driver created in step (1).\n");
+   printOutTS(PL_INFO, "(3) Optionally, use 'genbatchfile' to create a batch file.\n");
+   printOutTS(PL_INFO, "    (If you run the jobs on LLNL's machines).\n");
+   printOutTS(PL_INFO, "(4) Once these files have been created, run PSUADE on your\n");
+   printOutTS(PL_INFO, "    application just by typing:\n");
+   printOutTS(PL_INFO, "         psuade psuade.in\n");
+   printOutTS(PL_INFO, "    This is done when the run time is relatively short, no more\n");
+   printOutTS(PL_INFO, "    than a few minutes. If the run time is long, you may want to\n");
+   printOutTS(PL_INFO, "    break up this step into a few tasks: \n");
+   printOutTS(PL_INFO, "    (a) create all the parameter files first\n");
+   printOutTS(PL_INFO, "        (use 'gen_inputfile_only' in the psuade.in file)\n");
+   printOutTS(PL_INFO, "    (b) launch the jobs in whatever way you desire\n");
+   printOutTS(PL_INFO, "    (c) run postprocessing to generate all output files\n");
+   printOutTS(PL_INFO, "    (d) run PSUADE to collect all output files\n");
    return 0;
 }
 
@@ -91,14 +92,14 @@ int PsuadeBase::genBatchFile(int genFlag)
    char batchName[200], dirName[200], pString[501];
    FILE *fp;
 
-   printf("INFO: your specified batch file will be appended with .Tmplt.\n");
+   printOutTS(PL_INFO, "INFO: your specified batch file will be appended with .Tmplt.\n");
    sprintf(pString, "Enter the name of the batch file: ");
    getString(pString, batchName);
    strcpy(&batchName[strlen(batchName)-1], ".Tmplt\0");
    fp = fopen(batchName, "w");
    if (fp == NULL)
    {
-      printf("ERROR: Cannot open file %s.\n", batchName);
+      printOutTS(PL_ERROR, "ERROR: Cannot open file %s.\n", batchName);
       return 1;
    }
    sprintf(pString,"Enter the absolute path of the run directory (no / at end): ");
@@ -166,7 +167,7 @@ int PsuadeBase::genDriver(int genFlag)
       if (genFlag == 1){
           dfp = fopen(driverName, "w");
           if(dfp == NULL){
-	    printf("ERRPR: Cannot open file %s. \n", driverName);
+	    printOutTS(PL_ERROR, "ERRPR: Cannot open file %s. \n", driverName);
 	    return 1;
 	  }
       }
@@ -178,7 +179,7 @@ int PsuadeBase::genDriver(int genFlag)
          else{
 	   dfp = fopen(driverName, "w");
 	   if (dfp == NULL) {
-	     printf("ERROR: Cannot open file %s. \n", driverName);
+	     printOutTS(PL_ERROR, "ERROR: Cannot open file %s. \n", driverName);
 	     return 1;
 	   }
 	 }
@@ -189,7 +190,7 @@ int PsuadeBase::genDriver(int genFlag)
       dfp = fopen(driverName, "w");
       if (dfp == NULL)
       {
-         printf("ERROR: Cannot open file %s.\n", driverName);
+         printOutTS(PL_ERROR, "ERROR: Cannot open file %s.\n", driverName);
          return 1;
       }
    }
@@ -237,12 +238,12 @@ int PsuadeBase::genDriver(int genFlag)
       fprintf(dfp,"   fclose(outfile);\n");
       fprintf(dfp,"}\n");
       fclose(dfp);
-      printf("PSUADE: the user driver is in %s\n", driverName);
+      printOutTS(PL_INFO, "PSUADE: the user driver is in %s\n", driverName);
       return 0;
    }
       
-   printEquals(0);
-   printf("Begin creating a Python-based application driver.\n");
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO, "Begin creating a Python-based application driver.\n");
    strcpy(pythonDir, "/usr/local/bin/python");
    fp = fopen(pythonDir, "r");
    if (fp != NULL) fclose(fp);
@@ -253,8 +254,8 @@ int PsuadeBase::genDriver(int genFlag)
       if (fp != NULL) fclose(fp);
       else
       {
-         printf("Python not found in /usr/bin nor /usr/local/bin.\n");
-         printf("You will have to edit the driver later.\n");
+         printOutTS(PL_INFO, "Python not found in /usr/bin nor /usr/local/bin.\n");
+         printOutTS(PL_INFO, "You will have to edit the driver later.\n");
       }
    }
    fprintf(dfp, "#!%s\n", pythonDir);
@@ -290,15 +291,15 @@ int PsuadeBase::genDriver(int genFlag)
    nFiles = 0;
    if (genFlag != 1)
    {
-      printf("Your uncertain variables may scatter over several files\n");
-      printf("needed by your application code. You need to prepare for\n");
-      printf("automatic insertion of sample values to this file by first\n");
-      printf("changing these file names via adding .Tmplt to their names.\n");
-      printf("Then, you need to open up these .Tmplt files, find where the\n");
-      printf("uncertain variables are, and replace their default values\n");
-      printf("with a unique symbol (e.g. psThresh for some threshold).\n");
-      printf("During preprocessing, these symbols will be replaced by the\n");
-      printf("application driver with the actual sample values.\n");
+      printOutTS(PL_INFO, "Your uncertain variables may scatter over several files\n");
+      printOutTS(PL_INFO, "needed by your application code. You need to prepare for\n");
+      printOutTS(PL_INFO, "automatic insertion of sample values to this file by first\n");
+      printOutTS(PL_INFO, "changing these file names via adding .Tmplt to their names.\n");
+      printOutTS(PL_INFO, "Then, you need to open up these .Tmplt files, find where the\n");
+      printOutTS(PL_INFO, "uncertain variables are, and replace their default values\n");
+      printOutTS(PL_INFO, "with a unique symbol (e.g. psThresh for some threshold).\n");
+      printOutTS(PL_INFO, "During preprocessing, these symbols will be replaced by the\n");
+      printOutTS(PL_INFO, "application driver with the actual sample values.\n");
       sprintf(pString,
          "How many application files contains uncertain input variables? ");
       nFiles = getInt(0, 1000, pString);
@@ -350,15 +351,15 @@ int PsuadeBase::genDriver(int genFlag)
    if (genFlag == 1) strcpy(winput, "n");
    else
    {
-      printf("You might have a template batch file for your computer.\n");
-      printf("Or, you might have use 'genbatchfile' to generate one.\n");
+      printOutTS(PL_INFO, "You might have a template batch file for your computer.\n");
+      printOutTS(PL_INFO, "Or, you might have use 'genbatchfile' to generate one.\n");
       sprintf(pString, "Do you have a batch file ? (y or n) ");
       getString(pString, winput);
    }
    if (winput[0] == 'y')
    {
       fprintf(dfp,"# ====> files to set up the batch file \n");
-      printf("INFO: batch template files are to be modified with run numbers.\n");
+      printOutTS(PL_INFO, "INFO: batch template files are to be modified with run numbers.\n");
       sprintf(pString,"Where can your batch template be found(absolute path):");
       getString(pString, response);
       response[strlen(response)-1] = '/';
@@ -379,7 +380,7 @@ int PsuadeBase::genDriver(int genFlag)
    if (genFlag == 1) nSupportFiles = 0;
    else
    {
-      printf("INFO: Support files are files needed to run but not modified.\n");
+      printOutTS(PL_INFO, "INFO: Support files are files needed to run but not modified.\n");
       sprintf(pString,
            "How many other support files are needed to run the code ? ");
       nSupportFiles = getInt(0, 100, pString);
@@ -404,9 +405,9 @@ int PsuadeBase::genDriver(int genFlag)
       }
       fprintf(dfp,"]\n\n");
    }
-   printf("=> Psuade assumes you use psub or msub to submit your job.\n");
-   printf("=> If this is not true, please modify the runApplication\n");
-   printf("=> function after this is done.\n");
+   printOutTS(PL_INFO, "=> Psuade assumes you use psub or msub to submit your job.\n");
+   printOutTS(PL_INFO, "=> If this is not true, please modify the runApplication\n");
+   printOutTS(PL_INFO, "=> function after this is done.\n");
    fprintf(dfp,"#======================================================\n");
    fprintf(dfp,"# END USER SPECIFIC SECTION\n");
    fprintf(dfp,"#######################################################\n\n");
@@ -698,7 +699,7 @@ int PsuadeBase::genDriver(int genFlag)
       fprintf(dfp,"#os.chdir(\"..\")\n");
       fprintf(dfp,"#os.rmdir(dirname)\n\n");
    }
-   printf("PSUADE: the user driver is in %s\n", driverName);
+   printOutTS(PL_INFO, "PSUADE: the user driver is in %s\n", driverName);
    fclose(dfp);
    return 0;
 }
@@ -724,7 +725,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
       dataFile[strlen(dataFile)-1] = '\0';
       if (!strcmp(dataFile, "\0")) 
       {
-         printf("ERROR : invalid file name.\n");
+         printOutTS(PL_ERROR, "ERROR : invalid file name.\n");
          return 1;
       }
       sprintf(pString,"Enter the number of inputs (> 0) : ");
@@ -732,7 +733,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
    }
    else
    {
-      printf("PSUADE: an example PSUADE input file is in psuade.in.\n");
+      printOutTS(PL_INFO, "PSUADE: an example PSUADE input file is in psuade.in.\n");
       strcpy(dataFile, "psuade.in");
       nInputs = 3;
    }
@@ -769,9 +770,9 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
    }
    if (genFlag == 0)
    {
-      printf("=> If you want to impose other than uniform probability \n");
-      printf("=> density functions, you will have to modify the file\n");
-      printf("=> yourself after this session.\n");
+      printOutTS(PL_INFO, "=> If you want to impose other than uniform probability \n");
+      printOutTS(PL_INFO, "=> density functions, you will have to modify the file\n");
+      printOutTS(PL_INFO, "=> yourself after this session.\n");
       sprintf(pString,"Enter the number of outputs (> 0) : ");
       nOutputs = getInt(1, 100000, pString);
       outputNames = new char*[nOutputs];
@@ -795,18 +796,18 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
       samplingMethod = -1;
       while (samplingMethod < 0 || samplingMethod > 10)
       {
-         printf("Available sampling methods : \n");
-         printf(" MC    - Monte Carlo (random)\n");
-         printf(" FACT  - full factorial\n");
-         printf(" LH    - Latin Hypercube\n");
-         printf(" OA    - Orthogonal Array\n");
-         printf(" OALH  - OA-based Latin Hypercube\n");
-         printf(" MOAT  - Morris one at a time\n");
-         printf(" LPTAU - A Pseudo-random sequence\n");
-         printf(" METIS - A space-filling design\n");
-         printf(" FAST  - Fourier Amplitude Sampling Test\n");
-         printf(" FF4   - Fractional Factorial with Resolution IV\n");
-         printf(" FF5   - Fractional Factorial with Resolution V\n");
+         printOutTS(PL_INFO, "Available sampling methods : \n");
+         printOutTS(PL_INFO, " MC    - Monte Carlo (random)\n");
+         printOutTS(PL_INFO, " FACT  - full factorial\n");
+         printOutTS(PL_INFO, " LH    - Latin Hypercube\n");
+         printOutTS(PL_INFO, " OA    - Orthogonal Array\n");
+         printOutTS(PL_INFO, " OALH  - OA-based Latin Hypercube\n");
+         printOutTS(PL_INFO, " MOAT  - Morris one at a time\n");
+         printOutTS(PL_INFO, " LPTAU - A Pseudo-random sequence\n");
+         printOutTS(PL_INFO, " METIS - A space-filling design\n");
+         printOutTS(PL_INFO, " FAST  - Fourier Amplitude Sampling Test\n");
+         printOutTS(PL_INFO, " FF4   - Fractional Factorial with Resolution IV\n");
+         printOutTS(PL_INFO, " FF5   - Fractional Factorial with Resolution V\n");
          sprintf(pString, "Sampling Method ? ");
          getString(pString, winput);
          winput[strlen(winput)-1] = '\0';
@@ -825,8 +826,8 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
       nReps = 1;
       if (samplingMethod >= 2 && samplingMethod <= 4)
       {
-         printf("If you do not understand what number of replications\n");
-         printf("means, enter 1 for now.\n");
+         printOutTS(PL_INFO, "If you do not understand what number of replications\n");
+         printOutTS(PL_INFO, "means, enter 1 for now.\n");
          sprintf(pString, "Number of replications (>= 1) ? ");
          nReps = getInt(1, 10000000, pString);
       }
@@ -860,7 +861,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
             ii = getInt(2, 1000000, pString);
             nSamples = ii * ii * nReps;
          }
-         printf("sample size = %d\n", nSamples);
+         printOutTS(PL_INFO, "sample size = %d\n", nSamples);
       }
       else if (samplingMethod == 5)
       {
@@ -870,7 +871,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
       {
          nSamples = 100;
       }
-      printf("Sample size is set to %d.\n", nSamples);
+      printOutTS(PL_INFO, "Sample size is set to %d.\n", nSamples);
       randomize = 0;
       if (samplingMethod >= 1 && samplingMethod <= 4)
       {
@@ -892,8 +893,8 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
    fp = fopen(dataFile, "w");
    if (fp == NULL)
    {
-      printf("ERROR : cannot open file %s\n",dataFile);
-      printf("    Do you have write access in the current directory?\n");
+      printOutTS(PL_ERROR, "ERROR : cannot open file %s\n",dataFile);
+      printOutTS(PL_ERROR, "    Do you have write access in the current directory?\n");
    }
    else
    {
@@ -944,7 +945,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
             winput[strlen(winput)-1] = '\0';
             if (!strcmp(winput, "NONE")) break;
             fp2 = fopen(winput, "r");
-            if (fp2 == NULL) printf("file %s not found.\n", winput);
+            if (fp2 == NULL) printOutTS(PL_ERROR, "file %s not found.\n", winput);
          } 
          if (fp2 != NULL) fclose(fp2);
          fprintf(fp, "   driver = %s\n", winput);
@@ -968,7 +969,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
       fclose(fp); 
    }
    if (genFlag == 0)
-      printf("PSUADE: the PSUADE input file is in %s.\n", dataFile);
+      printOutTS(PL_INFO, "PSUADE: the PSUADE input file is in %s.\n", dataFile);
    if (inputNames != NULL)
    {
       for (ii = 0; ii < nInputs; ii++) delete [] inputNames[ii];

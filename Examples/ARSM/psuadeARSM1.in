@@ -9,10 +9,10 @@ OUTPUT
    variable 1 Y1
 END
 METHOD
-   sampling = METIS
-   num_samples = 100
+   sampling = LPTAU
+   num_samples = 50
    num_refinements = 10
-   refinement_size = 50
+   refinement_size = 15
    refinement_type = adaptive
    random_seed = 541541191
 END
@@ -20,11 +20,11 @@ APPLICATION
    driver = ./simulator
 END
 ANALYSIS
-   analyzer method = ARSM1
+   analyzer method = ARSM
    analyzer output_id  = 1
    analyzer threshold  = 1.0e-6
    analyzer rstype  = MARSBag
-   diagnostics 1
+   printlevel 1
 END
 END
 

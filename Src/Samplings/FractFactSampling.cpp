@@ -26,7 +26,6 @@
 // ************************************************************************
 #include <stdio.h>
 #include <sstream>
-using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -56,6 +55,11 @@ int FractFactSampling::initialize(int initLevel)
    int maxInputs, nInputCnt, ii, increment, count, sampleID, inputID;
    int indices[12], ss, nterms, kk;
 
+   if (nSamples_ == 0)
+   {
+      printf("FractFactSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("FractFactSampling::initialize ERROR - input not set up.\n");

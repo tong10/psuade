@@ -27,12 +27,12 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sstream>
-using namespace std;
 
 #include "Psuade.h"
 #include "TSIAnalyzer.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
+#include "PrintingTS.h"
 
 #ifdef HAVE_METIS
 extern "C" 
@@ -63,7 +63,7 @@ double TSIAnalyzer::analyze(aData &adata)
 {
    int    ss, ii, jj, nInputs, nOutputs, nSamples, outputID, inputID, nnz;
    int    *incrs, itmp, jtmp, *sample2Aggr, *cellsOccupied, n1d, nAggrs;
-   int    options[10], *aggrCnts, status, wFlag;
+   int    options[10], *aggrCnts, status, wFlag, count;
 #ifdef HAVE_METIS
    int    wgtflag=0, numflag=0, edgeCut=0;
 #endif
@@ -85,35 +85,35 @@ double TSIAnalyzer::analyze(aData &adata)
    ioPtr    = adata.ioPtr_;
    if (ioPtr == NULL)
    {
-      printf("TSIAnalyzer ERROR: no data.\n");
+      printOutTS(PL_ERROR, "TSIAnalyzer ERROR: no data.\n");
       return PSUADE_UNDEFINED;
    }
 
    if (nInputs <= 0 || nOutputs <= 0)
    {
-      printf("Total Effect ERROR: invalid nInputs or nOutputs.\n");
-      printf("   nInputs  = %d\n", nInputs);
-      printf("   nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "Total Effect ERROR: invalid nInputs or nOutputs.\n");
+      printOutTS(PL_ERROR, "   nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "   nOutputs = %d\n", nOutputs);
       return -1;
    }  
    if (nSamples <= 1)
    {
-      printf("Total Effect ERROR: nSamples should be > 1.\n");
-      printf("   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "Total Effect ERROR: nSamples should be > 1.\n");
+      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return -1;
    }  
    if (nSamples < 10000)
    {
-      printf("Total Effect WARNING: nSamples may be too small to\n");
-      printf("             give results with acceptable accuracy.\n");
+      printOutTS(PL_WARN, "Total Effect WARNING: nSamples may be too small to\n");
+      printOutTS(PL_WARN, "             give results with acceptable accuracy.\n");
    }  
    status = 0;
    for (ss = 0; ss < nSamples; ss++)
       if (YY[nOutputs*ss+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
    if (status == 1)
    {
-      printf("Total Effect ERROR: Some outputs are undefined. Prune the\n");
-      printf("                    undefined sample points first.\n");
+      printOutTS(PL_ERROR, "Total Effect ERROR: Some outputs are undefined. Prune the\n");
+      printOutTS(PL_ERROR, "                    undefined sample points first.\n");
       return PSUADE_UNDEFINED;
    }
    Y = new double[nSamples];
@@ -125,7 +125,7 @@ double TSIAnalyzer::analyze(aData &adata)
       ranges[ii] = ubounds[ii] - lbounds[ii];
       if (ranges[ii] <= 0.0)
       {
-         printf("Total Effect ERROR: lbound/ubound mismatch.\n");
+         printOutTS(PL_ERROR, "Total Effect ERROR: lbound/ubound mismatch.\n");
          exit(1);
       }
    }
@@ -139,12 +139,12 @@ double TSIAnalyzer::analyze(aData &adata)
       variance += ((Y[ss] - dmean) * (Y[ss] - dmean));
    }
    variance /= (double) (nSamples - 1);
-   printf("Total Effect: output mean     = %e\n", dmean);
-   printf("Total Effect: output variance = %e\n", variance);
+   printOutTS(PL_INFO, "Total Effect: output mean     = %e\n", dmean);
+   printOutTS(PL_INFO, "Total Effect: output variance = %e\n", variance);
 
    if (nInputs > 21)
    {
-      printf("Total Effect ERROR: nInputs > 21 currently not supported.\n");
+      printOutTS(PL_ERROR, "Total Effect ERROR: nInputs > 21 currently not supported.\n");
       exit(1);
    }
    if (nInputs == 1 ) n1d = nSamples*10;
@@ -162,27 +162,25 @@ double TSIAnalyzer::analyze(aData &adata)
    if (nInputs == 13) n1d = 3;
    if (nInputs >= 14) n1d = 2;
 
-   printAsterisks(0);
-   printf("*          Crude Total Sensitivity Indices\n");
-   printEquals(0);
-   printf("* Total Effect: number of subdomains          = %d\n",
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "*          Crude Total Sensitivity Indices\n");
+   printEquals(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Total Effect: number of subdomains          = %d\n",
           nSamples/50);
-   printf("* Total Effect: number of point per subdomain = 50\n");
-   printDashes(0);
-   printf("* This may need to be adjusted for higher accuracy.\n");
-   printf("* Recommendation: Try different numbers of subdomains.\n");
-   printf("*   Generally, each subdomain should have at least\n");
-   printf("*   50 sample points.\n");
-   printf("* Turn on analysis expert mode to modify settings.\n");
+   printOutTS(PL_INFO, "* Total Effect: number of point per subdomain = 50\n");
+   printDashes(PL_INFO, 0);
+   printOutTS(PL_INFO, "* Note: for small to moderate sample size, this method in\n");
+   printOutTS(PL_INFO, "*       general gives rough estimates of total sensitivity.\n");
+   printOutTS(PL_INFO, "* Recommendation: Try different numbers of subdomains to\n");
+   printOutTS(PL_INFO, "*   assess goodness of the measures. A rule of thumb for\n");
+   printOutTS(PL_INFO, "    sample size per subdomain is > 50.\n");
+   printOutTS(PL_INFO, "* Turn on analysis expert mode to modify default settings.\n");
    if (psAnaExpertMode_ != 0)
    {
       strcpy(pString, "Enter the number of subdomains (> 5): ");
       nAggrs = getInt(5, nSamples, pString);
    }
    else nAggrs = nSamples / 50;
-   if (printLevel > 1)
-      printf("* Total Effect: number of subdomains = %d\n", nAggrs);
-   printEquals(0);
 
    incrs  = new int[nInputs];
    graphN = 1;
@@ -192,6 +190,10 @@ double TSIAnalyzer::analyze(aData &adata)
       graphN *= n1d;
       incrs[jj] = graphN;
    }
+   if (nAggrs > graphN) nAggrs = graphN / 2;
+
+   printOutTS(PL_INFO, "* Total Effect: number of subdomains = %d\n", nAggrs);
+   printEquals(PL_INFO, 0);
    graphI = new int[graphN+1];
    graphJ = new int[graphN*(nInputs-1)*2+1];
    nnz = 0;
@@ -218,7 +220,7 @@ double TSIAnalyzer::analyze(aData &adata)
    METIS_PartGraphRecursive(&graphN, graphI, graphJ, NULL, NULL,
              &wgtflag,&numflag,&nAggrs,options,&edgeCut,cellsOccupied);
 #else
-   printf("Total Effect ERROR : METIS not installed.\n");
+   printOutTS(PL_ERROR, "Total Effect ERROR : METIS not installed.\n");
    nInputs = 0;
 #endif
 
@@ -259,34 +261,33 @@ double TSIAnalyzer::analyze(aData &adata)
       {
          if (wFlag == 0 && aggrCnts[ii] == 0)
          {
-            printf("TSIAnalyzer WARNING: some bins for input %d have no sample\n",inputID+1);
-            printf("            points. This is unusual, and this may be due to\n");
-            printf("            too many subdomains or that the sample points\n");
-            printf("            are not distributed more or less evenly over\n");
-            printf("            the parameter space.\n");
+            printOutTS(PL_WARN, "TSIAnalyzer WARNING: some bins for input %d have no sample\n",inputID+1);
+            printOutTS(PL_WARN, "            points. This may be due to unconventional input\n");
+            printOutTS(PL_WARN, "            distributions, or too many subdomains and sample\n");
+            printOutTS(PL_WARN, "            points are not distributed evenly over the\n");
+            printOutTS(PL_WARN, "            parameter space.\n");
             wFlag = 1;
          }
       }
       for (ii = 0; ii < nAggrs; ii++)
          if (aggrCnts[ii] > 0) aggrMean[ii] /= (double) aggrCnts[ii];
       dmean = 0.0;
-      for (ii = 0; ii < nAggrs; ii++)
-          dmean += aggrMean[ii] * aggrCnts[ii];
+      for (ii = 0; ii < nAggrs; ii++) dmean += aggrMean[ii] * aggrCnts[ii];
       dmean /= (double) nSamples;
       dvar = 0.0;
       for (ii = 0; ii < nAggrs; ii++)
-         dvar += pow(aggrMean[ii] - dmean, 2.0);
-      dvar /= (double) (nAggrs - 1.0);
+         if (aggrCnts[ii] > 0) dvar += pow(aggrMean[ii] - dmean, 2.0) * aggrCnts[ii];
+      dvar /= (double) (nSamples - 1.0);
 
       if (dvar < variance)
-         printf("Input %4d : Approximate total sensitivity index = %e\n",
+         printOutTS(PL_INFO, "Input %4d : Approximate total sensitivity index = %e\n",
                 inputID+1, 1.0-dvar/variance);
       else
       {
-         printf("Input %4d : Approximate total sensitivity index > variance?\n",
-                inputID+1);
-         printf("            Is your sample evenly distributed?\n");
-         printf("            Do you have too many subdomains (too few in each)?\n");
+         printOutTS(PL_INFO, "Input %4d : Approximate total sensitivity index %e > variance %e?\n",
+                inputID+1, dvar, variance);
+         printOutTS(PL_INFO, "            Is your sample evenly distributed?\n");
+         printOutTS(PL_INFO, "            Do you have too many subdomains (too few in each)?\n");
       }
       tsi[inputID] = variance - dvar;
    }
@@ -310,7 +311,7 @@ double TSIAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 TSIAnalyzer& TSIAnalyzer::operator=(const TSIAnalyzer &)
 {
-   printf("Total Effect operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "Total Effect operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
@@ -329,15 +330,15 @@ int TSIAnalyzer::printResults(int nInputs, double variance,
    if (ioPtr != NULL) ioPtr->getParameter("input_names", qData);
    if (qData.strArray_ != NULL) iNames = qData.strArray_;
    else                         iNames = NULL;
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    if (variance == 0.0)
    {
-      printf("Total variance = 0. Hence, no total effect plot.\n");
+      printOutTS(PL_INFO, "Total variance = 0. Hence, no total effect plot.\n");
       return 0;
    }
-   printf("Approximate Total Effect Statistics: \n");
+   printOutTS(PL_INFO, "Approximate Total Effect Statistics: \n");
    for (ii = 0; ii < nInputs; ii++)
-      printf("Input %4d: Sobol' total sensitivity = %12.4e (normalized = %12.4e)\n",
+      printOutTS(PL_INFO, "Input %4d: Sobol' total sensitivity = %12.4e (normalized = %12.4e)\n",
              ii+1,tsi[ii],tsi[ii]/variance);
    if (psPlotTool_ == 1) fp = fopen("scilabtsi.sci", "w");
    else                  fp = fopen("matlabtsi.m", "w");
@@ -418,13 +419,13 @@ int TSIAnalyzer::printResults(int nInputs, double variance,
       fwritePlotYLabel(fp, "Sobol Indices");
       fclose(fp);
       if (psPlotTool_ == 1)
-           printf("tsi plot file = scilabtsi.sci\n");
-      else printf("tsi plot file = matlabtsi.m\n");
+           printOutTS(PL_INFO, "tsi plot file = scilabtsi.sci\n");
+      else printOutTS(PL_INFO, "tsi plot file = matlabtsi.m\n");
       return 0;
    }
    else
    {
-      printf("TSIAnalyser ERROR: cannot create tsi plot file.\n");
+      printOutTS(PL_ERROR, "TSIAnalyser ERROR: cannot create tsi plot file.\n");
       return 0;
    }
 }

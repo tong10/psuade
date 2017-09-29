@@ -22,12 +22,13 @@
 // ************************************************************************
 // Definition for the class LegendreRegression
 // AUTHOR : CHARLES TONG
-// DATE   : 2009
+// DATE   : 2010
 // ************************************************************************
 #ifndef __LEGENDREREGRESSIONH__
 #define __LEGENDREREGRESSIONH__
 
 #include "FuncApprox.h"
+#include "Matrix.h"
 
 // ************************************************************************
 // class definition
@@ -41,11 +42,13 @@ class LegendreRegression : public FuncApprox
    double *regStdevs_;
    int    normalizeFlag_;
    double **fuzzyC_;
+   Matrix covMatrix_;
  
 public:
    LegendreRegression(int, int);
    ~LegendreRegression();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);
@@ -55,7 +58,6 @@ public:
                         int *, double **, double **);
    int    gen4DGridData(double*,double *,int,int,int,int,double*, 
                         int *, double **, double **);
-   int    writeToFileGrid2DData(double*,double*,int,int,double*); 
    double evaluatePoint(double *);
    double evaluatePoint(int, double *, double *);
    double evaluatePointFuzzy(double *, double &);

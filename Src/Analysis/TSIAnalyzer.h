@@ -29,7 +29,6 @@
 
 #include <iostream>
 #include <string.h>
-using    namespace std;
 #include "aData.h"
 #include "Analyzer.h"
 #include "PsuadeData.h"

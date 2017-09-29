@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __ONESIGMAANALYZERH__
 #define __ONESIGMAANALYZERH__
 

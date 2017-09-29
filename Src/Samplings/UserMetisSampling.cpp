@@ -25,7 +25,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2006
 // ************************************************************************
-
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -154,6 +153,11 @@ int UserMetisSampling::initialize(int initLevel)
    FILE   *fp;
    FunctionInterface *funcIO;
                                                                                 
+   if (nSamples_ == 0)
+   {
+      printf("UserMetisSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("UserMetisSampling::initialize ERROR - input not set up.\n");

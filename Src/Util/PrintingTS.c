@@ -48,8 +48,6 @@ static FILE* fpLog;
 /*----------------------------------------*/
 //static pthread_mutex_t printLock = PTHREAD_MUTEX_INITIALIZER;
 
-
-
 /*---------------------------------------------------------------------------
  *  initializePrintingTS
  */
@@ -89,7 +87,6 @@ initializePrintingTS(int printLevel, const char* logFileName, int myRank)
 //  pthread_mutex_unlock(&printLock);
 }
 
-
 /*---------------------------------------------------------------------------
  *  finalizePrintingTS
  */
@@ -108,8 +105,6 @@ finalizePrintingTS(void)
 
 //  pthread_mutex_unlock(&printLock);
 }
-
-
 
 /*---------------------------------------------------------------------------
  *  printErrTS
@@ -150,7 +145,6 @@ printErrTS(int printLevel, const char* format, ...)
 
 }
 
-
 /*---------------------------------------------------------------------------
  *  printLogTS
  */
@@ -181,7 +175,6 @@ printLogTS(int printLevel, const char* format, ...)
  
 //  pthread_mutex_unlock(&printLock);
 }
-
 
 /*---------------------------------------------------------------------------
  *  printOutTS
@@ -220,7 +213,6 @@ printOutTS(int printLevel, const char* format, ...)
 //  pthread_mutex_unlock(&printLock);
 }
 
-
 /*---------------------------------------------------------------------------
  *  isPrintTSOn
  */
@@ -236,7 +228,6 @@ isPrintTSOn(void)
 
   return doPrintTS;
 }
-
 
 /*---------------------------------------------------------------------------
  *  turnPrintTSOff
@@ -254,7 +245,6 @@ turnPrintTSOff(void)
 
 //  pthread_mutex_unlock(&printLock);
 }
-
 
 /*---------------------------------------------------------------------------
  *  turnPrintTSOn
@@ -290,7 +280,6 @@ isLogTSOn(void)
   return doLogTS;
 }
 
-
 /*---------------------------------------------------------------------------
  *  turnLogTSOff
  */
@@ -307,7 +296,6 @@ turnLogTSOff(void)
 
 //  pthread_mutex_unlock(&printLock);
 }
-
 
 /*---------------------------------------------------------------------------
  *  turnLogTSOn
@@ -341,7 +329,6 @@ getPrintLevelTS(void)
 
   return s_printLevel;
 }
-
 
 /*---------------------------------------------------------------------------
  *  setPrintLevel

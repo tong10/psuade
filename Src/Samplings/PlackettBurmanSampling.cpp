@@ -86,6 +86,11 @@ int PlackettBurmanSampling::initialize(int initLevel)
    int ii, jj, kk, ipower, whichPlan, checkN;
    int **patternMatrix, **tempMatrix, rowCnt, *genVec;
 
+   if (nSamples_ = 0)
+   {
+      printf("PlackettBurmanSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("PlackettBurmanSampling::initialize ERROR - input not set up.\n");

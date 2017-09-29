@@ -101,7 +101,7 @@
    have been hardwired. 
    both MGP1 and PWL are not used
 */
-#define PSUADE_NUM_RS           20
+#define PSUADE_NUM_RS           23
 #define PSUADE_RS_MARS          0
 #define PSUADE_RS_REGR1         1
 #define PSUADE_RS_REGR2         2
@@ -121,9 +121,14 @@
 #define PSUADE_RS_REGRU         16
 #define PSUADE_RS_REGSG         17
 #define PSUADE_RS_KR            18
-#define PSUADE_RS_NPL           19
-#define PSUADE_RS_MGP1          20
-#define PSUADE_RS_PWL           21
+#define PSUADE_RS_SPLINES       19
+#define PSUADE_RS_KNN           20
+#define PSUADE_RS_RBF           21
+#define PSUADE_RS_LOCAL         22
+#define PSUADE_RS_NPL           23
+#define PSUADE_RS_MGP1          24
+#define PSUADE_RS_PWL           25
+#define PSUADE_RS_REGRLC        26
 
 #define PSUADE_GRAPHICS         1
 #define PSUADE_SAMPLE_GRAPHICS  2
@@ -138,3 +143,15 @@
 #define PSUADE_PDF_EXPONENTIAL  7
 #define PSUADE_PDF_USER         8
 
+//define parameters associated with printLevel & diagnostics
+//added 4/2/14 - Jim McEnerney
+#define PL_MIN -2
+#define PL_MAX 5
+#define PL_ERROR -2
+#define PL_WARN -1
+#define PL_INFO 0
+#define PL_BASIC 1
+#define PL_INTERACTIVE 2
+#define PL_MOREINFO 3
+#define PL_DETAIL 4
+#define PL_DUMP 5

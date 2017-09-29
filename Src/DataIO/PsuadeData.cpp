@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <algorithm>
+#include <string>
 #include "dtype.h"
 #include "PsuadeUtil.h"
 #include "sysdef.h"
@@ -34,6 +35,7 @@
 #include "PsuadeData.h"
 #include "Psuade.h"
 #include "PsuadeConfig.h"
+#include "PrintingTS.h"
 
 // ************************************************************************
 // global variables 
@@ -63,11 +65,11 @@ PsuadeData::~PsuadeData()
 // ------------------------------------------------------------------------ 
 int PsuadeData::readPsuadeFile(const char *fname)
 {
-   int   lineLeng=300;
+   int   lineLeng=300, flag=0;
    char  lineIn[300], winput[200];
    const char* keywords[] = {"PSUADE", "INPUT", "OUTPUT", "METHOD",
                              "APPLICATION", "ANALYSIS", "END"};
-   FILE* fIn;
+   FILE* fIn, *fd;
 
    // -------------------------------------------------------------------- 
    //  clean up first
@@ -98,19 +100,25 @@ int PsuadeData::readPsuadeFile(const char *fname)
    // -------------------------------------------------------------------- 
    //  read input and output data from the given file, if any
    // -------------------------------------------------------------------- 
+   fd = fopen("ps_extreme_diagnostics", "r");
+   if (fd != NULL)
+   {
+      flag = 1;
+      fclose(fd);
+   } 
+   if (flag == 1) printf("Psuade: Entering readPsuadeIO\n");
    readPsuadeIO(fname);
+   if (flag == 1) printf("Psuade: Returning from readPsuadeIO\n");
 
    // -------------------------------------------------------------------- 
    //  read in parameters
    // -------------------------------------------------------------------- 
    fIn = fopen(fname, "r");
-   if(fIn == NULL)
+   if (fIn == NULL)
    {
-      printf("PsuadeData ERROR: Cannot open file %s in file %s line %d exiting",
-             fname, __FILE__,__LINE__);
-      exit(1);
+      printf("PsuadeData ERROR: Cannot open file %s.\n",fname);
+      return -1;
    }
-
    while ((fgets(lineIn, lineLeng, fIn) != NULL) && (feof(fIn) == 0))
    {
       sscanf(lineIn,"%s", winput);
@@ -118,10 +126,10 @@ int PsuadeData::readPsuadeFile(const char *fname)
    }
    if (feof(fIn) != 0)
    {
-      printf("readPsuadeFile ERROR: keyword %s not found.\n",
-             keywords[0]);
+      printf("readPsuadeFile ERROR: keyword %s not found in file %s.\n",
+             keywords[0], fname);
       fclose(fIn);
-      exit(1);
+      return 1;
    }
    while ((fgets(lineIn, lineLeng, fIn) != NULL) && (feof(fIn) == 0))
    {
@@ -137,8 +145,9 @@ int PsuadeData::readPsuadeFile(const char *fname)
       else 
       {
          printf("readPsuadeFile ERROR: \n");
-         printf("\t\t unrecognized line - %s\n", lineIn);
-         exit(1);
+         printf("\t\t unrecognized line - %s in file %s\n", lineIn, fname);
+         fclose(fIn);
+         return 1;
       }
    }
    fclose(fIn);
@@ -301,6 +310,11 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
    }
    else if (!strcmp(keyword, "input_names"))
    {
+      if (pd.strArray_ != NULL)
+      {
+         for (ii = 0; ii < pd.nStrings_; ii++) delete [] pd.strArray_[ii];
+         delete [] pd.strArray_[ii];
+      }
       pd.strArray_ = new char*[pInput_.nInputs_];
       for (ii = 0; ii < pInput_.nInputs_; ii++)
       {
@@ -318,7 +332,11 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
             pd.intArray_[ii] = pInput_.inputPDFs_[ii];
          pd.nInts_ = pInput_.nInputs_;
       }
-      else pd.nInts_ = 0;
+      else
+      {
+         pd.nInts_ = 0;
+         pd.intArray_ = NULL;
+      }
    }
    else if (!strcmp(keyword, "input_means"))
    {
@@ -329,7 +347,11 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
             pd.dbleArray_[ii] = pInput_.inputMeans_[ii];
          pd.nDbles_ = pInput_.nInputs_;
       }
-      else pd.nDbles_ = 0;
+      else
+      {
+         pd.nDbles_ = 0;
+         pd.dbleArray_ = NULL;
+      }
    }
    else if (!strcmp(keyword, "input_stdevs"))
    {
@@ -339,7 +361,12 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
          for (ii = 0; ii < pInput_.nInputs_; ii++)
             pd.dbleArray_[ii] = pInput_.inputStdevs_[ii];
          pd.nDbles_ = pInput_.nInputs_;
-      } pd.nDbles_ = 0;
+      }
+      else
+      {
+         pd.nDbles_ = 0;
+         pd.dbleArray_ = NULL;
+      }
    }
    else if (!strcmp(keyword, "input_aux"))
    {
@@ -364,7 +391,11 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
             pd.intArray_[ii] = pInput_.symbolTable_[ii];
          pd.nInts_ = pInput_.nInputs_;
       }
-      else pd.nInts_ = 0;
+      else
+      {
+         pd.nInts_ = 0;
+         pd.intArray_ = NULL;
+      }
    }
    else if (!strcmp(keyword, "input_settings"))
    {
@@ -386,7 +417,11 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
             else pd.dbleArray2D_[ii] = NULL;
          }
       }
-      else pd.nInts_ = 0;
+      else
+      {
+         pd.nInts_ = 0;
+         pd.intArray_ = NULL;
+      }
    }
    else if (!strcmp(keyword, "input_sample"))
    {
@@ -397,7 +432,35 @@ int PsuadeData::getInputParameter(const char *keyword, pData &pd)
             pd.dbleArray_[ii] = pInput_.sampleInputs_[ii];
          pd.nDbles_ = pInput_.nInputs_ * pMethod_.nSamples_;
       }
-      else pd.nDbles_ = 0;
+      else
+      {
+         pd.nDbles_ = 0;
+         pd.dbleArray_ = NULL;
+      }
+   }
+   else if (!strcmp(keyword, "input_sample_files"))
+   {
+      if (pd.strArray_ != NULL)
+      {
+         for (ii = 0; ii < pd.nStrings_; ii++) delete [] pd.strArray_[ii];
+         delete [] pd.strArray_;
+         pd.nStrings_ = 0;
+         pd.strArray_ = NULL;
+      }
+      pd.strArray_ = new char*[pInput_.nInputs_];
+      for (ii = 0; ii < pInput_.nInputs_; ii++)
+      {
+         pd.strArray_[ii] = new char[1000];
+         strcpy(pd.strArray_[ii], pInput_.sampleFileNames_[ii]);
+      }
+      pd.nStrings_ = pInput_.nInputs_;
+   }
+   else if (!strcmp(keyword, "input_sample_indices"))
+   {
+      pd.intArray_ = new int[pInput_.nInputs_];
+      for (ii = 0; ii < pInput_.nInputs_; ii++)
+         pd.intArray_[ii] = pInput_.inputSIndices_[ii];
+      pd.nInts_ = pInput_.nInputs_;
    }
    else if (!strcmp(keyword, "input_use_input_pdfs"))
       pd.intData_ = pInput_.useInputPDFs_;
@@ -724,6 +787,8 @@ void PsuadeData::createInputSection(int nInputs, int *symTable,
       for (ii = 0; ii < nInputs; ii++)
          pInput_.symbolTable_[ii] = symTable[ii];
    }
+   pInput_.useInputPDFs_ = false;
+
    if (pInput_.inputPDFs_ == NULL)
    {
       pInput_.inputPDFs_    = new int[nInputs];
@@ -746,19 +811,42 @@ void PsuadeData::createInputSection(int nInputs, int *symTable,
 // update the input section
 // ------------------------------------------------------------------------ 
 void PsuadeData::updateInputSection(int nSamples,int nInputs,int *symTable,
-                                    double *lowerB, double *upperB, 
-                                    double *sampleInputs, char **names)
+                    double *lowerB, double *upperB, double *sampleInputs, 
+                    char **names, int *iPDFs, double *iMeans, double *iStds,
+                    Matrix *corMatrix)
 {
    int ii;
 
-   createInputSection( nInputs, symTable, lowerB, upperB, names);
+   createInputSection(nInputs, symTable, lowerB, upperB, names);
 
    if (pInput_.sampleInputs_ != NULL) delete [] pInput_.sampleInputs_; 
    pMethod_.nSamples_ = nSamples;
    pInput_.sampleInputs_ = new double[nSamples * nInputs];
    for (ii = 0; ii < nInputs*nSamples; ii++) 
       pInput_.sampleInputs_[ii] = sampleInputs[ii]; 
-
+   if (iPDFs != NULL)
+   {
+      if (pInput_.inputPDFs_ != NULL) delete [] pInput_.inputPDFs_;
+      pInput_.inputPDFs_ = new int[pInput_.nInputs_];
+      for (ii = 0; ii < nInputs; ii++) pInput_.inputPDFs_[ii] = iPDFs[ii];
+   }
+   if (iMeans != NULL)
+   {
+      if (pInput_.inputMeans_ != NULL) delete [] pInput_.inputMeans_;
+      pInput_.inputMeans_ = new double[pInput_.nInputs_];
+      for (ii = 0; ii < nInputs; ii++) pInput_.inputMeans_[ii] = iMeans[ii];
+   }
+   if (iStds != NULL)
+   {
+      if (pInput_.inputStdevs_ != NULL) delete [] pInput_.inputStdevs_;
+      pInput_.inputStdevs_ = new double[pInput_.nInputs_];
+      for (ii = 0; ii < nInputs; ii++) pInput_.inputStdevs_[ii] = iStds[ii];
+   }
+   if (corMatrix != NULL)
+   {
+      pInput_.corMatrix_.setDim(nInputs,nInputs);
+      pInput_.corMatrix_.load(*corMatrix);
+   }
 } 
 
 // ************************************************************************
@@ -872,6 +960,62 @@ void PsuadeData::updateOptimizationSection(int method, double tolerance)
    }
    if (tolerance >= 0)
       pAnalysis_.optimizeDbleOptions_[2] = tolerance;
+}
+
+// ************************************************************************
+// get sample information
+// ------------------------------------------------------------------------ 
+int PsuadeData::getSession(PsuadeSession *session)
+{
+   int ii, nn;
+   session->nSamples_ = pMethod_.nSamples_;
+   session->nInputs_ = pInput_.nInputs_;
+   nn = session->nSamples_ * session->nInputs_; 
+   if (nn > 0) session->sampleInputs_ = new double[nn];
+   for (ii = 0; ii < nn; ii++) 
+      session->sampleInputs_[ii] = pInput_.sampleInputs_[ii];
+   session->nOutputs_ = pOutput_.nOutputs_;
+   nn = session->nSamples_ * session->nOutputs_; 
+   if (nn > 0) session->sampleOutputs_ = new double[nn];
+   else        session->sampleOutputs_ = NULL;
+   for (ii = 0; ii < nn; ii++) 
+      session->sampleOutputs_[ii] = pOutput_.sampleOutputs_[ii];
+   nn = session->nSamples_; 
+   if (nn > 0) session->sampleStates_ = new int[nn];
+   else        session->sampleStates_ = NULL;
+   for (ii = 0; ii < nn; ii++) 
+      session->sampleStates_[ii] = pOutput_.sampleStates_[ii];
+   session->inputPDFs_ = new int[pInput_.nInputs_];
+   for (ii = 0; ii < pInput_.nInputs_; ii++)
+   {
+      if (pInput_.inputPDFs_ != NULL)
+           session->inputPDFs_[ii] = pInput_.inputPDFs_[ii];
+      else session->inputPDFs_[ii] = 0.0;
+   }
+   session->inputMeans_ = new double[pInput_.nInputs_];
+   for (ii = 0; ii < pInput_.nInputs_; ii++)
+   {
+      if (pInput_.inputMeans_ != NULL)
+           session->inputMeans_[ii] = pInput_.inputMeans_[ii];
+      else session->inputMeans_[ii] = 0.0;
+   }
+   session->inputStdevs_ = new double[pInput_.nInputs_];
+   for (ii = 0; ii < pInput_.nInputs_; ii++)
+   {
+      if (pInput_.inputStdevs_ != NULL)
+           session->inputStdevs_[ii] = pInput_.inputStdevs_[ii];
+      else session->inputStdevs_[ii] = 0.0;
+   }
+   session->inputLBounds_ = new double[pInput_.nInputs_];
+   session->inputUBounds_ = new double[pInput_.nInputs_];
+   for (ii = 0; ii < pInput_.nInputs_; ii++)
+   {
+      session->inputLBounds_[ii] = pInput_.inputLBounds_[ii];
+      session->inputUBounds_[ii] = pInput_.inputUBounds_[ii];
+   }
+   session->corMatrix_.load(pInput_.corMatrix_);
+   session->owned_ = 1;
+   return 0;
 }
 
 // ************************************************************************
@@ -1284,11 +1428,17 @@ double* PsuadeData::getAnalysis_optimizeDbleOptions()
 // ------------------------------------------------------------------------ 
 void PsuadeData::readPsuadeIO(const char *fname) 
 {
-   int    nInputs, nOutputs, *sampleStates, nSamples, ss, ii, idata;
+   int    nInputs, nOutputs, flag=0, *sampleStates, nSamples, ss, ii, idata;
    double *sampleInputs, *sampleOutputs;
    char   lineInput[500], keyword[500];
    FILE   *fIn;
 
+   fIn = fopen("ps_extreme_diagnostics", "r");
+   if (fIn != NULL)
+   {
+      flag = 1;
+      fclose(fIn);
+   } 
    fIn = fopen(fname, "r");
    assert(fIn != NULL);
    fgets(lineInput, 500, fIn);
@@ -1301,6 +1451,9 @@ void PsuadeData::readPsuadeIO(const char *fname)
    if (!strcmp(keyword, "PSUADE_IO")) /* data is in this section */
    {
       fscanf(fIn, "%d %d %d\n", &nInputs, &nOutputs, &nSamples);
+      if (flag == 1) 
+         printf("readPsuadeIO: nIns,nOuts,nSam = %d %d %d\n",
+                nInputs,nOutputs,nSamples);
       if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
       {
          printf("readPsuadeIO ERROR: first parameters <= 0.\n");
@@ -1314,8 +1467,8 @@ void PsuadeData::readPsuadeIO(const char *fname)
          fscanf(fIn,"%d %d", &idata, &sampleStates[ss]);
          if (idata != (ss+1))
          {
-            printf("readPsuadeIO ERROR: incorrect sample no.\n");
-            printf("        Incoming/expected sample number = %d %d\n",
+            printf("readPsuadeIO ERROR: incorrect sample number.\n");
+            printf("        Incoming/expected sample number = %d/%d\n",
                    idata, ss+1);
             exit(1);
          }
@@ -1340,7 +1493,7 @@ void PsuadeData::readPsuadeIO(const char *fname)
    }
    else
    {
-      if (outputLevel_ > 0)
+      if (outputLevel_ > 0 || flag == 1)
          printf("readPsuadeIO: PSUADE_IO section absent.\n");
    }
    fclose(fIn);
@@ -1359,16 +1512,23 @@ void PsuadeData::readPsuadeIO(const char *fname)
 // ------------------------------------------------------------------------ 
 void PsuadeData::readInputSection(FILE *fp) 
 {
-   int    ii, idata, itmp, lineLeng=200, nInputs=0;
+   int    ii, ind, idata, itmp, lineLeng=1000, nInputs=0, flag=0;
    double ddata;
-   char   line[200], winput[200], winput2[200], winput3[200];
+   char   line[1000], winput[1000], winput2[1000], winput3[1000];
    const char *keywords[] = {"dimension", "variable", "PDF", "COR", "NAME", 
                              "num_fixed", "fixed", "END"};
    FILE  *fp2;
 
+   fp2 = fopen("ps_extreme_diagnostics", "r");
+   if (fp2 != NULL)
+   {
+      flag = 1;
+      fclose(fp2);
+   } 
+   if (flag == 1) printf("Psuade: Entering readInput\n");
    if (fp == NULL)
    {
-      printf("readInputSection ERROR: file = NULL\n");
+      printf("readInput ERROR: file pointer = NULL.\n");
       exit(1);
    }
    while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
@@ -1383,63 +1543,76 @@ void PsuadeData::readInputSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &nInputs);
          if (nInputs <= 0)
          {
-            printf("readInputSection ERROR: nInputs <= 0.\n");
+            printf("readInput ERROR: nInputs <= 0.\n");
             exit(1);
          } 
+         if (flag == 1) printf("readInput: nInputs read = %d\n",nInputs);
          if (pInput_.nInputs_ != 0 && pInput_.nInputs_ != nInputs)
          {
-            printf("readInputSection ERROR: nInputs mismatch.\n");
-            printf("        Check nInputs in INPUT & PSUADE_IO sections.\n");
+            printf("readInput ERROR: nInputs mismatch.\n");
+            printf("    Check nInputs in INPUT & PSUADE_IO sections.\n");
             exit(1);
          }
-         pInput_.nInputs_ = nInputs;
-
-	 if(pInput_.inputLBounds_ != NULL)
+         if (pInput_.sampleFileNames_ != NULL)
          {
-	    delete [] pInput_.inputLBounds_;
-	    pInput_.inputLBounds_ = NULL;
-	 }
-         pInput_.inputLBounds_ = new double[nInputs];
-	 if(pInput_.inputUBounds_ != NULL)
+            for (ii = 0; ii < pInput_.nInputs_; ii++)
+            {
+               if (pInput_.sampleFileNames_[ii] != NULL)
+                  delete [] pInput_.sampleFileNames_[ii];
+            }
+            delete [] pInput_.sampleFileNames_;
+            pInput_.sampleFileNames_ = NULL;
+         }
+         if (pInput_.inputSIndices_ != NULL)
          {
-	    delete [] pInput_.inputUBounds_;
-	    pInput_.inputUBounds_ = NULL;
-	 }
-         pInput_.inputUBounds_ = new double[nInputs];
-
-	 if(pInput_.inputNames_ != NULL)
+            delete [] pInput_.inputSIndices_;
+            pInput_.inputSIndices_ = NULL;
+         }
+         if (pInput_.inputLBounds_ != NULL)
          {
-	    delete [] pInput_.inputNames_;
-	    pInput_.inputNames_ = NULL;
-	 }
-	 pInput_.inputNames_ = new char*[nInputs];
-
-	 if(pInput_.inputPDFs_ != NULL)
+            delete [] pInput_.inputLBounds_;
+            pInput_.inputLBounds_ = NULL;
+         }
+         if (pInput_.inputUBounds_ != NULL)
          {
-	    delete [] pInput_.inputPDFs_;
-	    pInput_.inputPDFs_ = NULL;
-	 }
-	 pInput_.inputPDFs_ = new int[nInputs];
-
-	 if(pInput_.inputMeans_ != NULL)
+            delete [] pInput_.inputUBounds_;
+            pInput_.inputUBounds_ = NULL;
+         }
+         if (pInput_.inputNames_ != NULL)
          {
-	    delete [] pInput_.inputMeans_;
-	    pInput_.inputMeans_ = NULL;
-	 }
-	 pInput_.inputMeans_ = new double[nInputs];
-
-         if(pInput_.inputStdevs_ != NULL)
+            delete [] pInput_.inputNames_;
+            pInput_.inputNames_ = NULL;
+         }
+         if (pInput_.inputPDFs_ != NULL)
+         {
+            delete [] pInput_.inputPDFs_;
+            pInput_.inputPDFs_ = NULL;
+         }
+         if (pInput_.inputMeans_ != NULL)
+         {
+            delete [] pInput_.inputMeans_;
+            pInput_.inputMeans_ = NULL;
+         }
+         if (pInput_.inputStdevs_ != NULL)
          {
 	    delete [] pInput_.inputStdevs_;
 	    pInput_.inputStdevs_ = NULL;
-	 }
-	 pInput_.inputStdevs_ = new double[nInputs];
-         if(pInput_.inputAuxs_ != NULL)
+         }
+         if (pInput_.inputAuxs_ != NULL)
          {
-	    delete [] pInput_.inputAuxs_;
-	    pInput_.inputAuxs_ = NULL;
-	 }
+            delete [] pInput_.inputAuxs_;
+            pInput_.inputAuxs_ = NULL;
+         }
+         pInput_.nInputs_ = nInputs;
+         pInput_.inputLBounds_ = new double[nInputs];
+         pInput_.inputUBounds_ = new double[nInputs];
+	 pInput_.inputNames_ = new char*[nInputs];
+	 pInput_.inputPDFs_ = new int[nInputs];
+	 pInput_.inputMeans_ = new double[nInputs];
+	 pInput_.inputStdevs_ = new double[nInputs];
 	 pInput_.inputAuxs_ = new double[nInputs];
+	 pInput_.inputSIndices_ = new int[nInputs];
+         pInput_.sampleFileNames_ = new char*[nInputs];
          for (ii = 0; ii < nInputs; ii++)
          {
             pInput_.inputLBounds_[ii] = 0.0;
@@ -1449,6 +1622,9 @@ void PsuadeData::readInputSection(FILE *fp)
 	    pInput_.inputMeans_[ii] = 0.0;
 	    pInput_.inputStdevs_[ii] = 0.0;
 	    pInput_.inputAuxs_[ii] = 0.0;
+	    pInput_.inputSIndices_[ii] = 0;
+            pInput_.sampleFileNames_[ii] = new char[1001];
+            strcpy(pInput_.sampleFileNames_[ii], "NONE");
          }
          pInput_.corMatrix_.setDim(nInputs, nInputs);
          ddata = 1.0;
@@ -1459,31 +1635,34 @@ void PsuadeData::readInputSection(FILE *fp)
       {
          if (nInputs <= 0)
          {
-            printf("readInputSection ERROR: nInputs not set.\n");
+            printf("readInput ERROR: nInputs not set.\n");
+            printf("    Make sure to declare dimension first.\n");
             exit(1);
          } 
          sscanf(line,"%s %d", winput, &idata);
          idata--;
          if (idata < 0 || idata >= pInput_.nInputs_)
          {
-            printf("readInputSection ERROR- invalid input number %d\n",
+            printf("readInput ERROR- invalid input number %d\n",
                    idata+1);
-            printf("     input number should be between 1 and %d\n", nInputs);
+            printf("    input number should be between 1 and %d\n", 
+                   nInputs);
             exit(1);
          }
          sscanf(line,"%s %d %s", winput, &itmp, winput2);
          if (pInput_.inputNames_[idata] != NULL)
          {
-            printf("readInputSection WARNING: \n");
-            printf("\t\tinput number %d may have been re-defined.\n", idata+1);
-            delete [] pInput_.inputNames_[idata];
+            printf("readInput INFO: \n");
+            printf("\t\tinput number %d may have been re-defined.\n", 
+                   idata+1);
+            exit(1);
          }
          pInput_.inputNames_[idata] = new char[strlen(winput2)+10];
          strncpy(pInput_.inputNames_[idata], winput2, strlen(winput2)+1);
          sscanf(line,"%s %d %s %s", winput, &itmp, winput2, winput3);
          if (strcmp(winput3, "=") != 0 )
          {
-            printf("readInputSection ERROR: input format for input %d\n",itmp);
+            printf("readInput ERROR: input format for input %d\n",itmp);
             printf("        syntax: variable 1 X1 = 0.0 1.0\n");
             exit(1);
          }
@@ -1492,7 +1671,7 @@ void PsuadeData::readInputSection(FILE *fp)
                 &(pInput_.inputUBounds_[idata]));
          if (pInput_.inputLBounds_[idata] >= pInput_.inputUBounds_[idata])
          {
-            printf("readInputSection ERROR: \n");
+            printf("readInput ERROR: \n");
             printf("\t\tinput lbound >= ubound (%d %e %e).\n", idata+1,
                    pInput_.inputLBounds_[idata], pInput_.inputUBounds_[idata]);
             exit(1);
@@ -1504,13 +1683,13 @@ void PsuadeData::readInputSection(FILE *fp)
          idata--;
          if (idata < 0 || idata >= pInput_.nInputs_)
          {
-            printf("readInputSection ERROR: invalid input number %d.\n",
+            printf("readInput ERROR: invalid input number %d.\n",
                    idata+1);
             printf("     input number should be between 1 and %d\n", nInputs);
             exit(1);
          } 
          sscanf(line,"%s %d %s", winput, &itmp, winput2);
-         if      ( !strcmp(winput2, "U"))
+         if ( !strcmp(winput2, "U"))
          {
             pInput_.inputPDFs_[idata] = 0;
             sscanf(line,"%s %d %s %lg %lg",winput,&itmp,winput2,
@@ -1518,24 +1697,30 @@ void PsuadeData::readInputSection(FILE *fp)
                    &(pInput_.inputStdevs_[idata]));
             if (pInput_.inputMeans_[idata] != pInput_.inputLBounds_[idata])
             {
-               printf("readInputSection ERROR: for uniform distributions, the\n");
-               printf("    first data should be the same as the lower bound\n");
-               printf("    in the variable definition.\n");
-               printf("    lower bound defined  = %e\n", pInput_.inputMeans_[idata]);
-               printf("    lower bound expected = %e\n", pInput_.inputLBounds_[idata]);
-               printf("Note: The default is uniform distribution with lower and\n");
-               printf("      upper bounds as defined in the variable definitions.\n");
+               printf("readInput ERROR: for uniform distributions, the\n");
+               printf("    first data should be the same as the lower\n");
+               printf("    bound in the variable definition.\n");
+               printf("    lower bound defined  = %e\n", 
+                      pInput_.inputMeans_[idata]);
+               printf("    lower bound expected = %e\n", 
+                      pInput_.inputLBounds_[idata]);
+               printf("Note: The default is uniform distribution with lower\n");
+               printf("      and upper bounds as defined in the variable\n");
+               printf("      definitions.\n");
                exit(1);
             }
             if (pInput_.inputStdevs_[idata] != pInput_.inputUBounds_[idata])
             {
-               printf("readInputSection ERROR: for uniform distributions, the\n");
-               printf("    second data should be the same as the upper bound\n");
-               printf("    in the variable definition.\n");
-               printf("    upper bound defined  = %e\n", pInput_.inputStdevs_[idata]);
-               printf("    upper bound expected = %e\n", pInput_.inputUBounds_[idata]);
-               printf("Note: The default is uniform distribution with lower and\n");
-               printf("      upper bounds as defined in the variable definitions.\n");
+               printf("readInput ERROR: for uniform distributions, for\n");
+               printf("    second data should be the same as the upper\n");
+               printf("    bound in the variable definition.\n");
+               printf("    upper bound defined  = %e\n", 
+                      pInput_.inputStdevs_[idata]);
+               printf("    upper bound expected = %e\n", 
+                      pInput_.inputUBounds_[idata]);
+               printf("Note: The default is uniform distribution with lower\n");
+               printf("      and upper bounds as defined in the variable\n");
+               printf("      definitions.\n");
                exit(1);
             }
          }
@@ -1599,14 +1784,40 @@ void PsuadeData::readInputSection(FILE *fp)
          else if ( !strcmp(winput2, "S")) 
          {
             pInput_.inputPDFs_[idata] = 8;
-            printf("readInputSection INFO: User distribution found for input %d.\n",
-                   idata+1);
-            printf("    You will be prompted to enter the sample file later.\n");
+            winput3[0] = '\0';
+            sscanf(line,"%s %d %s %s %d",winput,&itmp,winput2,winput3,&ind);
+            if (pInput_.sampleFileNames_ == NULL)
+            {
+               printf("readInput ERROR: numInputs has not been read yet.\n");
+               exit(1);
+            } 
+            if (fopen(winput3,"r") == NULL)
+            {
+               printf("readInput ERROR: no S type sample file %s found.\n",
+                      winput3);
+               exit(1);
+            } 
+            strncpy(pInput_.sampleFileNames_[idata], winput3, strlen(winput3));
+            pInput_.sampleFileNames_[idata][strlen(winput3)] = '\0';
+            if (ind < 0 || ind > nInputs)
+            {
+               printf("readInput ERROR: invalid PDF type S sample index %d.\n",
+                      ind);
+               exit(1);
+            } 
+            else ind--;
+            if (ind < 0)
+            {
+               printf("readInput INFO: PDF type S sample index not given - set to 1.\n");
+               ind = 0;
+            }
+            pInput_.inputSIndices_[idata] = ind;
             pInput_.useInputPDFs_ = 1;
          }
          else
          {
-            printf("readInputSection ERROR: input format (2).\n");
+            printf("readInput ERROR: input distribution %c not recognized.\n",
+                   winput2[0]);
             exit(1);
          } 
       } 
@@ -1614,7 +1825,7 @@ void PsuadeData::readInputSection(FILE *fp)
       {
          if (nInputs <= 0)
          {
-            printf("readInputSection ERROR: nInputs not set.\n");
+            printf("readInput ERROR: nInputs not set.\n");
             exit(1);
          } 
          sscanf(line,"%s %d %d %lg", winput, &idata, &itmp, &ddata);
@@ -1623,20 +1834,21 @@ void PsuadeData::readInputSection(FILE *fp)
          if (idata < 0 || idata >= pInput_.nInputs_ ||
              itmp < 0 || itmp >= pInput_.nInputs_)
          {
-            printf("readInputSection ERROR: invalid input numbers (%d,%d)\n",
+            printf("readInput ERROR: invalid input numbers (%d,%d)\n",
                    idata+1, itmp+1);
-            printf("     input numbers should be between 1 and %d\n", nInputs);
+            printf("    input numbers should be between 1 and %d\n", 
+                   nInputs);
             exit(1);
          }
          if (idata == itmp && ddata != 1.0)
          { 
-            printf("readInputSection ERROR: Cor(%d,%d) should be = 1.\n",
+            printf("readInput ERROR: Cor(%d,%d) should be = 1.\n",
                    idata+1, idata+1);
             exit(1);
          }
          if (idata != itmp && (ddata <= -1.0 || ddata >= 1.0))
          { 
-            printf("readInputSection ERROR: |Cor(%d,%d)| should be < 1.\n",
+            printf("readInput ERROR: |Cor(%d,%d)| should be < 1.\n",
                    idata+1, itmp+1);
             exit(1);
          }
@@ -1655,13 +1867,14 @@ void PsuadeData::readInputSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &idata);
          if (idata <= 0)
          {
-            printf("readInputSection ERROR: num_fixed <= 0.\n");
+            printf("readInput ERROR: num_fixed <= 0.\n");
             exit(1);
          } 
+         if (flag == 1) printf("readInput: nFixed read = %d\n",idata);
          if (pInput_.nFixed_ != 0 && pInput_.nFixed_ != idata)
          {
-            printf("readInputSection ERROR: num_fixed mismatch.\n");
-            printf("        Check num_fixed in INPUT section.\n");
+            printf("readInput ERROR: num_fixed mismatch.\n");
+            printf("    Check num_fixed in INPUT section.\n");
             exit(1);
          }
          if(pInput_.fixedValues_ != NULL) delete [] pInput_.fixedValues_;
@@ -1674,29 +1887,32 @@ void PsuadeData::readInputSection(FILE *fp)
 	 }
          pInput_.nFixed_ = idata;
 	 pInput_.fixedNames_ = new char*[idata];
-         for (ii = 0; ii < pInput_.nFixed_; ii++) pInput_.fixedNames_[ii] = NULL;
+         for (ii = 0; ii < pInput_.nFixed_; ii++) 
+            pInput_.fixedNames_[ii] = NULL;
       }
       else if (strcmp(winput, keywords[6]) == 0) /* fixed */
       {
          if (pInput_.nFixed_ <= 0)
          {
-            printf("readInputSection ERROR: num_fixed not set.\n");
+            printf("readInput ERROR: num_fixed not set.\n");
             exit(1);
          } 
          sscanf(line,"%s %d", winput, &idata);
          idata--;
          if (idata < 0 || idata >= pInput_.nFixed_)
          {
-            printf("readInputSection ERROR- invalid fixed input number %d\n",
+            printf("readInput ERROR- invalid fixed input number %d\n",
                    idata+1);
-            printf("   input number should be between 1 and %d\n",pInput_.nFixed_);
+            printf("    input number should be between 1 and %d\n",
+                   pInput_.nFixed_);
             exit(1);
          }
          sscanf(line,"%s %d %s", winput, &itmp, winput2);
          if (pInput_.fixedNames_[idata] != NULL)
          {
-            printf("readInputSection WARNING: \n");
-            printf("\t\tfixedinput number %d may have been re-defined.\n",idata+1);
+            printf("readInput WARNING: \n");
+            printf("\t\tfixedinput number %d may have been re-defined.\n",
+                   idata+1);
             delete [] pInput_.fixedNames_[idata];
          }
          pInput_.fixedNames_[idata] = new char[strlen(winput2)+10];
@@ -1704,8 +1920,8 @@ void PsuadeData::readInputSection(FILE *fp)
          sscanf(line,"%s %d %s %s", winput, &itmp, winput2, winput3);
          if (strcmp(winput3, "=") != 0 )
          {
-            printf("readInputSection ERROR: fixed input format for input %d\n",itmp);
-            printf("        syntax: fixed 1 X1 = 0.0\n");
+            printf("readInput ERROR: fixed input format for input %d\n",itmp);
+            printf("    syntax: fixed 1 X1 = 0.0\n");
             exit(1);
          }
          sscanf(line,"%s %d %s %s %lg", winput, &itmp, winput2,
@@ -1725,7 +1941,7 @@ void PsuadeData::readInputSection(FILE *fp)
       }
       else 
       {
-         printf("readInputSection ERROR: unrecognized line: %s\n",line);
+         printf("readInput ERROR: unrecognized line: %s\n",line);
          exit(1);
       }
    }
@@ -1733,7 +1949,7 @@ void PsuadeData::readInputSection(FILE *fp)
    {
       if (pInput_.inputNames_[ii] == NULL)
       {
-         printf("readInputSection ERROR: input %d not defined\n",ii+1);
+         printf("readInput ERROR: input %d not defined\n",ii+1);
          pInput_.inputNames_[ii] = new char[100];
          sprintf(pInput_.inputNames_[ii], "X%d", ii+1);
          exit(1);
@@ -1744,6 +1960,7 @@ void PsuadeData::readInputSection(FILE *fp)
       printf("readInputSection ERROR: END not found.\n");
       exit(1);
    }
+   if (flag == 1) printf("Psuade: Exiting readInput\n");
 }
 
 // ************************************************************************
@@ -1764,7 +1981,7 @@ void PsuadeData::readOutputSection(FILE *fp)
 
    if (fp == NULL)
    {
-      printf("readOutputSection ERROR: file = null\n");
+      printf("readOutput ERROR: file pointer = null\n");
       exit(1);
    }
    while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
@@ -1779,21 +1996,20 @@ void PsuadeData::readOutputSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &nOutputs);
          if (nOutputs <= 0)
          {
-            printf("readOutputSection ERROR: nOutputs %d <= 0.\n", nOutputs);
+            printf("readOutput ERROR: nOutputs %d <= 0.\n", nOutputs);
             exit(1);
          } 
          if (pOutput_.nOutputs_ != 0 && pOutput_.nOutputs_ != nOutputs)
          {
-            printf("readOutputSection ERROR: nOutputs mismatch.\n");
-            printf("        check nOutputs in OUTPUT & PSUADE_IO sections.\n");
+            printf("readOutput ERROR: nOutputs mismatch.\n");
+            printf("    check nOutputs in OUTPUT & PSUADE_IO sections.\n");
             exit(1);
          } 
          pOutput_.nOutputs_ = nOutputs;
-         if(pOutput_.outputNames_ != NULL){
-	   
-	   delete [] pOutput_.outputNames_;
-	   pOutput_.outputNames_ = NULL;
-
+         if(pOutput_.outputNames_ != NULL)
+         {
+	    delete [] pOutput_.outputNames_;
+	    pOutput_.outputNames_ = NULL;
          }
          pOutput_.outputNames_ = new char*[pOutput_.nOutputs_];
          for (ii = 0; ii < pOutput_.nOutputs_; ii++)
@@ -1803,16 +2019,16 @@ void PsuadeData::readOutputSection(FILE *fp)
       {
          if (pOutput_.nOutputs_ <= 0)
          {
-            printf("readOutputSection ERROR: nOutputs not set.\n");
+            printf("readOutput ERROR: nOutputs not set.\n");
             exit(1);
          } 
          sscanf(line,"%s %d", winput, &idata);
          idata--;
          if (idata < 0 || idata >= pOutput_.nOutputs_)
          {
-            printf("readOutputSection ERROR: invalid output no. %d.\n",
+            printf("readOutput ERROR: invalid output no. %d.\n",
                    idata+1);
-            printf("        Example format: variable 1 Y\n");
+            printf("    Example format: variable 1 Y\n");
             exit(1);
          } 
          sscanf(line,"%s %d %s", winput, &itmp, winput2);
@@ -1839,24 +2055,25 @@ void PsuadeData::readOutputSection(FILE *fp)
       }
       else 
       {
-         printf("readOutputSection ERROR: unrecognized line - %s\n",
+         printf("readOutput ERROR: unrecognized line - %s\n",
                 line);
          exit(1);
       }
    }
    if (feof(fp) != 0)
    {
-      printf("readOutputSection ERROR: END not found.\n");
+      printf("readOutput ERROR: END not found.\n");
       exit(1);
    }
    for (ii = 0; ii < pOutput_.nOutputs_; ii++)
    {
       if (pOutput_.outputNames_[ii] == NULL)
       {
-         printf("readOutputSection WARNING: variable %d undeclared.\n",
+         printf("readOutput WARNING: variable %d undeclared.\n",
                 ii+1);
          pOutput_.outputNames_[ii] = new char[100];
          sprintf(pOutput_.outputNames_[ii], "Y%d", ii+1);
+         exit(1);
       } 
    } 
 }
@@ -1896,7 +2113,7 @@ void PsuadeData::readMethodSection(FILE *fp)
 
    if (fp == NULL)
    {
-      printf("readMethodSection ERROR: file = null\n");
+      printf("readMethod ERROR: file pointer = null\n");
       exit(1);
    }
    while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
@@ -1908,7 +2125,7 @@ void PsuadeData::readMethodSection(FILE *fp)
          sscanf(line,"%s %s", winput, winput2);
          if (strcmp(winput2, "=") != 0)
          {
-            printf("readMethodSection ERROR: sampling format.\n");
+            printf("readMethod ERROR: sampling format.\n");
             exit(1);
          } 
          sscanf(line,"%s %s %s", winput, winput2, winput3);
@@ -1922,7 +2139,7 @@ void PsuadeData::readMethodSection(FILE *fp)
          }
          if (methodID >= nMethods) 
          {
-            printf("readMethodSection ERROR: invalid method %s.\n",
+            printf("readMethod ERROR: invalid method %s.\n",
                    winput3);
             exit(1);
          }
@@ -1943,14 +2160,14 @@ void PsuadeData::readMethodSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &nSamples);
          if (nSamples <= 0)
          {
-            printf("readMethodSection ERROR: nSamples %d <= 0.\n",
+            printf("readMethod ERROR: nSamples %d <= 0.\n",
                    nSamples);
             exit(1);
          }
          if (pMethod_.nSamples_ != 0 && pMethod_.nSamples_ != nSamples) 
          {
-            printf("readMethodSection ERROR: nSamples mismatch.\n");
-            printf("        check nSamples in METHOD & PSUADE_IO sections.\n");
+            printf("readMethod ERROR: nSamples mismatch.\n");
+            printf("    check nSamples in METHOD & PSUADE_IO sections.\n");
             exit(1);
          } 
          pMethod_.nSamples_ = nSamples;
@@ -1963,7 +2180,7 @@ void PsuadeData::readMethodSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &pMethod_.nReplications_);
          if (pMethod_.nReplications_ <= 0)
          {
-            printf("readMethodSection ERROR: nReplications <= 0.\n");
+            printf("readMethod ERROR: nReplications <= 0.\n");
             exit(1);
          } 
       }
@@ -1975,7 +2192,7 @@ void PsuadeData::readMethodSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &pMethod_.nRefinements_);
          if (pMethod_.nRefinements_ < 0) 
          {
-            printf("readMethodSection ERROR: nRefinements < 0.\n");
+            printf("readMethod ERROR: nRefinements < 0.\n");
             exit(1);
          } 
       }
@@ -1987,7 +2204,7 @@ void PsuadeData::readMethodSection(FILE *fp)
          else sscanf(line,"%s %d", winput, &pMethod_.refNumRefinements_);
          if (pMethod_.refNumRefinements_ < 0) 
          {
-            printf("readMethodSection ERROR: ref. nRefinements < 0.\n");
+            printf("readMethod ERROR: ref. nRefinements < 0.\n");
             exit(1);
          } 
       }
@@ -2005,7 +2222,7 @@ void PsuadeData::readMethodSection(FILE *fp)
          if (idata < 1 || idata > pInput_.nInputs_ ||
              pInput_.nInputs_ == 0 || idata2 <= 0)
          {
-            printf("readMethodSection ERROR: invalid input %d\n",idata);
+            printf("readMethod ERROR: invalid input %d\n",idata);
             printf(" in input_settings.\n");
             exit(1);
          } 
@@ -2057,14 +2274,14 @@ void PsuadeData::readMethodSection(FILE *fp)
       }
       else 
       {
-         printf("readMethodSection ERROR: unrecognized line - %s\n",
+         printf("readMethod ERROR: unrecognized line - %s\n",
                 line);
          exit(1);
       }
    }
    if (pMethod_.samplingMethod_ == 1 && pMethod_.nReplications_ > 1)
    {
-      printf("readMethodSection ERROR: \n");
+      printf("readMethod ERROR: \n");
       printf("\t\tFor Factorial sampling, nReplications should be 1.\n");
       exit(1);
    } 
@@ -2072,13 +2289,13 @@ void PsuadeData::readMethodSection(FILE *fp)
            pMethod_.nReplications_;
    if (idata != pMethod_.nSamples_)
    {
-      printf("readMethodSection ERROR: \n");
+      printf("readMethod ERROR: \n");
       printf("\t\tnSamples should be multiples of nReplications.\n");
       exit(1);
    } 
    if (feof(fp) != 0)
    {
-      printf("readMethodSection ERROR: END not found.\n");
+      printf("readMethod ERROR: END not found.\n");
       exit(1);
    }
 }
@@ -2127,7 +2344,7 @@ void PsuadeData::readApplicationSection(FILE *fp)
 
    if (fp == NULL)
    {
-      printf("readApplicationSection ERROR: file = null\n");
+      printf("readApplication ERROR: file pointer = null\n");
       exit(1);
    }
    while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
@@ -2136,11 +2353,13 @@ void PsuadeData::readApplicationSection(FILE *fp)
       sscanf(line,"%s", winput);
       if (strcmp(winput, keywords[0]) == 0) /* driver */
       {
-         sscanf(line,"%s %s", winput, winput2);
-         if (strcmp(winput2, "=") == 0 )
-            sscanf(line,"%s %s %s", winput, winput2, winput3);
-         else sscanf(line,"%s %s", winput, winput3);
-         strncpy(pApplication_.appDriver_, winput3, strlen(winput3)+1); 
+	 sscanf(line,"%s %*[=] %199[^\n] ", winput, winput2);
+
+	 // If there are any quotes, expunge them
+	 std::string pathname = winput2;
+	 pathname.erase(std::remove(pathname.begin(), pathname.end(), '"'), 
+                        pathname.end());
+         strcpy(pApplication_.appDriver_, pathname.c_str()); 
          if (strcmp(pApplication_.appDriver_, "NONE"))
          {
             if (outputLevel_ > 1)
@@ -2148,7 +2367,7 @@ void PsuadeData::readApplicationSection(FILE *fp)
                fp2 = fopen(pApplication_.appDriver_, "r");
                if (fp2 == NULL && outputLevel_ > 1)
                {
-                  printf("readApplicationSection WARNING: ");
+                  printf("readApplication WARNING: ");
                   printf("app driver %s not found.\n",pApplication_.appDriver_);
                }
                else fclose(fp2);
@@ -2169,7 +2388,7 @@ void PsuadeData::readApplicationSection(FILE *fp)
                fp2 = fopen(pApplication_.optDriver_, "r");
                if (fp2 == NULL && outputLevel_ > 1)
                {
-                  printf("readApplicationSection WARNING: ");
+                  printf("readApplication WARNING: ");
                   printf("opt driver %s not found.\n",pApplication_.optDriver_);
                }
                else fclose(fp2);
@@ -2190,7 +2409,7 @@ void PsuadeData::readApplicationSection(FILE *fp)
                fp2 = fopen(pApplication_.auxOptDriver_, "r");
                if (fp2 == NULL && outputLevel_ > 1)
                {
-                  printf("readApplicationSection WARNING: ");
+                  printf("readApplication WARNING: ");
                   printf("opt driver %s not found.\n",
                           pApplication_.auxOptDriver_);
                }
@@ -2310,7 +2529,7 @@ void PsuadeData::readApplicationSection(FILE *fp)
                fp2 = fopen(pApplication_.rsDriver_, "r");
                if (fp2 == NULL && outputLevel_ > 1)
                {
-                  printf("readApplicationSection WARNING: ");
+                  printf("readApplication WARNING: ");
                   printf("rs driver %s not found.\n",pApplication_.rsDriver_);
                }
                else fclose(fp2);
@@ -2335,7 +2554,7 @@ void PsuadeData::readApplicationSection(FILE *fp)
       }
       else 
       {
-         printf("readApplicationSection ERROR: \n");
+         printf("readApplication ERROR: \n");
          printf("\t\t unrecognized line - %s\n", line);
          exit(1);
       }
@@ -2356,13 +2575,13 @@ void PsuadeData::readApplicationSection(FILE *fp)
       pApplication_.maxJobWaitTime_ = pApplication_.minJobWaitTime_ * 5;
       if (outputLevel_ > 1)
       {
-         printf("readApplicationSection INFO: max job wait time\n");
+         printf("readApplication INFO: max job wait time\n");
          printf("            has been reset to 5*(min job wait time)\n");
       }
    }
    if (feof(fp) != 0)
    {
-      printf("readApplicationSection ERROR: END not found.\n");
+      printf("readApplication ERROR: END not found.\n");
       exit(1);
    }
 }
@@ -2416,7 +2635,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
               "file_write", "diagnostics", "use_config_file", "interactive", 
               "ana_expert", "rs_expert", "opt_expert", "sam_expert", 
               "io_expert", "rs_max_pts", "scilab", "use_input_pdfs",
-              "constraint_op_and", "END"};
+              "constraint_op_and", "python_override", "END", "printlevel"};
    const char *analysisOptions[] = {
               "method", "threshold", "output_id", "rstype", "transform", 
               "regression_wgt_id", "rs_constraint", "moat_constraint", 
@@ -2427,14 +2646,16 @@ void PsuadeData::readAnalysisSection(FILE *fp)
    const char *analysisMethods[] = {
               "Moment", "MainEffect", "TwoParamEffect", "ANOVA", "GLSA", 
               "RSFA","MOAT", "Sobol", "Correlation", "Integration",
-              "FAST", "FF", "PCA", "ARSM0", "FORM", "RSMSobol1",
+              "FAST", "FF", "PCA", "ARSMGP", "FORM", "RSMSobol1",
               "RSMSobol2", "RSMSobolTSI", "Bootstrap", "RSMSobolG", "ARSMNN",
-              "ARSM1", "REL", "AOPT", "GOWER", "DELTA", "ETA", "ARSMG", "LSA"};
+              "ARSM1", "REL", "AOPT", "GOWER", "DELTA", "ETA", "ARSMG", "LSA",
+              "ARSM"};
    const char *resSurfTypes[] = {
               "MARS","linear","quadratic","cubic", "quartic", "ANN", 
               "selective_regression", "GP1", "GP2", "SVM", "PWL", "TGP",
               "MARSBag", "EARTH", "sum_of_trees", "Legendre", "user_regression",
-              "sparse_grid_regression", "Kriging"};
+              "sparse_grid_regression", "Kriging", "splines", "KNN", "RBF",
+              "psuade_regression"};
    const char *transformTypes[] = {"logx","logy"};
    const char *optimizeOptions[] = {
               "method", "fmin", "num_local_minima", "use_response_surface", 
@@ -2448,7 +2669,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
 
    if (fp == NULL)
    {
-      printf("readAnalysisSection ERROR: file = null\n");
+      printf("readAnalysis ERROR: file pointer = null\n");
       exit(1);
    }
    while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
@@ -2520,9 +2741,11 @@ void PsuadeData::readAnalysisSection(FILE *fp)
                pAnalysis_.analysisIntOptions_[0] |= PSUADE_ANA_ARSMMBBS;
             else if (!strcmp(winput4,analysisMethods[28]))
                pAnalysis_.analysisIntOptions_[0] |= PSUADE_ANA_LSA;
+            else if (!strcmp(winput4,analysisMethods[29]))
+               pAnalysis_.analysisIntOptions_[0] |= PSUADE_ANA_ARSMMB;
             else
             {
-               printf("readAnalysisSection ERROR: invalid method %s\n",
+               printf("readAnalysis ERROR: invalid method %s\n",
                       winput4);
                exit(1);
             }
@@ -2533,7 +2756,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
                    &threshold);
             if (threshold < 0.0 || threshold > 1.0)
             {
-               printf("readAnalysisSection ERROR: invalid threshold %e.\n",
+               printf("readAnalysis ERROR: invalid threshold %e.\n",
                       threshold);
                printf("           (threshold has to be > 0.0 and < 1.0.\n");
                exit(1);
@@ -2545,7 +2768,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             sscanf(line,"%s %s %s %d", winput, winput2, winput3, &outputID);
             if (outputID <= 0 || outputID > pOutput_.nOutputs_)
             {
-               printf("readAnalysisSection ERROR: invalid outputID %d\n",
+               printf("readAnalysis ERROR: invalid outputID %d\n",
                       outputID);
                printf("           outputID has to be between 1 and %d\n",
                       pOutput_.nOutputs_);
@@ -2576,9 +2799,13 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             else if (!strcmp(winput4,resSurfTypes[16])) rstype = PSUADE_RS_REGRU;
             else if (!strcmp(winput4,resSurfTypes[17])) rstype = PSUADE_RS_REGSG;
             else if (!strcmp(winput4,resSurfTypes[18])) rstype = PSUADE_RS_KR;
+            else if (!strcmp(winput4,resSurfTypes[19])) rstype = PSUADE_RS_SPLINES;
+            else if (!strcmp(winput4,resSurfTypes[20])) rstype = PSUADE_RS_KNN;
+            else if (!strcmp(winput4,resSurfTypes[21])) rstype = PSUADE_RS_RBF;
+            else if (!strcmp(winput4,resSurfTypes[22])) rstype = PSUADE_RS_LOCAL;
             else
             {
-               printf("readAnalysisSection ERROR: invalid RS type %s\n",
+               printf("readAnalysis ERROR: invalid RS type %s\n",
                       winput4);
                exit(1);
             }
@@ -2592,7 +2819,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             else if (!strcmp(winput4,transformTypes[1])) transform |= 2;
             else
             {
-               printf("readAnalysisSection ERROR: invalid transform %s\n",
+               printf("readAnalysis ERROR: invalid transform %s\n",
                       winput4);
                exit(1);
             }
@@ -2603,7 +2830,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             sscanf(line,"%s %s %s %d",winput,winput2,winput3,
                    &pAnalysis_.analysisIntOptions_[6]);
             pAnalysis_.analysisIntOptions_[6]--;
-            printf("readAnalysisSection INFO: regression wgt outputID = %d.\n",
+            printf("readAnalysis INFO: regression wgt outputID = %d.\n",
                    pAnalysis_.analysisIntOptions_[6]+1);
             printf("        Please make sure it is correct.\n");
          }
@@ -2675,7 +2902,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
          }
          else 
          {
-            printf("readAnalysisSection ERROR: \n");
+            printf("readAnalysis ERROR: \n");
             printf("unrecognized analyzer option - %s\n", winput2);
             exit(1);
          }
@@ -2744,7 +2971,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             }
             else
             {
-               printf("readAnalysisSection ERROR: invalid opt scheme %s\n",
+               printf("readAnalysis ERROR: invalid opt scheme %s\n",
                       winput4);
                exit(1);
             }
@@ -2760,7 +2987,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
                    &(pAnalysis_.optimizeIntOptions_[2]));
             if (pAnalysis_.optimizeIntOptions_[2] < 1)
             {
-               printf("readAnalysisSection ERROR: opt nPts < 1.\n");
+               printf("readAnalysis ERROR: opt nPts < 1.\n");
                exit(1);
             }
          }
@@ -2789,7 +3016,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
                    &(pAnalysis_.optimizeIntOptions_[5]));
             if (pAnalysis_.optimizeIntOptions_[5] <= 0)
             {
-               printf("readAnalysisSection ERROR: opt nfmin <= 0.\n");
+               printf("readAnalysis ERROR: opt nfmin <= 0.\n");
                exit(1);
             }
          }
@@ -2798,7 +3025,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             sscanf(line,"%s %s %s %d", winput, winput2, winput3, &outputID);
             if (outputID <= 0 || outputID > pOutput_.nOutputs_)
             {
-               printf("readAnalysisSection ERROR: invalid outputID %d\n",
+               printf("readAnalysis ERROR: invalid outputID %d\n",
                       outputID);
                exit(1);
             }
@@ -2821,7 +3048,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
          }
          else
          {
-            printf("readAnalysisSection ERROR: unrecognized optimize options %s.\n",
+            printf("readAnalysis ERROR: unrecognized optimize options %s.\n",
                    winput2);
             exit(1);
          }
@@ -2841,14 +3068,19 @@ void PsuadeData::readAnalysisSection(FILE *fp)
          sscanf(line,"%s %s", winput, winput2);
          if (!strcmp(winput2, "matlab")) pAnalysis_.fileWriteFlag_ |= 1;
       }
-      else if (strcmp(winput, keywords[5]) == 0) /* diagnostics */
+      //set the diagnostics level; allow printlevel
+      //added 4/2/14 - Jim MCEnerney
+      else if (strcmp(winput, keywords[5]) == 0 || 
+               strcmp(winput, keywords[19]) == 0) /* diagnostics */
       {
          sscanf(line,"%s %d", winput, &(pAnalysis_.analysisIntOptions_[3]));
-         if (pAnalysis_.analysisIntOptions_[3] < 0)
-            pAnalysis_.analysisIntOptions_[3] = 0;
-         else if (pAnalysis_.analysisIntOptions_[3] > 5)
-            pAnalysis_.analysisIntOptions_[3] = 5;
+         //force to range defined by PL_MIN to PL_MAX in sysdef.h
+         pAnalysis_.analysisIntOptions_[3] = 
+                        max(PL_MIN, pAnalysis_.analysisIntOptions_[3]);
+         pAnalysis_.analysisIntOptions_[3] = 
+                        min(PL_MAX, pAnalysis_.analysisIntOptions_[3]);
          outputLevel_ = pAnalysis_.analysisIntOptions_[3];
+         setPrintLevelTS(outputLevel_);
       }
       else if (!strcmp(winput, keywords[6])) /* use configure file */
       {
@@ -2858,7 +3090,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             fconf = fopen(winput3,"r");
             if (fconf == NULL)
             {
-               printf("readAnalysisSection ERROR: config file %s not found.\n",
+               printf("readAnalysis ERROR: config file %s not found.\n",
                       winput3);
             }
             else
@@ -2874,7 +3106,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
       }
       else if (strcmp(winput, keywords[7]) == 0) /* interactive */
       {
-         psAnalysisInteractive_ = 1;
+         psAnaExpertMode_ = 1;
       }
       else if (strcmp(winput, keywords[8]) == 0) /* analysis expert mode */
       {
@@ -2900,9 +3132,12 @@ void PsuadeData::readAnalysisSection(FILE *fp)
                strcmp(winput, deprecateOptions[3]) == 0) /* RS max points */
       {
          sscanf(line,"%s %s %d", winput, winput2, &psFAMaxDataPts_); 
-         if (psFAMaxDataPts_ <= 1) psFAMaxDataPts_ = 4000;
-         printf("Max number of data points for response surface is set to %d\n",
-                psFAMaxDataPts_);
+         if (psFAMaxDataPts_ <= 1) 
+         {
+            psFAMaxDataPts_ = 5000;
+            printf("Max number of data points for response surface is set to %d\n",
+                   psFAMaxDataPts_);
+         }
       }
       else if (strcmp(winput, keywords[14]) == 0) /* scilab mode */
       {
@@ -2911,16 +3146,21 @@ void PsuadeData::readAnalysisSection(FILE *fp)
       else if (strcmp(winput, keywords[15]) == 0) /* use_input_pdfs */
       {
          pAnalysis_.useInputPDFs_ = 1;
-         printf("The use_input_pdfs option has been disabled.\n");
-         printf("Instead, whenever PDFs are specified in the INPUT section,\n");
-         printf("they will be used in analysis if relevant. To not use PDFs\n");
-         printf("in analysis, you will have to comment out the PDF definitions.\n");
+         printf("NOTE: The use_input_pdfs option has been enabled.\n");
+         printf(" That is, whenever PDFs are specified in the INPUT\n");
+         printf(" section, they will be used in analysis if relevant.\n");
+         printf(" To not use PDFs in analysis, you will have to comment\n");
+         printf(" out the PDF definitions.\n");
       }
       else if (strcmp(winput, keywords[16]) == 0) /* constraint_op_and */
       {
          psConstraintSetOp_ = 1;
       }
-      else if (strcmp(winput, keywords[17]) == 0) /* END */
+      else if (strcmp(winput, keywords[17]) == 0) /* Python override */
+      {
+         psPythonOverride_ = 1;
+      }
+      else if (strcmp(winput, keywords[18]) == 0) /* END */
       {
          break;
       }
@@ -2934,14 +3174,14 @@ void PsuadeData::readAnalysisSection(FILE *fp)
       }
       else 
       {
-         printf("readAnalysisSection ERROR: \n");
+         printf("readAnalysis ERROR: \n");
          printf("\t\t unrecognized line - %s\n", line);
          exit(1);
       }
    }
    if (feof(fp) != 0)
    {
-      printf("readAnalysisSection ERROR: END not found.\n");
+      printf("readAnalysis ERROR: END not found.\n");
       exit(1);
    }
 }
@@ -2954,7 +3194,7 @@ void PsuadeData::writePsuadeIO(FILE *fOut, int flag)
    int  ss, ii;
    char cString[1000], lineIn[1000];
 
-   if (pMethod_.nSamples_ > 100000 && psIOExpertMode_ == 0)
+   if (pMethod_.nSamples_ > 200000 && psIOExpertMode_ == 0)
    {
       printf("INFO: Data too large to be written (%d).\n", pMethod_.nSamples_);
       printf("Write to file anyway ? (y or n) \n");
@@ -3325,8 +3565,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
         fprintf(fOut,"   analyzer method = PCA\n");
    else fprintf(fOut,"#  analyzer method = PCA\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ONESIGMA) != 0)
-        fprintf(fOut,"   analyzer method = ARSM0\n");
-   else fprintf(fOut,"#  analyzer method = ARSM0\n");
+        fprintf(fOut,"   analyzer method = ARSMGP\n");
+   else fprintf(fOut,"#  analyzer method = ARSMGP\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_FORM) != 0)
         fprintf(fOut,"   analyzer method = FORM\n");
    else fprintf(fOut,"#  analyzer method = FORM\n");
@@ -3349,8 +3589,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
         fprintf(fOut,"   analyzer method = ARSMNN\n");
    else fprintf(fOut,"#  analyzer method = ARSMNN\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ARSMMB) != 0)
-        fprintf(fOut,"   analyzer method = ARSM1\n");
-   else fprintf(fOut,"#  analyzer method = ARSM1\n");
+        fprintf(fOut,"   analyzer method = ARSM\n");
+   else fprintf(fOut,"#  analyzer method = ARSM\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_REL) != 0)
         fprintf(fOut,"   analyzer method = REL\n");
    else fprintf(fOut,"#  analyzer method = REL\n");
@@ -3367,8 +3607,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
         fprintf(fOut,"   analyzer method = ETA\n");
    else fprintf(fOut,"#  analyzer method = ETA\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_ARSMMBBS) != 0)
-        fprintf(fOut,"   analyzer method = ARSMG\n");
-   else fprintf(fOut,"#  analyzer method = ARSMG\n");
+        fprintf(fOut,"   analyzer method = ARSM\n");
+   else fprintf(fOut,"#  analyzer method = ARSM\n");
    if ((pAnalysis_.analysisIntOptions_[0] & PSUADE_ANA_LSA) != 0)
         fprintf(fOut,"   analyzer method = LSA\n");
    else fprintf(fOut,"#  analyzer method = LSA\n");
@@ -3433,6 +3673,18 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_KR)
         fprintf(fOut,"   analyzer rstype = Kriging\n");
    else fprintf(fOut,"#  analyzer rstype = Kriging\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_SPLINES)
+        fprintf(fOut,"   analyzer rstype = splines\n");
+   else fprintf(fOut,"#  analyzer rstype = splines\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_KNN)
+        fprintf(fOut,"   analyzer rstype = KNN\n");
+   else fprintf(fOut,"#  analyzer rstype = KNN\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_RBF)
+        fprintf(fOut,"   analyzer rstype = RBF\n");
+   else fprintf(fOut,"#  analyzer rstype = RBF\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_LOCAL)
+        fprintf(fOut,"   analyzer rstype = psuade_regression\n");
+   else fprintf(fOut,"#  analyzer rstype = psuade_regression\n");
    if (pAnalysis_.legendreOrder_ > 0)
         fprintf(fOut,"   analyzer rs_legendre_order = %d\n", pAnalysis_.legendreOrder_);
    else fprintf(fOut,"#  analyzer rs_legendre_order = -1\n");
@@ -3449,9 +3701,9 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    else fprintf(fOut,"#  sample_graphics\n");
    fprintf(fOut,"   analyzer threshold = %e\n", 
            pAnalysis_.analysisDbleOptions_[0]);
-   if (psFAMaxDataPts_ != 4000)
+   if (psFAMaxDataPts_ != 5000)
         fprintf(fOut,"   rs_max_pts = %d\n", psFAMaxDataPts_);
-   else fprintf(fOut,"#  rs_max_pts = 4000\n");
+   else fprintf(fOut,"#  rs_max_pts = 5000\n");
 
    if (pAnalysis_.numRSFilters_ > 0)
    {
@@ -3596,8 +3848,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    else fprintf(fOut, "#  optimization tolerance = not defined\n");
 
    if (pAnalysis_.analysisIntOptions_[3] == 0)
-        fprintf(fOut,"#  diagnostics\n"); 
-   else fprintf(fOut,"   diagnostics %d\n",pAnalysis_.analysisIntOptions_[3]); 
+        fprintf(fOut,"#  printlevel \n"); 
+   else fprintf(fOut,"   printlevel  %d\n",pAnalysis_.analysisIntOptions_[3]); 
 
    if ((pAnalysis_.fileWriteFlag_ & 1) != 0)
         fprintf(fOut,"   file_write matlab\n");
@@ -3611,9 +3863,6 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    if (psConstraintSetOp_ == 1)
         fprintf(fOut,"   constraint_op_and\n");
    else fprintf(fOut,"#  constraint_op_and\n");
-   if (psAnalysisInteractive_ == 1)
-        fprintf(fOut,"   interactive\n");
-   else fprintf(fOut,"#  interactive\n");
    if (psIOExpertMode_ == 1)
       fprintf(fOut,"   io_expert\n");
    if (psRSExpertMode_ == 1)
@@ -3642,8 +3891,8 @@ int PsuadeData::getSampleState(int sampleid)
 }
 
 // ************************************************************************
-// Return the value of a single sample input, from pInput_.sampleInputs_ array
-// If given id = -1, return the number of inputs
+// Return the value of a single sample input, from pInput_.sampleInputs_ 
+// array. If given id = -1, return the number of inputs
 // ------------------------------------------------------------------------ 
 double PsuadeData::getSampleInput(int inputNumber, int sampleid)
 {
@@ -3654,15 +3903,15 @@ double PsuadeData::getSampleInput(int inputNumber, int sampleid)
 }
 
 // ************************************************************************
-// Return the value of a single sample output, from pInput_.sampleInputs_ array
-// If given id = -1, return the number of outputs
+// Return the value of a single sample output, from pInput_.sampleInputs_ 
+// array. If given id = -1, return the number of outputs
 // ------------------------------------------------------------------------ 
 double PsuadeData::getSampleOutput(int outputNumber, int sampleid)
 {
    if (sampleid == -1)
       return pOutput_.nOutputs_;
    else
-      return pOutput_.sampleOutputs_[sampleid * pOutput_.nOutputs_ + outputNumber];
+      return pOutput_.sampleOutputs_[sampleid*pOutput_.nOutputs_+outputNumber];
 }
 
 // ************************************************************************
@@ -3680,15 +3929,19 @@ psuadeInputSection::psuadeInputSection(): nFixed_(0), fixedValues_(NULL),
                     inputPDFs_(NULL),        inputMeans_(NULL), 
                     inputStdevs_(NULL),      inputAuxs_(NULL),
                     symbolTable_(NULL),      inputSettings_(NULL), 
-                    inputNumSettings_(NULL), sampleInputs_(NULL)
+                    inputNumSettings_(NULL), sampleInputs_(NULL),
+                    useInputPDFs_(0),        inputSIndices_(NULL), 
+                    sampleFileNames_(NULL) 
 {
 }
 
+// ------------------------------------------------------------------------ 
 psuadeInputSection::~psuadeInputSection()
 { 
    reset();
 }
 
+// ------------------------------------------------------------------------ 
 void psuadeInputSection::reset()
 { 
    int ii;
@@ -3714,7 +3967,16 @@ void psuadeInputSection::reset()
    }
    if (inputNumSettings_ != NULL) delete [] inputNumSettings_;
    if (sampleInputs_ != NULL) delete [] sampleInputs_;
-
+   if (sampleFileNames_ != NULL)
+   {
+      for (ii = 0; ii < nInputs_; ii++)
+      {
+         if (sampleFileNames_[ii] != NULL)
+            delete [] sampleFileNames_[ii];
+      }
+      delete [] sampleFileNames_;
+   }
+   if (inputSIndices_ != NULL) delete [] inputSIndices_;
    nInputs_          = 0;
    inputLBounds_     = NULL;
    inputUBounds_     = NULL;
@@ -3728,6 +3990,8 @@ void psuadeInputSection::reset()
    inputNumSettings_ = NULL;
    sampleInputs_     = NULL;
    corMatrix_.setDim(0,0);
+   sampleFileNames_  = NULL;
+   inputSIndices_    = NULL;
    useInputPDFs_     = 0;
 }
 
@@ -3740,11 +4004,13 @@ psuadeOutputSection::psuadeOutputSection() : nOutputs_(0),
 {
 }
 
+// ------------------------------------------------------------------------ 
 psuadeOutputSection::~psuadeOutputSection()
 { 
    reset();
 }
 
+// ------------------------------------------------------------------------ 
 void psuadeOutputSection::reset()
 { 
    if (outputNames_ != NULL) 
@@ -3769,10 +4035,12 @@ psuadeMethodSection::psuadeMethodSection()
    reset();
 }
 
+// ------------------------------------------------------------------------ 
 psuadeMethodSection::~psuadeMethodSection()
 { 
 }
 
+// ------------------------------------------------------------------------ 
 void psuadeMethodSection::reset()
 { 
    nSamples_          = 0;
@@ -3793,10 +4061,12 @@ psuadeApplicationSection::psuadeApplicationSection()
    reset();
 }
 
+// ------------------------------------------------------------------------ 
 psuadeApplicationSection::~psuadeApplicationSection()
 { 
 }
 
+// ------------------------------------------------------------------------ 
 void psuadeApplicationSection::reset()
 { 
    strcpy(appDriver_, "NONE");
@@ -3828,10 +4098,12 @@ psuadeAnalysisSection::psuadeAnalysisSection()
    reset();
 }
 
+// ------------------------------------------------------------------------ 
 psuadeAnalysisSection::~psuadeAnalysisSection()
 { 
 }
 
+// ------------------------------------------------------------------------ 
 void psuadeAnalysisSection::reset()
 { 
    for (int ii = 0; ii < 10; ii++)

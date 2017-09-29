@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #ifndef __GRADSTATANALYZERH__
 #define __GRADSTATANALYZERH__
 

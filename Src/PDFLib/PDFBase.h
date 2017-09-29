@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #ifndef __PDFBASEH__
 #define __PDFBASEH__
 
@@ -51,7 +50,7 @@ public:
    virtual int invCDF(int, double *, double *, double, double);
    virtual int genSample(int, double *, double, double);
    virtual double getMean();
-
+   virtual int setParam(char *);
 };
 
 // ************************************************************************

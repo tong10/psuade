@@ -29,7 +29,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-using namespace std;
 
 #include "MultiObjectiveOptimizer.h"
 #include "Sampling.h"
@@ -171,11 +170,11 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
    Sampling *samPtr;
 
    printLevel = odata->outputLevel_;
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
    printf("Surrogate-based Multi-objective optimization: \n");
    nInputs  = odata->nInputs_;
    nOutputs = odata->nOutputs_;
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("The multi-objective function is built from the sample\n");
    printf("outputs (currently there are %d outputs).\n",nOutputs);
    printf("For this optimizer to build a general multi-objective\n");
@@ -193,14 +192,14 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
    printf("      replaced by a 'NULL', and the number of design variables\n");
    printf("      should be nOutputs-1 (since sum of weights=1).\n");
    printf("An Example: \n");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    printf("PSUADE_BEGIN\n");
    printf("2\n");
    printf("1 0 1\n");
    printf("2 0 1\n");
    printf("objfcn.py (NULL if the objective function is a linear combination)\n");
    printf("PSUADE_END\n");
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    printf("Note: the optimizer will evaluate the multi-objective function\n");
    printf("      by using the calling sequence:\n");
    printf("          <pythonFile> <paramFile> <objFile>\n");
@@ -208,7 +207,7 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
    printf("  <paramFile> contains a sample point to evaluate the function\n");
    printf("  <objFile>   the function value written by the python file\n");
    printf("NOTE: MAKE SURE the <pythonFile> HAS EXECUTE PERMISSION.\n");
-   printEquals(0);
+   printEquals(PL_INFO, 0);
    printf("Enter the name of the configuration file: ");
    cin >> sfname;
    fgets(lineIn, 500, stdin);
@@ -517,7 +516,7 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
    for (ii = 0; ii < nSamples; ii++) sampleStat[ii] = 1;
    ioPtr = new PsuadeData();
    ioPtr->updateInputSection(nSamples, numVars, NULL, lbounds,
-                             ubounds, sampleIns, iNames);
+                             ubounds, sampleIns, iNames,NULL,NULL,NULL,NULL);
    ioPtr->updateOutputSection(nSamples,nInputs+nOutputs+1,sampleOut,
                               sampleStat,oNames);
    ioPtr->updateMethodSection(PSUADE_SAMP_MC, nSamples, 1, -1, -1);

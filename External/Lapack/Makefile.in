@@ -13,7 +13,8 @@ OBJS = dgemv.o   dlange.o  dlaset.o  dlassq.o  dormbr.o  ilaenv.o\
        daxpy.o   ddot.o    dsymv.o   dsyr2.o   dsyr2k.o  dchdc.o \
        dgesv.o   dgetf2.o  dgetrf.o  dgetrs.o  dsyrk.o   dlaswp.o \
        dsymm.o   dposv.o   dpotf2.o  dpotrf.o  dpotrs.o  idamax.o \
-       dtrsv.o   dqrsl.o   dqrdc2.o  dtrsl.o   dasum.o
+       dtrsv.o   dqrsl.o   dqrdc2.o  dtrsl.o   dasum.o   iparmq.o \
+       dgetri.o  dtrti2.o  dtrtri.o 
 
 .f.o:
 	$(F77) $(FFLAGS) -c $*.f

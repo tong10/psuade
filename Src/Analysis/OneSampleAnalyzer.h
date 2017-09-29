@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2007
 // ************************************************************************
-
 #ifndef __ONESAMPLEANALYZERH__
 #define __ONESAMPLEANALYZERH__
 

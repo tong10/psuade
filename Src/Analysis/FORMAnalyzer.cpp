@@ -32,6 +32,7 @@
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "FORMAnalyzer.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -42,7 +43,7 @@ FORMAnalyzer::FORMAnalyzer() : Analyzer()
 {
    setName("FORM");
    rsType_ = PSUADE_RS_MARS; /* default is MARS */
-   printf("FORMAnalyzer currently not supported.\n");
+   printOutTS(PL_ERROR, "FORMAnalyzer currently not supported.\n");
    exit(1);
 }
 
@@ -59,7 +60,7 @@ FORMAnalyzer::~FORMAnalyzer()
 double FORMAnalyzer::analyze(aData &adata)
 {
    int        nInputs, nOutputs, nSamples, outputID, sInd, ii, status;
-   int        nPtsPerDim=64, length, wgtID, iter, printLevel, iOne=1;
+   int        nPtsPerDim=64, wgtID, iter, printLevel, iOne=1;
    double     *X, *Y, *xLower, *xUpper, *YY, *wgts=NULL, *currZ, beta;
    double     ddata, gdata, Ldata, oldbeta, *alphas, thresh;
    FuncApprox *fa;
@@ -77,30 +78,30 @@ double FORMAnalyzer::analyze(aData &adata)
    thresh     = adata.analysisThreshold_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("FORM INFO: some inputs have non-uniform PDFs, but\n");
-      printf("           they will not be relevant in this analysis.\n");
+      printOutTS(PL_WARN, "FORM INFO: some inputs have non-uniform PDFs, but\n");
+      printOutTS(PL_WARN, "           they will not be relevant in this analysis.\n");
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("FORMAnalyzer ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "FORMAnalyzer ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (printLevel > 0)
    {
-      printAsterisks(0);
-      if (rsType_ == 0) printf("FORM: MARS model.\n");
-      if (rsType_ == 1) printf("FORM: linear regression model.\n");
-      if (rsType_ == 2) printf("FORM: quadratic regression model.\n");
-      if (rsType_ == 3) printf("FORM: cubic regression model.\n");
-      if (rsType_ == 4) printf("FORM: quartic regression model.\n");
-      if (rsType_ == 5) printf("FORM: artificial neural network model.\n");
-      if (rsType_ == 6) printf("FORM: user-specified regression model.\n");
-      if (rsType_ == 7) printf("FORM: Gaussian process model.\n");
-      printEquals(0);
+      printAsterisks(PL_INFO, 0);
+      if (rsType_ == 0) printOutTS(PL_INFO, "FORM: MARS model.\n");
+      if (rsType_ == 1) printOutTS(PL_INFO, "FORM: linear regression model.\n");
+      if (rsType_ == 2) printOutTS(PL_INFO, "FORM: quadratic regression model.\n");
+      if (rsType_ == 3) printOutTS(PL_INFO, "FORM: cubic regression model.\n");
+      if (rsType_ == 4) printOutTS(PL_INFO, "FORM: quartic regression model.\n");
+      if (rsType_ == 5) printOutTS(PL_INFO, "FORM: artificial neural network model.\n");
+      if (rsType_ == 6) printOutTS(PL_INFO, "FORM: user-specified regression model.\n");
+      if (rsType_ == 7) printOutTS(PL_INFO, "FORM: Gaussian process model.\n");
+      printEquals(PL_INFO, 0);
    }
    
    YY = new double[nSamples];
@@ -116,7 +117,7 @@ double FORMAnalyzer::analyze(aData &adata)
    fa = genFA(rsType_, nInputs, iOne=1, nSamples);
    if (fa == NULL)
    {
-      printf("FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
+      printOutTS(PL_INFO, "FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
       delete [] YY;
       delete fa;
       if (wgts != NULL) delete [] wgts;
@@ -130,11 +131,10 @@ double FORMAnalyzer::analyze(aData &adata)
       fa->loadWeights(nSamples, wgts);
       delete [] wgts;
    }
-   length = -999;
-   status = fa->genNDGridData(X, YY, &length, NULL, NULL);
+   status = fa->initialize(X, YY);
    if (status != 0)
    {
-      printf("FORMAnalyzer ERROR: FuncApprox returns error.\n");
+      printOutTS(PL_INFO, "FORMAnalyzer ERROR: FuncApprox returns error.\n");
       delete [] YY;
       delete fa;
       return 1.0e12;
@@ -172,18 +172,18 @@ double FORMAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) beta += currZ[ii] * currZ[ii];
       beta = sqrt(beta);
       if (printLevel > 1)
-         printf("FORM analyze: beta at iter %4d = %12.4e(%12.4e)\n",iter,
+         printOutTS(PL_INFO, "FORM analyze: beta at iter %4d = %12.4e(%12.4e)\n",iter,
                 beta, oldbeta);
       if (PABS((beta-oldbeta)/(beta+oldbeta)) < 1.0e-4) break;
       iter++;
    }
    if (printLevel > 1)
    {
-      printf("FORMAnalyzer: optimal point = \n");
+      printOutTS(PL_INFO, "FORMAnalyzer: optimal point = \n");
       for (ii = 0; ii < nInputs; ii++) 
-         printf("\t X[%3d] = %12.4e\n",ii+1,currZ[ii]);
-      printf("optimal distance = %12.4e\n",beta);
-      printf("number of iterations = %d\n",iter);
+         printOutTS(PL_INFO, "\t X[%3d] = %12.4e\n",ii+1,currZ[ii]);
+      printOutTS(PL_INFO, "optimal distance = %12.4e\n",beta);
+      printOutTS(PL_INFO, "number of iterations = %d\n",iter);
    }
 
    delete fa;
@@ -201,13 +201,13 @@ int FORMAnalyzer::setParams(int argc, char **argv)
    char  *request = (char *) argv[0];
    if (!strcmp(request, "rstype"))
    {
-      if (argc != 2) printf("FORMAnalyzer WARNING: setParams.\n");
+      if (argc != 2) printOutTS(PL_INFO, "FORMAnalyzer WARNING: setParams.\n");
       rsType_ = *(int *) argv[1];
       if (rsType_ < 0 || rsType_ > 7) rsType_ = 0;
    }
    else
    {
-      printf("FORMAnalyzer ERROR: setParams not valid.\n");
+      printOutTS(PL_ERROR, "FORMAnalyzer ERROR: setParams not valid.\n");
       exit(1);
    }
    return 0;
@@ -218,7 +218,7 @@ int FORMAnalyzer::setParams(int argc, char **argv)
 // ------------------------------------------------------------------------
 FORMAnalyzer& FORMAnalyzer::operator=(const FORMAnalyzer &)
 {
-   printf("FORMAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "FORMAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

@@ -29,6 +29,7 @@
 #define __SELECTIVEREGRESSIONH__
 
 #include "FuncApprox.h"
+#include "Matrix.h"
 
 // ************************************************************************
 // class definition
@@ -39,11 +40,14 @@ class SelectiveRegression : public FuncApprox
    double *regCoeffs_;
    double *regStdevs_;
    int    **coefTerms_;
+   double **fuzzyC_;
+   Matrix covMatrix_;
  
 public:
    SelectiveRegression(int, int);
    ~SelectiveRegression();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);

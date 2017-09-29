@@ -26,7 +26,6 @@
 // DATE   : 2005
 // ************************************************************************
 #include <stdio.h>
-using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -54,6 +53,11 @@ int BoxBehnkenSampling::initialize(int initLevel)
 {
    int inputID, sampleID, inputID2;
 
+   if (nSamples_ == 0)
+   {
+      printf("BoxBehnkenSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("BoxBehnkenSampling::initialize ERROR - input not set up.\n");

@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-using namespace std;
 
 #include "Psuade.h"
 #include "sysdef.h"
@@ -73,6 +72,11 @@ int LHSampling::initialize(int initLevel)
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("LHSampling::initialize ERROR - input not set up.\n");
+      exit(1);
+   }
+   if (nSamples_ == 0)
+   {
+      printf("LHSampling::initialize ERROR - nSamples = 0.\n");
       exit(1);
    }
 
@@ -153,11 +157,11 @@ int LHSampling::initialize(int initLevel)
    iArray1 = new int[nSymbols_];
    iArray2 = new int[nSymbols_];
    maxMinDist = 0;
-   if      (nSamples_ >= 10000) ntimes = 1;
-   else if (nSamples_ >= 9000)  ntimes = 2;
-   else if (nSamples_ >= 4000)  ntimes = 5;
-   else if (nSamples_ >= 1000)  ntimes = 10;
-   else                         ntimes = 50;
+   if      (nSamples_ > 10000) ntimes = 1;
+   else if (nSamples_ > 9000)  ntimes = 2;
+   else if (nSamples_ > 4000)  ntimes = 5;
+   else if (nSamples_ > 1000)  ntimes = 10;
+   else                        ntimes = 50;
    
    if (psSamExpertMode_ == 1 && printLevel_ > 0)
    {

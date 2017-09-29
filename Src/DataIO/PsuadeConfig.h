@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2006
 // ************************************************************************
-
 #ifndef __PSUADECONFIGH__
 #define __PSUADECONFIGH__
 

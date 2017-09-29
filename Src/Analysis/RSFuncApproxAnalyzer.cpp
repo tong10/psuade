@@ -37,6 +37,7 @@
 #include "Regression.h"
 #include "UserRegression.h"
 #include "RSFuncApproxAnalyzer.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -64,7 +65,7 @@ RSFuncApproxAnalyzer::~RSFuncApproxAnalyzer()
 double RSFuncApproxAnalyzer::analyze(aData &adata)
 {
    int        nInputs, nOutputs, nSamples, outputID, nLevels, *levelSeps;
-   int        iD, iL, nLast, nPtsPerDim=64, length, status, rsState;
+   int        iD, iL, nLast, nPtsPerDim=64, status, rsState;
    int        count, iD2, iI, nSubSamples, wgtID, printLevel;
    int        *iArray, *iArray2, testFlag, iOne=1;
    double     ddata, ymax, ymin, *YLocal, *X, *Y, *X2, *Y2, retdata=0;
@@ -78,7 +79,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
    char       winput1[500], winput2[500], dataFile[500], errFile[500];
    char       pString[500];
    FILE       *fpData, *fpErr;
-   FuncApprox *fa;
+   FuncApprox *faPtr;
 
    printLevel = adata.printLevel_;
    nInputs   = adata.nInputs_;
@@ -98,17 +99,17 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       for (iI = 0; iI < nInputs; iI++) count += adata.inputPDFs_[iI];
       if (count > 0)
       {
-         printf("RSAnalysis INFO: some inputs have non-uniform PDFs, but\n");
-         printf("                they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO, "RSAnalysis INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO, "                they are not relevant in this analysis.\n");
       }
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("RSAnalysis ERROR: invalid arguments.\n");
-      printf("   nInputs  = %d\n", nInputs);
-      printf("   nOutputs = %d\n", nOutputs);
-      printf("   nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "RSAnalyzer ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "   nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "   nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    status = 0;
@@ -116,16 +117,17 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*iD+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
    if (status == 1)
    {
-      printf("RSAnalysis ERROR: Some outputs are undefined. Prune the\n");
-      printf("                  undefined sample points first.\n");
+      printOutTS(PL_ERROR, "RSAnalysis ERROR: Some outputs are undefined. Prune the\n");
+      printOutTS(PL_ERROR, "                  undefined sample points first.\n");
       return PSUADE_UNDEFINED;
    }
    if (printLevel > 0)
    {
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printThisFA(rsType_);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
+   if (rsType_ == PSUADE_RS_REGRGL) nLevels = 1;
    
    YLocal = new double[nSamples];
    for (iD = 0; iD < nSamples; iD++) YLocal[iD] = Y[iD*nOutputs+outputID];
@@ -136,16 +138,14 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (PABS(YLocal[iD]) > ymax) ymax = PABS(YLocal[iD]);
       if (PABS(YLocal[iD]) < ymin) ymin = PABS(YLocal[iD]);
    }
-   printf("RSA: Output ID = %d\n", outputID+1);
-   printf("RSA: Output Maximum/Minimum = %14.6e %14.6e\n",ymax,ymin);
-   printf("INFO: Turn on analysis expert mode to perform cross validation.\n");
-   printf("INFO: Set printlevel higher (1-4) to display more information.\n");
-   printf("INFO: Set print level to 4 for interpolation error graphics file.\n");
-   printf("INFO: Set analysis expert mode to perform cross validation.\n");
+   printOutTS(PL_INFO, "RSA: Output ID = %d\n", outputID+1);
+   printOutTS(PL_INFO, "RSA: Output Maximum/Minimum = %14.6e %14.6e\n",ymax,ymin);
+   printOutTS(PL_INFO, "INFO: Set printlevel higher (1-4) to display more information.\n");
+   printOutTS(PL_INFO, "INFO: Set print level to 4 for interpolation error graphics file.\n");
    if (ymax == PSUADE_UNDEFINED)
    {
-      printf("RSAnalysis ERROR: some outputs are undefined.\n");
-      printf("                  Prune them first before analyze.\n");
+      printOutTS(PL_ERROR, "RSAnalyzer ERROR: some outputs are undefined.\n");
+      printOutTS(PL_ERROR, "                  Prune them first before analyze.\n");
       delete [] YLocal;
       return PSUADE_UNDEFINED;
    }
@@ -156,48 +156,41 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       nLast = nSamples;
       if (levelSeps != NULL) nLast = levelSeps[iL];
 
-      fa = genFA(rsType_, nInputs, iOne, nLast);
-      if (fa == NULL)
+      faPtr = genFA(rsType_, nInputs, iOne, nLast);
+      if (faPtr == NULL)
       {
-         printf("RSFAnalysis INFO: cannot create function approximator.\n");
+         printOutTS(PL_INFO, "RSFAnalyzer INFO: cannot create response surface.\n");
          delete [] YLocal;
-         delete fa;
+         delete faPtr;
          delete [] YT;
          return 1.0;
       }
-      fa->setNPtsPerDim(nPtsPerDim);
-      fa->setBounds(lower, upper);
-      if (iL == nLevels-1) fa->setOutputLevel(printLevel);
+      faPtr->setNPtsPerDim(nPtsPerDim);
+      faPtr->setBounds(lower, upper);
+      if (iL == nLevels-1) faPtr->setOutputLevel(printLevel);
       if (wgtID >= 0 && wgtID < nOutputs)
       {
          wgts = new double[nLast];
          for (iD = 0; iD < nLast; iD++) wgts[iD] = Y[iD*nOutputs+wgtID];
-         fa->loadWeights(nLast, wgts);
+         faPtr->loadWeights(nLast, wgts);
          delete [] wgts;
       }
-      length = -999;
-      status = fa->genNDGridData(X, YLocal, &length, NULL, NULL);
+      if (iL == nLevels - 1 && psRSCodeGen_ == 2) psRSCodeGen_ = 1;
+      status = faPtr->initialize(X, YLocal);
+      if (psRSCodeGen_ == 1) psRSCodeGen_ = 2;
       if (status != 0)
       {
-         printf("RSAnalysis ERROR: something wrong in genNDGridData.\n");
+         printOutTS(PL_ERROR, "RSAnalysis ERROR: something wrong in FA initialize.\n");
          delete [] YLocal;
-         delete fa;
+         delete faPtr;
          delete [] YT;
          return PSUADE_UNDEFINED;
-      }
-      if (rsType_ == PSUADE_RS_GP2)
-      {
-         printf("RSAnalysis INFO: GP2 currently for checking only.\n");
-         delete [] YLocal;
-         delete [] YT;
-         delete fa;
-         return 1.0;
       }
 
       sumErr1  = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
       sumErr11 = sumErr11s = ydiff = 0.0;
       maxBase = maxBases = ymean = yvar = 0.0;
-      fa->evaluatePoint(nLast, X, YT);
+      faPtr->evaluatePoint(nLast, X, YT);
       for (iD = 0; iD < nLast; iD++)
       {
          ddata = PABS(YT[iD] - YLocal[iD]);
@@ -227,28 +220,28 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       sumErr2s = sqrt(sumErr2s / (double) nLast);
       if (printLevel > 2 || iL == nLevels-1)
       {
-         printf("RSAnalysis: L %2d: interpolation error on training set \n", iL);
-         printf("             avg error far from 0 ==> systematic bias.\n");
-         printf("             rms error large      ==> average   error large.\n");
-         printf("             max error large      ==> pointwise error large.\n");
-         printf("             R-square may not always be a reliable measure.\n");
-         printf("  avg error   = %11.3e (unscaled)\n", sumErr11);
-         printf("  avg error   = %11.3e (scaled)\n", sumErr11s);
-         printf("  rms error   = %11.3e (unscaled)\n", sumErr2);
-         printf("  rms error   = %11.3e (scaled)\n", sumErr2s);
-         printf("  max error   = %11.3e (unscaled, BASE=%9.3e)\n",
+         printOutTS(PL_INFO, "RSAnalysis: L %2d: interpolation error on training set \n", iL);
+         printOutTS(PL_INFO, "             avg error far from 0 ==> systematic bias.\n");
+         printOutTS(PL_INFO, "             rms error large      ==> average   error large.\n");
+         printOutTS(PL_INFO, "             max error large      ==> pointwise error large.\n");
+         printOutTS(PL_INFO, "             R-square may not always be a reliable measure.\n");
+         printOutTS(PL_INFO, "  avg error   = %11.3e (unscaled)\n", sumErr11);
+         printOutTS(PL_INFO, "  avg error   = %11.3e (scaled)\n", sumErr11s);
+         printOutTS(PL_INFO, "  rms error   = %11.3e (unscaled)\n", sumErr2);
+         printOutTS(PL_INFO, "  rms error   = %11.3e (scaled)\n", sumErr2s);
+         printOutTS(PL_INFO, "  max error   = %11.3e (unscaled, BASE=%9.3e)\n",
                 maxErr, maxBase);
-         printf("  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
+         printOutTS(PL_INFO, "  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
                 maxErrs, maxBases);
-         printf("  R-square    = %16.8e\n",1.0 - sumErr2*sumErr2*nLast / yvar);
-         printf("Based on %d training points (total=%d).\n",nLast,nSamples);
+         printOutTS(PL_INFO, "  R-square    = %16.8e\n",1.0 - sumErr2*sumErr2*nLast / yvar);
+         printOutTS(PL_INFO, "Based on %d training points (total=%d).\n",nLast,nSamples);
       }
 
       if (nLevels > 1 && iL < nLevels-1)
       {
          sumErr1 = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
          sumErr11 = sumErr11s;
-         fa->evaluatePoint(nSamples, X, YT);
+         faPtr->evaluatePoint(nSamples, X, YT);
          for (iD = nLast; iD < nSamples; iD++)
          {
             ddata = PABS(YT[iD] - YLocal[iD]);
@@ -272,57 +265,55 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          sumErr11s = sumErr11s / (double) (nSamples-nLast);
          sumErr2   = sqrt(sumErr2 / (double) (nSamples-nLast));
          sumErr2s  = sqrt(sumErr2s / (double) (nSamples-nLast));
-         if (printLevel > 1) 
-         {
-            printf("RSAnalysis: L %2d: Prediction error on the remaining data:\n",
+
+         printOutTS(PL_INFO, "RSAnalysis: L %2d: Prediction error on the remaining data:\n",
                    iL);
-            printf("  avg error = %11.3e (unscaled)\n", sumErr11);
-            printf("  avg error = %11.3e (scaled)\n", sumErr11s);
-            printf("  rms error = %11.3e (unscaled)\n", sumErr2);
-            printf("  rms error = %11.3e (scaled)\n", sumErr2s);
-            printf("  max error = %11.3e (unscaled, BASE=%11.3e)\n", maxErr, 
+         printOutTS(PL_INFO, "  avg error = %11.3e (unscaled)\n", sumErr11);
+         printOutTS(PL_INFO, "  avg error = %11.3e (scaled)\n", sumErr11s);
+         printOutTS(PL_INFO, "  rms error = %11.3e (unscaled)\n", sumErr2);
+         printOutTS(PL_INFO, "  rms error = %11.3e (scaled)\n", sumErr2s);
+         printOutTS(PL_INFO, "  max error = %11.3e (unscaled, BASE=%11.3e)\n", maxErr,
                    maxBase);
-            printf("  max error = %11.3e (  scaled, BASE=%11.3e)\n", maxErrs, 
+         printOutTS(PL_INFO, "  max error = %11.3e (  scaled, BASE=%11.3e)\n", maxErrs,
                    maxBases);
-            printf("Based on %d training points (rest=%d).\n",nLast,
+         printOutTS(PL_INFO, "Based on %d training points (rest=%d).\n",nLast,
                    nSamples-nLast);
-         }
+
       }
 
-      if (printLevel > 3 && iL == nLevels-1) 
+      if (psAnaExpertMode_ == 1 && iL == nLevels-1) 
       {
          if (psPlotTool_ == 1)
          {
-            fpErr = fopen("psuade_rsfa_err.sci", "w");
-            if (fpErr != NULL)
-            {
-               fprintf(fpErr, "// Surface Fitting Error Histogram \n");
-               fprintf(fpErr, "// Interpolation errors on all points\n");
-               fprintf(fpErr, "// col 1: interpolated data\n");
-               fprintf(fpErr, "// col 2: training data\n");
-               fprintf(fpErr, "// col 3: col 1 - col2\n");
-               fprintf(fpErr, "// col 4 on: input data\n");
-            }
-            else printf("INFO: cannot open file psuade_rsfa_err.sci.\n");
+            fpErr = fopen("RSFA_training_err.sci", "w");
+            if (fpErr == NULL)
+               printOutTS(PL_INFO, "INFO: cannot open file RSFA_training_err.sci.\n");
          }
          else
          {
-            fpErr = fopen("psuade_rsfa_err.m", "w");
-            if (fpErr != NULL)
-            {
-               fprintf(fpErr, "%% Surface Fitting Error Histogram \n");
-               fprintf(fpErr, "%% Interpolation errors on all points\n");
-               fprintf(fpErr, "%% col 1: interpolated data\n");
-               fprintf(fpErr, "%% col 2: training data\n");
-               fprintf(fpErr, "%% col 3: col 1 - col2\n");
-               fprintf(fpErr, "%% col 4 on: input data\n");
-            }
-            else printf("INFO: cannot open file psuade_rsfa_err.m.\n");
+            fpErr = fopen("RSFA_training_err.m", "w");
+            if (fpErr == NULL)
+               printOutTS(PL_INFO,"INFO: cannot open file RSFA_training_err.m.\n");
          }
-         if (fpErr != NULL) fprintf(fpErr, "E = [\n");
+         if (fpErr != NULL)
+         {
+            strcpy(pString, "Surface Fitting Error Histogram");
+            fwriteComment(fpErr, pString);
+            strcpy(pString, "Interpolation errors on all points");
+            fwriteComment(fpErr, pString);
+            strcpy(pString, "col 1: interpolated data");
+            fwriteComment(fpErr, pString);
+            strcpy(pString, "col 2: training data");
+            fwriteComment(fpErr, pString);
+            strcpy(pString, "col 3: col 1 - col2");
+            fwriteComment(fpErr, pString);
+            strcpy(pString, "col 4 on: input data");
+            fwriteComment(fpErr, pString);
+            fprintf(fpErr, "E = [\n");
+         }
          sumErr1 = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
          maxBase = sumErr11 = sumErr11s = 0.0;
-         fa->evaluatePoint(nSamples, X, YT);
+         faPtr->evaluatePoint(nSamples, X, YT);
          for (iD = 0; iD < nSamples; iD++)
          {
             ddata = YT[iD];
@@ -378,7 +369,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                fprintf(fpErr, "axis([xmin xmax xmin xmax])\n");
             }
             fwritePlotAxes(fpErr);
-            fwritePlotTitle(fpErr, "Interpolated versus actual data");
+            fwritePlotTitle(fpErr, "Interpolated vs actual data");
             fwritePlotXLabel(fpErr, "Actual data");
             fwritePlotYLabel(fpErr, "Interpolated data");
 
@@ -472,7 +463,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                   fprintf(fpErr, "f.color_map = jetcolormap(3);\n");
                   fprintf(fpErr, "drawlater\n");
                   fprintf(fpErr, "param3d1([E(:,4)' ; E(:,4)'],");
-                  fprintf(fpErr, "[E(:,5)' ; E(:,5)'],[E(:,2)' ; E(:,2)'])\n");
+                  fprintf(fpErr, "[E(:,5)' ; E(:,5)'],[E(:,3)' ; E(:,3)'])\n");
                   fprintf(fpErr, "e = gce();\n");
                   fprintf(fpErr, "e.children.mark_mode = \"on\";\n");
                   fprintf(fpErr, "e.children.mark_size_unit = \"point\";\n");
@@ -486,7 +477,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                }
                else
                {
-                  fprintf(fpErr, "   plot3(E(:,4),E(:,5),E(:,2),'bp')\n");
+                  fprintf(fpErr, "   plot3(E(:,4),E(:,5),E(:,3),'bp')\n");
                }
                fwritePlotXLabel(fpErr, "Input 1");
                fwritePlotYLabel(fpErr, "Input 2");
@@ -495,9 +486,9 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             }
             fclose(fpErr);
             if (psPlotTool_ == 1)
-               printf("Interpolation error info are in psuade_rsfa_err.sci\n");
+               printOutTS(PL_INFO, "Interpolation error info are in RSFA_training_err.sci\n");
             else
-               printf("Interpolation error info are in psuade_rsfa_err.m\n");
+               printOutTS(PL_INFO, "Interpolation error info are in RSFA_training_err.m\n");
          }
          sumErr1   = sumErr1 / (double) nSamples;
          sumErr1s  = sumErr1s / (double) nSamples;
@@ -507,7 +498,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          sumErr2s  = sqrt(sumErr2s);
          retdata = sumErr1 / ymax;
       }
-      delete fa;
+      delete faPtr;
    }
    delete [] YT;
 
@@ -519,7 +510,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (cString != NULL)
       {
          useCV_ = 1;
-         printf("RSFA: turn on cross validation (from config file)\n");
+         printOutTS(PL_INFO, "RSFA: turn on cross validation (from config file)\n");
       }
       cString = psConfig_->getParameter("RSFA_cv_ngroups");
       if (cString != NULL)
@@ -527,28 +518,29 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          sscanf(cString, "%s %s %d",winput1,winput2,&iD);
          if (iD > 0)
          {
-            printf("RSFA: number of CV groups = %d\n",iD);
+            printOutTS(PL_INFO, "RSFA: number of CV groups = %d\n",iD);
             numCVGroups_ = iD;
             nSubSamples = nSamples / numCVGroups_;
          }
          else
          {
-            printf("RSFA: invalid number of CV groups = %d\n",iD);
+            printOutTS(PL_INFO, "RSFA: invalid number of CV groups = %d\n",iD);
             useCV_ = 0;
          }
       }
    }
    else
 #endif
+   if (rsType_ != PSUADE_RS_REGRGL) 
    {
-      printAsterisks(0);
-      printf("Next you will be asked whether to do cross validation or not.\n");
-      printf("Since cross validation iterates as many times as the number\n");
-      printf("of groups. The rs_expert mode will be turned off. To change\n");
-      printf("the default parameters for different response surface, you\n");
-      printf("will need to exit, create a config file (use genconfigfile\n");
-      printf("in command line mode), and set config option in your data file.\n");
-      printDashes(0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "Next you will be asked whether to do cross validation or not.\n");
+      printOutTS(PL_INFO, "Since cross validation iterates as many times as the number\n");
+      printOutTS(PL_INFO, "of groups. The rs_expert mode will be turned off. To change\n");
+      printOutTS(PL_INFO, "the default parameters for different response surface, you\n");
+      printOutTS(PL_INFO, "will need to exit, create a config file (use genconfigfile\n");
+      printOutTS(PL_INFO, "in command line mode), and set config option in your data file.\n");
+      printDashes(PL_INFO, 0);
       sprintf(pString, "Perform cross validation ? (y or n) ");
       getString(pString, winput1);
       if (winput1[0] == 'y')
@@ -557,29 +549,35 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          sprintf(pString, "Enter the number of groups to validate : (2 - %d) ",
                  nSamples);
          iD = getInt(1, nSamples, pString);
-         printf("RSFA: number of CV groups = %d\n",iD);
+         printOutTS(PL_INFO, "RSFA: number of CV groups = %d\n",iD);
          numCVGroups_ = iD;
          nSubSamples = nSamples / numCVGroups_;
+         if (nSubSamples * numCVGroups_ < nSamples)
+         {
+            numCVGroups_++;
+            printOutTS(PL_INFO, "INFO: number of CV groups adjusted to %d.\n",numCVGroups_);
+            printOutTS(PL_INFO, "      Each CV group has <= %d sample points\n",nSubSamples);
+         }
       }
    }
 
    if (useCV_ == 1)
    {
-      printf("RSAnalysis: L %2d:cross validation (CV) begins...\n",nLevels);
+      printOutTS(PL_INFO, "RSAnalysis: L %2d:cross validation (CV) begins...\n",nLevels);
 
       adata.sampleErrors_ = new double[nSamples];
       for (iD = 0; iD < nSamples; iD++) adata.sampleErrors_[iD] = 0.0;
 
-      fa = genFA(rsType_, nInputs, iOne, nSamples-nSubSamples);
-      if(fa == NULL)
+      faPtr = genFA(rsType_, nInputs, iOne, nSamples-nSubSamples);
+      if (faPtr == NULL)
       {
-	 printf("RSAnalysis: genFA returned NULL in file %s line %d\n", 
+	 printOutTS(PL_INFO, "RSAnalysis: genFA returned NULL in file %s line %d\n",
                 __FILE__, __LINE__ );
          exit(1);
       }
-      fa->setNPtsPerDim(nPtsPerDim);
-      fa->setBounds(lower, upper);
-      fa->setOutputLevel(printLevel);
+      faPtr->setNPtsPerDim(nPtsPerDim);
+      faPtr->setBounds(lower, upper);
+      faPtr->setOutputLevel(printLevel);
       rsState = psRSExpertMode_;
       psRSExpertMode_ = 0;
 
@@ -623,7 +621,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       cvMaxBase = cvMaxBases = 0.0;
       for (iD = 0; iD < nSamples; iD+=nSubSamples)
       {
-         printf("RSAnalysis:: L %2d:CV processes %d out of %d.\n",nLevels,
+         printOutTS(PL_INFO, "RSAnalysis:: L %2d:CV processes %d out of %d.\n",nLevels,
                 iD/nSubSamples+1, nSamples/nSubSamples);
 
          count = 0;
@@ -639,14 +637,13 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             }
          }
          if (wgtID >= 0 && wgtID < nOutputs)
-            fa->loadWeights(nSamples-nSubSamples, wgts);
+            faPtr->loadWeights(nSamples-nSubSamples, wgts);
 
-         length = -999;
-         status = fa->genNDGridData(X2, Y2, &length, NULL, NULL);
+         status = faPtr->initialize(X2, Y2);
          if (status == -1) break;
          count = nSubSamples;
          if ((iD + nSubSamples) > nSamples) count = nSamples - iD;
-         fa->evaluatePointFuzzy(count, &(XX[iD*nInputs]), YT, S2);
+         faPtr->evaluatePointFuzzy(count, &(XX[iD*nInputs]), YT, S2);
 
          cvErr1 = cvErr2 = cvErr1s = cvErr2s = cvMax = cvMaxs = 0.0;
          for (iD2 = 0; iD2 < count; iD2++)
@@ -672,7 +669,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                cvMaxBases = PABS(YY[iD+iD2]);
             }
             if (printLevel > 4) 
-               printf("Sample %6d: predicted =  %e, actual =  %e\n", 
+               printOutTS(PL_INFO, "Sample %6d: predicted =  %e, actual =  %e\n",
                       iArray2[iArray[iD+iD2]], YT[iD2], YY[iD+iD2]);
          }
          adata.sampleErrors_[iD/nSubSamples] = cvErr2s;
@@ -687,22 +684,22 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          if (cvMax > CVMax ) {CVMax = cvMax; CVMaxBase = cvMaxBase;}
          if (cvMaxs > CVMaxs ) {CVMaxs = cvMaxs; CVMaxBases = cvMaxBases;}
 
-         printf("RSA: first member of sample group %5d = %d)\n",
+         printOutTS(PL_INFO, "RSA: first member of sample group %5d = %d\n",
                 iD/nSubSamples+1, iArray[iD]+1);
-         printf("RSA: CV error for sample group %5d = %11.3e (avg unscaled)\n",
+         printOutTS(PL_INFO, "RSA: CV error for sample group %5d = %11.3e (avg unscaled)\n",
                iD/nSubSamples+1, cvErr1);
-         printf("RSA: CV error for sample group %5d = %11.3e (avg scaled)\n",
+         printOutTS(PL_INFO, "RSA: CV error for sample group %5d = %11.3e (avg scaled)\n",
                iD/nSubSamples+1, cvErr1s);
-         printf("RSA: CV error for sample group %5d = %11.3e (rms unscaled)\n",
+         printOutTS(PL_INFO, "RSA: CV error for sample group %5d = %11.3e (rms unscaled)\n",
                iD/nSubSamples+1, cvErr2);
-         printf("RSA: CV error for sample group %5d = %11.3e (rms scaled)\n",
+         printOutTS(PL_INFO, "RSA: CV error for sample group %5d = %11.3e (rms scaled)\n",
                iD/nSubSamples+1, cvErr2s);
-         printf("RSA: CV error for sample group %5d = %11.3e (max",
+         printOutTS(PL_INFO, "RSA: CV error for sample group %5d = %11.3e (max",
                iD/nSubSamples+1, cvMax);
-         printf(" unscaled,BASE=%9.3e)\n", cvMaxBase);
-         printf("RSA: CV error for sample group %5d = %11.3e (max",
+         printOutTS(PL_INFO, " unscaled,BASE=%9.3e)\n", cvMaxBase);
+         printOutTS(PL_INFO, "RSA: CV error for sample group %5d = %11.3e (max",
                iD/nSubSamples+1, cvMaxs);
-         printf("   scaled,BASE=%9.3e)\n", cvMaxBases);
+         printOutTS(PL_INFO, "   scaled,BASE=%9.3e)\n", cvMaxBases);
       }
       if (status >= 0)
       {
@@ -710,46 +707,41 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          CVErr1s = CVErr1s / (double) nSamples;
          CVErr2  = sqrt(CVErr2 / nSamples);
          CVErr2s = sqrt(CVErr2s / nSamples);
-         printf("RSA: final CV error  = %11.3e (avg unscaled)\n",CVErr1);
-         printf("RSA: final CV error  = %11.3e (avg   scaled)\n",CVErr1s);
-         printf("RSA: final CV error  = %11.3e (rms unscaled)\n",CVErr2);
-         printf("RSA: final CV error  = %11.3e (rms   scaled)\n",CVErr2s);
-         printf("RSA: final CV error  = %11.3e (max unscaled, BASE=%9.3e)\n",
+         printOutTS(PL_INFO, "RSA: final CV error  = %11.3e (avg unscaled)\n",CVErr1);
+         printOutTS(PL_INFO, "RSA: final CV error  = %11.3e (avg   scaled)\n",CVErr1s);
+         printOutTS(PL_INFO, "RSA: final CV error  = %11.3e (rms unscaled)\n",CVErr2);
+         printOutTS(PL_INFO, "RSA: final CV error  = %11.3e (rms   scaled)\n",CVErr2s);
+         printOutTS(PL_INFO, "RSA: final CV error  = %11.3e (max unscaled, BASE=%9.3e)\n",
                 CVMax, CVMaxBase);
-         printf("RSFA: final CV error  = %11.3e (max   scaled, BASE=%9.3e)\n",
+         printOutTS(PL_INFO, "RSA: final CV error  = %11.3e (max   scaled, BASE=%9.3e)\n",
                 CVMaxs, CVMaxBases);
-         printf("RSFA: L %2d:cross validation (CV) completed.\n",nLevels);
+         printOutTS(PL_INFO, "RSA: L %2d:cross validation (CV) completed.\n",nLevels);
          if (psPlotTool_ == 1)
          {
             fpData = fopen("RSFA_CV_err.sci", "w");
             if (fpData != NULL)
-            {
-               fprintf(fpData,"// This file stores CV error for each point\n");
-               fprintf(fpData,"// Column 1: error (true - predicted)\n");
-               fprintf(fpData,"// Column 2: true\n");
-               fprintf(fpData,"// Column 3: predicted\n");
-               fprintf(fpData,"// Column 4: standard deviations\n"); 
-               fprintf(fpData,"// Set morePlots=1 for normalized residual error plot.\n");
-            }
-            else printf("INFO: cannot open file RSFA_CV_err.sci.\n");
+               printOutTS(PL_INFO, "INFO: cannot open file RSFA_CV_err.sci.\n");
          }
          else
          {
             fpData = fopen("RSFA_CV_err.m", "w");
-            if (fpData != NULL)
-            {
-               fprintf(fpData,"%% This file stores CV error for each point\n");
-               fprintf(fpData,"%% Column 1: error (true - predicted)\n");
-               fprintf(fpData,"%% Column 2: true\n");
-               fprintf(fpData,"%% Column 3: predicted\n");
-               fprintf(fpData,"%% Column 4: standard deviations\n"); 
-               fprintf(fpData,"%% Set morePlots=1 for normalized residual error plot.\n");
-            }
-            else printf("INFO: cannot open file RSFA_CV_err.m.\n");
+            if (fpData == NULL)
+               printOutTS(PL_INFO, "INFO: cannot open file RSFA_CV_err.m.\n");
          }
          if (fpData != NULL)
          {
-            fprintf(fpData,"disp('Set morePlots=1 for normalized residual error plot')\n");
+            strcpy(pString,"This file stores CV error for each point");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 1: error (true - predicted)");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 2: true");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 3: predicted");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 4: standard deviations"); 
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Set morePlots=1 for normalized residual error plot");
+            fwriteComment(fpData, pString);
             ssum = 0.0;
             fprintf(fpData, "morePlots = 0;\n");
             fprintf(fpData, "A = [\n");
@@ -760,7 +752,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
                ssum += PABS(sigmas[iD]);
             }
             fprintf(fpData, "];\n");
-            fwritePlotCLF(fpData);
+            fwriteHold(fpData, 0);
             fwritePlotFigure(fpData, 1);
             fprintf(fpData, "subplot(1,2,1)\n");
             if (psPlotTool_ == 1)
@@ -786,7 +778,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             }
             fwritePlotAxes(fpData);
             fwritePlotTitle(fpData, "CV Error Histogram");
-            fwritePlotXLabel(fpData, "Error");
+            fwritePlotXLabel(fpData, "Error (unnormalized)");
             fwritePlotYLabel(fpData, "Probabilities");
             if (psPlotTool_ != 1)
             {
@@ -817,85 +809,89 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             fprintf(fpData, "xmin = min(xmin, ymin);\n");
             fprintf(fpData, "xmax = max(xmax, ymax);\n");
             fprintf(fpData, "XX = xmin : xmax-xmin : xmax;\n");
-            fprintf(fpData, "plot(A(:,2), A(:,3),'*','MarkerSize',15)\n");
-            if (psPlotTool_ == 1)
-                 fprintf(fpData, "set(gca(),\"auto_clear\",\"off\")\n");
-            else fprintf(fpData, "hold on\n");
+            fprintf(fpData, "plot(A(:,2), A(:,3),'*','MarkerSize',12)\n");
+            fwriteHold(fpData, 1);
             fprintf(fpData, "plot(XX, XX)\n");
             if (psPlotTool_ == 1)
             {
                fprintf(fpData, "a = get(\"current_axes\");\n");
                fprintf(fpData, "a.data_bounds=[xmin,xmin;xmax,xmax];\n");
             }
-            else
-            {
-               fprintf(fpData, "axis([xmin xmax xmin xmax])\n");
-            }
+            else fprintf(fpData, "axis([xmin xmax xmin xmax])\n");
             if (ssum > 0.0)
             {
-               if (psPlotTool_ == 1)
-               {
-                  fprintf(fpData,"drawlater\n");
-                  fprintf(fpData,"for ii = 1 : %d\n", nSamples);
-                  fprintf(fpData,"   xx = [A(ii,2) A(ii,2)];\n");
-                  fprintf(fpData,"   yy = [A(ii,3)-A(ii,4) A(ii,3)+A(ii,4)];\n");
-                  fprintf(fpData,"   plot(xx, yy, 'r-', 'lineWidth', 1);\n");
-                  fprintf(fpData,"   plot(xx(1), yy(1),'rv');\n");
-                  fprintf(fpData,"   plot(xx(2), yy(2),'r^');\n");
-                  fprintf(fpData,"end;\n");
-                  fprintf(fpData,"drawnow\n");
-                  fprintf(fpData, "set(gca(),\"auto_clear\",\"on\")\n");
-               }
+               if (psPlotTool_ == 1) fprintf(fpData,"drawlater\n");
+               fprintf(fpData,"for ii = 1 : %d\n", nSamples);
+               fprintf(fpData,"  xx = [A(ii,2) A(ii,2)];\n");
+               fprintf(fpData,"  d1 = A(ii,3)-A(ii,4);\n");
+               fprintf(fpData,"  d2 = A(ii,3)+A(ii,4);\n");
+               fprintf(fpData,"  yy = [d1 d2];\n");
+               fprintf(fpData,"  if (xx(1) < d1 | xx(1) > d2);\n");
+               fprintf(fpData,"    plot(xx, yy, 'r-', 'lineWidth', 1);\n");
+               fprintf(fpData,"   else\n");
+               fprintf(fpData,"     plot(xx, yy, 'g-', 'lineWidth', 1);\n");
+               fprintf(fpData,"  end;\n");
+               fprintf(fpData,"%%plot(xx(1), yy(1),'rv','markerSize',10);\n");
+               fprintf(fpData,"%%plot(xx(2), yy(2),'r^','markerSize',10);\n");
+               fprintf(fpData,"end;\n");
+               if (psPlotTool_ == 1) fprintf(fpData,"drawnow\n");
                else
                {
-                  fprintf(fpData,"for ii = 1 : %d\n", nSamples);
-                  fprintf(fpData,"   xx = [A(ii,2) A(ii,2)];\n");
-                  fprintf(fpData,"   yy = [A(ii,3)-A(ii,4) A(ii,3)+A(ii,4)];\n");
-                  fprintf(fpData,"   plot(xx, yy, 'r-', 'lineWidth', 1);\n");
-                  fprintf(fpData,"   plot(xx(1), yy(1),'rv','markerSize',10);\n");
-                  fprintf(fpData,"   plot(xx(2), yy(2),'^','markerSize',10);\n");
-                  fprintf(fpData,"end;\n");
-                  fprintf(fpData,"text(0.1,0.9,'red: +/- 1 sigma','sc',");
-                  fprintf(fpData,"'fontSize',11,'fontweight','bold')\n");
+                  fprintf(fpData,"text(0.1,0.9,'RED: predicion outside +/- 1 std ");
+                  fprintf(fpData,"dev','sc','fontSize',11,'fontweight','bold')\n");
                }
             }
-            if (psPlotTool_ == 1)
-                 fprintf(fpData, "set(gca(),\"auto_clear\",\"on\")\n");
-            else fprintf(fpData, "hold off\n");
+            fwriteHold(fpData, 0);
             fwritePlotAxes(fpData);
             fwritePlotTitle(fpData, "Actual vs predicted data with CV");
             fwritePlotXLabel(fpData, "actual data");
             fwritePlotYLabel(fpData, "predicted data");
             fprintf(fpData,"if morePlots == 1\n");
+            strcpy(pString," For the following B matrix");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 1: true values");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 2: normalized residual");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 3: predicted values");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"Column 4-(m+3): inputs");
+            fwriteComment(fpData, pString);
             fwritePlotFigure(fpData, 2);
             fprintf(fpData, "B = [\n");
             for (iD = 0; iD < nSamples; iD++)
             {
                if (YLocal[iD] == 0) fprintf(fpData, " %e 0 ",YLocal[iD]);
                else fprintf(fpData," %e %e ",YLocal[iD],eArray[iD]/YLocal[iD]);
+               fprintf(fpData," %e ", sArray[iD]);
                for (iD2 = 0; iD2 < nInputs; iD2++)
                   fprintf(fpData," %e ",XX[iD*nInputs+iD2]);
                fprintf(fpData,"\n");
             }
             fprintf(fpData, "];\n");
-            if (psPlotTool_ == 1)
-                 fprintf(fpData, "[AA,II] = gsort(B(:,1),'g','i');\n");
-            else fprintf(fpData, "[AA,II] = sort(B(:,1));\n");
-            fprintf(fpData, "BB = B(II,2);\n");
+            fprintf(fpData, "AA = B(:,1);\n");
+            fprintf(fpData, "BB = B(:,2);\n");
+            fprintf(fpData, "CC = B(:,3);\n");
             fprintf(fpData, "plot(AA, BB, '*','markerSize',12);\n");
             fwritePlotAxes(fpData);
             fwritePlotTitle(fpData, "Normalized Resdual Analysis");
             fwritePlotXLabel(fpData, "Actual Data");
             fwritePlotYLabel(fpData, "Normalized Error");
+            strcpy(pString,"plot(AA-CC, '*','markerSize',12);");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"xlabel('Sample Number');");
+            fwriteComment(fpData, pString);
+            strcpy(pString,"ylabel('Error (true-predicted)');");
+            fwriteComment(fpData, pString);
             fprintf(fpData,"end;\n");
             fclose(fpData);
             if (psPlotTool_ == 1)
-                 printf("CV error file is RSFA_CV_err.sci\n");
-            else printf("CV error file is RSFA_CV_err.m\n");
+                 printOutTS(PL_INFO, "CV error file is RSFA_CV_err.sci\n");
+            else printOutTS(PL_INFO, "CV error file is RSFA_CV_err.m\n");
          }
       }
       psRSExpertMode_ = rsState;
-      delete fa;
+      delete faPtr;
       delete [] XX;
       delete [] YY;
       delete [] YT;
@@ -923,7 +919,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
          if (fpData != NULL)
          {
             testFlag = 1;
-            printf("RSFA:: test data file = %s\n", dataFile);
+            printOutTS(PL_INFO, "RSFA:: test data file = %s\n", dataFile);
             fclose(fpData);
             fpData = NULL;
          }
@@ -937,7 +933,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
             fpErr = fopen(errFile, "w");
             if (fpErr != NULL)
             {
-               printf("RSFA:: error file = %s\n", errFile);
+               printOutTS(PL_INFO, "RSFA:: error file = %s\n", errFile);
                testFlag += 2;
                fclose(fpErr);
             }
@@ -946,7 +942,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
    }
    if (testFlag == 1) retdata = validate(adata, dataFile, NULL);
    if (testFlag == 3) retdata = validate(adata, dataFile, errFile);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    return retdata;
 }
@@ -963,7 +959,7 @@ int RSFuncApproxAnalyzer::setParams(int argc, char **argv)
    request = (char *) argv[0]; 
    if (!strcmp(request, "validate"))
    {
-      if (argc != 4) printf("RSAnalysis WARNING: setParams.\n");
+      if (argc != 4) printOutTS(PL_WARN, "RSAnalysis WARNING: setParams.\n");
       adata    = (aData *) argv[1];
       dataFile = (char *) argv[2];
       errFile  = (char *) argv[3];
@@ -971,11 +967,11 @@ int RSFuncApproxAnalyzer::setParams(int argc, char **argv)
    }
    else if (!strcmp(request, "rstype"))
    {
-      if (argc != 2) printf("RSAnalysis WARNING: setParams.\n");
+      if (argc != 2) printOutTS(PL_WARN, "RSAnalysis WARNING: setParams.\n");
       rsType_ = *(int *) argv[1];
       if (rsType_ < 0 || rsType_ > PSUADE_NUM_RS)
       {
-         printf("RSAnalysis ERROR: INVALID rstype, set to REGR2.\n");
+         printOutTS(PL_ERROR, "RSAnalysis ERROR: INVALID rstype, set to REGR2.\n");
          rsType_ = PSUADE_RS_REGR2;
       }
    }
@@ -990,7 +986,7 @@ int RSFuncApproxAnalyzer::setParams(int argc, char **argv)
    }
    else
    {
-      printf("RSAnalysis ERROR: setParams - not valid.\n");
+      printOutTS(PL_ERROR, "RSAnalysis ERROR: setParams - not valid.\n");
       exit(1);
    }
    return 0;
@@ -1002,17 +998,18 @@ int RSFuncApproxAnalyzer::setParams(int argc, char **argv)
 double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile, 
                                       char *errFile)
 {
-   int        nInputs, nOutputs, outputID, wgtID, length, ii, iOne=1,fatype;
+   int        nInputs, nOutputs, outputID, wgtID, ii, iOne=1,fatype;
    int        nSamples, status, nTestOut, nTestIn, nPtsPerDim=64, nTestSam;
    double     *X, *Y, *lower, *upper, *XX, *YY, *YLocal, *wgts, *stdevs;
    double     sumErr1, sumErr2, maxErr, sumErr1s, sumErr2s, maxErrs;
    double     dataMax, dataMin, *YT, maxBase, maxBases, sdata, ddata, ssum;
+   char       pString[501];
    pData      pPtr, pInputs, pOutputs;
    PsuadeData *ioPtr;
    FuncApprox *fa;
    FILE       *fpErr;
 
-   printf("RSAnalysis: validating against a test set ...\n");
+   printOutTS(PL_INFO, "RSAnalysis: validating against a test set ...\n");
 
    nInputs   = adata.nInputs_;
    nOutputs  = adata.nOutputs_;
@@ -1029,6 +1026,12 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
 
    ioPtr = new PsuadeData();
    status = ioPtr->readPsuadeFile(dataFile);
+   if (status < 0) exit(1);
+   if (status > 0)
+   {
+      printf("ERROR: cannot read file %d in PSUADE format.\n",dataFile);
+      exit(1);
+   } 
    ioPtr->getParameter("output_noutputs", pPtr);
    nTestOut = pPtr.intData_;
    ioPtr->getParameter("method_nsamples", pPtr);
@@ -1037,16 +1040,16 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
    nTestIn = pPtr.intData_;
    if (nTestSam <= 0)
    {
-      printf("RSAnalysis: file %s has no data.\n", dataFile);
+      printOutTS(PL_WARN, "RSAnalysis: file %s has no data.\n", dataFile);
       delete ioPtr;
       delete [] YLocal;
       return 1.0e12;
    }
    if (nTestIn != nInputs)
    {
-      printf("RSAnalysis: test data has different number of inputs (%d)\n",
+      printOutTS(PL_WARN, "RSAnalysis: test data has different number of inputs (%d)\n",
               nTestIn);
-      printf("            than that of the sample (%d)\n", nInputs);
+      printOutTS(PL_WARN, "            than that of the sample (%d)\n", nInputs);
       delete ioPtr;
       delete [] YLocal;
       return 1.0e12;
@@ -1059,7 +1062,7 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
    fa = genFA(fatype, nInputs, iOne, nSamples);
    if (fa == NULL)
    {
-      printf("RSAnalysis INFO: cannot create function approximator.\n");
+      printOutTS(PL_INFO, "RSAnalysis INFO: cannot create function approximator.\n");
       delete [] YLocal;
       delete ioPtr;
       return 1.0e12;
@@ -1074,29 +1077,27 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
       fa->loadWeights(nSamples, wgts);
       delete [] wgts;
    }
-   length = -999;
-   status = fa->genNDGridData(X, YLocal, &length, NULL, NULL);
+   status = fa->initialize(X, YLocal);
 
    if (errFile != NULL) 
    {
       fpErr = fopen(errFile, "w");
       if (fpErr != NULL)
       {
-         if (psPlotTool_ == 1)
-         {
-            fprintf(fpErr, "// Surface Fitting Error Histogram \n");
-            fprintf(fpErr, "// Interpolation errors on all points\n");
-         }
-         else
-         {
-            fprintf(fpErr, "%% Surface Fitting Error Histogram \n");
-            fprintf(fpErr, "%% Interpolation errors on all points\n");
-            fprintf(fpErr, "%% Column 1: predicted data \n");
-            fprintf(fpErr, "%% Column 2: actual data \n");
-            fprintf(fpErr, "%% Column 3: error = predicted - actual data \n");
-            fprintf(fpErr, "%% Column 4: normalized error\n");
-            fprintf(fpErr, "%% Column 5: predicted standard deviation\n");
-         }
+         strcpy(pString, "Surface Fitting Error Histogram");
+         fwriteComment(fpErr, pString);
+         strcpy(pString, "Interpolation errors on all points");
+         fwriteComment(fpErr, pString);
+         strcpy(pString, "Column 1: predicted data");
+         fwriteComment(fpErr, pString);
+         strcpy(pString, "Column 2: actual data");
+         fwriteComment(fpErr, pString);
+         strcpy(pString, "Column 3: error = predicted - actual data");
+         fwriteComment(fpErr, pString);
+         strcpy(pString, "Column 4: normalized error");
+         fwriteComment(fpErr, pString);
+         strcpy(pString, "Column 5: predicted standard deviation");
+         fwriteComment(fpErr, pString);
          fprintf(fpErr, "E = [\n");
       }
    }
@@ -1156,20 +1157,20 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
    sumErr1s = sumErr1s / (double) nTestSam;
    sumErr2  = sqrt(sumErr2 / (double) nTestSam);
    sumErr2s = sqrt(sumErr2s / (double) nTestSam);
-   printf("RSA: Test data maximum/minimum      = %9.3e %9.3e\n",
+   printOutTS(PL_INFO, "RSA: Test data maximum/minimum      = %9.3e %9.3e\n",
           dataMax, dataMin);
-   printf("RSA: Prediction errors = %11.3e (max unscaled, BASE=%9.3e)\n",
+   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (max unscaled, BASE=%9.3e)\n",
           maxErr, maxBase);
-   printf("RSA: Prediction errors = %11.3e (max   scaled, BASE=%9.3e)\n",
+   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (max   scaled, BASE=%9.3e)\n",
           maxErrs, maxBases);
-   printf("RSA: Prediction errors = %11.3e (rms unscaled)\n",sumErr2);
-   printf("RSA: Prediction errors = %11.3e (rms   scaled)\n",sumErr2s);
-   printf("RSA: Prediction errors = %11.3e (avg unscaled)\n",sumErr1);
-   printf("RSA: Prediction errors = %11.3e (avg   scaled)\n",sumErr1s);
+   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (rms unscaled)\n",sumErr2);
+   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (rms   scaled)\n",sumErr2s);
+   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (avg unscaled)\n",sumErr1);
+   printOutTS(PL_INFO, "RSA: Prediction errors = %11.3e (avg   scaled)\n",sumErr1s);
    ssum = 0.0;
    for (ii = 0; ii < nTestSam; ii++) ssum += stdevs[ii];
    if (ssum != 0)
-      printf("RSA: Average std. dev. = %11.3e (sum of all points)\n",ssum/nSamples);
+      printOutTS(PL_INFO, "RSA: Average std. dev. = %11.3e (sum of all points)\n",ssum/nSamples);
 
    if (fpErr != NULL) 
    {
@@ -1252,9 +1253,7 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
       fprintf(fpErr, "xmin = min(xmin, ymin);\n");
       fprintf(fpErr, "xmax = max(xmax, ymax);\n");
       fprintf(fpErr, "plot(E(:,2), E(:,1),'*','MarkerSize',12)\n");
-      if (psPlotTool_ == 1)
-           fprintf(fpErr, "set(gca(),\"auto_clear\",\"off\")\n");
-      else fprintf(fpErr, "hold on\n");
+      fwriteHold(fpErr, 1);
       fprintf(fpErr, "XX = xmin : xmax-xmin : xmax;\n");
       fprintf(fpErr, "plot(XX, XX)\n");
       if (psPlotTool_ == 1)
@@ -1269,20 +1268,27 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
       if (ssum > 0.0)
       {
          fprintf(fpErr,"for ii = 1 : %d\n", nTestSam);
-         fprintf(fpErr,"   xx = [E(ii,2) E(ii,2)];\n");
-         fprintf(fpErr,"   yy = [E(ii,1)-E(ii,5) E(ii,1)+E(ii,5)];\n");
-         fprintf(fpErr,"   plot(xx, yy, 'r-', 'lineWidth', 3);\n");
-         fprintf(fpErr,"   plot(xx(1), yy(1), 'rv', 'markerSize', 10);\n");
-         fprintf(fpErr,"   plot(xx(2), yy(2), '^', 'markerSize', 10);\n");
+         fprintf(fpErr,"  xx = [E(ii,2) E(ii,2)];\n");
+         fprintf(fpErr,"  d1 = E(ii,1)-E(ii,5);\n");
+         fprintf(fpErr,"  d2 = E(ii,1)+E(ii,5);\n");
+         fprintf(fpErr,"  yy = [d1 d2];\n");
+         fprintf(fpErr,"  if (xx(1) < d1 | xx(1) > d2);\n");
+         fprintf(fpErr,"    plot(xx, yy, 'r-', 'lineWidth', 1);\n");
+         fprintf(fpErr,"   else\n");
+         fprintf(fpErr,"     plot(xx, yy, 'g-', 'lineWidth', 1);\n");
+         fprintf(fpErr,"  end;\n");
+         fprintf(fpErr,"%% plot(xx(1), yy(1), 'rv', 'markerSize', 10);\n");
+         fprintf(fpErr,"%% plot(xx(2), yy(2), '^', 'markerSize', 10);\n");
          fprintf(fpErr,"end;\n");
       }
-      if (psPlotTool_ == 1)
-           fprintf(fpErr, "set(gca(),\"auto_clear\",\"on\")\n");
-      else 
+      fwriteHold(fpErr, 0);
+      if (psPlotTool_ != 1)
       {
-         fprintf(fpErr, "hold off\n");
-         fprintf(fpErr,"text(0.1,0.9,'red: +/- 1 sigma','sc',");
-         fprintf(fpErr,"'fontSize',11,'fontweight','bold')\n");
+         if (ssum > 0.0)
+         {
+            fprintf(fpErr,"text(0.1,0.9,'RED: prediction outside +/- 1 std");
+            fprintf(fpErr," dev','sc','fontSize',11,'fontweight','bold')\n");
+         }
       }
       fwritePlotAxes(fpErr);
       fwritePlotTitle(fpErr, "Interpolated versus actual data");
@@ -1291,7 +1297,7 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
 #endif
       fclose(fpErr);
       fpErr = NULL;
-      printf("RSAnalysis: individual prediction errors can be found in %s.\n",
+      printOutTS(PL_INFO, "RSAnalysis: individual prediction errors can be found in %s.\n",
              errFile);
    }
 
@@ -1307,7 +1313,7 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
 // ------------------------------------------------------------------------
 RSFuncApproxAnalyzer& RSFuncApproxAnalyzer::operator=(const RSFuncApproxAnalyzer &)
 {
-   printf("RSAnalysis operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "RSAnalysis operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

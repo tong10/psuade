@@ -153,6 +153,8 @@ int PDFNormal::genSample(int length, double *outData, double lower,
    if (upper <= lower)
    {
       printf("PDFNormal genSample ERROR - lower bound >= upper bound.\n");
+      printf("          lower = %24.16e\n", lower);
+      printf("          upper = %24.16e\n", upper);
       exit(1);
    }
 
@@ -190,11 +192,6 @@ int PDFNormal::genSample(int length, double *outData, double lower,
          printf("     lower, upper = %e %e\n", lower, upper);
          exit(1);
       }
-   }
-   if ((double) length / (double) total < 0.2)
-   {
-      printf("PDFNormal INFO: %d points generated for Gaussian distribution.\n",total);
-      printf("                No. of points within the prescribed bounds = %d.\n",length);
    }
    return 0;
 }

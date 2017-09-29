@@ -46,6 +46,7 @@ public:
    PWLinear(int, int);
    ~PWLinear();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, int *, 
                         double **, double **);

@@ -28,7 +28,6 @@
 #include <assert.h>
 #include <sstream>
 #include <unistd.h>
-using namespace std;
 
 #include "Psuade.h"
 #include "sysdef.h"
@@ -63,6 +62,7 @@ GMetisSampling::GMetisSampling() : Sampling()
    graphI_     = NULL;
    graphJ_     = NULL;
    cellsOccupied_ = NULL;
+   changeInfoName_ = 0;
 }
 
 // ************************************************************************
@@ -155,14 +155,19 @@ GMetisSampling::~GMetisSampling()
 int GMetisSampling::initialize(int initLevel)
 {
    int    *incrs, inputID, ii, jj, itmp, jtmp, nnz, sampleID;
-   int    options[10], index, count, kk;
+   int    options[10], index, count, kk, saveFlag=1;
 #ifdef HAVE_METIS
    int    wgtflag=0, numflag=0, edgeCut=0;
 #endif
    double *ranges=NULL, dtmp, *lbounds, *ubounds, expand=0.0;
-   char   response[500], pString[500];
-   FILE   *fp;
+   char   response[1001], pString[1001], filename[1001];
+   FILE   *fp=NULL;
 
+   if( nSamples_ <= 0)
+   {
+      printf("nSamples_ in file %s line %d is <= 0\n",__FILE__,__LINE__);
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("GMetisSampling::initialize ERROR - input not set up.\n");
@@ -180,9 +185,11 @@ int GMetisSampling::initialize(int initLevel)
    if (graphI_ != NULL) delete [] graphI_;
    if (graphJ_ != NULL) delete [] graphJ_;
    if (cellsOccupied_ != NULL) delete [] cellsOccupied_;
+   nAggrs_        = 0;
    aggrCnts_      = NULL;
    aggrLabels_    = NULL;
    cellsOccupied_ = NULL;
+
    if (nInputs_ > 21)
    {
       printf("GMetisSampling ERROR : nInputs > 21 currently not supported.\n");
@@ -211,6 +218,11 @@ int GMetisSampling::initialize(int initLevel)
       graphN_ *= n1d_;
       incrs[inputID] = graphN_;
    }
+   if (nSamples_ > 2*graphN_)
+   {
+      printf("GMetisSampling ERROR : nSamples %d too large.\n",nSamples_);
+      exit(1);
+   }
    graphI_ = new int[graphN_+1];
    graphJ_ = new int[graphN_*nInputs_*2+1];
    nnz = 0;
@@ -230,21 +242,24 @@ int GMetisSampling::initialize(int initLevel)
    delete [] incrs;
    cellsOccupied_ = new int[graphN_];
 
-   fp = fopen("psuadeGMetisInfo", "r");
+   if (changeInfoName_ == 0) fp = fopen("psuadeGMetisInfo", "r");
+   else                      fp = fopen("psuadeGMetisInfo.tmp", "r");
    if (fp != NULL)
    {
-      printf("INFO: psuadGeMetisInfo file found. Reading it in ...\n");
-      fscanf(fp, "%d", &jj);
-      printf("GMetisSampling Info: a partition file is found.\n");
-      printf("          The file name is psuadeGMetisInfo.\n");
-      printf("          It may have been left behind by previous\n");
-      printf("          call to GMetis (It has %d subdomains).\n",jj);
-      sprintf(pString,"Reuse the file ? (y or n) ");
-      getString(pString, response);
-
-      if (response[0] == 'y')
+      printf("INFO: psuadeGMetisInfo file found. Reading it in ...\n");
+      fscanf(fp, "%d %d %d", &jj, &itmp, &jtmp);
+      if (itmp != nSamples_ || jtmp != nInputs_)
       {
-         printf("GMetisSampling Info: reconstructing the partitioning.\n");
+         fclose(fp);
+         printf("GMetisSampling INFO: a partition file is found but\n");
+         printf("      the data is not consistent with this setup\n");
+         printf("      (The file name is psuadeGMetisInfo).\n");
+         printf("      nSamples : %d != %d.\n", nSamples_, itmp);
+         printf("      nInputs  : %d != %d.\n", nInputs_, jtmp);
+         printf("NOTE: this file is not to be used.\n");
+      }
+      else
+      {
          nAggrs_ = jj;
          aggrCnts_ = new int[nAggrs_];
          aggrLabels_ = new int*[nAggrs_];
@@ -266,6 +281,11 @@ int GMetisSampling::initialize(int initLevel)
             for (jj = 0; jj < count; jj++)
             {
                fscanf(fp, "%d", &(aggrLabels_[ii][jj]));
+               if (aggrLabels_[ii][jj] < 0 || aggrLabels_[ii][jj] >= graphN_)
+               {
+                  printf("GMetis ERROR: psuadeGMetisInfo file has invalid info.\n");
+                  exit(1);
+               }
                cellsOccupied_[aggrLabels_[ii][jj]] = ii;
             }
          }
@@ -273,8 +293,16 @@ int GMetisSampling::initialize(int initLevel)
          for (ii = 0; ii < count; ii++)
          {
             fscanf(fp, "%d %d", &jj, &kk);
+            if (jj < 0 || jj >= graphN_)
+            {
+               printf("GMetis ERROR: psuadeGMetisInfo file has invalid info (2).\n");
+               exit(1);
+            }
             cellsOccupied_[jj] = - kk - 1;
          }
+         fclose(fp);
+         fp = NULL;
+         saveFlag = 0;
       }
    }
 
@@ -282,14 +310,22 @@ int GMetisSampling::initialize(int initLevel)
    {
       options[0] = 0;
 #ifdef HAVE_METIS
-      if (nSamples_ <= 0)
+      if (nAggrs_ == 0)
       {
-         strcpy(pString, "Enter the number of sample points: ");
-         nSamples_ = getInt(1, 1000000, pString);
-         strcpy(pString, "Enter the number of partitions: ");
-         nAggrs_ = getInt(1, nSamples_, pString);
+         if (psSamExpertMode_ == 1)
+         {
+            sprintf(pString,"GMetis: Enter number of partitions (2 - %d): ",
+                    nSamples_);
+            nAggrs_ = getInt(2, nSamples_, pString);
+         }
+         else
+         {
+            if (nSamples_ < 5) nAggrs_ = nSamples_;
+            else               nAggrs_ = nSamples_ / 2;
+            printf("GMetisSampling INFO: default number of partitions = %d.\n",
+                   nAggrs_);
+         }
       }
-      else nAggrs_ = nSamples_;
       if (printLevel_ > 1)
          printf("GMetisSampling: creating %d partitions...\n", nAggrs_);
       METIS_PartGraphRecursive(&graphN_, graphI_, graphJ_, NULL, NULL,
@@ -303,25 +339,46 @@ int GMetisSampling::initialize(int initLevel)
 
       aggrCnts_ = new int[nAggrs_];
       for (ii = 0; ii < nAggrs_; ii++) aggrCnts_[ii] = 0;
-      for (ii = 0; ii < graphN_; ii++) aggrCnts_[cellsOccupied_[ii]]++;  
+      for (ii = 0; ii < graphN_; ii++)
+      {
+         if (cellsOccupied_[ii] < 0 || cellsOccupied_[ii] >= nAggrs_) 
+         {
+            printf("GMetisSampling INTERNAL ERROR.\n");
+            exit(1);
+         }
+         aggrCnts_[cellsOccupied_[ii]]++;  
+      }
       aggrLabels_ = new int*[nAggrs_];
       for (ii = 0; ii < nAggrs_; ii++)
       {
+         if (aggrCnts_[ii] <= 0) 
+         {
+            printf("GMetisSampling INTERNAL ERROR (2).\n");
+            exit(1);
+         }
          aggrLabels_[ii] = new int[aggrCnts_[ii]];
          aggrCnts_[ii] = 0;
       }
       for (ii = 0; ii < graphN_; ii++)
       {
          index = cellsOccupied_[ii];
+         if (index < 0 || index >= nAggrs_) 
+         {
+            printf("GMetisSampling INTERNAL ERROR (3).\n");
+            exit(1);
+         }
          aggrLabels_[index][aggrCnts_[index]++] = ii;  
       }
    }
   
-   if(fp != NULL)  fclose(fp);
-   fp = fopen("psuadeGMetisInfo", "w");
+   if (saveFlag == 1)
+   {
+      if (changeInfoName_ == 0) fp = fopen("psuadeGMetisInfo", "w");
+      else                      fp = fopen("psuadeGMetisInfo.tmp", "w");
+   }
    if (fp != NULL)
    {
-      fprintf(fp, "%d\n", nAggrs_);
+      fprintf(fp, "%d %d %d\n", nAggrs_, nSamples_, nInputs_);
       for (ii = 0; ii < nAggrs_; ii++)
       {
          fprintf(fp, "%d\n", aggrCnts_[ii]);
@@ -339,6 +396,7 @@ int GMetisSampling::initialize(int initLevel)
          if (cellsOccupied_[ii] < 0) 
             fprintf(fp, "%d %d\n",ii,-(cellsOccupied_[ii]+1));
       fclose(fp);
+      fp = NULL;
    }
    if (initLevel != 0) return 0;
 
@@ -420,6 +478,13 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
       printf("GMetisSampling::refine ERROR - need to call initialize first.\n");
       exit(1);
    }
+   if (printLevel_ > 0)
+   {
+      printf("GMetisSampling::refine(1): nSamples = %d\n", nSamples_);
+      printf("GMetisSampling::refine(1): nInputs  = %d\n", nInputs_);
+      printf("GMetisSampling::refine(1): nOutputs = %d\n", nOutputs_);
+   }
+
    ranges  = new double[nInputs_];
    lbounds = lowerBounds_;
    ubounds = upperBounds_;
@@ -441,13 +506,19 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
          itmp = itmp * n1d_;
          dtmp = sampleMatrix_[ss][inputID];
          dtmp = (dtmp - lowerBounds_[inputID]) / ranges[inputID];
-         jtmp = (int) (dtmp * n1d_);
+         if (dtmp == 1.0) jtmp = n1d_ - 1;
+         else             jtmp = (int) (dtmp * n1d_);
          itmp += jtmp;
       }
-      cellsOccupied_[itmp] = -(cellsOccupied_[itmp] + 1); 
+      if (itmp >= graphN_)
+      {
+         printf("GMetis INTERNAL ERROR - consult PSUADE developers.\n");
+         exit(1);
+      }
+      if (cellsOccupied_[itmp] >= 0)
+         cellsOccupied_[itmp] = -(cellsOccupied_[itmp] + 1); 
    }
    
-
    tmpCnts = aggrCnts_;
    tmpLabels = aggrLabels_;
    aggrCnts_ = new int[2*nAggrs_];
@@ -488,7 +559,6 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
       printf("GMetisSampling::refine ERROR- error based but no error given.\n");
       exit(1);
    }
-
    if (refineType_ == 1 && sampleErrors != NULL)
    {
       printf("GMetisSampling::refine - maximum number of new points = %d.\n",
@@ -514,20 +584,25 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
             node2Aggr[rowInd] = ii;
          }
       }
+      count = 0;
       for (ii = 0; ii < graphN_; ii++)
       {
          if (node2Aggr[ii] == -1)
          {
-            printf("GMetisSampling::refine ERROR - node2Aggr not correct.\n");
-            printf("                Please consult PSUADE developers.\n");
+            count++;
+            printf("ERROR : node2Aggr %d = -1\n", ii);
+         }
+         if (count > 0)
+         {
+            printf("GMetisSampling::Internal ERROR - incorrect node2Aggr.\n");
+            printf("      No. of wrong node2Aggr = %d (%d).\n",count,graphN_);
+            printf("      Please consult PSUADE developers.\n");
             exit(1);
          }
       }
 
-      aggrErrs = new double[nAggrs_];
-      for (ii = 0; ii < nAggrs_; ii++)
-          aggrErrs[ii] = PABS(sampleErrors[ii]);
-
+      aggrErrs  = new double[nAggrs_];
+      for (ii = 0; ii < nAggrs_; ii++) aggrErrs[ii] = sampleErrors[ii];
       sortList1 = new double[nAggrs_];
       sortList2 = new double[nAggrs_];
       for (ii = 0; ii < nAggrs_; ii++) sortList1[ii] = PABS(aggrErrs[ii]);
@@ -541,13 +616,16 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
       {
          index = (int) sortList2[ii];
          localN = aggrCnts_[index];
-         aggrErrs[index] *= pow(1.0*localN,1.0/nInputs_);
-         if (aggrErrs[index] != 0.0) 
+         dtmp = aggrErrs[index] * pow(1.0*localN,1.0/nInputs_);
+         if (dtmp != 0.0) 
          {
             //printf("GMetisSampling::refine - chosen aggregate, error = %e\n",
             //        aggrErrs[index]);
             if (refineArray[index] == 0)
             {
+               printf("GMetisSampling: %7d selected for refinement: error = %13.5e\n",
+                      index, aggrErrs[index]);
+
                cellCnt++;
                refineArray[index] = 1;
                if (cellCnt >= refineSize_) break;
@@ -560,13 +638,17 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
       delete [] sortList2;
       delete [] node2Aggr;
    }
+   else
+   {
+      refineArray = new int[nAggrs_];
+      for (ii = nAggrs_-1; ii >= 0; ii--) refineArray[ii] = 1;
+   }
 
    options[0] = 0;
    currNAggr = nAggrs_;
    splitCount = splitSuccess = 0;
    for (ss = 0; ss < nAggrs_; ss++)
    {
-
       localN = aggrCnts_[ss];
       if (localN > maxN) 
       {
@@ -704,12 +786,14 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
       }
       oldNumSamples++;
    }
+   count = currNAggr - nAggrs_;
    nAggrs_ = currNAggr;
 
-   fp = fopen("psuadeGMetisInfo", "w");
+   if (changeInfoName_ == 0) fp = fopen("psuadeGMetisInfo", "w");
+   else                      fp = fopen("psuadeGMetisInfo.tmp", "w");
    if (fp != NULL)
    {
-      fprintf(fp, "%d\n", nAggrs_);
+      fprintf(fp, "%d %d %d\n", nAggrs_, nSamples_, nInputs_);
       for (ii = 0; ii < nAggrs_; ii++)
       {
          fprintf(fp, "%d\n", aggrCnts_[ii]);
@@ -736,16 +820,16 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
    if (refineArray != NULL) delete [] refineArray;
    if (aggrErrs    != NULL) delete [] aggrErrs;
 
-   if (printLevel_ > 4)
+   if (printLevel_ > 0)
    {
+      printEquals(PL_INFO, 0);
+      printf("GMetisSampling::refine: nAggrs   = %d\n", nAggrs_);
       printf("GMetisSampling::refine: nSamples = %d\n", nSamples_);
       printf("GMetisSampling::refine: nInputs  = %d\n", nInputs_);
       printf("GMetisSampling::refine: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    GMetisSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
+      printEquals(PL_INFO, 0);
    }
-   return 0;
+   return count;
 }
 
 // ************************************************************************
@@ -767,6 +851,19 @@ int GMetisSampling::setParam(string sparam)
          fclose(fp);
          unlink("psuadeGMetisInfo");
       }
+      fp = fopen("psuadeGMetisInfo.tmp", "r");
+      if (fp != NULL)
+      {
+         fclose(fp);
+         unlink("psuadeGMetisInfo.tmp");
+      }
+      return 0;
+   }
+
+   pos = sparam.find("changeInfoName");
+   if (pos >= 0)
+   {
+      changeInfoName_ = 1;
       return 0;
    }
 

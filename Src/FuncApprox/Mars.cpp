@@ -57,7 +57,7 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 
    faID_ = PSUADE_RS_MARS;
 
-   nBasisFcns_ = 50;
+   nBasisFcns_ = 100;
    if (nBasisFcns_ > nSamples) nBasisFcns_ = nSamples - 1;
 
    if (nInputs >= 8) maxVarPerBasis_ = 8;
@@ -89,7 +89,7 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       if (cString != NULL)
       {
          sscanf(cString, "%s %s %d", winput1, winput2, &ii);
-         if (ii > nInputs || ii > 8)
+         if (ii > nInputs || ii < 1)
          {
             printf("Mars INFO: interaction from config file not valid.\n");
             printf("           interaction kept at %d.\n", maxVarPerBasis_);
@@ -126,6 +126,7 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    for (ss = 0; ss < nSamples; ss++) wgts_[ss] = 1.0;
    fm_ = NULL;
    im_ = NULL;
+   noGen_ = 0;
 #else
    printf("PSUADE ERROR : Mars not installed.\n");
    exit(1);
@@ -144,15 +145,16 @@ Mars::~Mars()
 }
 
 // ************************************************************************
-// Generate results for display
+// initialize
 // ------------------------------------------------------------------------
-int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2, 
-                        double **Y2)
+int Mars::initialize(double *XIn, double *YIn)
 {
 #ifdef HAVE_MARS
-   int    totPts, length, ss, ii, iOne=1;
-   double *HX, *Xloc, **X, **X2, *XX, *Y;
-   char   *cStr, pString[500], response[500], *cString;
+   int    length, ss, ii, nsm, nin, nfm, nim, errflag, count;
+   double **X, *XX, *Y, dmean, dstd;
+   char   *cStr, pString[500], response[500], line[1001], *cString;
+   char   word[501], equal[101];
+   FILE   *fp=NULL;
 
    response[0] = 'n';
    if (psRSExpertMode_ != 1 && psConfig_ != NULL)
@@ -171,7 +173,7 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
    }
 
    XX = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, XX, 0);
+   initInputScaling(XIn, XX, 1);
    Y = new double[nSamples_];
    if (response[0] == 'y')
    {
@@ -186,11 +188,13 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
    
    if (fm_ != NULL) delete [] fm_;
    if (im_ != NULL) delete [] im_;
-   length = 3 + 5 * nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_+6) +
+   length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_+6) +
             2 * nInputs_ + nSamples_;
    fm_    = new float[length];
-   length = 21 + 10 * nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
-   im_ = new int[length];
+   for (ii = 0; ii < length; ii++) fm_[ii] = PSUADE_UNDEFINED;
+   length = 21 + nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
+   im_    = new int[length];
+   for (ii = 0; ii < length; ii++) im_[ii] = -9999;
    if (chooseWght_ == 1)
    {
       for (ss = 0; ss < nSamples_; ss++)
@@ -213,7 +217,7 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
    if (outputLevel_ >= 2) 
       printf("Mars: nBasis, maxVarPerBasis = %d %d\n", 
              nBasisFcns_, maxVarPerBasis_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (process)\n");
       printf("If it crashes here, it is mars_process problem.\n");
@@ -221,10 +225,382 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
    }
    mars_process(nSamples_, nInputs_, X, Y, wgts_, nBasisFcns_,
                 maxVarPerBasis_, varFlags_, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (process).\n");
+   if (outputLevel_ >= 2 || psMasterMode_ == 1) 
+      printf("Returned from Mars (process).\n");
    for (ss = 0; ss < nSamples_; ss++) delete [] X[ss];
    delete [] X;
-   if ((*N) == -999) return 0;
+
+   if (noGen_ == 1 || psRSCodeGen_ == 0) return 0;
+   fp = fopen("psuade_rs.info", "w");
+   if (fp == NULL)
+   {
+      printf("ERROR: Cannot open file psuade_rs.info.\n");
+      return 0;
+   }
+   fprintf(fp,"/* This file contains information to re-construct MARS\n");
+   fprintf(fp,"   response surface offline. Follow the steps below:\n");
+   fprintf(fp,"   1. Rename this file to, say, main.c\n");
+   fprintf(fp,"   2. Compile main.c (cc -o main main.c -lm) and run \n");
+   fprintf(fp,"   3. Run: main input output (input file has number of \n");
+   fprintf(fp,"      inputs followed by the input values. Upon termination,\n");
+   fprintf(fp,"      the result will be stored in 'output') */\n");
+   fprintf(fp,"/* *************************************/\n");
+   fprintf(fp,"/* MARS interpolator from PSUADE.      */\n");
+   fprintf(fp,"/* ====================================*/\n");
+   fprintf(fp,"#include <math.h>\n");
+   fprintf(fp,"#include <stdlib.h>\n");
+   fprintf(fp,"#include <stdio.h>\n");
+   fprintf(fp,"int interpolate(int,double*,double*);\n");
+   fprintf(fp,"main(int argc, char **argv) {\n");
+   fprintf(fp,"  int    i, iOne=1, nInps;\n");
+   fprintf(fp,"  double X[%d], Y, Std;\n",nInputs_);
+   fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
+   fprintf(fp,"  if (argc != 3) {\n");
+   fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
+   fprintf(fp,"     exit(1);\n");
+   fprintf(fp,"  }\n");
+   fprintf(fp,"  fIn = fopen(argv[1], \"r\");\n");
+   fprintf(fp,"  if (fIn == NULL) {\n");
+   fprintf(fp,"     printf(\"ERROR: cannot open input file.\\n\");\n");
+   fprintf(fp,"     exit(1);\n");
+   fprintf(fp,"  }\n");
+   fprintf(fp,"  fscanf(fIn, \"%%d\", &nInps);\n");
+   fprintf(fp,"  if (nInps != %d) {\n", nInputs_);
+   fprintf(fp,"    printf(\"ERROR - wrong nInputs.\\n\");\n");
+   fprintf(fp,"    exit(1);\n");
+   fprintf(fp,"  }\n");
+   fprintf(fp,"  for (i=0; i<%d; i++) fscanf(fIn, \"%%lg\", &X[i]);\n",nInputs_);
+   fprintf(fp,"  fclose(fIn);\n");
+   fprintf(fp,"  interpolate(iOne,X,&Y);\n");
+   fprintf(fp,"  printf(\"Y = %%e\\n\", Y);\n");
+   fprintf(fp,"  fOut = fopen(argv[2], \"w\");\n");
+   fprintf(fp,"  if (fOut == NULL) {\n");
+   fprintf(fp,"     printf(\"ERROR: cannot open output file.\\n\");\n");
+   fprintf(fp,"     exit(1);\n");
+   fprintf(fp,"  }\n");
+   fprintf(fp,"  fprintf(fOut,\" %%e\\n\", Y);\n");
+   fprintf(fp,"  fclose(fOut);\n");
+   fprintf(fp,"}\n\n");
+   fprintf(fp,"/* *************************************/\n");
+   fprintf(fp,"/* **** MARS interpolation function ****/\n");
+   fprintf(fp,"/* X[0], X[1],   .. X[m-1]   - first point\n");
+   fprintf(fp," * X[m], X[m+1], .. X[2*m-1] - second point\n");
+   fprintf(fp," * ... */\n");
+   fprintf(fp,"/* ====================================*/\n");
+   fprintf(fp,"double Ymean = %24.16e;\n",YMean_);
+   fprintf(fp,"double Ystd  = %24.16e;\n",YStd_);
+   fprintf(fp,"int icat(double, int, double *);\n");
+   fprintf(fp,"int    *getIm();\n");
+   fprintf(fp,"double *getFm();\n");
+   fprintf(fp,"double *getXM();\n");
+   fprintf(fp,"double *getXS();\n");
+   fprintf(fp,"int interpolate(int npts, double *X,double *Y){\n");
+   fprintf(fp,"  int    k, nk, ss, nn, ip, ind;\n"); 
+   fprintf(fp,"  int    nInps=%d, *im=NULL;\n",nInputs_);
+   fprintf(fp,"  double Yt, az, *tb, *cm, phi, t, u, v, *XX;\n");
+   fprintf(fp,"  double *fm=NULL, *XM=NULL, *XS=NULL, dt;\n");
+   fprintf(fp,"  XX = (double *) malloc(nInps*sizeof(double));\n");
+   fprintf(fp,"  fm = getFm();\n");
+   fprintf(fp,"  im = getIm();\n");
+   fprintf(fp,"  XM = getXM();\n");
+   fprintf(fp,"  XS = getXS();\n");
+   fprintf(fp,"  nk  = im[4];\n");
+   fprintf(fp,"  ind = im[10] - 1; az  = fm[ind];\n");
+   fprintf(fp,"  ind = im[11] - 1; tb  = &fm[ind];\n"); 
+   fprintf(fp,"  ind = im[14] - 1; cm  = &fm[ind];\n");
+   fprintf(fp,"  for (ss = 0; ss < npts; ss++) {\n");
+   fprintf(fp,"    Yt = az;\n"); 
+   fprintf(fp,"    for (nn = 0; nn < nk; nn++) {\n");
+   fprintf(fp,"      if (tb[nn*5] != 0.0) {\n");
+   fprintf(fp,"        phi = 1.0;\n");
+   fprintf(fp,"        ip = nn;\n");
+   fprintf(fp,"        while (ip > -1) {\n");
+   fprintf(fp,"          t = tb[ip*5+1];\n");
+   fprintf(fp,"          v = t;\n");
+   fprintf(fp,"          if (v < 0) v = - v;\n");
+   fprintf(fp,"          ind = floor(v+0.1) - 1;\n"); 
+   fprintf(fp,"          if (cm[2*ind] <= 0.0) {\n");
+   fprintf(fp,"            v = 1.0;\n");
+   fprintf(fp,"            if (t < 0.0) v = -1.0;\n");
+   fprintf(fp,"            dt = (X[ind+nInps*ss] - XM[ind])/XS[ind];\n");
+   fprintf(fp,"            u = v * (dt-tb[ip*5+2]); \n");
+   fprintf(fp,"            if (u < 0.0) u = 0.0;\n");
+   fprintf(fp,"          }\n");
+   fprintf(fp,"          else {\n");
+   fprintf(fp,"            dt = (X[ind+nInps*ss] - XM[ind])/XS[ind];\n");
+   fprintf(fp,"            k = icat(dt, ind, cm);\n");
+   fprintf(fp,"            if (k != 0) {\n");
+   fprintf(fp,"              ind = floor(tb[ip*5+2]+0.1) - 1;\n");
+   fprintf(fp,"              u = cm[k+ind];\n");
+   fprintf(fp,"            }\n");
+   fprintf(fp,"            else u = 0.0;\n");
+   fprintf(fp,"            if (t < 0.0) {\n");
+   fprintf(fp,"              if (u == 0.0) u = 1.0;\n");
+   fprintf(fp,"              else          u = 0.0;\n");
+   fprintf(fp,"            }\n");
+   fprintf(fp,"          } \n");
+   fprintf(fp,"          if (u == 0.0) {\n");
+   fprintf(fp,"            phi = 0.0;\n");
+   fprintf(fp,"            break;\n");
+   fprintf(fp,"          }\n");
+   fprintf(fp,"          else {\n");
+   fprintf(fp,"            phi *= u;\n");
+   fprintf(fp,"            ip = floor(tb[ip*5+3] + 0.1) - 1;\n");
+   fprintf(fp,"          }\n");
+   fprintf(fp,"        }\n");
+   fprintf(fp,"        Yt += tb[nn*5] * phi;\n");
+   fprintf(fp,"      }\n");
+   fprintf(fp,"    }\n");
+   fprintf(fp,"    Y[ss] = Yt * Ystd + Ymean;\n");
+   fprintf(fp,"  }\n");
+   fprintf(fp,"  free(XX);\n");
+   fprintf(fp,"  return 0;\n");
+   fprintf(fp,"}\n");
+   fprintf(fp,"/* ====================================*/\n");
+   fprintf(fp,"int icat(double X, int input, double *cm) {\n");
+   fprintf(fp,"  int j0, j1, j2, k, rdata;\n");
+   fprintf(fp,"  j0 = floor(cm[2*input] + 0.1);\n");
+   fprintf(fp,"  j1 = j0; j2 = floor(cm[2*input+1] + 0.1);\n");
+   fprintf(fp,"  while (j2 != (j1+1)) {\n");
+   fprintf(fp,"    k = floor(0.5*(j1+j2)) - 1;\n");
+   fprintf(fp,"    if (cm[k] == X) {\n");
+   fprintf(fp,"      rdata = k - j0; break;\n");
+   fprintf(fp,"    }\n");
+   fprintf(fp,"    else if (cm[k] < X) j1 = k;\n");
+   fprintf(fp,"    else                j2 = k;\n");
+   fprintf(fp,"    if (X == cm[j1-1]) rdata = j2 - j0;\n");
+   fprintf(fp,"    else {\n");
+   fprintf(fp,"      if (X == cm[j2-1]) rdata = j2 - j0;\n");
+   fprintf(fp,"      else               rdata = 0;\n");
+   fprintf(fp,"    }\n");
+   fprintf(fp,"  }\n");
+   fprintf(fp,"  return rdata;\n");
+   fprintf(fp,"}\n");
+   fprintf(fp,"/* ====================================*/\n");
+   length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) + 
+            2 * nInputs_ + nSamples_;
+   count = length;
+   for (ii = length-1; ii >= 0; ii--)
+   {
+      if (fm_[ii] < 0.9*PSUADE_UNDEFINED) break;
+      count--;
+   }
+   if (count > 0)
+   {
+      fprintf(fp,"/* \n");
+      fprintf(fp,"FM %d \n",count);
+      fprintf(fp,"*/ \n");
+      fprintf(fp,"static double\n");
+      fprintf(fp,"FM[%d] = \n", count);
+      fprintf(fp,"{\n");
+      for (ii = 0; ii < count-1; ii++) fprintf(fp," %24.16e ,\n", fm_[ii]);
+      fprintf(fp," %24.16e };\n", fm_[count-1]);
+   }
+   length = 21 + nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
+   count = length;
+   for (ii = length-1; ii >= 0; ii--)
+   {
+      if (im_[ii] != -9999) break;
+      count--;
+   }
+   if (count > 0)
+   {
+      fprintf(fp,"/* \n");
+      fprintf(fp,"IM %d \n",count);
+      fprintf(fp,"*/ \n");
+      fprintf(fp,"static int\n");
+      fprintf(fp,"IM[%d] = \n", count);
+      fprintf(fp,"{\n");
+      for (ii = 0; ii < count-1; ii++) fprintf(fp," %d ,\n", im_[ii]);
+      fprintf(fp," %d };\n", im_[count-1]);
+   }
+   fprintf(fp,"/* \n");
+   fprintf(fp,"XM %d \n",count);
+   fprintf(fp,"*/ \n");
+   fprintf(fp,"static double\n");
+   fprintf(fp,"XM[%d] = \n", nInputs_);
+   fprintf(fp,"{\n");
+   for (ii = 0; ii < nInputs_; ii++)
+      fprintf(fp, " %24.16e , \n",XMeans_[ii]);
+   fprintf(fp,"};\n");
+   fprintf(fp,"/* \n");
+   fprintf(fp,"XS %d \n",count);
+   fprintf(fp,"*/ \n");
+   fprintf(fp,"static double\n");
+   fprintf(fp,"XS[%d] = \n", nInputs_);
+   fprintf(fp,"{\n");
+   for (ii = 0; ii < nInputs_; ii++)
+      fprintf(fp, " %24.16e , \n",XStds_[ii]);
+   fprintf(fp,"};\n");
+   fprintf(fp,"/* ====================================*/\n");
+   fprintf(fp,"int    *getIm() {return IM;}\n");
+   fprintf(fp,"double *getFm() {return FM;}\n");
+   fprintf(fp,"double *getXS() {return XS;}\n");
+   fprintf(fp,"double *getXM() {return XM;}\n");
+   fprintf(fp,"/* ====================================*/\n");
+   fclose(fp);
+   if (outputLevel_ > 0)
+      printf("MARS parameters are now stored in psuade_rs.info\n");
+
+   fp = fopen("psuade_rs.py", "w");
+   if (fp == NULL)
+   {
+      printf("ERROR: Cannot open file psuade_rs.py.\n");
+      return 0;
+   }
+   fwriteRSPythonHeader(fp);
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"# MARS interpolation\n");
+   fprintf(fp,"#==================================================\n");
+   fwriteRSPythonCommon(fp);
+   fprintf(fp,"nInputs = %d\n",nInputs_);
+   length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
+            2 * nInputs_ + nSamples_;
+   count = length;
+   for (ii = length-1; ii >= 0; ii--)
+   {
+      if (fm_[ii] < 0.9*PSUADE_UNDEFINED) break;
+      count--;
+   }
+   fprintf(fp,"FM = [\n"); 
+   for (ii = 0; ii < count; ii++)
+      fprintf(fp, "%16.8e ,\n", fm_[ii]);
+   fprintf(fp,"]\n"); 
+   length = 21 + nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
+   count = length;
+   for (ii = length-1; ii >= 0; ii--)
+   {
+      if (im_[ii] != -9999) break;
+      count--;
+   }
+   count = 15;
+   fprintf(fp,"IM = [\n"); 
+   for (ii = 0; ii < count; ii++)
+      fprintf(fp, "%d ,\n", im_[ii]);
+   fprintf(fp,"]\n"); 
+   fprintf(fp,"XM = [\n");
+   for (ii = 0; ii < nInputs_; ii++)
+      fprintf(fp, " %24.16e , \n",XMeans_[ii]);
+   fprintf(fp,"]\n");
+   fprintf(fp,"XS = [\n");
+   for (ii = 0; ii < nInputs_; ii++)
+      fprintf(fp, " %24.16e , \n",XStds_[ii]);
+   fprintf(fp,"]\n");
+   fprintf(fp,"###################################################\n");
+   fprintf(fp,"def icat(X, input, fm, indcm) :\n");
+   fprintf(fp,"  j0 = int(fm[indcm+2*input] + 0.1)\n");
+   fprintf(fp,"  j1 = j0 \n");
+   fprintf(fp,"  j2 = int(fm[indcm+2*input+1] + 0.1)\n");
+   fprintf(fp,"  while (j2 != (j1+1)) :\n");
+   fprintf(fp,"    k = int(0.5*(j1+j2)+1.0e-8) - 1\n");
+   fprintf(fp,"    if (fm[indcm+k] == X) :\n");
+   fprintf(fp,"      rdata = k - j0;\n");
+   fprintf(fp,"      break\n");
+   fprintf(fp,"    elif (fm[indcm+k] < X) :\n");
+   fprintf(fp,"      j1 = k\n");
+   fprintf(fp,"    else :\n");
+   fprintf(fp,"      j2 = k\n");
+   fprintf(fp,"    if (X == fm[indcm+j1-1]) : \n");
+   fprintf(fp,"      rdata = j2 - j0\n");
+   fprintf(fp,"    else :\n");
+   fprintf(fp,"      if (X == fm[indcm+j2-1]) : \n");
+   fprintf(fp,"        rdata = j2 - j0\n");
+   fprintf(fp,"      else :\n");
+   fprintf(fp,"        rdata = 0\n");
+   fprintf(fp,"  return rdata\n");
+   fprintf(fp,"###################################################\n");
+   fprintf(fp,"# Interpolation function  \n");
+   fprintf(fp,"# X[0], X[1],   .. X[m-1]   - first point\n");
+   fprintf(fp,"# X[m], X[m+1], .. X[2*m-1] - second point\n");
+   fprintf(fp,"# ... \n");
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"def interpolate(XX): \n");
+   fprintf(fp,"  nSamp = int(len(XX) / nInputs + 1.0e-8)\n");
+   fprintf(fp,"  X = nInputs * [0.0]\n");
+   fprintf(fp,"  Ys = 2 * nSamp * [0.0]\n");
+   fprintf(fp,"  for ss in range(nSamp) : \n");
+   fprintf(fp,"    for ii in range(nInputs) : \n");
+   fprintf(fp,"      X[ii] = XX[ss*nInputs+ii]\n");
+   fprintf(fp,"    nk  = IM[4]\n");
+   fprintf(fp,"    ind = IM[10] - 1; az  = FM[ind];\n");
+   fprintf(fp,"    indtb = IM[11] - 1\n");
+   fprintf(fp,"    indcm = IM[14] - 1\n");
+   fprintf(fp,"    Yt = az;\n");
+   fprintf(fp,"    for nn in range(nk) : \n");
+   fprintf(fp,"      if (FM[indtb+nn*5] != 0.0) :\n");
+   fprintf(fp,"        phi = 1.0\n");
+   fprintf(fp,"        ip = nn\n");
+   fprintf(fp,"        while (ip > -1) :\n");
+   fprintf(fp,"          ind = int(indtb+ip*5)+1\n");
+   fprintf(fp,"          t = FM[ind]\n");
+   fprintf(fp,"          v = t\n");
+   fprintf(fp,"          if (v < 0): \n");
+   fprintf(fp,"            v = - v\n");
+   fprintf(fp,"          ind = int(v+0.1) - 1\n");
+   fprintf(fp,"          ind1 = indcm+2*ind\n");
+   fprintf(fp,"          if (FM[ind1] <= 0.0) :\n");
+   fprintf(fp,"            v = 1.0\n");
+   fprintf(fp,"            if (t < 0.0) : \n");
+   fprintf(fp,"              v = -1.0\n");
+   fprintf(fp,"            dt = (X[ind] - XM[ind])/XS[ind]\n");
+   fprintf(fp,"            ind2 = int(indtb+ip*5+2)\n");
+   fprintf(fp,"            u = v * (dt-FM[ind2]) \n");
+   fprintf(fp,"            if (u < 0.0) : \n");
+   fprintf(fp,"              u = 0.0\n");
+   fprintf(fp,"          else :\n");
+   fprintf(fp,"            dt = (X[ind] - XM[ind])/XS[ind]\n");
+   fprintf(fp,"            k = icat(dt, ind, FM, indcm)\n");
+   fprintf(fp,"            if (k != 0) :\n");
+   fprintf(fp,"              ind = int(FM[indtb+ip*5+2]+0.1) - 1\n");
+   fprintf(fp,"              u = FM[indcm+k+ind]\n");
+   fprintf(fp,"            else : \n");
+   fprintf(fp,"              u = 0.0\n");
+   fprintf(fp,"            if (t < 0.0) :\n");
+   fprintf(fp,"              if (u == 0.0) : \n");
+   fprintf(fp,"                u = 1.0\n");
+   fprintf(fp,"              else : \n");
+   fprintf(fp,"                u = 0.0\n");
+   fprintf(fp,"          if (u == 0.0) :\n");
+   fprintf(fp,"            phi = 0.0\n");
+   fprintf(fp,"            break;\n");
+   fprintf(fp,"          else :\n");
+   fprintf(fp,"            phi *= u;\n");
+   fprintf(fp,"            ind3 = int(indtb+ip*5+3)\n");
+   fprintf(fp,"            ip = int(FM[ind3] + 0.1) - 1\n");
+   fprintf(fp,"        Yt += FM[indtb+nn*5] * phi;\n");
+   fprintf(fp,"    Ys[ss*2] = Yt * %24.16e + %24.16e\n",YStd_,YMean_);
+   fprintf(fp,"  return Ys\n");
+   fprintf(fp,"###################################################\n");
+   fprintf(fp,"# main program\n");
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"infileName  = sys.argv[1]\n");
+   fprintf(fp,"outfileName = sys.argv[2]\n");
+   fprintf(fp,"inputs = getInputData(infileName)\n");
+   fprintf(fp,"outputs = interpolate(inputs)\n");
+   fprintf(fp,"genOutputFile(outfileName, outputs)\n");
+   fprintf(fp,"###################################################\n");
+   fclose(fp);
+   if (outputLevel_ > 0)
+      printf("FILE psuade_rs.py contains the final MARS interpolator\n");
+   return 0;
+#else
+   printf("PSUADE ERROR : Mars not installed.\n");
+   return -1;
+#endif
+}
+
+// ************************************************************************
+// Generate results for display
+// ------------------------------------------------------------------------
+int Mars::genNDGridData(double *XIn, double *YIn, int *NN, double **XX, 
+                        double **YY)
+{
+#ifdef HAVE_MARS
+   int    totPts, ss, ii;
+   double *HX, *Xloc, **X2;
+
+   initialize(XIn, YIn);
+   if ((*NN) == -999) return 0;
   
    totPts = nPtsPerDim_;
    for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
@@ -232,9 +608,9 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
    for (ii = 0; ii < nInputs_; ii++) 
       HX[ii] = (upperBounds_[ii]-lowerBounds_[ii]) / (double) (nPtsPerDim_-1); 
  
-   (*XX2) = new double[nInputs_ * totPts];
-   (*Y2) = new double[totPts];
-   (*N) = totPts;
+   (*XX) = new double[nInputs_ * totPts];
+   (*YY) = new double[totPts];
+   (*NN) = totPts;
    X2 = new double*[totPts];
    for (ss = 0; ss < totPts; ss++) X2[ss] = new double[nInputs_];
    Xloc  = new double[nInputs_];
@@ -257,16 +633,17 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
       for (ss = 0; ss < totPts; ss++)
          X2[ss][ii] = (X2[ss][ii] - XMeans_[ii]) / XStds_[ii];
    } 
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (fmod)\n");
       printf("If it crashes here, it is mars_fmod problem.\n");
    }
-   mars_fmod(totPts, nInputs_, X2, *Y2, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (fmod).\n");
+   mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
+   if (outputLevel_ >= 2 || psMasterMode_ == 1) 
+      printf("Returned from Mars (fmod).\n");
 
    for (ii = 0; ii < totPts; ii++)
-      (*Y2)[ii] = ((*Y2)[ii] * YStd_) + YMean_;
+      (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
 
    delete [] Xloc;
    for (ss = 0; ss < totPts; ss++ ) delete [] X2[ss];
@@ -283,82 +660,15 @@ int Mars::genNDGridData(double *XIn, double *YIn, int *N, double **XX2,
 // Generate results for display
 // ------------------------------------------------------------------------
 int Mars::gen1DGridData(double *XIn, double *YIn, int ind1, 
-                        double *settings, int *N, double **XX, double **YY)
+                        double *settings, int *NN, double **XX, double **YY)
 {
 #ifdef HAVE_MARS
-   int    ss, ii, totPts, length;
-   double HX, **X2, **X1, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    ss, ii, totPts;
+   double HX, **X2;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) 
-      {
-         printf("Mars INFO: output to be normalized.\n");
-         response[0] = 'y';
-      }
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "Mars: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-   
-   if (fm_ != NULL) delete [] fm_;
-   if (im_ != NULL) delete [] im_;
-   length = 3 + 5 * nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
-            2 * nInputs_ + nSamples_;
-   fm_    = new float[length];
-   length = 21 + 10 * nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
-   im_ = new int[length];
-   if (chooseWght_ == 1)
-   {
-      for (ss = 0; ss < nSamples_; ss++)
-      {
-         if (PABS(Y[ss]) < 1.0e-12) wgts_[ss] = 1.0;
-         else                       wgts_[ss] = (float) PABS(Y[ss]);
-      }
-   }
-   else
-   {
-      for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
-   }
-
-   X1 = new double*[nSamples_];
-   for (ss = 0; ss < nSamples_; ss++) X1[ss] = new double[nInputs_];
-   for (ss = 0; ss < nSamples_; ss++) 
-      for (ii = 0; ii < nInputs_; ii++) X1[ss][ii] = X[ss*nInputs_+ii];
-
-   if (outputLevel_ >= 2 || psGMMode_ == 1) 
-   {
-      printf("Entering Mars (process)\n");
-      printf("If it crashes here, it is mars_process problem.\n");
-      printf("One way to solve the problem is to use different nSamples.\n");
-   }
-   mars_process(nSamples_, nInputs_, X1, Y, wgts_, nBasisFcns_,
-                maxVarPerBasis_, varFlags_, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (process).\n");
-   for (ss = 0; ss < nSamples_; ss++) delete [] X1[ss];
-   delete [] X1;
-   delete [] X;
-   delete [] Y;
-
+   initialize(XIn, YIn);
+   if ((*NN) == -999) return 0;
+  
    totPts = nPtsPerDim_;
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
 
@@ -374,7 +684,7 @@ int Mars::gen1DGridData(double *XIn, double *YIn, int ind1,
    }
    (*XX) = new double[totPts];
    (*YY) = new double[totPts];
-   (*N)  = totPts;
+   (*NN) = totPts;
 
    for (ss = 0; ss < totPts; ss++) 
    {
@@ -384,14 +694,15 @@ int Mars::gen1DGridData(double *XIn, double *YIn, int ind1,
       (*YY)[ss]     = 0.0;
    }
 
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (fmod)\n");
       printf("If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (fmod).\n");
-   //
+   if (outputLevel_ >= 2 || psMasterMode_ == 1) 
+      printf("Returned from Mars (fmod).\n");
+ 
    for (ii = 0; ii < totPts; ii++)
       (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
 
@@ -408,81 +719,15 @@ int Mars::gen1DGridData(double *XIn, double *YIn, int ind1,
 // Generate results for display
 // ------------------------------------------------------------------------
 int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
-                        double *settings, int *N, double **XX, double **YY)
+                        double *settings, int *NN, double **XX, double **YY)
 {
 #ifdef HAVE_MARS
-   int    ss, ii, jj, totPts, index, length;
-   double *HX, **X2, **X1, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    ss, ii, jj, totPts, index;
+   double *HX, **X2;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) 
-      {
-         printf("Mars INFO: output to be normalized.\n");
-         response[0] = 'y';
-      }
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "Mars: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-   
-   if (fm_ != NULL) delete [] fm_;
-   if (im_ != NULL) delete [] im_;
-   length = 3 + 5 * nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
-            2 * nInputs_ + nSamples_;
-   fm_    = new float[length];
-   length = 21 + 10 * nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
-   im_ = new int[length];
-   if (chooseWght_ == 1)
-   {
-      for (ss = 0; ss < nSamples_; ss++)
-      {
-         if (PABS(Y[ss]) < 1.0e-12) wgts_[ss] = 1.0;
-         else                       wgts_[ss] = (float) PABS(Y[ss]);
-      }
-   }
-   else
-   {
-      for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
-   }
-
-   X1 = new double*[nSamples_];
-   for (ss = 0; ss < nSamples_; ss++) X1[ss] = new double[nInputs_];
-   for (ss = 0; ss < nSamples_; ss++) 
-      for (ii = 0; ii < nInputs_; ii++) X1[ss][ii] = X[ss*nInputs_+ii];
-   if (outputLevel_ >= 2 || psGMMode_ == 1) 
-   {
-      printf("Entering Mars (process)\n");
-      printf("If it crashes here, it is mars_process problem.\n");
-      printf("One way to solve the problem is to use different nSamples.\n");
-   }
-   mars_process(nSamples_, nInputs_, X1, Y, wgts_, nBasisFcns_,
-                maxVarPerBasis_, varFlags_, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (process).\n");
-   for (ss = 0; ss < nSamples_; ss++) delete [] X1[ss];
-   delete [] X1;
-   delete [] X;
-   delete [] Y;
-
+   initialize(XIn, YIn);
+   if ((*NN) == -999) return 0;
+  
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX = new double[2];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -500,7 +745,7 @@ int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
    }
    (*XX) = new double[2*totPts];
    (*YY) = new double[totPts];
-   (*N)  = totPts;
+   (*NN) = totPts;
 
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
@@ -516,13 +761,14 @@ int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
       }
    }
 
-   if (outputLevel_ >= 2 || psGMMode_ == 1) 
+   if (outputLevel_ >= 2 || psMasterMode_ == 1) 
    {
       printf("Entering Mars (fmod)\n");
       printf("If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (fmod).\n");
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
+      printf("Returned from Mars (fmod).\n");
    
    for (ii = 0; ii < totPts; ii++)
       (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
@@ -541,81 +787,15 @@ int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
 // Generate 3D results for display
 // ------------------------------------------------------------------------
 int Mars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
-                        double *settings, int *N, double **XX, double **YY)
+                        double *settings, int *NN, double **XX, double **YY)
 {
 #ifdef HAVE_MARS
-   int    ss, ii, jj, ll, totPts, index, length;
-   double *HX, **X2, **X1, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    ss, ii, jj, ll, totPts, index;
+   double *HX, **X2;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) 
-      {
-         printf("Mars INFO: output to be normalized.\n");
-         response[0] = 'y';
-      }
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "Mars: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-   
-   if (fm_ != NULL) delete [] fm_;
-   if (im_ != NULL) delete [] im_;
-   length = 3 + 5 * nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
-            2 * nInputs_ + nSamples_;
-   fm_    = new float[length];
-   length = 21 + 10 * nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
-   im_ = new int[length];
-   if (chooseWght_ == 1)
-   {
-      for (ss = 0; ss < nSamples_; ss++)
-      {
-         if (PABS(Y[ss]) < 1.0e-12) wgts_[ss] = 1.0;
-         else                       wgts_[ss] = (float) PABS(Y[ss]);
-      }
-   }
-   else
-   {
-      for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
-   }
-
-   X1 = new double*[nSamples_];
-   for (ss = 0; ss < nSamples_; ss++) X1[ss] = new double[nInputs_];
-   for (ss = 0; ss < nSamples_; ss++) 
-      for (ii = 0; ii < nInputs_; ii++) X1[ss][ii] = X[ss*nInputs_+ii];
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
-   {
-      printf("Entering Mars (process)\n");
-      printf("If it crashes here, it is mars_process problem.\n");
-      printf("One way to solve the problem is to use different nSamples.\n");
-   }
-   mars_process(nSamples_, nInputs_, X1, Y, wgts_, nBasisFcns_,
-                maxVarPerBasis_, varFlags_, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (process).\n");
-   for (ss = 0; ss < nSamples_; ss++) delete [] X1[ss];
-   delete [] X1;
-   delete [] X;
-   delete [] Y;
-
+   initialize(XIn, YIn);
+   if ((*NN) == -999) return 0;
+  
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX = new double[3];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -630,7 +810,7 @@ int Mars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
    }
    (*XX) = new double[3*totPts];
    (*YY) = new double[totPts];
-   (*N)  = totPts;
+   (*NN) = totPts;
 
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
@@ -652,13 +832,14 @@ int Mars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
       }
    }
 
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (fmod)\n");
       printf("If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (fmod).\n");
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
+      printf("Returned from Mars (fmod).\n");
 
    for (ii = 0; ii < totPts; ii++)
       (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
@@ -677,82 +858,21 @@ int Mars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
 // Generate 4D results for display
 // ------------------------------------------------------------------------
 int Mars::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
-                        int ind4, double *settings, int *N, double **XX, 
+                        int ind4, double *settings, int *NN, double **XX, 
                         double **YY)
 {
 #ifdef HAVE_MARS
-   int    ss, ii, jj, ll, mm, totPts, index, length;
-   double *HX, **X2, **X1, *X, *Y;
-   char   pString[500], response[500], *cString;
+   int    ss, ii, jj, ll, mm, totPts, index;
+   double *HX, **X2;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
+   initialize(XIn, YIn);
+   if ((*NN) == -999) 
    {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) 
-      {
-         printf("Mars INFO: output to be normalized.\n");
-         response[0] = 'y';
-      }
+      (*XX) = NULL;
+      (*YY) = NULL;
+      return 0;
    }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "Mars: normalize output? (y or n) ");
-      getString(pString, response);
-   }
-
-   X = new double[nSamples_*nInputs_];
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
-   
-   if (fm_ != NULL) delete [] fm_;
-   if (im_ != NULL) delete [] im_;
-   length = 3 + 5 * nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
-            2 * nInputs_ + nSamples_;
-   fm_    = new float[length];
-   length = 21 + 10 * nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
-   im_ = new int[length];
-   if (chooseWght_ == 1)
-   {
-      for (ss = 0; ss < nSamples_; ss++)
-      {
-         if (PABS(Y[ss]) < 1.0e-12) wgts_[ss] = 1.0;
-         else                       wgts_[ss] = (float) PABS(Y[ss]);
-      }
-   }
-   else
-   {
-      for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
-   }
-
-   X1 = new double*[nSamples_];
-   for (ss = 0; ss < nSamples_; ss++) X1[ss] = new double[nInputs_];
-   for (ss = 0; ss < nSamples_; ss++) 
-      for (ii = 0; ii < nInputs_; ii++) X1[ss][ii] = X[ss*nInputs_+ii];
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
-   {
-      printf("Entering Mars (process)\n");
-      printf("If it crashes here, it is mars_process problem.\n");
-      printf("One way to solve the problem is to use different nSamples.\n");
-   }
-   mars_process(nSamples_, nInputs_, X1, Y, wgts_, nBasisFcns_,
-                maxVarPerBasis_, varFlags_, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (process).\n");
-   for (ss = 0; ss < nSamples_; ss++) delete [] X1[ss];
-   delete [] X1;
-   delete [] X;
-   delete [] Y;
-
+  
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX = new double[4];
    HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -768,7 +888,7 @@ int Mars::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
    }
    (*XX) = new double[4*totPts];
    (*YY) = new double[totPts];
-   (*N)  = totPts;
+   (*NN) = totPts;
 
    for (ii = 0; ii < nPtsPerDim_; ii++) 
    {
@@ -796,13 +916,14 @@ int Mars::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
          }
       }
    }
-   if (outputLevel_ >= 2 || psGMMode_ == 1) 
+   if (outputLevel_ >= 2 || psMasterMode_ == 1) 
    {
       printf("Entering Mars (fmod)\n");
       printf("If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (fmod).\n");
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
+      printf("Returned from Mars (fmod).\n");
 
    for (ii = 0; ii < totPts; ii++)
       (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
@@ -846,7 +967,7 @@ int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
       for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
    }
 
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (process)\n");
       printf("If it crashes here, it is mars_process problem.\n");
@@ -854,7 +975,8 @@ int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
    }
    mars_process(nSamples_, nInputs_, X, Y, wgts_, nBasisFcns_,
                 maxVarPerBasis_, varFlags_, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (process)\n");
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
+      printf("Returned from Mars (process)\n");
    for (ss = 0; ss < nSamples_; ss++) delete [] X[ss];
    delete [] X;
 
@@ -881,13 +1003,14 @@ int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
       }
    }
 
-   if (outputLevel_ >= 2 || psGMMode_ == 1)
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
    {
       printf("Entering Mars (fmod)\n");
       printf("If it crashes here, it is mars_fmod problem.\n");
    }
    mars_fmod(totPts, nInputs_, X2, YY, fm_, im_);
-   if (outputLevel_ >= 2 || psGMMode_ == 1) printf("Returned from Mars (fmod)\n");
+   if (outputLevel_ >= 2 || psMasterMode_ == 1)
+      printf("Returned from Mars (fmod)\n");
 
    fp = fopen("psuade_grid_data", "w");
    if(fp == NULL)
@@ -1392,13 +1515,13 @@ double Mars::setParams(int targc, char **targv)
 
             for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
             sortDbleList2a(nInputs_, dArray, iArray);
-            printAsterisks(0);
+            printAsterisks(PL_INFO, 0);
             printf("* Mars screening rankings \n");
-            printAsterisks(0);
+            printAsterisks(PL_INFO, 0);
             for (ii = nInputs_-1; ii >= 0; ii--)
                printf("*  Rank %3d : Input = %3d (score = %4.1f)\n", 
                       nInputs_-ii, iArray[ii]+1, dArray[ii]);
-            printAsterisks(0);
+            printAsterisks(PL_INFO, 0);
          }
          delete [] dArray;
          delete [] iArray;
@@ -1417,6 +1540,10 @@ double Mars::setParams(int targc, char **targv)
          printf("Mars: numBasis    set to = %d.\n", nBasisFcns_);
          printf("Mars: varPerBasis set to = %d.\n", maxVarPerBasis_);
       }
+   }
+   else if (targc == 1 && !strcmp(targv[0], "no_gen"))
+   {
+      noGen_ = 1;
    }
    else 
    {

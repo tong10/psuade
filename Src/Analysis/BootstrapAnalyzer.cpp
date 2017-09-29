@@ -32,9 +32,12 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
+
 #include "BootstrapAnalyzer.h"
 #include "PsuadeUtil.h"
 #include "sysdef.h"
+#include "PrintingTS.h"
 
 // ************************************************************************
 // constructor
@@ -73,21 +76,21 @@ double BootstrapAnalyzer::analyze(aData &adata)
 
    if (nOutputs <= 0 || nSamples <= 0)
    {
-      printf("BootstrapAnalyzer ERROR: invalid arguments.\n");
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "BootstrapAnalyzer ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (outputID < 0 || outputID >= nOutputs)
    {
-      printf("BootstrapAnalyzer ERROR: invalid outputID.\n");
-      printf("    outputID = %d\n", outputID);
+      printOutTS(PL_ERROR, "BootstrapAnalyzer ERROR: invalid outputID.\n");
+      printOutTS(PL_ERROR, "    outputID = %d\n", outputID);
       return PSUADE_UNDEFINED;
    } 
    if (nSamples <= 1)
    {
-      printf("BootstrapAnalyzer INFO:not meaningful to ");
-      printf("do this when nSamples <= 1.\n");
+      printOutTS(PL_ERROR, "BootstrapAnalyzer INFO:not meaningful to ");
+      printOutTS(PL_ERROR, "do this when nSamples <= 1.\n");
       return PSUADE_UNDEFINED;
    } 
    nPass = 0;
@@ -95,20 +98,22 @@ double BootstrapAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*ss+outputID] == PSUADE_UNDEFINED) nPass++;
    if (nPass > 0)
    {
-      printf("BootstrapAnalyzer ERROR: Some outputs are undefined.\n");
-      printf("                         Prune the undefined's first.\n");
+      printOutTS(PL_ERROR, "BootstrapAnalyzer ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR, "                         Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    }
+   if (storedValues_ != NULL) delete [] storedValues_;
+   storedValues_ = NULL;
 
    if (printLevel > 1)
    {
-      printAsterisks(0);
-      printf("*                   Bootstrap Analysis\n");
-      printEquals(0);
-      printf("*  Basic Statistics*\n");
-      printDashes(0);
-      printf("* Output of interest = %d\n", outputID+1);
-      printDashes(0);
+      printAsterisks(PL_INFO, 0);
+      printOutTS(PL_INFO, "*                   Bootstrap Analysis\n");
+      printEquals(PL_INFO, 0);
+      printOutTS(PL_INFO, "*  Basic Statistics*\n");
+      printDashes(PL_INFO, 0);
+      printOutTS(PL_INFO, "* Output of interest = %d\n", outputID+1);
+      printDashes(PL_INFO, 0);
    }
    computeMeanVariance(nSamples,nOutputs,Y,&mean,&var,outputID,printLevel);
 
@@ -141,10 +146,10 @@ double BootstrapAnalyzer::analyze(aData &adata)
    if (aVal == 0.0) ind = 0;
    else             ind = (int) (alpha_u * nB);
    if (printLevel > 2)
-      printf("Bootstrap confidence interval (%3.1f%% coverage) = {0, %e}\n",
+      printOutTS(PL_DETAIL, "Bootstrap confidence interval (%3.1f%% coverage) = {0, %e}\n",
              100.0*(1.0 - alpha), bsmeans[ind]);
    if (printLevel > 1)
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
 
    delete [] YY;
    dtemp = bsmeans[ind];
@@ -170,11 +175,10 @@ int BootstrapAnalyzer::computeMeanVariance(int nSamples, int yDim,
    variance /= (double) (nSamples - 1);
    (*ymean) = mean;
    (*yvar)  = variance;
-   if (flag == 1)
-   {
-      printf("BootstrapAnalyzer::mean     = %16.8e\n", mean);
-      printf("BootstrapAnalyzer::variance = %16.8e\n", variance);
-   }
+
+   printOutTS(PL_INFO, "BootstrapAnalyzer::mean     = %16.8e\n", mean);
+   printOutTS(PL_INFO, "BootstrapAnalyzer::variance = %16.8e\n", variance);
+
    return 0;
 }
 
@@ -278,8 +282,33 @@ double BootstrapAnalyzer::normalCDFInv(double &value)
 // ------------------------------------------------------------------------
 BootstrapAnalyzer& BootstrapAnalyzer::operator=(const BootstrapAnalyzer &)
 {
-   printf("BootstrapAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "BootstrapAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int BootstrapAnalyzer::get_nSteps()
+{
+   return nSteps_;
+}
+double BootstrapAnalyzer::get_mean()
+{
+   return mean_;
+}
+double BootstrapAnalyzer::get_stdev()
+{
+   return stdev_;
+}
+double *BootstrapAnalyzer::get_storedValues()
+{
+   double* retVal = NULL;
+   if (storedValues_)
+   {
+      retVal = new double[nSteps_];
+      std::copy(storedValues_, storedValues_+nSteps_+1, retVal);
+   }
+   return retVal;
 }
 

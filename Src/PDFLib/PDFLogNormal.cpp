@@ -37,9 +37,9 @@
 // ------------------------------------------------------------------------
 PDFLogNormal::PDFLogNormal(double lmean, double lstdev)
 {
-   if (lmean < 0.0) 
+   if (lstdev < 0.0) 
    {
-      printf("PDFLogNormal ERROR: mean < 0.0.\n");
+      printf("PDFLogNormal ERROR: stdev < 0.0.\n");
       exit(1);
    }
    stdev_ = lstdev;

@@ -36,6 +36,12 @@
 // ************************************************************************
 class RSMSobolTSIAnalyzer : public Analyzer
 {
+private:
+
+   int    nInputs_;
+   double outputMean_;
+   double outputStd_;
+   double *totalSensitivity_; //length is nInputs_
 
 public:
 
@@ -51,6 +57,11 @@ public:
 
    RSMSobolTSIAnalyzer& operator=(const RSMSobolTSIAnalyzer &analyzer);
 
+   /** Getters for analysis results */
+   int    get_nInputs();
+   double get_outputMean();
+   double get_outputStd();
+   double *get_totalSensitivity();
 };
 
 #endif // __RSMSOBOLTSIANALYZERH__

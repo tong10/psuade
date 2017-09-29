@@ -34,6 +34,8 @@
 // ************************************************************************
 class LSAnalyzer : public Analyzer
 {
+   int    nInputs_; 
+   double *lsMeasures_;
 
 public:
 
@@ -44,6 +46,9 @@ public:
    double analyze(aData &adata);
 
    LSAnalyzer& operator=(const LSAnalyzer &analyzer);
+
+   int    get_nInputs();
+   double *get_lsMeasures();
 };
 
 #endif // __LSANALYZERH__

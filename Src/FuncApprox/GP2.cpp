@@ -33,6 +33,7 @@
 #include "GP2.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
+#include "Psuade.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -62,6 +63,24 @@ GP2::GP2(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 GP2::~GP2()
 {
+}
+
+// ************************************************************************
+// initialize
+// ------------------------------------------------------------------------
+int GP2::initialize(double *X, double *Y)
+{
+#ifdef HAVE_GPMC
+   if (outputLevel_ >= 1) printf("GP2 training begins....\n");
+   gpmcTrain(nInputs_, nSamples_, X, Y);
+   if (outputLevel_ >= 1) printf("GP2 training completed.\n");
+   if (psRSCodeGen_ == 1) 
+      printf("GP2 INFO: response surface stand-alone code not available.\n");
+   return 0;
+#else
+   printf("PSUADE ERROR : GP2 not used.\n");
+   return -1;
+#endif
 }
 
 // ************************************************************************
@@ -109,6 +128,7 @@ int GP2::gen1DGridData(double *X, double *Y, int ind1,
    if (outputLevel_ >= 1) printf("GP2 training begins....\n");
    gpmcTrain(nInputs_, nSamples_, X, Y);
    if (outputLevel_ >= 1) printf("GP2 training completed.\n");
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_;
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
@@ -149,6 +169,7 @@ int GP2::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    if (outputLevel_ >= 1) printf("GP2 training begins....\n");
    gpmcTrain(nInputs_, nSamples_, X, Y);
    if (outputLevel_ >= 1) printf("GP2 training completed.\n");
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[2];
@@ -198,6 +219,7 @@ int GP2::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    if (outputLevel_ >= 1) printf("GP2 training begins....\n");
    gpmcTrain(nInputs_, nSamples_, X, Y);
    if (outputLevel_ >= 1) printf("GP2 training completed.\n");
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[3];
@@ -254,6 +276,7 @@ int GP2::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    if (outputLevel_ >= 1) printf("GP2 training begins....\n");
    gpmcTrain(nInputs_, nSamples_, X, Y);
    if (outputLevel_ >= 1) printf("GP2 training completed.\n");
+   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[4];
@@ -395,13 +418,13 @@ double GP2::setParams(int targc, char **targv)
       iArray = new int[nInputs_];
       for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
       sortDbleList2a(nInputs_, lengthScales, iArray);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       printf("* GP2 screening rankings\n");
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       for (ii = nInputs_-1; ii >= 0; ii--)
          printf("*  Rank %3d : Input = %3d (score = %4.1f)\n",
                 nInputs_-ii, iArray[ii]+1, lengthScales[ii]);
-      printAsterisks(0);
+      printAsterisks(PL_INFO, 0);
       delete [] lengthScales;
    }
    if(iArray != NULL) delete [] iArray;

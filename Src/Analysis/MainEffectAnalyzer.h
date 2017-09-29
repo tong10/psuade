@@ -37,8 +37,15 @@
                                                                                 
 class MainEffectAnalyzer : public Analyzer
 {
+private:
 
-   int matlabPlotFlag_;
+   int    matlabPlotFlag_;
+   int    nInputs_;
+   int    outputID_;
+   double *inputVCE_; 	//length is nInputs_
+   double totalInputVCE_;
+   double mainEffectMean_;
+   double mainEffectStd_;
 
 public:
 
@@ -67,6 +74,13 @@ public:
    int computeVCE(int, int, int, double *, double *, int, FILE *,
                   double *, double *, double *, double *);
 
+   /** Getters for analysis results */
+   int    get_nInputs();
+   int    get_outputID();
+   double *get_inputVCE();
+   double get_totalInputVCE();
+   double get_mainEffectMean();
+   double get_mainEffectStd();
 };
 
 #endif // __MAINEFFECTANALYZERH__

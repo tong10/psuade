@@ -26,17 +26,21 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
+
 #include "FuncApprox.h"
 #include "AnovaAnalyzer.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------
-AnovaAnalyzer::AnovaAnalyzer() : Analyzer()
+AnovaAnalyzer::AnovaAnalyzer() : Analyzer(), tableLeng_(0), dofs_(0), 
+                   sumSquares_(0), meanSquares_(0), fValues_(0), code_(0)
 {
    setName("ANOVA");
 }
@@ -46,6 +50,15 @@ AnovaAnalyzer::AnovaAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 AnovaAnalyzer::~AnovaAnalyzer()
 {
+   if (dofs_) delete [] dofs_;
+   if (sumSquares_) delete [] sumSquares_;
+   if (meanSquares_) delete [] meanSquares_;
+   if (fValues_) delete [] fValues_;
+   if (code_)
+   {
+      for (int jj = 0; jj < tableLeng_; jj++) delete [] code_[jj];
+      delete [] code_;
+   }
 }
 
 // ************************************************************************
@@ -55,10 +68,10 @@ double AnovaAnalyzer::analyze(aData &adata)
 {
    int        nInputs, nOutputs, nSamples, outputID, ss;
    int        ii, jj, kk, nPtsPerDim=256, ncount, index, nDataPts;
-   int        *dofs, inCnt, inCnt2, inCnt3, nLevels=10;
-   int        tableLeng, ncnt, cind1, cind2, cind3;
-   int        **code, dimPts, length=-999;
-   double     *sumSquares, CT, *meanSquares, *fValues, dtemp, ymax, *X;
+   int        inCnt, inCnt2, inCnt3, nLevels=10;
+   int        ncnt, cind1, cind2, cind3;
+   int        dimPts;
+   double     CT, dtemp, ymax, *X;
    double     *xInterpolated, *yInterpolated, dvalue, *Y;
    double     *YY, *xLower, *xUpper;
    FuncApprox *fa;
@@ -77,32 +90,47 @@ double AnovaAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
       if (ncount > 0)
       {
-         printf("ANOVA INFO: some inputs have non-uniform PDFs.\n");
-         printf("      However, they are not relevant in this analysis\n");
-         printf("      (the sample should have been generated with\n");
-         printf("       the desired distributions.)\n");
+         printOutTS(PL_WARN, "ANOVA INFO: some inputs have non-uniform PDFs.\n");
+         printOutTS(PL_WARN, "      However, they are not relevant in this analysis\n");
+         printOutTS(PL_WARN, "      (the sample should have been generated with\n");
+         printOutTS(PL_WARN, "       the desired distributions.)\n");
       }
    }
 
    if (nInputs <= 0 || nSamples <= 0)
    {
-      printf("ANOVA ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "ANOVA ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    for (ii = 0; ii < nInputs; ii++)
    {
       if (xLower[ii] >= xUpper[ii])
       {
-         printf("ANOVA ERROR: invalid input bounds.\n");
-         printf("             Input %3d bounds = %e %e\n", ii+1,
+         printOutTS(PL_ERROR, "ANOVA ERROR: invalid input bounds.\n");
+         printOutTS(PL_ERROR, "             Input %3d bounds = %e %e\n", ii+1,
                 xLower[ii], xUpper[ii]);
          return PSUADE_UNDEFINED;
       }
    }
    
+   if (dofs_)        delete [] dofs_;
+   if (sumSquares_)  delete [] sumSquares_;
+   if (meanSquares_) delete [] meanSquares_;
+   if (fValues_)     delete [] fValues_;
+   if (code_)
+   {
+      for (int jj = 0; jj < tableLeng_; jj++) delete [] code_[jj];
+      delete [] code_;
+   }
+   code_    = NULL;
+   fValues_ = NULL;
+   meanSquares_ = NULL;
+   sumSquares_ = NULL;
+   dofs_ = NULL;
+ 
    YY = new double[nSamples];
    for (ss = 0; ss < nSamples; ss++) YY[ss] = Y[nOutputs*ss+outputID];
    dimPts = 1000001;
@@ -119,7 +147,7 @@ double AnovaAnalyzer::analyze(aData &adata)
    fa = genFA(PSUADE_RS_MARS, nInputs, 1, nSamples);
    fa->setNPtsPerDim(nPtsPerDim);
    fa->setBounds(xLower, xUpper);
-   fa->genNDGridData(X, YY, &length, NULL, NULL);
+   fa->initialize(X, YY);
    
    nLevels  = nPtsPerDim;
    nDataPts = nLevels;
@@ -151,62 +179,62 @@ double AnovaAnalyzer::analyze(aData &adata)
       for (jj = 0; jj < nDataPts; jj++) yInterpolated[jj] /= ymax;
    }
 
-   tableLeng = nInputs;
-   tableLeng += ((nInputs - 1) * nInputs / 2);
+   tableLeng_ = nInputs;
+   tableLeng_ += ((nInputs - 1) * nInputs / 2);
    for (ii = 0; ii < nInputs; ii++)
       for (jj = ii+1; jj < nInputs; jj++)
-         for (kk = jj+1; kk < nInputs; kk++) tableLeng++;
-   tableLeng += 2;
-   dofs = new int[tableLeng];
-   code = new int*[tableLeng];
-   for (jj = 0; jj < tableLeng; jj++) code[jj] = new int[3];
+         for (kk = jj+1; kk < nInputs; kk++) tableLeng_++;
+   tableLeng_ += 2;
+   dofs_ = new int[tableLeng_];
+   code_ = new int*[tableLeng_];
+   for (jj = 0; jj < tableLeng_; jj++) code_[jj] = new int[3];
    for (ii = 0; ii < nInputs; ii++)
-      dofs[ii] = nLevels - 1;
+      dofs_[ii] = nLevels - 1;
    ncnt = nInputs;
    for (ii = 0; ii < nInputs; ii++)
       for (jj = ii+1; jj < nInputs; jj++)
-         dofs[ncnt++] = dofs[ii] * dofs[jj];
+         dofs_[ncnt++] = dofs_[ii] * dofs_[jj];
    for (ii = 0; ii < nInputs; ii++)
       for (jj = ii+1; jj < nInputs; jj++)
          for (kk = jj+1; kk < nInputs; kk++)
-            dofs[ncnt++] = dofs[ii] * dofs[jj] * dofs[kk];
-   dofs[tableLeng-1] = nDataPts - 1;
-   dofs[tableLeng-2] = nDataPts - 1;
+            dofs_[ncnt++] = dofs_[ii] * dofs_[jj] * dofs_[kk];
+   dofs_[tableLeng_-1] = nDataPts - 1;
+   dofs_[tableLeng_-2] = nDataPts - 1;
    ncnt = nInputs;
    ncnt += ((nInputs - 1) * nInputs / 2);
-   for (jj = 0; jj < ncnt; jj++) dofs[tableLeng-2] -= dofs[jj];
+   for (jj = 0; jj < ncnt; jj++) dofs_[tableLeng_-2] -= dofs_[jj];
 
-   sumSquares  = new double[tableLeng];
-   meanSquares = new double[tableLeng];
-   fValues     = new double[tableLeng];
+   sumSquares_  = new double[tableLeng_];
+   meanSquares_ = new double[tableLeng_];
+   fValues_     = new double[tableLeng_];
    ncnt        = 0;
-   printAsterisks(0);
-   printf("*                       ANOVA table\n");
-   printf("*              (based on MARS interpolation)\n");
-   printEquals(0);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "*                       ANOVA table\n");
+   printOutTS(PL_INFO, "*              (based on MARS interpolation)\n");
+   printEquals(PL_INFO, 0);
 
    for (inCnt = 0; inCnt < nInputs; inCnt++)
    {
-      sumSquares[inCnt] = computeSumSquares1(nDataPts, nInputs, inCnt,
-                                    dofs[inCnt], 1, 0, xInterpolated, 
+      sumSquares_[inCnt] = computeSumSquares1(nDataPts, nInputs, inCnt,
+                                    dofs_[inCnt], 1, 0, xInterpolated,
                                     yInterpolated);
-      code[ncnt][0] = inCnt;
-      code[ncnt][1] = 0;
-      code[ncnt][2] = 0;
+      code_[ncnt][0] = inCnt;
+      code_[ncnt][1] = 0;
+      code_[ncnt][2] = 0;
       ncnt++;
    }
    for (inCnt = 0; inCnt < nInputs; inCnt++)
    {
       for (inCnt2 = inCnt+1; inCnt2 < nInputs; inCnt2++)
       {
-         sumSquares[ncnt] = computeSumSquares2(nDataPts, nInputs,
-                                   inCnt, inCnt2, dofs[inCnt],
-                                   dofs[inCnt2], 1, 0, xInterpolated, 
-                                   yInterpolated, sumSquares[inCnt], 
-                                   sumSquares[inCnt2]);
-         code[ncnt][0] = inCnt;
-         code[ncnt][1] = inCnt2;
-         code[ncnt][2] = 0;
+         sumSquares_[ncnt] = computeSumSquares2(nDataPts, nInputs,
+                                   inCnt, inCnt2, dofs_[inCnt],
+                                   dofs_[inCnt2], 1, 0, xInterpolated,
+                                   yInterpolated, sumSquares_[inCnt],
+                                   sumSquares_[inCnt2]);
+         code_[ncnt][0] = inCnt;
+         code_[ncnt][1] = inCnt2;
+         code_[ncnt][2] = 0;
          ncnt++;
       }
    }
@@ -249,31 +277,31 @@ double AnovaAnalyzer::analyze(aData &adata)
                   } else kk++;
                }
             }
-            if (cind1 < 0 || cind2 < 0 || cind3 < 0 || cind1 >= tableLeng ||
-                cind2 >= tableLeng || cind3 >= tableLeng)
+            if (cind1 < 0 || cind2 < 0 || cind3 < 0 || cind1 >= tableLeng_ ||
+                cind2 >= tableLeng_ || cind3 >= tableLeng_)
             {
-               printf("ANOVA ERROR: unrecoverable error.\n");
-               delete [] dofs;
-               delete [] sumSquares;
-               delete [] meanSquares;
-               delete [] fValues;
-               for (jj = 0; jj < tableLeng; jj++) delete [] code[jj];
-               delete [] code;
+               printOutTS(PL_ERROR, "ANOVA ERROR: unrecoverable error.\n");
+               //delete [] dofs_;
+               //delete [] sumSquares_;
+               //delete [] meanSquares_;
+               //delete [] fValues_;
+               //for (jj = 0; jj < tableLeng_; jj++) delete [] code_[jj];
+               //delete [] code_;
                delete [] xInterpolated;
                delete [] yInterpolated;
                delete fa;
                return -1;
             }
-            sumSquares[ncnt] = computeSumSquares3(nDataPts, nInputs,
-                                  inCnt, inCnt2, inCnt3, dofs[inCnt],
-                                  dofs[inCnt2], dofs[inCnt3], 1, 0,
+            sumSquares_[ncnt] = computeSumSquares3(nDataPts, nInputs,
+                                  inCnt, inCnt2, inCnt3, dofs_[inCnt],
+                                  dofs_[inCnt2], dofs_[inCnt3], 1, 0,
                                   xInterpolated, yInterpolated,
-                                  sumSquares[inCnt], sumSquares[inCnt2], 
-                                  sumSquares[inCnt3], sumSquares[cind1],
-                                  sumSquares[cind2], sumSquares[cind3]);
-            code[ncnt][0] = inCnt;
-            code[ncnt][1] = inCnt2;
-            code[ncnt][2] = inCnt3;
+                                  sumSquares_[inCnt], sumSquares_[inCnt2],
+                                  sumSquares_[inCnt3], sumSquares_[cind1],
+                                  sumSquares_[cind2], sumSquares_[cind3]);
+            code_[ncnt][0] = inCnt;
+            code_[ncnt][1] = inCnt2;
+            code_[ncnt][2] = inCnt3;
             ncnt++;
          }
       }
@@ -284,67 +312,61 @@ double AnovaAnalyzer::analyze(aData &adata)
    CT = 0.0;
    for (jj = 0; jj < nDataPts; jj++) CT += yInterpolated[jj];
    CT = (CT * CT) / nDataPts;
-   sumSquares[tableLeng-1] = dtemp - CT;
-   sumSquares[tableLeng-2] = sumSquares[tableLeng-1];
+   sumSquares_[tableLeng_-1] = dtemp - CT;
+   sumSquares_[tableLeng_-2] = sumSquares_[tableLeng_-1];
    ncnt = nInputs;
    ncnt += ((nInputs - 1) * nInputs / 2);
    for (jj = 0; jj < ncnt; jj++)
-      sumSquares[tableLeng-2] -= sumSquares[jj];
-   for (jj = 0; jj < tableLeng; jj++)
+      sumSquares_[tableLeng_-2] -= sumSquares_[jj];
+   for (jj = 0; jj < tableLeng_; jj++)
    {
-      if (dofs[jj] > 0)
-         meanSquares[jj] = sumSquares[jj] / (double) dofs[jj];
+      if (dofs_[jj] > 0)
+         meanSquares_[jj] = sumSquares_[jj] / (double) dofs_[jj];
       else
-         meanSquares[jj] = 0.0;
+         meanSquares_[jj] = 0.0;
    }
-   for (jj = 0; jj < tableLeng-2; jj++)
+   for (jj = 0; jj < tableLeng_-2; jj++)
    {
-      if (meanSquares[tableLeng-2] != 0.0)
-         fValues[jj] = meanSquares[jj] / meanSquares[tableLeng-2];
+      if (meanSquares_[tableLeng_-2] != 0.0)
+         fValues_[jj] = meanSquares_[jj] / meanSquares_[tableLeng_-2];
       else
-         fValues[jj] = 0.0;
+         fValues_[jj] = 0.0;
    }
 
-   printEquals(65);
-   printf("|  source of | deg. of|   sum of    |   mean      |            |\n");
-   printf("|  variation | freedom|   squares   |   square    |       F    |\n");
-   printDashes(65);
-   for (jj = 0; jj < tableLeng-2; jj++)
+   printEquals(PL_INFO, 65);
+   printOutTS(PL_INFO, "|  source of | deg. of|   sum of    |   mean      |            |\n");
+   printOutTS(PL_INFO, "|  variation | freedom|   squares   |   square    |       F    |\n");
+   printDashes(PL_INFO, 65);
+   for (jj = 0; jj < tableLeng_-2; jj++)
    {
       if (jj < nInputs)
       {
-         printf("|    %7d |%7d | %11.4e | %11.4e | %11.4e|\n", 
-                jj+1, dofs[jj], sumSquares[jj], meanSquares[jj],fValues[jj]);
+         printOutTS(PL_WARN, "|    %7d |%7d | %11.4e | %11.4e | %11.4e|\n",
+                jj+1, dofs_[jj], sumSquares_[jj], meanSquares_[jj],fValues_[jj]);
       } 
-      else if (code[jj][2] == 0)
+      else if (code_[jj][2] == 0)
       {
-         printf("|    %3d,%3d |%7d | %11.4e | %11.4e | %11.4e|\n",
-              code[jj][0]+1,code[jj][1]+1,dofs[jj],sumSquares[jj], 
-              meanSquares[jj], fValues[jj]);
+         printOutTS(PL_WARN, "|    %3d,%3d |%7d | %11.4e | %11.4e | %11.4e|\n",
+              code_[jj][0]+1,code_[jj][1]+1,dofs_[jj],sumSquares_[jj],
+              meanSquares_[jj], fValues_[jj]);
       } 
 #if 0
       else
       {
-         printf("| %3d,%3d,%3d|   %6d | %11.4e | %11.4e | %11.4e|\n",
-             code[jj][0]+1,code[jj][1]+1,code[jj][2],dofs[jj],sumSquares[jj], 
-             meanSquares[jj],fValues[jj]);
+         printOutTS(PL_INFO, "| %3d,%3d,%3d|   %6d | %11.4e | %11.4e | %11.4e|\n",
+             code_[jj][0]+1,code_[jj][1]+1,code_[jj][2],dofs_[jj],sumSquares_[jj],
+             meanSquares_[jj],fValues_[jj]);
       }
 #endif
    }
-   printf("|   others   |%7d | %11.4e | %11.4e |    -----   |\n",
-          dofs[tableLeng-2],sumSquares[tableLeng-2], 
-          meanSquares[tableLeng-2]);
-   printf("|   total    |%7d | %11.4e | %11.4e |    -----   |\n",
-          dofs[tableLeng-1],sumSquares[tableLeng-1], 
-          meanSquares[tableLeng-1]);
-   printAsterisks(0);
+   printOutTS(PL_INFO, "|   others   |%7d | %11.4e | %11.4e |    -----   |\n",
+          dofs_[tableLeng_-2],sumSquares_[tableLeng_-2],
+          meanSquares_[tableLeng_-2]);
+   printOutTS(PL_INFO, "|   total    |%7d | %11.4e | %11.4e |    -----   |\n",
+          dofs_[tableLeng_-1],sumSquares_[tableLeng_-1],
+          meanSquares_[tableLeng_-1]);
+   printAsterisks(PL_INFO, 0);
 
-   delete [] dofs;
-   delete [] sumSquares;
-   delete [] meanSquares;
-   delete [] fValues;
-   for (jj = 0; jj < tableLeng; jj++) delete [] code[jj];
-   delete [] code;
    delete [] xInterpolated;
    delete [] yInterpolated;
    delete fa;
@@ -383,7 +405,7 @@ double AnovaAnalyzer::computeSumSquares1(int nSamples, int nInputs,
    }
    if (xcnt != nLevels) 
    {
-      printf("ANOVA ERROR (1): %d\n",xcnt);
+      printOutTS(PL_INFO, "ANOVA ERROR (1): %d\n",xcnt);
       exit(0);
    }
 
@@ -445,7 +467,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
    }
    if (xcnt1 != nlevels1)
    {
-      printf("ANOVA ERROR (2a): %d\n",nlevels1);
+      printOutTS(PL_INFO, "ANOVA ERROR (2a): %d\n",nlevels1);
       exit(0);
    }
    for (ss = 0; ss < nSamples; ss++)
@@ -463,7 +485,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
    }
    if (xcnt2 != nlevels2)
    {
-      printf("AnovaAnalyzer ERROR (2b): %d\n",nlevels2);
+      printOutTS(PL_INFO, "AnovaAnalyzer ERROR (2b): %d\n",nlevels2);
       exit(0);
    }
 
@@ -575,7 +597,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    }
    if (xcnt1 != nlevels1) 
    {
-      printf("ANOVA ERROR (3a): %d\n",nlevels1);
+      printOutTS(PL_WARN, "ANOVA ERROR (3a): %d\n",nlevels1);
       exit(0);
    }
    for (ss = 0; ss < nSamples; ss++)
@@ -593,7 +615,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    }
    if (xcnt2 != nlevels2) 
    {
-      printf("ANOVA ERROR (3b): %d\n",nlevels2);
+      printOutTS(PL_INFO, "ANOVA ERROR (3b): %d\n",nlevels2);
       exit(1);
    }
    for (ss = 0; ss < nSamples; ss++)
@@ -611,7 +633,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    }
    if (xcnt3 != nlevels3) 
    {
-      printf("ANOVA ERROR (3c): %d\n",nlevels3);
+      printOutTS(PL_INFO, "ANOVA ERROR (3c): %d\n",nlevels3);
       exit(0);
    }
 
@@ -645,7 +667,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
           }
           if (found == 1) break;
       }
-      if (kk < 0 || mm < 0) printf("ANOVA ERROR (4).\n");
+      if (kk < 0 || mm < 0) printOutTS(PL_INFO, "ANOVA ERROR (4).\n");
       else
          gsum[jj*xcnt2*xcnt3+kk*xcnt3+mm] += Y[nOutputs*ss+output];
    }
@@ -673,8 +695,75 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
 // ------------------------------------------------------------------------
 AnovaAnalyzer& AnovaAnalyzer::operator=(const AnovaAnalyzer &)
 {
-   printf("ANOVA operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "ANOVA operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+// ************************************************************************
+// Getters for analysis results
+// ------------------------------------------------------------------------
+
+int AnovaAnalyzer::get_tableLeng()
+{
+   return tableLeng_;
+}
+
+int *AnovaAnalyzer::get_dofs()
+{
+   int* retVal = NULL;
+   if(dofs_)
+   {
+      retVal = new int[tableLeng_];
+      std::copy(dofs_, dofs_+tableLeng_, retVal);
+   }
+   return retVal;
+}
+
+double *AnovaAnalyzer::get_sumSquare()
+{
+   double* retVal = NULL;
+   if (sumSquares_)
+   {
+      retVal = new double[tableLeng_];
+      std::copy(sumSquares_, sumSquares_+tableLeng_, retVal);
+   }
+   return retVal;
+}
+
+double *AnovaAnalyzer::get_meanSquares()
+{
+   double* retVal = NULL;
+   if (meanSquares_)
+   {
+      retVal = new double[tableLeng_];
+      std::copy(meanSquares_, meanSquares_+tableLeng_, retVal);
+   }
+   return retVal;
+}
+
+double *AnovaAnalyzer::get_fValues()
+{
+   double* retVal = NULL;
+   if (fValues_)
+   {
+      retVal = new double[tableLeng_];
+      std::copy(fValues_, fValues_+tableLeng_, retVal);
+   }
+   return retVal;
+}
+
+int **AnovaAnalyzer::get_code()
+{
+   int** retVal = NULL;
+   if (code_)
+   {
+      retVal = new int*[tableLeng_];
+      for (int i=0; i<tableLeng_; i++)
+      {
+    	  retVal[i] = new int[3];
+    	  std::copy(code_[i], code_[i]+3, retVal[i]);
+      }
+   }
+   return retVal;
 }
 

@@ -65,6 +65,7 @@ MetisSampling::MetisSampling() : Sampling()
    graphI_     = NULL;
    graphJ_     = NULL;
    cellsOccupied_ = NULL;
+   changeInfoName_ = 0;
 }
 
 // ************************************************************************
@@ -72,7 +73,6 @@ MetisSampling::MetisSampling() : Sampling()
 // ------------------------------------------------------------------------
 MetisSampling::MetisSampling(const MetisSampling & ms) : Sampling()
 {
-   int graphN = 1;
    refineType_ = ms.refineType_;
    refineSize_ = ms.refineSize_;
    n1d_ = ms.n1d_;
@@ -129,11 +129,8 @@ MetisSampling::MetisSampling(const MetisSampling & ms) : Sampling()
    for(int i = 0; i <= graphN_*nInputs_*2; i++)
       graphJ_[i] = ms.graphJ_[i];
 
-   for(int i = 0; i < nInputs_; i++)
-   graphN *= n1d_;
-
-   cellsOccupied_ = new int[graphN];
-   for(int i = 0; i < graphN; i++)
+   cellsOccupied_ = new int[graphN_];
+   for(int i = 0; i < graphN_; i++)
       cellsOccupied_[i] = ms.cellsOccupied_[i];
 }
 
@@ -160,13 +157,14 @@ MetisSampling::~MetisSampling()
 int MetisSampling::initialize(int initLevel)
 {
    int    *incrs, inputID, ii, jj, itmp, jtmp, nnz, sampleID, randFlag;
-   int    options[10], index, count, kk;
+   int    options[10], index, count, kk, saveFlag=1;
 #ifdef HAVE_METIS
    int    wgtflag=0, numflag=0, edgeCut=0;
 #endif
    double *ranges=NULL, dtmp, *lbounds, *ubounds, expand;
-   char   response[500], pString[500];
+   char   response[1001], pString[1001], filename[1001];
    FILE   *fp;
+ 
    if( nSamples_ <= 0)
    {
       printf("nSamples_ in file %s line %d is <= 0\n", __FILE__, __LINE__);
@@ -193,9 +191,10 @@ int MetisSampling::initialize(int initLevel)
    aggrLabels_    = NULL;
    cellsOccupied_ = NULL;
    randFlag  = randomize_;
-   if (nInputs_ > 13)
+
+   if (nInputs_ > 21)
    {
-      printf("MetisSampling ERROR : nInputs > 13 currently not supported.\n");
+      printf("MetisSampling ERROR : nInputs > 21 currently not supported.\n");
       exit(1);
    }
    if (nInputs_ == 1 ) n1d_ = nSamples_*10;
@@ -208,7 +207,10 @@ int MetisSampling::initialize(int initLevel)
    if (nInputs_ == 8 ) n1d_ = 6;
    if (nInputs_ == 9 ) n1d_ = 5;
    if (nInputs_ == 10) n1d_ = 4;
-   if (nInputs_ >= 11) n1d_ = 3;
+   if (nInputs_ == 11) n1d_ = 3;
+   if (nInputs_ == 12) n1d_ = 3;
+   if (nInputs_ == 13) n1d_ = 3;
+   if (nInputs_ >= 14) n1d_ = 2;
 
    incrs   = new int[nInputs_+1];
    graphN_ = 1;
@@ -243,75 +245,93 @@ int MetisSampling::initialize(int initLevel)
    delete [] incrs;
    cellsOccupied_ = new int[graphN_];
 
-   fp = fopen("psuadeMetisInfo", "r");
+   if (changeInfoName_ == 0) fp = fopen("psuadeMetisInfo", "r");
+   else                      fp = fopen("psuadeMetisInfo.tmp", "r");
    if (fp != NULL)
    {
       printf("INFO: psuadeMetisInfo file found. Reading it in ...\n");
-      fscanf(fp, "%d", &jj);
-      if (jj == nSamples_)
-      {
-         if  (psSamExpertMode_ == 1)
-         {
-            printf("MetisSampling Info: a partition file is found.\n");
-            printf("          The file name is psuadeMetisInfo.\n");
-            printf("          It may have been left behind by previous\n");
-            printf("          call to Metis (nSamples = %d).\n", nSamples_);
-            sprintf(pString,"Reuse the file ? (y or n) ");
-            getString(pString, response);
-         }
-         else response[0] = 'y';
-
-         if (response[0] == 'y')
-         {
-            nAggrs_ = jj;
-            aggrCnts_ = new int[nAggrs_];
-            aggrLabels_ = new int*[nAggrs_];
-            for (ii = 0; ii < nAggrs_; ii++)
-            {
-               fscanf(fp, "%d", &count);
-               if (printLevel_ > 4) 
-                  printf("Metis read: aggr %8d, size = %d\n", ii+1, count);
-               if (count > 0)
-               {
-                  aggrCnts_[ii] = count;
-                  aggrLabels_[ii] = new int[count];
-               }
-               else 
-               {
-                  aggrCnts_[ii] = count = 0;
-                  aggrLabels_[ii] = NULL;
-               }
-               for (jj = 0; jj < count; jj++)
-               {
-                  fscanf(fp, "%d", &(aggrLabels_[ii][jj]));
-                  cellsOccupied_[aggrLabels_[ii][jj]] = ii;
-               }
-            }
-            fscanf(fp, "%d", &count);
-            for (ii = 0; ii < count; ii++)
-            {
-               fscanf(fp, "%d %d", &jj, &kk);
-               // Bill Oliver make sure jj is less than the size of the array
-	       if(jj < graphN_) 
-		 cellsOccupied_[jj] = - kk - 1;
-            }
-            fclose(fp);
-         }
-      }
-      else
+      fscanf(fp, "%d %d %d", &jj, &itmp, &jtmp);
+      if (itmp != nSamples_ || jtmp != nInputs_ || jj != nSamples_)
       {
          fclose(fp);
-         if  (psSamExpertMode_ == 1)
+         printf("MetisSampling INFO: a partition file is found but\n");
+         printf("      the data is not consistent with this setup\n");
+         printf("      (The file name is psuadeMetisInfo).\n");
+         printf("      nSamples : %d != %d.\n", nSamples_, itmp);
+         printf("      nInputs  : %d != %d.\n", nInputs_, jtmp);
+         sprintf(pString,"Would you like to provide another file? (y or n) ");
+         getString(pString, response);
+         if (response[0] == 'y')
          {
-            printf("MetisSampling : a partition file is found but it is \n");
-            printf("     not compatible. Can psuade write over it (y or n) ");
-            sprintf(pString, "? ");
-            getString(pString, response);
+            sprintf(pString,"Enter partition file name : ");
+            getString(pString, filename);
+            fp = fopen(filename, "r");
+            if (fp == NULL)
+            {
+               printf("MetisSampling ERROR: partition file not found.\n");
+               exit(1);
+            }
          }
-         else response[0] = 'y';
-
-         if (response[0] == 'y') unlink("psuadeMetisInfo");
+         else
+         {
+            printf("MetisSampling INFO: delete psuadeGMetisInfo file and.\n");
+            printf("                    re-launch.\n");
+            exit(1);
+         }
+         fscanf(fp, "%d %d %d", &jj, &itmp, &jtmp);
+         if (itmp != nSamples_ || jtmp != nInputs_)
+         {
+            printf("MetisSampling ERROR: partition file not valid.\n");
+            exit(1);
+         }
+         printf("Metis INFO: partition file has %d subdomains\n",jj);
+         printf("            and %d sample points.\n",itmp);
+         printf("Metis INFO: reconstructing the partitioning.\n");
       }
+      printf("      Incoming nSamples : %d.\n", itmp);
+      printf("      Incoming nInputs  : %d.\n", jtmp);
+      nAggrs_ = jj;
+      aggrCnts_ = new int[nAggrs_];
+      aggrLabels_ = new int*[nAggrs_];
+      for (ii = 0; ii < nAggrs_; ii++)
+      {
+         fscanf(fp, "%d", &count);
+         if (printLevel_ > 4) 
+            printf("Metis read: aggr %8d, size = %d\n", ii+1, count);
+         if (count > 0)
+         {
+            aggrCnts_[ii] = count;
+            aggrLabels_[ii] = new int[count];
+         }
+         else 
+         {
+            aggrCnts_[ii] = count = 0;
+            aggrLabels_[ii] = NULL;
+         }
+         for (jj = 0; jj < count; jj++)
+         {
+            fscanf(fp, "%d", &(aggrLabels_[ii][jj]));
+            if (aggrLabels_[ii][jj] < 0 || aggrLabels_[ii][jj] >= graphN_)
+            {
+               printf("Metis ERROR: psuadeMetisInfo file has invalid info.\n");
+               exit(1);
+            }
+            cellsOccupied_[aggrLabels_[ii][jj]] = ii;
+         }
+      }
+      fscanf(fp, "%d", &count);
+      for (ii = 0; ii < count; ii++)
+      {
+         fscanf(fp, "%d %d", &jj, &kk);
+         if (jj < 0 || jj >= graphN_)
+         {
+            printf("Metis ERROR: psuadeMetisInfo file has invalid info (2).\n");
+            exit(1);
+         }
+         cellsOccupied_[jj] = - kk - 1;
+      }
+      fclose(fp);
+      saveFlag = 0;
    }
 
    if (aggrCnts_ == NULL)
@@ -334,44 +354,61 @@ int MetisSampling::initialize(int initLevel)
       for (ii = 0; ii < nAggrs_; ii++) aggrCnts_[ii] = 0;
       for (ii = 0; ii < graphN_; ii++)
       {
-	 // Bill Oliver added check to prevent buffer overflow
-         if(cellsOccupied_[ii] < nSamples_)
-	    aggrCnts_[cellsOccupied_[ii]]++;
+         if (cellsOccupied_[ii] < 0 || cellsOccupied_[ii] >= nAggrs_)
+         {
+            printf("MetisSampling INTERNAL ERROR.\n");
+            exit(1);
+         }
+	 aggrCnts_[cellsOccupied_[ii]]++;
       }  
       aggrLabels_ = new int*[nAggrs_];
       for (ii = 0; ii < nAggrs_; ii++)
       {
+         if (aggrCnts_[ii] <= 0)
+         {
+            printf("MetisSampling INTERNAL ERROR (2).\n");
+            exit(1);
+         }
          aggrLabels_[ii] = new int[aggrCnts_[ii]];
          aggrCnts_[ii] = 0;
       }
       for (ii = 0; ii < graphN_; ii++)
       {
          index = cellsOccupied_[ii];
+         if (index < 0 || index >= nAggrs_)
+         {
+            printf("MetisSampling INTERNAL ERROR (3).\n");
+            exit(1);
+         }
          aggrLabels_[index][aggrCnts_[index]++] = ii;  
       }
    }
 
-   fp = fopen("psuadeMetisInfo", "w");
-   if (fp != NULL)
+   if (saveFlag == 1)
    {
-      fprintf(fp, "%d\n", nAggrs_);
-      for (ii = 0; ii < nAggrs_; ii++)
+      if (changeInfoName_ == 0) fp = fopen("psuadeMetisInfo", "w");
+      else                      fp = fopen("psuadeMetisInfo.tmp", "w");
+      if (fp != NULL)
       {
-         fprintf(fp, "%d\n", aggrCnts_[ii]);
-         for (jj = 0; jj < aggrCnts_[ii]; jj++)
+         fprintf(fp, "%d %d %d\n", nAggrs_, nSamples_, nInputs_);
+         for (ii = 0; ii < nAggrs_; ii++)
          {
-            fprintf(fp, "%d ", aggrLabels_[ii][jj]);
-            if (jj != 0 && jj % 10 == 0) fprintf(fp, "\n");
+            fprintf(fp, "%d\n", aggrCnts_[ii]);
+            for (jj = 0; jj < aggrCnts_[ii]; jj++)
+            {
+               fprintf(fp, "%d ", aggrLabels_[ii][jj]);
+               if (jj != 0 && jj % 10 == 0) fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
          }
-         fprintf(fp, "\n");
+         jj = 0;
+         for (ii = 0; ii < graphN_; ii++) if (cellsOccupied_[ii] < 0) jj++;
+         fprintf(fp, "%d\n", jj);
+         for (ii = 0; ii < graphN_; ii++)
+            if (cellsOccupied_[ii] < 0) 
+               fprintf(fp, "%d %d\n",ii,-(cellsOccupied_[ii]+1));
+         fclose(fp);
       }
-      jj = 0;
-      for (ii = 0; ii < graphN_; ii++) if (cellsOccupied_[ii] < 0) jj++;
-      fprintf(fp, "%d\n", jj);
-      for (ii = 0; ii < graphN_; ii++)
-         if (cellsOccupied_[ii] < 0) 
-            fprintf(fp, "%d %d\n",ii,-(cellsOccupied_[ii]+1));
-      fclose(fp);
    }
    if (initLevel != 0) return 0;
 
@@ -506,6 +543,12 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
       printf("MetisSampling::refine ERROR - need to call initialize first.\n");
       exit(1);
    }
+   if (printLevel_ > 0)
+   {
+      printf("MetisSampling::refine(1): nSamples = %d\n", nSamples_);
+      printf("MetisSampling::refine(1): nInputs  = %d\n", nInputs_);
+      printf("MetisSampling::refine(1): nOutputs = %d\n", nOutputs_);
+   }
 
    ranges  = new double[nInputs_];
    lbounds = new double[nInputs_];
@@ -525,6 +568,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
          exit(1);
       }
    }
+
    count = 0;
    for (ii = 0; ii < graphN_; ii++) if (cellsOccupied_[ii] < 0) count++;
 
@@ -538,8 +582,14 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
             itmp = itmp * n1d_;
             dtmp = sampleMatrix_[ss][inputID];
             dtmp = (dtmp - lowerBounds_[inputID]) / ranges[inputID];
-            jtmp = (int) (dtmp * n1d_);
+            if (dtmp == 1.0) jtmp = n1d_ - 1;
+            else             jtmp = (int) (dtmp * n1d_);
             itmp += jtmp;
+         }
+         if (itmp < 0 || itmp >= graphN_)
+         {
+            printf("MetisSampling::refine INTERNAL ERROR.\n");
+            printf("               Consult PSUADE developer.\n");
          }
          cellsOccupied_[itmp] = -(cellsOccupied_[itmp] + 1); 
       }
@@ -563,14 +613,13 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
       printf("MetisSampling::refine ERROR - METIS not used in initialize.\n");
       printf("               so Metis cannot be used in refine (%d,%d).\n",
              count, itmp);
-      printf("Note: It can be due to PsuadeMetisInfo file being modified.\n");
+      printf("Note: It can be due to psuadeMetisInfo file being modified.\n");
       exit(1);
    }
    else if (nSamples_ >= 40000)
    {
       printf("MetisSampling::refine INFO - less error checking (N>40000).\n");
    }
-
 
    tmpCnts = aggrCnts_;
    tmpLabels = aggrLabels_;
@@ -947,8 +996,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
                   faPtr = genFA(2, nInputs_, iOne, marsCnt);
                faPtr->setBounds(lbounds, ubounds);
                faPtr->setOutputLevel(1);
-               status = -999;
-               faPtr->genNDGridData(marsIn, marsOut, &status, NULL, NULL);
+               faPtr->initialize(marsIn, marsOut);
                diffArray[ss] = faPtr->evaluatePoint(sampleMatrix_[ss]);
                diffArray[ss] = PABS(diffArray[ss] - sampleOutput_[ss]);
                delete faPtr;
@@ -1034,7 +1082,6 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
    splitCount = splitSuccess = 0;
    for (ss = 0; ss < nAggrs_; ss++)
    {
-
       localN = aggrCnts_[ss];
       if (localN > maxN) 
       {
@@ -1063,14 +1110,14 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
             }
             if (ii >= maxN)
             {
-               printf("MetisSampling INTERNAL ERROR (2): consult PSUADE developers\n");
+               printf("MetisSampling INTERNAL ERROR (2): consult developers\n");
                exit(1);
             }
             localIA[ii+1] = localNNZ;
          }
          if (localNNZ > maxNNZ) 
          {
-            printf("MetisSampling INTERNAL ERROR (3): consult PSUADE developers\n");
+            printf("MetisSampling INTERNAL ERROR (3): consult developers\n");
             exit(1);
          }
 
@@ -1109,7 +1156,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
             }
             if (count != count0)
             {
-               printf("MetisSampling INTERNAL ERROR (4): consult PSUADE developers\n");
+               printf("MetisSampling INTERNAL ERROR (4): consult developers\n");
                exit(1);
             }
             aggrCnts_[ss] = count1; 
@@ -1119,7 +1166,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
                   aggrLabels_[ss][count++] = aggrLabels_[ss][ii];
             if (count != count1)
             {
-               printf("MetisSampling INTERNAL ERROR (5): consult PSUADE developers\n");
+               printf("MetisSampling INTERNAL ERROR (5): consult developers\n");
                exit(1);
             }
          }
@@ -1138,7 +1185,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
             }
             if (count != count1)
             {
-               printf("MetisSampling INTERNAL ERROR (6): consult PSUADE developers\n");
+               printf("MetisSampling INTERNAL ERROR (6): consult developers\n");
                exit(1);
             }
             aggrCnts_[ss] = count0; 
@@ -1148,7 +1195,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
                   aggrLabels_[ss][count++] = aggrLabels_[ss][ii];
             if (count != count0)
             {
-               printf("MetisSampling INTERNAL ERROR (7): consult PSUADE developers\n");
+               printf("MetisSampling INTERNAL ERROR (7): consult developers\n");
                exit(1);
             }
          }
@@ -1213,10 +1260,11 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
    }
    nAggrs_ = currNAggr;
 
-   fp = fopen("psuadeMetisInfo", "w");
+   if (changeInfoName_ == 0) fp = fopen("psuadeMetisInfo", "w");
+   else                      fp = fopen("psuadeMetisInfo.tmp", "w");
    if (fp != NULL)
    {
-      fprintf(fp, "%d\n", nAggrs_);
+      fprintf(fp, "%d %d %d\n", nAggrs_, nSamples_, nInputs_);
       for (ii = 0; ii < nAggrs_; ii++)
       {
          fprintf(fp, "%d\n", aggrCnts_[ii]);
@@ -1244,17 +1292,16 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
    delete [] localJA;
    if (refineArray != NULL) delete [] refineArray;
 
-   if (printLevel_ > 4)
+   if (printLevel_ > 0)
    {
-      printf("MetisSampling::refine: nSamples = %d\n", nSamples_);
-      printf("MetisSampling::refine: nInputs  = %d\n", nInputs_);
-      printf("MetisSampling::refine: nOutputs = %d\n", nOutputs_);
+      printEquals(PL_INFO, 0);
+      printf("MetisSampling::refine(2): nSamples = %d\n", nSamples_);
+      printf("MetisSampling::refine(2): nInputs  = %d\n", nInputs_);
+      printf("MetisSampling::refine(2): nOutputs = %d\n", nOutputs_);
       if (randomize_ != 0)
            printf("MetisSampling::refine: randomize on\n");
       else printf("MetisSampling::refine: randomize off\n");
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    MetisSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
+      printEquals(PL_INFO, 0);
    }
    return 0;
 }
@@ -1273,13 +1320,18 @@ int MetisSampling::setParam(string sparam)
    pos = sparam.find("reset");
    if (pos >= 0)
    {
-      fp = fopen("psuadeMetisInfo", "r");
+      if (changeInfoName_ == 0) fp = fopen("psuadeMetisInfo", "r");
+      else                      fp = fopen("psuadeMetisInfo.tmp", "r");
       if (fp != NULL)
       {
          fclose(fp);
-         unlink("psuadeMetisInfo");
+         if (changeInfoName_ == 0) unlink("psuadeMetisInfo");
+         else                      unlink("psuadeMetisInfo.tmp");
       }
    }
+
+   pos = sparam.find("changeInfoName");
+   if (pos >= 0) changeInfoName_ = 1;
 
    pos = sparam.find("setUniformRefinement");
    if (pos >= 0) refineType_ = 0;
@@ -1364,7 +1416,7 @@ int MetisSampling::setParam(string sparam)
 // ------------------------------------------------------------------------
 MetisSampling& MetisSampling::operator=(const MetisSampling & ms)
 {
-   if(this == &ms) return *this;
+   if (this == &ms) return *this;
    refineType_ = ms.refineType_;
    refineSize_ = ms.refineSize_;
    n1d_ = ms.n1d_;

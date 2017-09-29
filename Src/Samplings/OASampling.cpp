@@ -32,6 +32,8 @@
 #include "PsuadeUtil.h"
 #include "OASampling.h"
 
+#define PABS(x) ((x) > 0 ? (x) : -(x))
+
 // ************************************************************************
 // external functions
 // ************************************************************************
@@ -63,14 +65,19 @@ OASampling::~OASampling()
 // ------------------------------------------------------------------------
 int OASampling::initialize(int initLevel)
 {
-   int    ii, jj, kk, status, *intVec, strength, nReps;
+   int    ii, jj, kk, status, *intVec, strength, nReps, maxMinDist, dist2;
    int    **permMatrix, **tempMatrix, index, repID, offset, nSamples1;
-   int    nSamples2;
+   int    nSamples2, ntimes=1, ll, minDist, dist, ss, ss2, **storeMatrix;
    double *ranges, scale, ddata, **perturbMatrix=NULL;
 
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("OASampling::initialize ERROR - input not set up.\n");
+      exit(1);
+   }
+   if (nSamples_ == 0)
+   {
+      printf("OASampling::initialize ERROR - nSamples = 0.\n");
       exit(1);
    }
 
@@ -129,21 +136,23 @@ int OASampling::initialize(int initLevel)
       }
    }
 
-   permMatrix = new int*[nSamples_];
-   for (ii = 0; ii < nSamples_; ii++) permMatrix[ii] = new int[nInputs_];
-
-   intVec = new int[nSymbols_];
-   strength = 2;
    nReps = nSamples_ / (nSymbols_ * nSymbols_);
-   offset = 0;
+   permMatrix = new int*[nSamples_+nSamples_/nReps];
+   for (ii = 0; ii < nSamples_+nSamples_/nReps; ii++) 
+      permMatrix[ii] = new int[nInputs_];
+   storeMatrix = new int*[nSamples_/nReps];
+   for (ii = 0; ii < nSamples_/nReps; ii++) storeMatrix[ii] = new int[nInputs_];
+   intVec = new int[nSymbols_];
 
+   strength = 2;
+   offset = 0;
+   maxMinDist = 0;
    for (repID = 0; repID < nReps; repID++)
    {
       if (printLevel_ > 4)
          printf("OASampling: creating the %d-th (of %d) replication.\n",
                 repID+1,nReps);
 
-     
       status = bose_link(nSamples_/nReps, nInputs_, strength, &tempMatrix);
       if ((status >= 0 && status != (nSamples_/nReps)) || status < 0)
       {
@@ -154,18 +163,50 @@ int OASampling::initialize(int initLevel)
       for (ii = 0; ii < nSamples_/nReps; ii++) 
       {
          for (jj = 0; jj < nInputs_; jj++) 
-            permMatrix[offset+ii][jj] = tempMatrix[ii][jj];
+            permMatrix[nSamples_+ii][jj] = tempMatrix[ii][jj];
          free(tempMatrix[ii]);
       }
       free(tempMatrix);
-
-      for (jj = 0; jj < nInputs_; jj++) 
+     
+      for (ll = 0; ll < ntimes; ll++)
       {
-         generateRandomIvector(nSymbols_, intVec);
-         for (ii = 0; ii < nSamples_/nReps; ii++) 
-            permMatrix[offset+ii][jj] = 
-                     intVec[permMatrix[offset+ii][jj]];
+
+         for (jj = 0; jj < nInputs_; jj++) 
+         {
+            generateRandomIvector(nSymbols_, intVec);
+            for (ii = 0; ii < nSamples_/nReps; ii++) 
+               permMatrix[offset+ii][jj] = 
+                        intVec[permMatrix[nSamples_+ii][jj]];
+         }
+         if (ntimes > 1)
+         {
+            minDist = 2 * nSymbols_ * nInputs_;
+            for (ss = 0; ss < nSamples_/nReps; ss++)
+            {
+               for (ss2 = ss+1; ss2 < nSamples_/nReps; ss2++)
+               {
+                  dist = 0;
+                  for (ii = 0; ii < nInputs_; ii++)
+                  {
+                     dist2 = permMatrix[offset+ss][ii]-permMatrix[offset+ss2][ii];
+                     dist += PABS(dist2);
+                  }
+                  if (dist > 0 && dist < minDist) minDist = dist;
+               }
+            }
+         }
+         else minDist = maxMinDist + 1;
+         if (minDist > maxMinDist)
+         {
+            for (ss = 0; ss < nSamples_/nReps; ss++)
+               for (ii = 0; ii < nInputs_; ii++)
+                  storeMatrix[ss][ii] = permMatrix[offset+ss][ii];
+            maxMinDist = minDist;
+         }
       }
+      for (ss = 0; ss < nSamples_/nReps; ss++)
+         for (ii = 0; ii < nInputs_; ii++)
+            permMatrix[offset+ss][ii] = storeMatrix[ss][ii];
 
       if (nSamples_/nReps < 1000 && printLevel_ > 5)
       {
@@ -181,6 +222,9 @@ int OASampling::initialize(int initLevel)
       offset += nSamples_/nReps;
    }
    delete [] intVec;
+   for (ii = 0; ii < nSamples_/nReps; ii++)
+      if (storeMatrix[ii] != NULL) delete [] storeMatrix[ii];
+   delete [] storeMatrix;
 
 #if 0
    for (ii = 0; ii < nSamples_; ii++) 
@@ -257,7 +301,7 @@ int OASampling::initialize(int initLevel)
       }
    }
 
-   for (ii = 0; ii < nSamples_; ii++)
+   for (ii = 0; ii < nSamples_+nSamples_/nReps; ii++)
       if (permMatrix[ii] != NULL) delete [] permMatrix[ii];
    delete [] permMatrix;
    delete [] ranges;

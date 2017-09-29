@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __FASTANALYZERH__
 #define __FASTANALYZERH__
 
@@ -36,6 +35,13 @@
                                                                                 
 class FASTAnalyzer : public Analyzer
 {
+private:
+
+   int    nInputs_;
+   int    M_;
+   double *fourierCoefs_; //length nInputs_
+   double FASTvariance_;
+
 public:
 
    FASTAnalyzer();
@@ -50,6 +56,12 @@ public:
 
    int computeCoefficents(int nSamples, int nInputs, double *Y, 
                           double **coefs, int outputLevel);
+
+   /** Getters for analysis results */
+   int    get_nInputs();
+   int    get_M();
+   double *get_fourierCoefs();
+   double get_FASTvariance();
 };
 
 #endif // __FASTANALYZERH__

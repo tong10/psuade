@@ -25,7 +25,6 @@
 // DATE   : 2003
 // ************************************************************************
 #include <stdio.h>
-using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -54,6 +53,11 @@ int FactorialSampling::initialize(int initLevel)
    int    inputID, sampleID, *iCounts, *iCntMax, curSymbol, *iSymbol, nsym;
    double scale, *ranges=NULL, ddata, dpower;
 
+   if (nSamples_ == 0)
+   {
+      printf("FactorialSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("FactorialSampling::initialize ERROR - input not set up.\n");

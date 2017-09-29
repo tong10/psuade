@@ -26,7 +26,6 @@
 // ************************************************************************
 #include <stdio.h>
 #include <sstream>
-using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -58,6 +57,11 @@ int CentralCompositeSampling::initialize(int initLevel)
    double   *sampleInputs, *sampleOutputs, alpha;
    Sampling *samplePtr;
 
+   if (nSamples_ == 0)
+   {
+      printf("CentralCompositeSampling::initialize ERROR: nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("CentralCompositeSampling::initialize ERROR: no inputs.\n");

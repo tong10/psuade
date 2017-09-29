@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __FFANALYZERH__
 #define __FFANALYZERH__
 
@@ -33,11 +32,18 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
+
 class FFAnalyzer : public Analyzer
 {
+private:
 
-   int matlabPlotFlag_;
+   int    matlabPlotFlag_;
+   int    nInputs_;
+   int    nSamples_;
+   int    nReps_;
+   double *means_;
+   double *stds_;
+   double **mEffects_;
 
 public:
 
@@ -48,6 +54,15 @@ public:
    double analyze(aData &adata);
 
    FFAnalyzer& operator=(const FFAnalyzer& analyzer);
+
+   /** Getters for analysis results */
+   int    get_nInputs();
+   int    get_nSamples();
+   int    get_nReps();
+   double *get_means();
+   double *get_stds();
+   double **get_mEffects();
+
 };
 
 #endif // __FFANALYZERH__

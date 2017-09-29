@@ -31,6 +31,7 @@
 #include "PsuadeUtil.h"
 #include "sysdef.h"
 #include "Psuade.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -78,29 +79,29 @@ double PCAnalyzer::analyze(aData &adata)
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printf("PCA INFO: some inputs have non-uniform PDFs, but\n");
-         printf("          they are not relevant in this analysis.\n");
+         printOutTS(PL_INFO, "PCA INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_INFO, "          they are not relevant in this analysis.\n");
       }
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("PCA ERROR: invalid arguments.\n");
-      printf("    nInputs  = %d\n", nInputs);
-      printf("    nOutputs = %d\n", nOutputs);
-      printf("    nSamples = %d\n", nSamples);
+      printOutTS(PL_ERROR, "PCA ERROR: invalid arguments.\n");
+      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (nOutputs == 1)
    {
-      printf("PCA ERROR: analysis not done since nOutputs=1.\n");
+      printOutTS(PL_ERROR, "PCA ERROR: analysis not done since nOutputs=1.\n");
       return PSUADE_UNDEFINED;
    }
    
    if (psAnaExpertMode_ == 1 && psPlotTool_ == 0)
    {
-      printf("Compute contribution of principal ");
-      printf("components to each output vector (y or n) ");
+      printOutTS(PL_INFO, "Compute contribution of principal ");
+      printOutTS(PL_INFO, "components to each output vector (y or n) ");
       sprintf(pString, "? ");
       getString(pString, winput1);
       if (winput1[0] == 'y')
@@ -114,7 +115,7 @@ double PCAnalyzer::analyze(aData &adata)
             fclose(fp);
             pcaFlag = 1;
          }
-         else printf("PCA: cannot open matlab file %s\n", pcaFile);
+         else printOutTS(PL_INFO, "PCA: cannot open matlab file %s\n", pcaFile);
       }
    }
    else
@@ -131,7 +132,7 @@ double PCAnalyzer::analyze(aData &adata)
                fclose(fp);
                pcaFlag = 1;
             }
-            else printf("PCA ERROR: cannot open matlab file %s\n", 
+            else printOutTS(PL_INFO, "PCA ERROR: cannot open matlab file %s\n",
                         pcaFile);
          }
       }
@@ -155,7 +156,7 @@ double PCAnalyzer::analyze(aData &adata)
       stdev = sqrt(stdev);
       if (PABS(stdev) > 1.0e-14)
          for (ss = 0; ss < nSamples; ss++) YY[nSamples*jj+ss] /= stdev;
-      printf("PCA: output %5d has mean = %e, std. dev = %e\n", jj+1, 
+      printOutTS(PL_INFO, "PCA: output %5d has mean = %e, std. dev = %e\n", jj+1,
              mean, stdev);
    }
 
@@ -171,10 +172,10 @@ double PCAnalyzer::analyze(aData &adata)
    dgesvd_(&jobu, &jobvt, &M, &N, YY, &M, SS, UU, &M, VV, &N, WW,
            &wlen, &info);
    if (info != 0)
-      printf("* PCA INFO: dgesvd returns a nonzero (%d).\n",info);
+      printOutTS(PL_INFO, "* PCA INFO: dgesvd returns a nonzero (%d).\n",info);
    for (ii = 0; ii < N; ii++) SS[ii] = SS[ii] * SS[ii];
    for (ii = 0; ii < N; ii++)
-      printf("principal component %3d has variance = %16.8e\n",ii+1,
+      printOutTS(PL_INFO, "principal component %3d has variance = %16.8e\n",ii+1,
              SS[ii]);
    sprintf(pString,"Enter how many principal components to keep : ");
    pcCnt = getInt(1, N, pString);
@@ -278,7 +279,7 @@ double PCAnalyzer::analyze(aData &adata)
          fprintf(fp, "hold off\n");
          fclose(fp);
       }
-      else printf("WARNING: cannot open file for plotting.\n");
+      else printOutTS(PL_WARN, "WARNING: cannot open file for plotting.\n");
    }
 
    for (ss = 0; ss < nSamples; ss++)
@@ -296,7 +297,7 @@ double PCAnalyzer::analyze(aData &adata)
    fp = fopen("psPCA.out", "w");
    if (fp == NULL)
    {
-      printf("PCA ERROR: failed to store principal component.\n");
+      printOutTS(PL_ERROR, "PCA ERROR: failed to store principal component.\n");
    }
    else
    {
@@ -308,7 +309,7 @@ double PCAnalyzer::analyze(aData &adata)
          fprintf(fp, "\n");
       }
       fclose(fp);
-      printf("PCA: principal components stored in psPCA.out file.\n");
+      printOutTS(PL_INFO, "PCA: principal components stored in psPCA.out file.\n");
    }
 
    adata.nOutputs_ = pcCnt;
@@ -317,7 +318,7 @@ double PCAnalyzer::analyze(aData &adata)
    delete [] VV;
    delete [] UU;
    delete [] YY;
-   printf("PCA completed: you can use write to update file.\n");
+   printOutTS(PL_INFO, "PCA completed: you can use write to update file.\n");
    return 0.0;
 }
 
@@ -326,7 +327,7 @@ double PCAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 PCAnalyzer& PCAnalyzer::operator=(const PCAnalyzer &)
 {
-   printf("PCA operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "PCA operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }

@@ -214,14 +214,7 @@ Ann::Ann(const Ann & an) : FuncApprox(an.nInputs_, an.nSamples_)
 //****************************************************************************
 Ann::~Ann()
 {
-   if (learnFuncName_ != NULL) free(learnFuncName_);
-   if (inputDataMax_ != NULL) delete [] inputDataMax_;
-   if (inputDataMin_ != NULL) delete [] inputDataMin_;
-   if (inputData_ 	!= NULL) delete [] inputData_;
-   trainPerformed_ = false;
-#ifdef HAVE_SNNS
-   ANNF_exit();
-#endif
+   cleanUp();
 }
 
 //****************************************************************************
@@ -907,6 +900,33 @@ void Ann::generateNet(double *X, double *Y)
 }
 
 //****************************************************************************
+//  FUNCTION : initialize(double *X, double *Y)
+//  PURPOSE  : Creates network 
+//****************************************************************************
+int Ann::initialize(double *X, double *Y)
+{
+#ifdef HAVE_SNNS
+   if (nInputs_ <= 0 || nSamples_ <= 0)
+   {
+      printf("ANN::initialize ERROR - invalid argument.\n");
+      exit(1);
+   } 
+   if (nSamples_ <= nInputs_)
+   {
+      printf("ANN::initialize INFO - not enough points.\n");
+      return 0;
+   }
+   
+   cleanUp();
+   if (outputLevel_ > 3) verboseFlag_ = true;
+   if (trainPerformed_ == false) { generateNet(X, Y); }
+   if (psRSCodeGen_ == 1) 
+      printf("ANN INFO: response surface stand-alone code not available.\n");
+#endif
+   return 0;
+}
+
+//****************************************************************************
 //  FUNCTION : genNDGridData(double *X, double *Y, int *N, 
 //                           double **X2, double **Y2)  
 //  PURPOSE  : Creates network and generates 1-D lattice points if necessary.
@@ -914,22 +934,10 @@ void Ann::generateNet(double *X, double *Y)
 int Ann::genNDGridData(double *X, double *Y, int *N, double **X2, double **Y2)
 {
 #ifdef HAVE_SNNS
-   int     totPts, mm;
+   int totPts, mm;
 
-   if (nInputs_ <= 0 || nSamples_ <= 0)
-   {
-      printf("ANN::genNDGridData ERROR - invalid argument.\n");
-      exit(1);
-   } 
-   if (nSamples_ <= nInputs_)
-   {
-      printf("ANN::genNDGridData INFO - not enough points.\n");
-      return 0;
-   }
-   
-   if (outputLevel_ > 3) verboseFlag_ = true;
-   if (trainPerformed_ == false) { generateNet(X, Y); }
-	
+   initialize(X, Y);
+
    if ((*N) == -999) return 0;
 
    genNDGrid(N, X2);
@@ -940,17 +948,12 @@ int Ann::genNDGridData(double *X, double *Y, int *N, double **X2, double **Y2)
    (*N)  = totPts;
    for (mm = 0; mm < totPts; mm++)
       (*Y2)[mm] = evaluatePoint(&((*X2)[mm*nInputs_]));
-
-   return 0;
-
 #endif
    return 0;
 }
 
 //****************************************************************************
-//  FUNCTION : gen1DGridData(double *X, double *Y, int ind1,
-//                           double *settings, int *NN, 
-//                           double **XX, double **YY) 
+//  FUNCTION : gen1DGridData
 //****************************************************************************
 int Ann::gen1DGridData(double *X, double *Y, int ind1, double *settings, 
                        int *NN, double **XX, double **YY)
@@ -959,8 +962,9 @@ int Ann::gen1DGridData(double *X, double *Y, int ind1, double *settings,
    int    mm, nn;
    double HX, *Xloc, std;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   initialize(X, Y);
+
+   if ((*N) == -999) return 0;
 
    HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
 
@@ -988,9 +992,7 @@ int Ann::gen1DGridData(double *X, double *Y, int ind1, double *settings,
 }
 
 //****************************************************************************
-//  FUNCTION : gen2DGridData(double *X, double *Y, int ind1,
-//                        int ind2, double *settings, int *NN, 
-//                        double **XX, double **YY) 
+//  FUNCTION : gen2DGridData
 //****************************************************************************
 int Ann::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
                        double *settings, int *NN, double **XX, double **YY)
@@ -999,9 +1001,9 @@ int Ann::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    int    totPts, mm, nn, index;
    double *HX, *Xloc, std;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   initialize(X, Y);
 
+   if ((*N) == -999) return 0;
 
    totPts = nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[2];
@@ -1040,9 +1042,7 @@ int Ann::gen2DGridData(double *X, double *Y, int ind1, int ind2,
 }
 
 //****************************************************************************
-//  FUNCTION : gen3DGridData(double *X, double *Y, int ind1,
-//                        int ind2, int ind3, double *settings, int *NN, 
-//                        double **XX, double **YY) 
+//  FUNCTION : gen3DGridData
 //****************************************************************************
 int Ann::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
                       double *settings, int *NN, double **XX, double **YY)
@@ -1051,9 +1051,9 @@ int Ann::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    int    totPts, mm, nn, pp, index;
    double *HX, *Xloc, std;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   initialize(X, Y);
 
+   if ((*N) == -999) return 0;
 
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[3];
@@ -1099,9 +1099,7 @@ int Ann::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
 }
 
 //****************************************************************************
-//  FUNCTION : gen3DGridData(double *X, double *Y, int ind1,
-//                        int ind2, int ind3, double *settings, int *NN, 
-//                        double **XX, double **YY) 
+//  FUNCTION : gen4DGridData
 //****************************************************************************
 int Ann::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
                        int ind4, double *settings, int *NN, double **XX, 
@@ -1111,9 +1109,9 @@ int Ann::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    int    totPts, mm, nn, pp, qq, index;
    double *HX, *Xloc, std;
 
-   (*NN) = -999;
-   genNDGridData(X, Y, NN, NULL, NULL);
+   initialize(X, Y);
 
+   if ((*N) == -999) return 0;
 
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
    HX    = new double[4];
@@ -1352,5 +1350,21 @@ double Ann::evaluatePointFuzzy(int npts, double *X, double *Y, double *Ystd)
 #endif
 }
 
-/* end of file */
+//****************************************************************************
+// FUNCTION : cleanUp  
+//****************************************************************************
+void Ann::cleanUp()
+{
+   if (trainPerformed_ == true)
+   {
+      if (learnFuncName_ != NULL) free(learnFuncName_);
+      if (inputDataMax_ != NULL) delete [] inputDataMax_;
+      if (inputDataMin_ != NULL) delete [] inputDataMin_;
+      if (inputData_       != NULL) delete [] inputData_;
+#ifdef HAVE_SNNS
+      ANNF_exit();
+#endif
+      trainPerformed_ = false;
+   }
+}
 

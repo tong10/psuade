@@ -67,6 +67,7 @@ public:
    void   CholMatvec(Vector &);
    void   CholSolve(Vector &);
    void   CholTSolve(Vector &);
+   void   print();
 
 private:
    double computeDeterminant(int, double **);

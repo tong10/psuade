@@ -200,10 +200,11 @@ int getDbleFromToken(char *token, double *outdata)
 // ------------------------------------------------------------------------
 int getInt(int llimit, int uLimit, char *inString)
 {
-   int  idata, nTokens, iOne=1, status;
+   int  idata, nTokens, iOne=1, status, count;
    char **tokens, winput[501];
 
    idata = llimit - 1;
+   count = 0;
    while (idata < llimit || idata > uLimit)
    {
       printf("%s", inString);
@@ -218,6 +219,12 @@ int getInt(int llimit, int uLimit, char *inString)
          delete [] tokens;
       }
       else printf("ERROR: Invalid input.\n");
+      count++;
+      if (count > 10)
+      {
+         printf("getInt ERROR: bad data entered more than 10 times - abort.\n");
+         exit(1);
+      }
    }
    return idata;
 }
@@ -227,10 +234,11 @@ int getInt(int llimit, int uLimit, char *inString)
 // ------------------------------------------------------------------------
 double getDouble(char *inString)
 {
-   int    nTokens, iOne=1, status=-1;
+   int    nTokens, iOne=1, status=-1, count;
    double ddata;
    char   **tokens, winput[501];
 
+   count = 0;
    while (status < 0)
    {
       printf("%s", inString);
@@ -241,6 +249,12 @@ double getDouble(char *inString)
          status = getDbleFromToken(tokens[0], &ddata);
          delete [] tokens;
       }
+      count++;
+      if (count > 10)
+      {
+         printf("getDouble ERROR: bad data entered more than 10 times - abort.\n");
+         exit(1);
+      }
    }
    return ddata;
 }
@@ -250,9 +264,10 @@ double getDouble(char *inString)
 // ------------------------------------------------------------------------
 int getString(char *inString, char *cstr)
 {
-   int    nTokens, iOne=1, status=-1;
+   int    nTokens, iOne=1, status=-1, count;
    char   **tokens, winput[501];
 
+   count = 0;
    while (status < 0)
    {
       printf("%s", inString);
@@ -263,6 +278,12 @@ int getString(char *inString, char *cstr)
          strcpy(cstr, tokens[0]);
          cstr[strlen(cstr)] = '\0';
          delete [] tokens;
+      }
+      count++;
+      if (count > 10)
+      {
+         printf("getString ERROR: bad data entered more than 10 times - abort.\n");
+         exit(1);
       }
    }
    return 0;

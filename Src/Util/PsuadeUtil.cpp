@@ -31,6 +31,14 @@
 #include <string>
 
 // ------------------------------------------------------------------------
+// external functions 
+// ------------------------------------------------------------------------
+extern "C" {
+   void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
+               double *, int *, double *, int *, double *, int *, int *);
+}
+
+// ------------------------------------------------------------------------
 // local defines
 // ------------------------------------------------------------------------
 static double  elapsedTime_;
@@ -43,12 +51,12 @@ static long    pgplotFlag_;
 // ************************************************************************
 // random number generator initializer 
 // ------------------------------------------------------------------------
-void PSUADE_randInit()
+void PSUADE_randInit(long seed)
 {
    int    ntime, ii, nbits;
    double dtime;
 
-   if (psRandomSeed_ == -1)
+   if (seed == -1)
    {
       for (ii = 0; ii < RANDSIZ; ii++) 
       {
@@ -69,6 +77,7 @@ void PSUADE_randInit()
    }
    else
    {
+      psRandomSeed_ = seed;
       randinitBySeed(&rctx_, psRandomSeed_);
    }
    nbits = sizeof(int) * 8;  
@@ -83,7 +92,7 @@ int PSUADE_rand()
 {
    int  irand;
 
-   if (randFlag_ == 0) PSUADE_randInit(); 
+   if (randFlag_ == 0) PSUADE_randInit(psRandomSeed_);
 
    irand = ISAAC_RAND_RAND(&rctx_);
    irand = irand & randMask_;
@@ -757,25 +766,25 @@ void printCharLine(int printLevel, int length, char printchar)
 // ************************************************************************
 // output a line of asterisks
 // ------------------------------------------------------------------------
-void printAsterisks(int length)
+void printAsterisks(int printLevel, int length)
 {
-  printCharLine(2, length, '*');
+  printCharLine(printLevel, length, '*');
 }
 
 // ************************************************************************
 // output a line of dashes
 // ------------------------------------------------------------------------
-void printDashes(int length)
+void printDashes(int printLevel, int length)
 {
-  printCharLine(2, length, '-');
+  printCharLine(printLevel, length, '-');
 }
 
 // ************************************************************************
 // output a line of equal signs
 // ------------------------------------------------------------------------
-void printEquals(int length)
+void printEquals(int printLevel, int length)
 {
-  printCharLine(2, length, '=');
+  printCharLine(printLevel, length, '=');
 }
 
 // ************************************************************************
@@ -1016,6 +1025,127 @@ int computeNumPCEPermutations(int nRVs, int pOrder)
    return nTerms;
 }
 
+// ************************************************************************
+// compute inverse of a matrix using svd
+// ------------------------------------------------------------------------
+int dsvdi(int nrows, double *Amat, double *iAmat)
+{
+   int    info, cnt=0, ii, jj, kk;
+   int    wlen = 5 * nrows;
+   char   jobu = 'A', jobvt = 'A';
+   double threshold=1.0e-14, ddata;
+   double *SS = new double[nrows];
+   double *UU = new double[nrows*nrows];
+   double *VV = new double[nrows*nrows];
+   double *WW = new double[wlen];
+   dgesvd_(&jobu,&jobvt,&nrows,&nrows,Amat,&nrows,SS,UU,&nrows,VV,&nrows,WW,
+           &wlen,&info);
+   if (info != 0) printf("WARNING: dsvdi returns error %d.\n",info);
+   for (ii = 1; ii < nrows; ii++)
+   {
+      if (SS[ii]/SS[0] < threshold)
+      {
+         SS[ii] = 0;
+         cnt++;
+      }
+   }
+   if (cnt > 0)
+   {
+      printf("WARNING: dsvdi matrix is near-singular. Small singular values\n");
+      printf("         (%d out of %d) are truncated.\n",cnt,nrows);
+      printf("         Approximation may be inaccurate.\n");
+   }
+   for (kk = 0; kk < nrows; kk++)
+   {
+      for (ii = 0; ii < nrows; ii++) WW[ii] = UU[ii*nrows+kk];
+      for (ii = 0; ii < nrows; ii++)
+      {
+         if (SS[ii] != 0) WW[ii] /= SS[ii];
+         else             WW[ii] = 0;
+      }
+      for (ii = 0; ii < nrows; ii++)
+      {
+         ddata = 0.0;
+         for (jj = 0; jj < nrows; jj++) ddata += VV[ii*nrows+jj] * WW[jj];
+         iAmat[kk*nrows+ii] = ddata;
+      }
+   }
+   delete [] SS;
+   delete [] UU;
+   delete [] VV;
+   delete [] WW;
+   return info;
+}
+
+// ************************************************************************
+// Python header for response surface interpolators
+// ------------------------------------------------------------------------
+void fwriteRSPythonHeader(FILE *fp)
+{
+   fprintf(fp,"#!/usr/bin/python\n");
+   fprintf(fp,"###################################################\n");
+   fprintf(fp,"# Response surface interpolator from PSUADE\n");
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"# This file contains information for interpolation\n");
+   fprintf(fp,"# using response surface. Follow the steps below:\n");
+   fprintf(fp,"#  1. move this file to *.py file (e.g. interpolate.py)\n");
+   fprintf(fp,"#  2. make sure the first line points to your Python\n");
+   fprintf(fp,"#  3. prepare your new sample points to be interpolated\n");
+   fprintf(fp,"#     in a text file (e.g. infile) having the format below:\n");
+   fprintf(fp,"#    <number of sample points M> <number of inputs n>\n");
+   fprintf(fp,"#    1 input1 input2 ...inputn\n");
+   fprintf(fp,"#    2 input1 input2 ...inputn\n");
+   fprintf(fp,"#    ....\n");
+   fprintf(fp,"#    M input1 input2 ...inputn\n");
+   fprintf(fp,"#  4. run: interpolate.py infile outfile\n");
+   fprintf(fp,"#     where <outfile> will have the interpolated values.\n");
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"import sys\n");
+   fprintf(fp,"import string\n");
+   fprintf(fp,"import math\n\n");
+}
+
+// ************************************************************************
+// Python header for response surface interpolators
+// ------------------------------------------------------------------------
+void fwriteRSPythonCommon(FILE *fp)
+{
+   fprintf(fp,"###################################################\n");
+   fprintf(fp,"# Function to get input data from PSUADE-generated\n");
+   fprintf(fp,"# parameter files (standard format, do not change).\n");
+   fprintf(fp,"# The return data will contain the inputs values.\n");
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"def getInputData(inFileName):\n");
+   fprintf(fp,"   inFile  = open(inFileName, 'r')\n");
+   fprintf(fp,"   lineIn  = inFile.readline()\n");
+   fprintf(fp,"   nCols   = lineIn.split()\n");
+   fprintf(fp,"   nSamp   = eval(nCols[0])\n");
+   fprintf(fp,"   nInputs = eval(nCols[1])\n");
+   fprintf(fp,"   inData  = (nSamp * nInputs) * [0]\n");
+   fprintf(fp,"   for cnt in range(nSamp):\n");
+   fprintf(fp,"      lineIn = inFile.readline()\n");
+   fprintf(fp,"      nCols  = lineIn.split()\n");
+   fprintf(fp,"      for ind in range(nInputs):\n");
+   fprintf(fp,"         inData[cnt*nInputs+ind] = eval(nCols[ind+1])\n");
+   fprintf(fp,"   inFile.close()\n");
+   fprintf(fp,"   return inData\n");
+   fprintf(fp,"###################################################\n");
+   fprintf(fp,"# Function to generate output file\n");
+   fprintf(fp,"# This function writes the output data (which should\n");
+   fprintf(fp,"# have been generated in outData) to the PSUADE-based\n");
+   fprintf(fp,"# output file.\n");
+   fprintf(fp,"#==================================================\n");
+   fprintf(fp,"def genOutputFile(outFileName, outData):\n");
+   fprintf(fp,"   nLeng = len(outData) / 2\n");
+   fprintf(fp,"   outfile = open(outFileName, 'w')\n");
+   fprintf(fp,"   for ind in range(nLeng):\n");
+   fprintf(fp,"      outfile.write(\"%%d \" %% (ind+1))\n");
+   fprintf(fp,"      outfile.write(\"%%e \" %% outData[2*ind])\n");
+   fprintf(fp,"      outfile.write(\"%%e \\n\" %% outData[2*ind+1])\n");
+   fprintf(fp,"   outfile.close()\n");
+   fprintf(fp,"   return\n");
+   fprintf(fp,"###################################################\n");
+}
 
 // ************************************************************************
 // plot stuff for scilab or matlab
@@ -1129,7 +1259,14 @@ int fwritePlotTitle(FILE *fp, const char *label)
 int fwritePlotCLF(FILE *fp)
 {
    if (psPlotTool_ == 1) fprintf(fp, "clf();\n");
-   else                  fprintf(fp, "clf\n");
+   else
+   {
+      fprintf(fp, "if exist('noCLF') \n");
+      fprintf(fp, "   hold off\n");
+      fprintf(fp, "else\n");
+      fprintf(fp, "   clf\n");
+      fprintf(fp, "end;\n");
+   }
    return 0;
 }
 // ************************************************************************
@@ -1137,6 +1274,28 @@ int fwritePlotFigure(FILE *fp, int num)
 {
    if (psPlotTool_ == 1) fprintf(fp, "scf(%d);\n", num);
    else                  fprintf(fp, "figure(%d)\n", num);
+   return 0;
+}
+// ************************************************************************
+int fwriteHold(FILE *fp, int hswitch)
+{
+   if (psPlotTool_ == 1)
+   {
+      if (hswitch == 1) fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
+      else              fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
+   }
+   else
+   {
+      if (hswitch == 1) fprintf(fp, "hold on\n");
+      else              fprintf(fp, "hold off\n");
+   }
+   return 0;
+}
+// ************************************************************************
+int fwriteComment(FILE *fp, char *line)
+{
+   if (psPlotTool_ == 1) fprintf(fp, "// %s\n", line);
+   else                  fprintf(fp, "%% %s\n", line);
    return 0;
 }
 

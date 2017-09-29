@@ -24,15 +24,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __BASESAMPLINGH__
 #define __BASESAMPLINGH__
 
 #include <string.h>
+#include <string>
 #include <iostream>
-#include <PsuadeData.h>
-
-using    namespace std;
+#include "PsuadeData.h"
+using namespace std;
 
 /**
  * @name Sampling class (abstract)
@@ -170,7 +169,8 @@ public:
    virtual int doSampling(PsuadeData* psuadeIO_);
 
    /** This function initializes the sample data.
-    *  @param initLevel : 0 if we need to generate samples, 1 if we will be loading external samples
+    *  @param initLevel : 0 if we need to generate samples, 
+    *                     1 if we will be loading external samples
     */
    virtual int initialize(int initLevel)=0;
 

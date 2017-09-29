@@ -28,13 +28,21 @@
 #define __MCMCANALYZERH__
 
 #include "Analyzer.h"
+#include "pData.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
 class MCMCAnalyzer : public Analyzer
 {
-   int mode_;
+private:
+   int    mode_;
+   int    nInputs_;
+   int    nOutputs_;
+   double *means_;           //length is nInputs_
+   double *sigmas_;          //length is nInputs_
+   double *mostLikelyInput_; //length is nInputs_
+   double *mostLikelyOutput_;
 
 public:
 
@@ -46,8 +54,21 @@ public:
 
    MCMCAnalyzer& operator=(const MCMCAnalyzer &analyzer);
 
+   double genMatlabFile(int nInputs, double *lower, double *upper,
+                        double *ranges, int nPlots, int *plotIndices,
+                        int nbins, int **bins, int ****bins2, 
+                        pData &pData, int nChains, int chainCnt,
+                        double ***XChains, int *chainStatus);
+
    int setParams(int nParams, char **params);
 
+   /** Getters for analysis results */
+   int    get_nInputs();
+   int    get_nOutputs();
+   double *get_means();
+   double *get_sigmas();
+   double *get_mostLikelyInput();
+   double *get_mostLikelyOutput();
 };
 
 #endif // __MCMCANALYZERH__

@@ -29,7 +29,6 @@
 
 #include <iostream>
 #include <string.h>
-using    namespace std;
 #include "Sampling.h"
 
 /**
@@ -45,6 +44,7 @@ class GMetisSampling : public Sampling
    int refineType_;
    int refineSize_;
    int n1d_;
+   int changeInfoName_;
    int nAggrs_;
    int *aggrCnts_;
    int **aggrLabels_;
@@ -76,7 +76,8 @@ public:
        @param nSamples: sample size
        @param sampleErrs: errors for each sample point
     */
-   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+   int refine(int ratio,int randomize,double thresh,int nSamples,
+              double *sampleErrs);
 
    /** This function overloads the assignment operator
        @param obj : Sampling object

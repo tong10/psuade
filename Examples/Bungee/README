@@ -61,5 +61,19 @@ psuade psuade.in
       > load psSave
       > <use rs1, rs2, or rs3 for response surfaces, or iplot1, iplot2 .. for scatter plots>
 
+===============================================
+To experiment with user regression:
+
+cc -o simulator simulator.c -lm
+psuade psuade.in
+mv psuadeData psd
+
+psuade
+> load psd
+> rscheck
+  choose user regression
+
+  enter number of terms = 9 (see user_regression.py file)
+  enter executable = user_regression.py
 
 

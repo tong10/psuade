@@ -28,18 +28,21 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <time.h>
 #include "Psuade.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "DeltaAnalyzer.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-DeltaAnalyzer::DeltaAnalyzer() : Analyzer()
+DeltaAnalyzer::DeltaAnalyzer() : Analyzer(),nBins_(0),nInputs_(0),nConfig_(0),
+                   minDeltas_(0), deltaBins_(0), dOrder_(0), ranks_(0)
 {
    setName("DELTATEST");
    mode_ = 0;
@@ -50,6 +53,14 @@ DeltaAnalyzer::DeltaAnalyzer() : Analyzer()
 // ------------------------------------------------------------------------
 DeltaAnalyzer::~DeltaAnalyzer()
 {
+   if (minDeltas_) delete []minDeltas_;
+   if (deltaBins_)
+   {
+      for (int jj = 0; jj < nBins_; jj++) delete [] deltaBins_[jj];
+      delete [] deltaBins_;
+   }
+   if (dOrder_) delete []dOrder_;
+   if (ranks_) delete []ranks_;
 }
 
 // ************************************************************************
@@ -74,30 +85,34 @@ double DeltaAnalyzer::analyze(aData &adata)
    X          = adata.sampleInputs_;
    YY         = adata.sampleOutputs_;
    nInputs    = adata.nInputs_;
+   nInputs_	  = nInputs;
    nOutputs   = adata.nOutputs_;
    nSamples   = adata.nSamples_;
    outputID   = adata.outputID_;
    iLowerB    = adata.iLowerB_;
    iUpperB    = adata.iUpperB_;
+   nBins_     = nBins;
+   nConfig_   = nConfig;
+
    if (adata.inputPDFs_ != NULL)
    {
       count = 0;
       for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
       if (count > 0)
       {
-         printf("DeltaTest INFO: some inputs have non-uniform PDFs, but\n");
-         printf("          they are not relevant in this analysis.\n");
+         printOutTS(PL_WARN, "DeltaTest INFO: some inputs have non-uniform PDFs, but\n");
+         printOutTS(PL_WARN, "          they are not relevant in this analysis.\n");
       }
    }
 
    if (nSamples <= 1)
    {
-      printf("DeltaTest INFO: test not meaningful for nSamples <= 1.\n");
+      printOutTS(PL_ERROR, "DeltaTest INFO: test not meaningful for nSamples <= 1.\n");
       return PSUADE_UNDEFINED;
    }
    if (X == NULL || YY == NULL)
    {
-      printf("DeltaTest ERROR: no data.\n");
+      printOutTS(PL_ERROR, "DeltaTest ERROR: no data.\n");
       return PSUADE_UNDEFINED;
    }
    info = 0;
@@ -105,24 +120,39 @@ double DeltaAnalyzer::analyze(aData &adata)
       if (YY[nOutputs*ii+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printf("DeltaTest ERROR: Some outputs are undefined.\n");
-      printf("                 Prune the undefined's first.\n");
+      printOutTS(PL_ERROR, "DeltaTest ERROR: Some outputs are undefined.\n");
+      printOutTS(PL_ERROR, "                 Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    }
 
-   printAsterisks(0);
-   printf("DeltaTest for variable selection\n");
-   printf("This test has the characteristics that the more important\n");
-   printf("a parameter is relative to the others, the smaller the \n");
-   printf("subset is at the end of the test (sharp zoom into the most\n");
-   printf("important subset).\n");
-   printf("Note: If both nInputs and nSamples are large, this test\n");
-   printf("      may take a long time to run. So, be patient.)\n");
-   printEquals(0);
+   if (minDeltas_) delete [] minDeltas_;
+   if (deltaBins_)
+   {
+      for (jj = 0; jj < nBins_; jj++) delete [] deltaBins_[jj];
+      delete [] deltaBins_;
+   }
+   if (dOrder_) delete []dOrder_;
+   if (ranks_)  delete []ranks_;
+   ranks_ = NULL;
+   dOrder_ = NULL;
+   deltaBins_ = NULL;
+   minDeltas_ = NULL;
+ 
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "DeltaTest for variable selection\n");
+   printOutTS(PL_INFO, "This test has the characteristics that the more important\n");
+   printOutTS(PL_INFO, "a parameter is relative to the others, the smaller the \n");
+   printOutTS(PL_INFO, "subset is at the end of the test (sharp zoom into the most\n");
+   printOutTS(PL_INFO, "important subset).\n");
+   printOutTS(PL_INFO, "Note: If both nInputs and nSamples are large, this test\n");
+   printOutTS(PL_INFO, "      may take a long time to run. So, be patient.)\n");
+   printEquals(PL_INFO, 0);
    auxBins = new int[nInputs];
    inputBins = new int[nInputs];
    ranks = new int[nInputs];
+   ranks_ = new int[nInputs_];
    dOrder = new double[nInputs];
+   dOrder_ = new double[nInputs_];
    rangesInv2 = new double[nInputs];
    distPairs = new double[nSamples*(nSamples-1)/2];
    Y = new double[nSamples];
@@ -130,8 +160,8 @@ double DeltaAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printf("DeltaTest Option: set the number of neighbors K.\n");
-      printf("The larger K is, the larger the distinguishing power is.\n");
+      printOutTS(PL_INFO, "DeltaTest Option: set the number of neighbors K.\n");
+      printOutTS(PL_INFO, "The larger K is, the larger the distinguishing power is.\n");
       sprintf(pString, "What is K (>= 1, <= 20, default=3)? ");
       nIndex = getInt(1, 20, pString);
       sprintf(pString,"How many inputs to select FOR SURE? (0 if not sure) ");
@@ -147,7 +177,7 @@ double DeltaAnalyzer::analyze(aData &adata)
       iter = getInt(1, 100000, pString);
       //sprintf(pString,"How many configurations for ranking? (1 if not sure) ");
       //nConfig = getInt(1, nBins, pString);
-      printEquals(0);
+      printEquals(PL_INFO, 0);
    }
 
    for (ii = 0; ii < nInputs; ii++) 
@@ -157,18 +187,21 @@ double DeltaAnalyzer::analyze(aData &adata)
                                 (iUpperB[ii] - iLowerB[ii]);
       else
       {
-         printf("DeltaTest ERROR: problem with input range.\n");
+         printOutTS(PL_ERROR, "DeltaTest ERROR: problem with input range.\n");
          exit(1);
       }
    }
    for (ii = 0; ii < nInputs; ii++) inputBins[ii] = 0;
    deltaBins = new int*[nBins];
+   deltaBins_ = new int*[nBins_];
    for (ii = 0; ii < nBins; ii++)
    {
       deltaBins[ii] = new int[nInputs];
+      deltaBins_[ii] = new int[nInputs];
       for (jj = 0; jj < nInputs; jj++) deltaBins[ii][jj] = 0;
    }
    minDeltas = new double[nBins];
+   minDeltas_ = new double[nBins_];
    for (ii = 0; ii < nBins; ii++) minDeltas[ii] = PSUADE_UNDEFINED;
    minIndices = new int[nIndex];
 
@@ -232,24 +265,24 @@ double DeltaAnalyzer::analyze(aData &adata)
          }
          if (minIndices[jj] == -1)
          {
-            printf("DeltaTest ERROR (1).\n");
+            printOutTS(PL_ERROR, "DeltaTest ERROR (1).\n");
             exit(1);
          }
          ddata += pow(Y[ss] - Y[minIndices[jj]], 2.0);
       }
       delta += ddata / (double) nIndex;
    }
-   printf("Current best solution for output %d:\n",outputID+1);
-   printDashes(0);
+   printOutTS(PL_INFO, "Current best solution for output %d:\n",outputID+1);
+   printDashes(PL_INFO, 0);
    delta /= (2.0 * nSamples);
-   for (ii = 0; ii < nInputs; ii++) printf("%d ", inputBins[ii]);
-   printf(" = %e\n", delta);
+   for (ii = 0; ii < nInputs; ii++) printOutTS(PL_INFO, "%d ", inputBins[ii]);
+   printOutTS(PL_INFO, " = %e\n", delta);
  
    count = 1;
    auxMin = - PSUADE_UNDEFINED;
    while (count <= 3*iter*nInputs)
    {
-      //if ((count % (3*nInputs) == 0)) printf("%d%% ", count/(3*nInputs));
+      //if ((count % (3*nInputs) == 0)) printOutTS(PL_WARN, "%d%% ", count/(3*nInputs));
       fflush(stdout);
       count++;
 
@@ -280,7 +313,7 @@ double DeltaAnalyzer::analyze(aData &adata)
       {
          if (reverseCnt >= 3*nInputs)
          {
-            //printf("suspected local minima, checking");
+            //printOutTS(PL_WARN, "suspected local minima, checking");
             place = reverseCnt - 3 * nInputs;
          }
          else 
@@ -342,7 +375,7 @@ double DeltaAnalyzer::analyze(aData &adata)
             }
             if (minIndices[jj] == -1)
             {
-               printf("DeltaTest ERROR (1).\n");
+               printOutTS(PL_ERROR, "DeltaTest ERROR (1).\n");
                exit(1);
             }
             ddata += pow(Y[ss] - Y[minIndices[jj]], 2.0);
@@ -352,8 +385,8 @@ double DeltaAnalyzer::analyze(aData &adata)
       delta /= (2.0 * nSamples);
       if ((count % (3*nInputs) == 0))
       {
-         for (ii = 0; ii < nInputs; ii++) printf("%d ", deltaBins[nBins-1][ii]);
-         printf(" = %e (%d of %d)\n", bestDelta, count/(3*nInputs), iter);
+         for (ii = 0; ii < nInputs; ii++) printOutTS(PL_INFO, "%d ", deltaBins[nBins-1][ii]);
+         printOutTS(PL_INFO, " = %e (%d of %d)\n", bestDelta, count/(3*nInputs), iter);
       }
 
       if (delta < minDeltas[0])
@@ -395,8 +428,8 @@ double DeltaAnalyzer::analyze(aData &adata)
       }
       if (converged > stagnate*3*nInputs)
       {
-         printf("DeltaTest: stagnate for %d iterations, ", stagnate); 
-         printf("considered converged.\n"); 
+         printOutTS(PL_INFO, "DeltaTest: stagnate for %d iterations, ", stagnate);
+         printOutTS(PL_INFO, "considered converged.\n");
          break;
       }
 
@@ -433,17 +466,37 @@ double DeltaAnalyzer::analyze(aData &adata)
          reverseCnt = 0;
       }
       if (oldDelta <= bestDelta) bestDelta = oldDelta;
+      fp = fopen("psuade_stop","r");
+      if (fp != NULL)
+      {
+         printOutTS(PL_INFO, "psuade_stop file found ==> terminate.\n");
+         printOutTS(PL_INFO, "To restart, delete psuade_stop first.\n");
+         fclose(fp);
+         break;
+      }
    }
 
-   printAsterisks(0);
-   printf("Final Selections (based on %d neighbors) = \n", nIndex);
+   printAsterisks(PL_INFO, 0);
+   printOutTS(PL_INFO, "Final Selections (based on %d neighbors) = \n", nIndex);
+
+   //save minDeltas and deltaBins
+   for (ii=0; ii < nBins_; ii++)
+   {
+	   minDeltas_[ii] = minDeltas[ii];
+	   for (kk = 0; kk < nInputs_; kk++)
+		   deltaBins_[ii][kk] = deltaBins[ii][kk];
+   }
+
    for (kk = 0; kk < 10; kk++)
    {
-      printf("Rank %2d => ", kk+1);
-      for (ii = 0; ii < nInputs; ii++) printf("%d ", deltaBins[nBins-kk-1][ii]);
-      printf(": delta = %11.4e\n", minDeltas[nBins-kk-1]);
+      if (minDeltas[nBins-kk-1] < 0.99 * PSUADE_UNDEFINED)
+      {
+         printOutTS(PL_INFO, "Rank %2d => ", kk+1);
+         for (ii = 0; ii < nInputs; ii++) printOutTS(PL_INFO, "%d ", deltaBins[nBins-kk-1][ii]);
+         printOutTS(PL_INFO, ": delta = %11.4e\n", minDeltas[nBins-kk-1]);
+      }
    }
-   printDashes(0);
+   printDashes(PL_INFO, 0);
    count = 0;
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -465,8 +518,8 @@ double DeltaAnalyzer::analyze(aData &adata)
    else                  fp = fopen("matlabdelta.m", "w");
    if (fp == NULL)
    {
-      printf("Delta test ERROR: cannot open graphics files.\n");
-      printf("                  ==> graphics not generated.\n");
+      printOutTS(PL_INFO, "Delta test ERROR: cannot open graphics files.\n");
+      printOutTS(PL_INFO, "                  ==> graphics not generated.\n");
    }
    else
    {
@@ -482,21 +535,27 @@ double DeltaAnalyzer::analyze(aData &adata)
       fwritePlotYLabel(fp, "Delta Metric (normalized)");
       fclose(fp);
       if (psPlotTool_ == 1) 
-           printf("Delta test ranking is now in scilabdelta.sci.\n");
-      else printf("Delta test ranking is now in matlabdelta.m.\n");
+           printOutTS(PL_INFO, "Delta test ranking is now in scilabdelta.sci.\n");
+      else printOutTS(PL_INFO, "Delta test ranking is now in matlabdelta.m.\n");
    }
 
    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
    sortIntList2a(nInputs, ranks, dOrder);
-   printf("Order of importance (based on %d best configurations): \n",
+   printOutTS(PL_INFO, "Order of importance (based on %d best configurations): \n",
           nConfig);
    for (ii = 0; ii < nInputs; ii++)
-      printf("(D)Rank %4d : input %4d (score = %d )\n", ii+1, (int) 
+      printOutTS(PL_INFO, "(D)Rank %4d : input %4d (score = %d )\n", ii+1, (int)
              dOrder[nInputs-ii-1]+1, ranks[nInputs-ii-1]);
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
-   printf("Final test using the most important parameters incrementally:\n");
-   printDashes(0);
+   //save dOrder and ranks
+   for (ii = 0; ii < nInputs_; ii++)
+   {
+	   dOrder_[ii] = dOrder[ii];
+	   ranks_[ii] = ranks[ii];
+   }
+   printOutTS(PL_INFO, "Final test using the most important parameters incrementally:\n");
+   printDashes(PL_INFO, 0);
    for (ii = 0; ii < nInputs; ii++) inputBins[ii] = 0;
    for (ii = 1; ii >= 0; ii--)
    {
@@ -627,15 +686,15 @@ double DeltaAnalyzer::analyze(aData &adata)
       if (ii == 0)
       {
          deltaSave += delta;
-         for (kk = 0; kk < nInputs; kk++) printf("0 ");
-         printf(" = %e\n", deltaSave);
+         for (kk = 0; kk < nInputs; kk++) printOutTS(PL_INFO, "0 ");
+         printOutTS(PL_INFO, " = %e\n", deltaSave);
       }
-      for (kk = 0; kk < nInputs; kk++) printf("%d ", inputBins[kk]);
-      printf(" = %e\n", delta);
+      for (kk = 0; kk < nInputs; kk++) printOutTS(PL_INFO, "%d ", inputBins[kk]);
+      printOutTS(PL_INFO, " = %e\n", delta);
       minDeltas[ii] = delta;
       if (delta < minDelta) minDelta = delta;
    }
-   printAsterisks(0);
+   printAsterisks(PL_INFO, 0);
 
    delete [] auxBins;
    delete [] inputBins;
@@ -666,8 +725,72 @@ int DeltaAnalyzer::setParams(int argc, char **argv)
 // ------------------------------------------------------------------------
 DeltaAnalyzer& DeltaAnalyzer::operator=(const DeltaAnalyzer &)
 {
-   printf("DeltaTest operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR, "DeltaTest operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
+}
+
+// ************************************************************************
+// functions for getting results
+// ------------------------------------------------------------------------
+int DeltaAnalyzer::get_mode()
+{
+   return mode_;
+}
+int DeltaAnalyzer::get_nBins()
+{
+   return nBins_;
+}
+int DeltaAnalyzer::get_nInputs()
+{
+   return nInputs_;
+}
+int DeltaAnalyzer::get_nConfig()
+{
+   return nConfig_;
+}
+double *DeltaAnalyzer::get_minDeltas()
+{
+   double* retVal = NULL;
+   if (minDeltas_)
+   {
+      retVal = new double[nBins_];
+      std::copy(minDeltas_, minDeltas_+nBins_+1, retVal);
+   }
+   return retVal;
+}
+int **DeltaAnalyzer::get_deltaBins()
+{
+   int** retVal = NULL;
+   if (deltaBins_)
+   {
+      retVal = new int*[nBins_];
+      for (int i=0; i<nBins_; i++)
+      {
+    	  retVal[i] = new int[nInputs_];
+    	  std::copy(deltaBins_[i], deltaBins_[i]+nInputs_, retVal[i]);
+      }
+   }
+   return retVal;
+}
+double *DeltaAnalyzer::get_dOrder()
+{
+   double* retVal = NULL;
+   if (dOrder_)
+   {
+      retVal = new double[nInputs_];
+      std::copy(dOrder_, dOrder_+nInputs_+1, retVal);
+   }
+   return retVal;
+}
+int *DeltaAnalyzer::get_ranks()
+{
+   int* retVal = NULL;
+   if (ranks_)
+   {
+      retVal = new int[nInputs_];
+      std::copy(ranks_, ranks_+nInputs_+1, retVal);
+   }
+   return retVal;
 }
 

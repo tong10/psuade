@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifndef __PSUADEUTILH__
 #define __PSUADEUTILH__
 
@@ -34,7 +33,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <PsuadeConfig.h>
-using    namespace std;
 
 extern "C" 
 {
@@ -134,9 +132,9 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    binarySearchInt(int, int *, int);
    int    binarySearchDble(double, double *, int);
 
-   void   printAsterisks(int);
-   void   printDashes(int);
-   void   printEquals(int);
+   void   printAsterisks(int, int);
+   void   printDashes(int, int);
+   void   printEquals(int, int);
 
    void   Plotbegin(double,double,double,double);
    void   PlotSamples2D(long,double*,double*,long*);
@@ -149,8 +147,8 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    checkPrime( int );
    int    *factorize( int );
    int    compareSamples(int, int, int, double *, int *);
-   int   computeNumPCEPermutations(int, int);
-
+   int    computeNumPCEPermutations(int, int);
+   int    dsvdi(int, double *, double *);
 
    int    getTokens(char *, int *, char ***, int);
    int    getIntFromToken(char *, int *);
@@ -159,6 +157,8 @@ int     gettimeofday(struct timeval *,struct timezone *);
    double getDouble(char *);
    int    getString(char *, char *);
 
+   void   fwriteRSPythonHeader(FILE *);
+   void   fwriteRSPythonCommon(FILE *);
    int    fwritePlotAxes(FILE *);
    int    fwritePlotAxesNoGrid(FILE *);
    int    fwritePlotCLF(FILE *);
@@ -167,6 +167,8 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    fwritePlotYLabel(FILE *, const char *);
    int    fwritePlotZLabel(FILE *, const char *);
    int    fwritePlotTitle(FILE *, const char *);
+   int    fwriteHold(FILE *, int);
+   int    fwriteComment(FILE *, char *);
 }
 
 #define Macheps     3.40282347e-38

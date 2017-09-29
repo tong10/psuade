@@ -108,6 +108,11 @@ int SparseGridSampling::initialize(int initLevel)
    Vector  Vweights;
    FILE   *fp;
 
+   if (nSamples_ == 0)
+   {
+      printf("SparseGridSampling::initialize ERROR - nSamples = 0.\n");
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("SparseGridSampling::initialize ERROR - input not set up.\n");

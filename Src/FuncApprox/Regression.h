@@ -24,11 +24,11 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __REGRESSIONH__
 #define __REGRESSIONH__
 
 #include "FuncApprox.h"
+#include "Matrix.h"
 
 // ************************************************************************
 // class definition
@@ -40,11 +40,13 @@ class Regression : public FuncApprox
    double *regCoeffs_;
    double *regStdevs_;
    double **fuzzyC_;
+   Matrix covMatrix_;
  
 public:
    Regression(int, int);
    ~Regression();
 
+   int    initialize(double*,double*);
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, int *, 
                         double **, double **);

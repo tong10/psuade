@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __ANALYSISMANAGERH__
 #define __ANALYSISMANAGERH__
 
@@ -37,6 +36,8 @@
 #include "PsuadeData.h"
 #include "Vector.h"
 
+#include "MOATAnalyzer.h"
+
 // ************************************************************************
 // class definition
 // ************************************************************************
@@ -47,8 +48,7 @@ class AnalysisManager
    Analyzer   **analyzers_;
    Sampling   *sampler_;
    int        *logXsformFlags_;
-   // need to keep state info on size of logXsformFlags_
-   int sizelogX;
+   int        sizelogX;
    double     *analysisSampleErrors_;
 
 public:
@@ -57,34 +57,41 @@ public:
    ~AnalysisManager();
 
    int setSampler(Sampling *sampler);
-
    
    /**
-    * Create the analyzers and do any necessary setup using the parameters from a PsuadeData object
-    * Internally it just calls setup(int anaMethod, int faType)
-    * @param psuadeIO: The PsuadeData object that holds all the information for setting up the analyzers
+    * Create the analyzers and do any necessary setup using the parameters 
+    * from a PsuadeData object. Internally it just calls 
+    * setup(int anaMethod, int faType)
+    * @param psuadeIO: The PsuadeData object that holds all the information 
+    * for setting up the analyzers
     */
    int setup(PsuadeData *psuadeIO); 
 
    /**
     * Create the analyzers and do any necessary setup.
-    * @param anaMethod: anaMethod is a set of flags compressed into a int using &. An 
-    *                   analyzer is turned on or off by a single bit in the int. see sysdef.h
-    * @param faType:    Is only used if at least one of the used analyzers uses a response surface. 
-    *                   faType Defines the response surface type to use. 
+    * @param anaMethod: anaMethod is a set of flags compressed into a int 
+    *                   using &. An analyzer is turned on or off by a single 
+    *                   bit in the int. see sysdef.h
+    * @param faType:    Is only used if at least one of the used analyzers 
+    *                   uses a response surface.  faType Defines the response 
+    *                   surface type to use. 
     */
    int setup(int anaMethod, int faType);
    int clearAnalyzers();
 
    /**
     * analyze is run after setup.  analyze runs all the analyzers that were setup.
-    * @param psuadeIO: The PsuadeData object that holds all the information for setting up all analyzers
-    * @param nLevels: Only used when doing adaptive sampling/refinement.  nLevels gives the ID of the
-    *                 the current refinment process.  It varies from 0 to Total # of Refinements + 1!
-    * @param levelSeps: An array of int, only used when doing adaptive sampling/refinement.
-    *                   levelSeps is the number of samples refined at each step.  It is indexed by nLevels.
-    * @param analysisOutputID: Analysis is performed on a single output.  analysisOutputID is the ID 
-    *                          of that output.  It can take any value 1-numOutputs inclusive. 
+    * @param psuadeIO: The PsuadeData object that holds all the information 
+    *                  for setting up all analyzers
+    * @param nLevels: Only used when doing adaptive sampling/refinement.  
+    *                 nLevels gives the ID of the the current refinment process.  
+    *                 It varies from 0 to Total # of Refinements + 1!
+    * @param levelSeps: An array of int, only used when doing adaptive 
+    *                   sampling/refinement. levelSeps is the number of samples 
+    *                   refined at each step.  It is indexed by nLevels.
+    * @param analysisOutputID: Analysis is performed on a single output.  
+    *                   analysisOutputID is the ID of that output.  It can take 
+    *                   any value 1-numOutputs inclusive. 
     */
    int analyze(PsuadeData *psuadeIO, int nLevels, int *levelSeps, int analysisOutputID);
 
@@ -98,14 +105,17 @@ public:
 
    
    /**
-    * This function performs analysis without a PsuadeData object, but only with MomentAnalyzer.
+    * This function performs analysis without a PsuadeData object, but 
+    *               only with MomentAnalyzer.
     * 
     * @param anaMethod: Completely ignored.
     * @param nSamples:  The number of sample points 
-    * @param vLower:    The lower bound for the inputs (the length is also take as the number of inputs)
+    * @param vLower:    The lower bound for the inputs (the length is also take 
+    *                      as the number of inputs)
     * @param vUpper:    The upper bound for the inputs 
     * @param vInputs:   The Inputs to the simulation (length = nSamples * nInputs) 
-    * @param vOutputs:  The Outputs of the output to be anlyzed (Analysis only works on a single output, so length must = nSamples
+    * @param vOutputs:  The Outputs of the output to be anlyzed (Analysis only works 
+    *                   on a single output, so length must = nSamples
     * @param outputLevel: The printLevel
     */
    int analyze(int anaMethod, int nSamples, Vector &vLower, 
@@ -116,20 +126,25 @@ public:
    /**
     * analyze OneSampleTest and TwoSampleTest only
     * Only used interactively, the user must input the other parameters at the terminal
-    * @param anaMethod: PSUADE_ANA_1SAMPLE or PSUADE_ANA_2SAMPLE (Can't do both in the same call either)
+    * @param anaMethod: PSUADE_ANA_1SAMPLE or PSUADE_ANA_2SAMPLE (Can't 
+    *                   do both in the same call either)
     */
    int analyze(int anaMethod);
 
    /**
     * get sample error bars for each individual sample point
-    * Only two analyzers actually seem to produce this: OneSigmaAnalyzer and RSFuncApproxAnalyzer -Jim
-    * Return an array of doubles nSamples long.  Each double represents the error bars for that sample.
+    * Only two analyzers actually seem to produce this: OneSigmaAnalyzer and 
+    *               RSFuncApproxAnalyzer -Jim
+    * Return an array of doubles nSamples long.  Each double represents the 
+    *                  error bars for that sample.
     */
    double *getSampleErrors();
 
    /**
-    * special request (send specialized parameters to individual methods, analyzer specific)
-    * @param anaMethod: The analyzer we're adding special paramters for (you must have already passed it to setup)
+    * special request (send specialized parameters to individual methods, 
+    *                 analyzer specific)
+    * @param anaMethod: The analyzer we're adding special paramters for 
+    *                    (you must have already passed it to setup)
     * @param narg: The number of arguments being passed in (argc)
     * @param argv: An array of argument strings
     */
@@ -137,6 +152,7 @@ public:
 
    AnalysisManager& operator=(const AnalysisManager &);
 
+   MOATAnalyzer *getMOATAnalyzer();
 #ifdef HAVE_PYTHON
    PyObject *AnalysisDataList;
 #endif

@@ -42,10 +42,11 @@ class PDFSpecial : public PDFBase
    int    nInputs_;
    int    nSamples_;
    double *samples_;
+   int    whichInput_;
 
 public:
 
-   PDFSpecial(int);    
+   PDFSpecial(int, char *, int *);    
    ~PDFSpecial();
 
    int getPDF(int, double *, double *);
@@ -53,6 +54,7 @@ public:
    int invCDF(int, double *, double *, double, double);
    int genSample(int, double *, double, double);
    double getMean();
+   int setParam(char *);
 };
 
 #endif // __PDFSPECIALH__

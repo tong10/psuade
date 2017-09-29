@@ -35,6 +35,7 @@
 #include "Psuade.h"
 #include "FuncApprox.h"
 #include "Sampling.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -60,7 +61,7 @@ double GowerAnalyzer::analyze(aData &adata)
 {
    int     nInputs, nSamples, nInputs2, nSamples2, ss, ss2, printLevel;
    int     ii, status, nOutputs, outputID, iZero=0, nLHSample=100000;
-   int     nLHSSub=500, length, *S2, iOne=1;
+   int     nLHSSub=500, *S2, iOne=1;
    double  *X, *X2, *ranges, gower, dmax, dmin, *dmeans, *dvars, ddata;
    double  *Y, *Y2, *vvm, *mvv, *vvv, *vce, *lowerB, *upperB, vsum;
    char    dataFile[500], lineIn[500];
@@ -85,8 +86,7 @@ double GowerAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nSamples; ii++) Y2[ii] = Y[ii*nOutputs+outputID];
 
    faPtr = genFA(PSUADE_RS_MARS, nInputs, iOne, nSamples);
-   length = -999;
-   status = faPtr->genNDGridData(X, Y2, &length, NULL, NULL);
+   status = faPtr->initialize(X, Y2);
    delete [] Y2;
 
    sampPtr = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_LHS);
@@ -113,16 +113,16 @@ double GowerAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nInputs; ii++) vsum += vvm[ii];
    if (vsum <= 0.0)
    {
-      printf("GowerAnalyzer INFO: vce sum <= 0.0.\n");
-      printf("                    vce not used for scaling.");
+      printOutTS(PL_INFO,  "GowerAnalyzer INFO: vce sum <= 0.0.\n");
+      printOutTS(PL_INFO,  "                    vce not used for scaling.");
       for (ii = 0; ii < nInputs; ii++) vvm[ii] = 1.0;
    }
    else
    {
-      printf("GowerAnalyzer INFO: vce used for scaling.\n");
+      printOutTS(PL_INFO,  "GowerAnalyzer INFO: vce used for scaling.\n");
       for (ii = 0; ii < nInputs; ii++) vvm[ii] /= vsum;
       for (ii = 0; ii < nInputs; ii++)
-         printf("VCE %4d = %e\n", ii+1, vvm[ii]);
+         printOutTS(PL_INFO,  "VCE %4d = %e\n", ii+1, vvm[ii]);
    } 
    delete [] X2;
    delete [] Y2;
@@ -134,12 +134,12 @@ double GowerAnalyzer::analyze(aData &adata)
    delete sampPtr;
    delete mePtr;
 
-   printf("Enter file name for unobserved data (outside convex hull): ");
+   printf( "Enter file name for unobserved data (outside convex hull): ");
    scanf("%s", dataFile);
    fp = fopen(dataFile,"r");
    if (fp == NULL)
    {
-      printf("GowerAnalyzer ERROR: cannot open file %s.\n", dataFile);
+      printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: cannot open file %s.\n", dataFile);
       delete [] vvm;
       return PSUADE_UNDEFINED;
    }
@@ -149,6 +149,12 @@ double GowerAnalyzer::analyze(aData &adata)
    pIO = new PsuadeData();
    pIO->setOutputLevel(0);
    status = pIO->readPsuadeFile(dataFile);
+   if (status < 0) exit(1);
+   if (status > 0)
+   {
+      printf("ERROR: cannot read file %d in PSUADE format.\n",dataFile);
+      exit(1);
+   }
    pIO->getParameter("input_ninputs", pPtr);
    nInputs2 = pPtr.intData_;
    pIO->getParameter("method_nsamples", pPtr);
@@ -157,7 +163,7 @@ double GowerAnalyzer::analyze(aData &adata)
    X2 = pPtr.dbleArray_;
    if (nInputs != nInputs2)
    {
-      printf("GowerAnalyzer ERROR: different input dimensions %d %d\n",
+      printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: different input dimensions %d %d\n",
              nInputs, nInputs2);
       delete [] vvm;
       delete pIO;
@@ -176,7 +182,7 @@ double GowerAnalyzer::analyze(aData &adata)
       ranges[ii] = dmax - dmin;
       if (ranges[ii] == 0.0)
       {
-         printf("GowerAnalyzer ERROR: some input range = 0 (%d).\n",
+         printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: some input range = 0 (%d).\n",
                 ii+1);
          delete [] ranges;
          delete [] vvm;
@@ -197,7 +203,7 @@ double GowerAnalyzer::analyze(aData &adata)
    }
    if (fp == NULL)
    {
-      printf("GowerAnalyzer ERROR: cannot write to file psuade_gower_data.m\n");
+      printOutTS(PL_ERROR,  "GowerAnalyzer ERROR: cannot write to file psuade_gower_data.m\n");
       delete [] vvm;
       delete [] ranges;
       delete pIO; 
@@ -337,9 +343,9 @@ double GowerAnalyzer::analyze(aData &adata)
    fwritePlotYLabel(fp, "Mahalanobis distance");
    fclose(fp);
    if (psPlotTool_ == 1)
-      printf("GowerAnalyzer: psuade_gower_data.sci file created.\n");
+      printOutTS(PL_INFO,  "GowerAnalyzer: psuade_gower_data.sci file created.\n");
    else
-      printf("GowerAnalyzer: psuade_gower_data.m file created.\n");
+      printOutTS(PL_INFO,  "GowerAnalyzer: psuade_gower_data.m file created.\n");
 
    delete [] ranges; 
    delete [] vvm;
@@ -354,7 +360,7 @@ double GowerAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 GowerAnalyzer& GowerAnalyzer::operator=(const GowerAnalyzer &)
 {
-   printf("GowerAnalyzer operator= ERROR: operation not allowed.\n");
+   printOutTS(PL_ERROR,  "GowerAnalyzer operator= ERROR: operation not allowed.\n");
    exit(1);
    return (*this);
 }
