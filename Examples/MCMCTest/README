@@ -1,0 +1,23 @@
+Problem:
+
+read the simulator.c file.
+
+The simulator output the discrepancy
+between simulation and data (not squared).
+MCMC geneates Gaussian given standard deviation
+as likelihood function.
+The program adds some noise to it.
+
+To use:
+- cc -c simulator simulator.c -lm
+- psuade psuadeRS.in
+- mv psuadeData psData
+- psuade
+> load psData
+> rsmcmc
+...
+enter: mcmcFile
+> quit
+
+Use matlab to view matlabmcmc.m and matlabmcmc2.m
+

@@ -1,0 +1,11 @@
+
+# Makefile changes for SGI's running IRIX
+# ARCH = IRIX
+
+CC       = cc
+CXX      = CC
+F77      = f77
+AR       = ar
+RANLIB   = true
+MISC_LIB = -lftn
+

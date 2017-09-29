@@ -1,0 +1,37 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable 1 X1 =  -2.0000000000000000e+00   2.0000000000000000e+00
+   variable 2 X2 =  -2.0000000000000000e+00   2.0000000000000000e+00
+   variable 3 X3 =  -2.0000000000000000e+00   2.0000000000000000e+00
+END
+OUTPUT
+   dimension = 4
+   variable 1 Y1
+   variable 2 Y2
+   variable 3 Y2
+   variable 4 Y2
+#  variable 5 Y2
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 10
+   num_replications = 1
+   num_refinements = 0
+#  randomize
+END
+APPLICATION
+   driver = NONE
+   opt_driver = ./simulator_minpack
+   launch_interval = 0
+END
+ANALYSIS
+   optimization method = minpack
+   optimization num_local_minima = 10
+   optimization fmin = 0.000000e+00
+   optimization tolerance = 1.0e-8
+   optimization num_fmin = 1
+   optimization print_level = 2
+   diagnostics 1
+END
+END

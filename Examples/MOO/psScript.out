@@ -1,0 +1,75 @@
+*************************************************************
+*      Welcome to PSUADE (version 1.4)
+*************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (v1.4)
+(for help, enter <help>)
+=============================================================
+psuade> Enter a PSUADE input file (specify inputs/outputs): PSUADE input file = psuade.in
+Next, enter the name of the application driver. It can be
+an executable or a PSUADE data file to be used to create
+a response surface. In the latter case, make sure the
+number of inputs and outputs are the same as the PSUADE
+input file (psuade.in).
+Enter the application driver file now: application driver (RS data) file = psSave
+*************************************************************
+PSUADE OPTIMIZATION: 
+	 starting X(     1) =   5.00000000e-01
+	 starting X(     2) =   5.00000000e-01
+	 starting X(     3) =   5.00000000e-01
+	 starting X(     4) =   5.00000000e-01
+	 starting X(     5) =   5.00000000e-01
+	 starting Y =   0.00000000e+00
+*************************************************************
+Surrogate-based Multi-objective optimization: 
+=============================================================
+The multi-objective function is built from the sample
+outputs (currently there are 2 outputs).
+For this optimizer to build a general multi-objective
+function, a configuration file is required from users.
+The configuration file should be in the following format:
+line 1: PSUADE_BEGIN
+line 2: number of variables in the multi-objective function
+line 3: 1  lbound ubound <lower and upper bounds of variable 1>
+line 4: 2  lbound ubound <lower and upper bounds of variable 2>
+....
+line n: name of a python file to evaluate the objective function
+line n+1: PSUADE_END
+Note: If the objective function is just a linear combination
+      of the outputs, the python function line should be 
+      replaced by a 'NULL', and the number of design variables
+      should be nOutputs-1 (since sum of weights=1).
+An Example: 
+-------------------------------------------------------------
+PSUADE_BEGIN
+2
+1 0 1
+2 0 1
+objfcn.py (NULL if the objective function is a linear combination)
+PSUADE_END
+-------------------------------------------------------------
+Note: the optimizer will evaluate the multi-objective function
+      by using the calling sequence:
+          <pythonFile> <paramFile> <objFile>
+where:
+  <paramFile> contains a sample point to evaluate the function
+  <objFile>   the function value written by the python file
+NOTE: MAKE SURE the <pythonFile> HAS EXECUTE PERMISSION.
+=============================================================
+Enter the name of the configuration file: Next, a full factorial design will be generated to explore
+the design variable space (of dimension 1). Please enter
+the sample resolution n. For example, if the resolution is
+10 for 3 design variables, the total number of optimizations
+to be performed will be 10x10x10=1000.
+Enter the desired resolution (>2,<100,suggested: 11): Creating response surface for output 1.
+Creating response surface for output 2.
+MOO OptimalX  1 = 0.000000e+00
+MOO OptimalY    = -1.778390e-05
+MOO nFuncEval   = 4227
+The moo sample is in file psuade_moo_sample.
+The optimal values are in the first output.
+The rest of the outputs in the file are inputs and outputs.
+Use write_std (output 1) and use matlab to visualize for 1D.
+Use rawi2 or rawi3 (output 1) command to generate 2D/3D plots.
+*************************************************************
+psuade> 

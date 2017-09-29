@@ -1,0 +1,32 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable 1 X1 =  -2.0000000000000000e+00   2.0000000000000000e+00
+   variable 2 X2 =  -2.0000000000000000e+00   2.0000000000000000e+00
+END
+OUTPUT
+   dimension = 2
+   variable 1 Y1
+   variable 2 Y2
+END
+METHOD
+   sampling = MC
+   num_samples = 1
+   num_replications = 1
+   num_refinements = 0
+   randomize
+END
+APPLICATION
+   driver = NONE
+   opt_driver = ./simulator
+END
+ANALYSIS
+   optimization method = cobyla
+   optimization num_local_minima = 1
+   optimization fmin = 0.000000e+00
+   optimization fmin = 1.0e-5
+   optimization num_fmin = 1
+   optimization print_level = 0
+   diagnostics 2
+END
+END

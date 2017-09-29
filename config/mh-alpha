@@ -1,0 +1,11 @@
+
+# Makefile changes for DEC Alpha's running OSF
+# ARCH = ALPHA
+
+CC       = gcc
+CXX      = g++
+F77      = f77
+AR       = ar
+RANLIB   = ranlib
+MISC_LIB = -lUfor -lfor -lots
+

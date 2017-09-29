@@ -1,0 +1,14 @@
+
+# Makefile changes for AIX
+# ARCH = SP2
+
+CC     = gcc
+CXX    = g++
+F77    = f77
+AR     = ar
+RANLIB = ranlib
+FFLAGS = -qextname
+
+# the following load flags works for the white machine,
+MISC_LIB = -lxlf90
+

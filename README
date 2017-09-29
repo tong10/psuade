@@ -1,0 +1,70 @@
+*****************************************************************************
+Copyright (c) 2007   Lawrence Livermore National Security, LLC.
+Produced at the Lawrence Livermore National Laboratory.
+Written by the PSUADE team.
+All rights reserved.
+
+Please see the LGPL.pdf file for the copyright notice, disclaimer, 
+contact information and the GNU Lesser General Public License.
+
+PSUADE is free software; you can redistribute it and/or modify it under the
+terms of the GNU Lesser General Public License (as published by the Free 
+Software Foundation) version 2.1 dated February 1999.
+
+PSUADE is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the IMPLIED WARRANTY OF MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the terms and conditions of the GNU General
+Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program; if not, write to the Free Software Foundation,
+Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
+The PSUADE distribution contains libraries which are available
+separately under compatible licensing terms.  In particular, MARS and
+BOSE are available under the StatLib licensing agreement.  A copy of
+this license is included in the "LICENSE_MARS" and "LICENSE_BOSE" files
+in the External/MARS and External/Bose directories, respectively, and 
+is also available online from http://lib.stat.cmu.edu/graphmod/submissions.
+
+*****************************************************************************
+
+*****************************************************************************
+Author:      Charles Tong
+Affiliation: Lawerence Livermore National Laboratory
+             Center for Applied Scientific Computing
+Date:        2007
+*****************************************************************************
+
+Installing PSUADE libraries
+
+A. To install the PSUADE package, go to the PSUADE directory and issue
+   an "install_psuade" command with one of the following arguments.
+    - LINUX (for PC with Linux O.S.)
+    - IRIX (for SGI IRIX machines)
+    - SUN4, SUN5, HPUX, ALPHA, IRIX64 for others
+    - Or, use your favorite compiler in mh-user, and choose USER
+
+   You may also issue the command without an argument. In this case 
+   you will choose the platform on which you wish to run from the 
+   "install_psuade" menu that will appear after entering the 
+   "install_psuade" command.
+
+   After exiting "install_psuade", issue a "make" from inside the PSUADE
+   directory to make all libraries (the library files are located in 
+   the Src/Lib/<arch> directory)
+
+B. After all compilation is done successfully, the executable "psuade"
+   can be found in the bin directory.
+
+C. Now read the short manual in the Doc/Manual directory and follow the 
+   instructions to get a simple application running within minutes.
+
+*****************************************************************************
+Explanation of directories
+
+Examples : test programs 
+Src      : source code
+Doc      : documentations
+External : external packages
+

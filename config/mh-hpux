@@ -1,0 +1,15 @@
+
+# Makefile changes for HP's
+# ARCH = HPUX
+
+CC       = cc
+CXX      = CC
+F77      = fort77
+AR       = ar
+RANLIB   = true
+CFLAGS   = -Ae
+FFLAGS   = +ppu
+MISC_LIB = -lV3 -lU77
+
+#ARCHLIBS	= -L/lib/pa1.1 
+

@@ -1,0 +1,34 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable 1 X1 =  -2.0000000000000000e+00   2.0000000000000000e+00
+   variable 2 X2 =  -2.0000000000000000e+00   2.0000000000000000e+00
+END
+OUTPUT
+   dimension = 2
+   variable 1 Y
+   variable 2 Y
+END
+METHOD
+   sampling = FACT
+   num_samples = 625
+   num_replications = 1
+   num_refinements = 0
+   randomize
+END
+APPLICATION
+   driver = ./simulator_minpack
+#  opt_driver = ./simulator
+END
+ANALYSIS
+#  optimization method = txmath
+#  optimization method = cobyla
+#  optimization method = appspack
+   optimization num_local_minima = 1
+   optimization fmin = 0.000000e+00
+   optimization fmin = 1.0e-5
+   optimization num_fmin = 1
+   optimization print_level = 2
+   diagnostics 4
+END
+END

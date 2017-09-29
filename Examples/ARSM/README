@@ -1,0 +1,40 @@
+This example demonstrates adaptive response surface analysis:
+
+=============================================================
+To run it:
+(1) cc -o simulator simulator.c -lm
+(2) psuade psuadeARSM1.in
+    <answer 'n' to random selection or not>
+    <answer 'n' to whether a test set is available>
+
+=============================================================
+If you would like to generate a test set, do:
+
+psuade psuadeValidate.in
+
+and then rename psuadeData (to another name such as psValid)
+and then when you run adaptive sampling, answer 'y' to whether
+    a test set is available.
+
+=============================================================
+When the runs are then, you can look at the locations of the
+sample points by:
+
+- rename psuadeData to, for example, psD
+- psuade
+  > load psD
+  > iplot2
+    <select input 1 to be the X axis>
+
+- use matlab to view matlabiplt2.m
+
+=============================================================
+You can also visualize the response surface by
+- psuade
+  > load psD
+  > rs2
+    < use MARS with bootstrapping>
+    < do not set lower or upper bound>
+
+- use matlab to view matlabrs2.m
+

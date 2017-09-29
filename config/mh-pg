@@ -1,0 +1,10 @@
+
+# The following system parameters are for a Linux host.
+# ARCH   = LINUX
+
+CC     = cc  -g -Wall
+CXX    = g++ -g -Wall
+F77    = pgf90 
+AR     = ar
+RANLIB = true
+

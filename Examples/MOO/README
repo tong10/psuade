@@ -1,0 +1,20 @@
+MultiObjective optimization using evolutionary algorithms
+by I. Sbalzarini, S. Muller and P. Koumoutsakos
+Center for Turbulence Research 
+Proceeding of the Summer program 2000
+
+
+minimize (f1 f2)
+
+f1(x1) = x1
+f2 = g(x2, .., xm) h(f1, g2)
+
+g(x2, ..., xm) = 1 + 9 sum_{i=2}^m xi/(m-1)
+h(f1,g) = 1 - (f1/g)^2
+
+optimal is when g(x)=1
+
+m = 5
+xi = [0 1]
+
+

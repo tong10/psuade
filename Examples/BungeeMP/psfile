@@ -1,0 +1,6 @@
+PSUADE_PARALLEL
+workdir = workdir
+executable = /home/chtong/UQ/PSUADE_dev/Examples/Bungee/simulator
+num_samples = 5
+PSUADE_PARALLEL
+

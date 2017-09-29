@@ -1,0 +1,87 @@
+*************************************************************
+*      Welcome to PSUADE (version 1.4)
+*************************************************************
+PSUADE run: creating interface to user driver.
+PSUADE run: output level = 3
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 1 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: if evaluation should be fast but is slow, check save frequency.
+Note: use psuade_pmachine to dynamically change max jobs.
+Note: use psuade_stop to terminate gracefully.
+=============================================================
+PSUADE run: running sample, nSamples = 10 
+Launch: job =      1
+Launch: job =      2
+.Launch: job =      3
+Launch: job =      4
+Launch: job =      5
+Launch: job =      6
+Launch: job =      7
+Launch: job =      8
+Launch: job =      9
+Launch: job =     10
+
+PSUADE run: jobs completed = 10(out of 10)
+*************************************************************
+PSUADE : Search for local minima in sample space.
+         number of samples = 10
+	 optimization starting point 1 : 
+		   0.00000000e+00
+		   0.00000000e+00
+		   0.00000000e+00
+		   0.00000000e+00
+		   0.00000000e+00
+				 Y =   4.00000000e+00
+*************************************************************
+*************************************************************
+PSUADE OPTIMIZATION 1 (1) : 
+	 starting X(     1) =   0.00000000e+00
+	 starting X(     2) =   0.00000000e+00
+	 starting X(     3) =   0.00000000e+00
+	 starting X(     4) =   0.00000000e+00
+	 starting X(     5) =   0.00000000e+00
+	 starting Y =   4.00000000e+00
+Bobyla: setting optimization simulation driver.
+*************************************************************
+Bobyqa optimizer: max fevals = 10000
+Bobyqa optimizer: tolerance  = 1.000000e-06
+Bobyqa optimizer: selected output = 1
+=============================================================
+
+    At the return from BOBYQA     Number of function values =   346
+    Least value of F =  7.193194372101521D-14         The corresponding X is:
+     1.000000D+00   1.000000D+00   9.999999D-01   9.999999D-01   9.999998D-01
+Bobyqa optimizer: total number of evaluations = 346
+Bobyla: setting back to original simulation driver.
+	 Bobyqa number of function evaluations = 346
+	 optimum  X(     1) =   9.99999974e-01
+	 optimum  X(     2) =   9.99999968e-01
+	 optimum  X(     3) =   9.99999944e-01
+	 optimum  X(     4) =   9.99999899e-01
+	 optimum  X(     5) =   9.99999802e-01
+			 optimum Y =   7.19319437e-14
+*************************************************************
+*************************************************************
+PSUADE Optimization Results.
+PSUADE Optimization : local optima 1 (1) - 
+		X     1 =   9.99999974e-01
+		X     2 =   9.99999968e-01
+		X     3 =   9.99999944e-01
+		X     4 =   9.99999899e-01
+		X     5 =   9.99999802e-01
+			Ymin =   7.19319437e-14
+##################################################
+PSUADE OPTIMIZATION : CURRENT GLOBAL MINIMUM - 
+		X     1 =   9.99999974e-01
+		X     2 =   9.99999968e-01
+		X     3 =   9.99999944e-01
+		X     4 =   9.99999899e-01
+		X     5 =   9.99999802e-01
+			Ymin =   7.19319437e-14
+##################################################
+*************************************************************
+PSUADE Optimization : desired minimum found.
+=============================================================

@@ -1,0 +1,11 @@
+
+# The following system parameters are for a Linux host.
+# ARCH   = LINUX
+
+CC     = gcc -g
+CXX    = g++ -g
+F77    = gfortran -g 
+AR     = ar
+RANLIB = ranlib
+#LIBS   = -L/opt/local/lib/gcc45 -lgfortran
+

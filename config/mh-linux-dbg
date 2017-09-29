@@ -1,0 +1,9 @@
+# The following system parameters are for a Linux host.
+
+ARCH   = LINUX
+CC     = /nfs/apps/insure++/7.1.0/bin/insure gcc -g
+CXX    = /nfs/apps/insure++/7.1.0/bin/insure g++ -g
+F77    = f77
+AR     = ar
+RANLIB = true
+

@@ -1,0 +1,1277 @@
+#!/bin/sh     
+#**************************************************************************
+# Copyright (c) 2007   Lawrence Livermore National Security, LLC.
+# Produced at the Lawrence Livermore National Laboratory.
+# Written by the PSUADE team.
+# All rights reserved.
+#
+# Please see the COPYRIGHT and LICENSE file for the copyright notice,
+# disclaimer, contact information and the GNU Lesser General Public License.
+#
+# PSUADE is free software; you can redistribute it and/or modify it under the
+# terms of the GNU General Public License (as published by the Free Software
+# Foundation) version 2.1 dated February 1999.
+#
+# PSUADE is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the IMPLIED WARRANTY OF MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the terms and conditions of the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#**************************************************************************
+
+#**************************************************************************
+# task to create PSUADE makefile
+# Author : Charles Tong
+# Date   : 2003
+#**************************************************************************
+# use the Bourne shell to interpret script
+#**************************************************************************
+
+#**************************************************************************
+# Users may choose to enter the architecture as the first command line
+# argument. If not, the default is LINUX.
+#--------------------------------------------------------------------------
+
+if test $# -eq 1; then     
+   ARCH=$1
+else
+   ARCH=LINUX
+fi
+
+#**************************************************************************
+# Initialize the values of certain variables.  The initial settings are 
+# such that the platform is LINUX, no MARS nor Pgplot nor APPSPACK nor
+# Minpack is used, and PSUADE is to be run in serial or asynchronous mode.
+#--------------------------------------------------------------------------
+
+done_flag=no
+PLOT_FLAG=no
+MARS_FLAG=no
+EARTH_FLAG=no
+TGP_FLAG=no
+COBYLA_FLAG=yes
+APPSPACK_FLAG=no
+MINPACK_FLAG=no
+SNNS_FLAG=no
+TPROS_FLAG=no
+SVM_FLAG=yes
+GPMC_FLAG=no
+METIS_FLAG=yes
+MPI_FLAG=no
+MPI_USR_FCN=no
+TGP_FLAG=no
+BOBYQA_FLAG=yes
+PYTHON_FLAG=no
+
+#**************************************************************************
+# Probe the users for options until 'quit' is requested
+#--------------------------------------------------------------------------
+
+MSSG_FLAG=no
+if [ ! -f ./External/MARS/mars36_fort.f ]; then
+   if [ ! -f ./External/MARS/mars35_fort.f ]; then
+      if [ ! -f ./External/MARS/mars36_fort.c ]; then
+         echo "****************** Read this important information first **********************"
+         echo "* Multivariate Adaptive Regression Splines (MARS) is currently not installed."
+         echo "  To install MARS, first exit install_psuade, search and download mars35_fort.f,"
+         echo "  mars36_fort.f or mars36_fort.c, put it in the External/MARS directory, and run"
+         echo "  install_psuade again."
+         MSSG_FLAG=yes
+      fi
+   fi
+fi
+if [ -f ./External/MARS/mars36_fort.f ]; then
+   MARS_FLAG=yes
+elif [ -f ./External/MARS/mars35_fort.f ]; then
+   MARS_FLAG=yes35
+elif [ -f ./External/MARS/mars36_fort.c ]; then
+   MARS_FLAG=yes36c
+fi
+
+if [ -d ./External/TPROS ]; then
+   if [ -f ./External/TPROS/Tpros.c ]; then
+      echo "The TPROS Gaussian process library is found."
+      TPROS_FLAG=yes
+   else
+      if [ "${MSSG_FLAG}" = no ]; then
+         echo "****************** Read this important information first **********************"
+         MSSG_FLAG=yes
+      fi
+      echo "* The TPROS library is currently not installed. If you would like to use the"
+      echo "  TPROS Gaussian process response surface tool, you will need to download"
+      echo "  the TPROS library (if needed, send us email on details of how to install.)"
+   fi
+fi
+if [ "${MSSG_FLAG}" = yes ]; then
+   echo "*******************************************************************************"
+   echo "Now exit install_psuade or press ENTER to continue"
+   read choice
+fi
+
+while [ ${done_flag} = no ]
+   do
+
+#--------------------------------------------------------------------------
+#    tput is not available on some systems. This command appears to be used
+#    on System V, but not the BSD systems. This causes the screen to be
+#    cleared and a new copy of the new is displayed at the beginning of
+#    every while loop.
+#--------------------------------------------------------------------------
+   
+     if (test `tput clear`) ; then
+        tput clear
+     else
+        clear
+     fi
+     echo " ********************************************************* "
+     echo " Verify the following and make changes as needed :  "
+     echo "   a. Platform                            = ${ARCH} "
+#    if [ -d ./External/SNNS ]; then
+#       echo "   b. SNNS (neural network)               = ${SNNS_FLAG}"
+#    fi
+#    if [ -d ./External/TPROS -a "${TPROS_FLAG}" = no ]; then
+#       echo "   c. TPROS (MacKay's Gaussian process)   = ${TPROS_FLAG}"
+#    fi
+#    if [ -d ./External/GPMC -a "${GPMC_FLAG}" = no ]; then
+#       echo "   d. GPMC (Rasmussen's Gaussian process) = ${GPMC_FLAG}"
+#    fi
+#    if [ -d ./External/SVM -a "${SVM_FLAG}" = no ]; then
+#       echo "   e. SVM (Thorsten Joachims' svm-light)  = ${SVM_FLAG}"
+#    fi
+#    if [ -d ./External/TGP -a "${TGP_FLAG}" = no ]; then
+#       echo "   f. TGP (tree-based GP)                 = ${TGP_FLAG}"
+#    fi
+#    if [ -d ./External/APPSPACK -a "${APPSPACK_FLAG}" = no ]; then
+#       echo "   g. APPSPACK optimizer                  = ${APPSPACK_FLAG}"
+#    fi
+#    if [ -d ./External/MINPACK -a "${MINPACK_FLAG}" = no ]; then
+#       echo "   h. MINPACK optimzer                    = ${MINPACK_FLAG}"
+#    fi
+#    if [ -d ./External/COBYLA -a "${COBYLA_FLAG}" = no ]; then
+#       echo "   i. COBYLA optimizer                    = ${COBYLA_FLAG}"
+#    fi
+#    if [ -d ./External/METIS -a "${METIS_FLAG}" = no ]; then
+#          echo "   j. METIS domain partitioner            = ${METIS_FLAG}"
+#    fi
+#    if [ -d ./External/BOBYQA -a "${BOBYQA_FLAG}" = no ]; then
+#       echo "   k. BOBYQA optimizer                    = ${BOBYQA_FLAG}"
+#    fi
+     echo "   l. MPI Build                           = ${MPI_FLAG}"
+     echo "   m. User provides simulator function    = ${MPI_USR_FCN}" 
+#    echo "   n. Earth (Milborrow's MARS)            = ${EARTH_FLAG}" 
+     echo "   z. This setting is good, move on."
+     echo " --------------------------------------------------------- "
+     echo " "
+     echo "Enter the item (a - m) to change or z to quit: "
+     read choice
+
+     case "$choice" in
+        a)  echo " ---------------------------------------- "
+            echo " If needed, go to the config directory"
+            echo " and your machine profile (your favorite"
+            echo " compiler, g2c/gfortran libraries ...)"
+            echo " and re-run install_psuade"
+            echo " ---------------------------------------- "
+            echo " Choose from one of the following : "
+            echo "     IRIX      ( SGI IRIX )"
+            echo "     IRIX64    ( SGI IRIX64 )"
+            echo "     LINUX     ( LINUX )" 
+            echo "     LINUX_DBG ( LINUX with insure)" 
+            echo "     HPUX      ( HP )" 
+            echo "     SUN4      ( SUN OS 4.X )" 
+            echo "     SUN5      ( SUN OS 5.X )" 
+            echo "     ALPHA     ( DEC ALPHA )" 
+            echo "     AIX       ( IBM AIX )" 
+            echo "     CYGWIN    ( CYGWIN )" 
+            echo "     MACOS     ( MAC OS )" 
+            echo "     Portland  ( PG )" 
+            echo "     USER      ( user-defined compilers/library )" 
+            echo "       If you use this option, first modify the"
+            echo "       file called mh-user in the config directory"
+            echo "       with your compiler and library choices and"
+            echo "       then run install_psuade again"
+            echo " ---------------------------------------- "
+            echo " Your choice : "
+
+#       Read in the architecture entered by the user. Give users 3 chances
+#       to enter the desired architecture, otherwise exit.
+
+        for i in 1 2 3
+        do
+            read ARCH
+
+	    if [ "$ARCH" != LINUX -a "$ARCH" != IRIX -a \
+		"$ARCH" != HPUX  -a "$ARCH" != SUN4 -a \
+		"$ARCH" != SUN5 -a "$ARCH" != IRIX64 -a "$ARCH" != ALPHA \
+                -a "$ARCH" != AIX -a "$ARCH" != CYGWIN -a "$ARCH" != LINUX_DBG \
+                -a "$ARCH" != MACOS -a "$ARCH" != PG -a "$ARCH" != USER ]
+	    then
+		if test $i -eq 3
+		then
+		    exit
+		else 
+		    echo ""
+		    echo "Error : ${ARCH} - platform not supported "
+		    echo "Please enter your platform :"
+		fi
+    	    else
+		break
+	    fi
+        done;;
+
+#       If case b) is chosen, switch the SNNS flag to turn on (off)
+
+        b)  if [ -d ./External/SNNS ]; then
+               if [ ${SNNS_FLAG} = no ]; then
+                  SNNS_FLAG=yes
+               else
+                  SNNS_FLAG=no
+               fi 
+            else
+               echo "ERROR: SNNS not found."
+               echo "==>Please download SNNS and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case c) is chosen, switch the TPROS flag to turn on(off) 
+
+        c)  if [ -d ./External/TPROS ]; then
+               if [ ${TPROS_FLAG} = no ]; then
+                  TPROS_FLAG=yes
+               else
+                  TPROS_FLAG=no
+               fi 
+            else
+               echo "ERROR: TPROS not found."
+               echo "==>Please download TPROS and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case d) is chosen, switch the GPMC flag to turn on(off) 
+
+        d)  if [ -d ./External/GPMC ]; then
+               if [ ${GPMC_FLAG} = no ]; then
+                  GPMC_FLAG=yes
+               else
+                  GPMC_FLAG=no
+               fi 
+            else
+               echo "ERROR: GPMC not found."
+               echo "==>Please download gp-mc-1 and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case e) is chosen, switch the SVM flag to turn on (off)
+
+        e)  if [ -d ./External/SVM ]; then
+               if [ ${SVM_FLAG} = no ]; then
+                 SVM_FLAG=yes
+               else
+                 SVM_FLAG=no
+               fi 
+            else
+               echo "ERROR: SVM not found."
+               echo "==>Please download svm-light and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case f) is chosen, switch the TGP flag to turn on (off)
+
+        f)  if [ -d ./External/TGP ]; then
+               if [ ${TGP_FLAG} = no ]; then
+                 TGP_FLAG=yes
+               else
+                 TGP_FLAG=no
+               fi 
+            else
+               echo "ERROR: TGP not found."
+               echo "==>Please download tgp and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case g) is chosen, switch the APPSPACK flag to turn on (off)
+
+        g)  if [ -d ./External/APPSPACK ]; then
+               if [ ${APPSPACK_FLAG} = no ]; then
+                  APPSPACK_FLAG=yes
+               else
+                  APPSPACK_FLAG=no
+               fi 
+            else
+               echo "ERROR: APPSPACK not found."
+               echo "==>Please download appspack and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case h) is chosen, switch the MINPACK flag to turn on (off)
+
+        h)  if [ -d ./External/MINPACK ]; then
+               if [ ${MINPACK_FLAG} = no ]; then
+                  MINPACK_FLAG=yes
+               else
+                  MINPACK_FLAG=no
+               fi 
+            else
+               echo "ERROR: MINPACK not found."
+               echo "==>Please download minpack and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case i) is chosen, switch the Cobyla flag to turn on (off)
+
+        i)  if [ -d ./External/COBYLA ]; then
+               if [ ${COBYLA_FLAG} = no ]; then
+                  COBYLA_FLAG=yes
+               else
+                  COBYLA_FLAG=no
+               fi 
+            else
+               echo "ERROR: COBYLA not found."
+               echo "==>Please download cobyla2c and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case j) is chosen, switch the metis flag to turn on (off)
+
+        j)  if [ -d ./External/METIS ]; then
+               if [ ${METIS_FLAG} = no ]; then
+                  METIS_FLAG=yes
+               else
+                  METIS_FLAG=no
+               fi 
+            else
+               echo "ERROR: METIS not found."
+               echo "==>Please download metis and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case k) is chosen, switch the Cobyla flag to turn on (off)
+
+        k)  if [ -d ./External/BOBYQA ]; then
+               if [ ${BOBYQA_FLAG} = no ]; then
+                  BOBYQA_FLAG=yes
+               else
+                  BOBYQA_FLAG=no
+               fi 
+            else
+               echo "ERROR: BOBYQA not found."
+               echo "==>Please download bobyqa and then ask"
+               echo "==>PSUADE developers to help you install."
+               sleep 5
+            fi;;
+
+#       If case l) is chosen, turn on MPI build flag
+
+        l)  MPI_FLAG=yes ;; 
+
+#       If case m) is chosen, turn on user function flag
+
+        m)  MPI_USR_FCN=yes
+            echo "Please put into the Src/Lib directory the library"
+            echo "file (libuf.a) containing a definitiion of the function"
+            echo "called UserFunction (argc=3: MPI_Comm, index, workdir)";; 
+
+#       If case n) is chosen, turn on EARTH flag
+
+        n)  EARTH_FLAG=yes ;; 
+
+#       If case z) is chosen, exit the while loop
+
+        z)  done_flag=yes ;; 
+     esac
+   done
+
+#**************************************************************************
+# Now that the above settings are entered, find out if there is a directory
+# named "config" in the user's current directory.  If so, match the case
+# that corresponds with the architecture entered by the user, and set the
+# variable "machine_header" to the path to the corresponding configuration
+# file in the "config" directory. For example, if the user entered "SUN4"
+# as his/her platform, set "machine_header" to the path "config/mh-sun4."
+# If the user chose to enter the platform as a command-line argument of 
+# install_psuade, any platform not covered in first group of cases (below)
+# will fall into the final case *), and an error message will be printed
+# for the user.  If *) is the case chosen, then exit from install_psuade.
+#--------------------------------------------------------------------------
+
+if [ -d config ]; then
+   case "${ARCH}" in
+      IRIX)      machine_header=config/mh-irix   ;;
+      IRIX64)    machine_header=config/mh-irix64 ;;
+      LINUX)     machine_header=config/mh-linux  ;;
+      LINUX_DBG) machine_header=config/mh-linux-dbg  ;;
+      HPUX)      machine_header=config/mh-hpux   ;;
+      SUN4)      machine_header=config/mh-sun4   ;;
+      SUN5)      machine_header=config/mh-sun5   ;;
+      ALPHA)     machine_header=config/mh-alpha  ;;
+      AIX)       machine_header=config/mh-aix    ;;
+      CYGWIN)    machine_header=config/mh-cygwin  ;;
+      MACOS)     machine_header=config/mh-mac  ;;
+      USER)      machine_header=config/mh-user  ;;
+      *) echo "Error: ${ARCH} -- platform not supported. Goodbye."; exit;;
+   esac
+   if [ ${MPI_FLAG} = yes ]; then
+      machine_header=config/mh-mpi
+   fi
+   if [ "${ARCH}" = LINUX_DBG ]; then
+      ARCH="LINUX"
+   fi
+fi
+
+#**************************************************************************
+# if MacOS, use c version of MARS
+#**************************************************************************
+#if [ "${ARCH}" = MACOS ]; then
+#   MARS_FLAG=no
+#   echo "MARS is turned off."
+#   BOBYQA_FLAG=no
+#   echo "BOBYQA is turned off."
+#fi
+
+#**************************************************************************
+# For Linux or cygwin systems, look for the file "libg2c.a". For Linux, 
+# need to search for libg2c.a (rather than libg2c.so) to avoid the missing
+#  main__ problem.
+#--------------------------------------------------------------------------
+if [ "${ARCH}" = LINUX -o "${ARCH}" = CYGWIN -o "${ARCH}" = LINUX_DBG ]; then
+   echo "looking for libg2c.a"
+   if [ -d /lib ]; then
+      F2C_SRCH=`find /lib -maxdepth 4 -name libg2c.a`
+   else
+      F2C_SRCH=""
+   fi
+   if [ "${F2C_SRCH}" = "" -a -d /usr/lib ]; then
+      F2C_SRCH=`find /usr/lib -maxdepth 4 -name libg2c.a`
+      if [ "${F2C_SRCH}" = "" -a -d /usr/local/lib ]; then
+         F2C_SRCH=`find /usr/local/lib -maxdepth 4 -name libg2c.a`
+         if [ "${F2C_SRCH}" = "" ]; then
+            echo "ERROR : libg2c.a not found "
+            echo "Enter absolute path name of the F2C file (or RETURN if NONE) "
+            read F2C_LIB
+            if [ "${F2C_LIB}$" != "" ]; then
+               if [ ! -f "${F2C_LIB}$" ]; then
+                  echo "ERROR: file " ${F2C_LIB} " not found."
+                  echo "       PSUADE may not be built correctly without it."
+                  if [ -d ./External/MARS/mars36_noprint.f ]; then
+                     if [ "${MARS_FLAG}" = yes ]; then
+                        MARS_FLAG=yesNoPrint
+                     fi
+                     if [ "${MARS_FLAG}" = yes36 ]; then
+                        MARS_FLAG=yesNoPrint
+                     fi
+                  fi
+               fi
+               echo "Library file " ${F2C_LIB} " found."
+            else
+               echo "WARNING: no Fortran library specified."
+               echo "         PSUADE may not be built correctly without it."
+               if [ -f ./External/MARS/mars36_noprint.f ]; then
+                  if [ "${MARS_FLAG}" = yes ]; then
+                     MARS_FLAG=yesNoPrint
+                  fi
+                  if [ "${MARS_FLAG}" = yes36 ]; then
+                     MARS_FLAG=yesNoPrint
+                  fi
+               fi
+            fi
+         else
+            echo "libg2c.a found (1)."
+            for file in ${F2C_SRCH}; do
+               F2C_LIB=${file}
+               echo "F2C = " ${F2C_LIB}
+               break
+            done
+         fi
+      else
+         echo "libg2c.a found (2)."
+         F2C_SRCH="$F2C_SRCH libg2c.a"
+         for file in ${F2C_SRCH}; do
+            F2C_LIB=${file}
+            echo "F2C = " ${F2C_LIB}
+            break
+         done
+      fi
+   else
+      echo "libg2c.a found (3)."
+      for file in ${F2C_SRCH}; do
+         F2C_LIB=${file}
+         echo "F2C = " ${F2C_LIB}
+         break
+      done
+   fi
+else
+   echo "PSUADE contains some Fortran functions. On some system, a Fortran"
+   echo "library (e.g. libg2c.a) may be needed during link time. If your"
+   echo "system has such a library file (e.g. on MAC if you use the gfortran"
+   echo "compiler, you will need to provide a libgfortran.a library file),"
+   echo "please provide name of the library file below (with absolute path)."
+   echo "Enter name of the Fortran library file (absolute path) or RETURN if NONE : "
+   read F2C_LIB
+   if [ "${F2C_LIB}" != "" ]; then
+      if [ ! -f "${F2C_LIB}" ]; then
+         echo "WARNING: file " ${F2C_LIB} " not found."
+         echo "         PSUADE may not be built correctly without it."
+         if [ -d ./External/MARS/mars36_noprint.f ]; then
+            if [ "${MARS_FLAG}" = yes ]; then
+               MARS_FLAG=yesNoPrint
+            fi
+            if [ "${MARS_FLAG}" = yes36 ]; then
+               MARS_FLAG=yesNoPrint
+            fi
+         fi
+      fi
+   else
+      echo "WARNING: no Fortran library specified."
+      echo "WARNING : PSUADE may not be built correctly without it."
+      if [ -d ./External/MARS/mars36_noprint.f ]; then
+         if [ "${MARS_FLAG}" = yes ]; then
+            MARS_FLAG=yesNoPrint
+         fi
+         if [ "${MARS_FLAG}" = yes36 ]; then
+            MARS_FLAG=yesNoPrint
+         fi
+      fi
+   fi
+fi
+       
+#**************************************************************************
+# If the user turned the PGPLOT option on, ask if the user has PGPLOT
+# installed.  
+#--------------------------------------------------------------------------
+
+if [ ${PLOT_FLAG} = yes ]; then
+  echo "Do you have PGPLOT installed ? (y or n) "
+
+  read response
+
+# If the response is yes, then find out where PGPLOT is installed.  
+# If the PGPLOT directory is in the current directory ("installed
+# locally"), set the absolute path PGPLOT_DIR to <path>/Pgplot. 
+# Otherwise, ask for the absolute path to the file libpgplot.a 
+# in the Pgplot directory. 
+
+  if [ ${response} = y ]; then
+     echo "Do you have PGPLOT installed LOCALLY ? (y or n) "
+     read response2
+     if [ ${response2} = y ]; then
+        PGPLOT_DIR="`pwd`/External/Pgplot"
+     else
+	echo "Enter the absolute directory path for the file libpgplot.a"
+        read PGPLOT_DIR
+     fi
+
+#    If the user entered an incorrect path to the file libpgplot.a, then
+#    return an error.  Give the user up to three tries at specifying the 
+#    correct path.  If after three tries the user is still unsuccessful,
+#    return an error message and exit.  
+
+     for i in 1 2 3
+     do
+        if [ ! -f ${PGPLOT_DIR}/libpgplot.a ]
+        then
+           if test $i -eq 3
+	   then
+	      exit
+	   else
+	      echo ""
+	      echo "Error : libpgplot.a file does not exist in "
+	       echo "${PGPLOT_DIR}"
+	       echo "Please enter the absolute directory path for libpgplot.a"
+	       read PGPLOT_DIR
+	   fi
+        else
+	   break
+        fi
+     done
+
+# If the user answers that he/she does not have PGPLOT installed on his/her
+# system, tell them to install it and try again, then exit.
+
+  else
+     echo "Install the PGPLOT library before continuing."
+     exit
+  fi 
+
+# If the user simply opts NOT to use a PGPLOT, then set the path 
+# to the X11_DIR to be empty (that is, the user doesn't need it, so
+# don't bother finding the path and setting it.
+
+else
+   X11_DIR=""
+fi 
+
+#**************************************************************************
+# search for X11:
+# Now that the user has correctly entered the above PGPLOT path, make
+# sure that an XWINDOW can be opened (the necessary changes have been
+# made in one of the PGPLOT files).
+#--------------------------------------------------------------------------
+
+if [ ${PLOT_FLAG} = yes ]; then
+   echo "Did you turn on XWINDOW option in Pgplot ? (y or n) "
+   read response
+
+### If the user did turn on the XWINDOW option, then set the path for the
+### X11 directory.  Because the various directories in a user's PATH can 
+### be specified by putting a space between paths, or putting a colon 
+### between paths, add the colon (:) as a possible internal field separator.
+### Next, give the variable X11_DIR an empty string while searching for
+### the library file.  If the file libX11.so or libX11.a is found in one
+### one of the directories in the user's path, then set X11_DIR to that 
+### particular directory, and exit the loop.
+
+  if [ $response = y ]; then
+     IFS="${IFS=       }"; IFS_TMP="$IFS"; IFS="${IFS}:"
+     X11_DIR=""
+     X11_NAME=""
+     response="n"
+     for dir in $PATH; do
+        if [ -f "$dir/libX11.a" ]; then		
+           X11_DIR=$dir
+           echo "Would you like to use the X11 library contained in"
+           echo "${X11_DIR}? (y or n)"
+           read response
+           if [ $response = y ]; then
+              break
+           fi
+        fi
+     done
+     IFS="$IFS_TMP"
+     if [ $response != y ]; then
+        for i in 1 2 3 
+        do
+           echo "Please provide an absolute path for the X11 library file."
+           read X11_DIR
+           echo "Please provide the name of the X11 library file."
+           read X11_NAME
+           if [ ! -f ${X11_DIR}/${X11_NAME} ]; then
+              if test $i -eq 3 ; then
+                 echo "ERROR : X11 library is not found in ${X11_DIR}."
+                 echo "terminate install."
+                 exit
+              else
+                 echo ""
+                 echo "Error : X11 library is not found in ${X11_DIR}."
+                 echo "        (You got 3 attempts)."
+              fi
+           else
+              break
+           fi
+        done
+     fi
+  fi
+
+# If there is a file named pgplotlink.f in the ./Src/Plot/ directory,
+# remove it without asking permission.  Is the -r option necessary, 
+# since this is a singular file, not a directory?
+
+  if [ -f ./Src/Plot/pgplotlink.f ]; then
+     rm -rf ./Src/Plot/pgplotlink.f
+  fi
+
+# Use the stream editor "sed."  The -e option means edit.  This line 
+# means to replace FOOBAR with XWINDOW in the file
+# ./Src/Plot/pgplotlink.f.Tmplt and save this edited file under the
+# name ./Src/Plot/pgplotlink.f .
+
+   sed -e 's/FOOBAR/\/XWINDOW/g' ./Src/Plot/pgplotlink.f.Tmplt > ./Src/Plot/pgplotlink.f
+fi
+
+#**************************************************************************
+# by now the following should be ready to be ported
+#  ARCH  
+#  PLOT_FLAG     (a flag indicating whether Pgplot is available)
+#  PLOT_DIR      (Pgplot library file directory)
+#  all compilers for the particular ARCH (from machine files)
+#  X11_DIR   (X11 library file directory)
+#--------------------------------------------------------------------------
+### If the user has opted to plot the results of the analysis, then 
+### dereferencing the variable PLOT_LINK will result in echoing a
+### different variable assignment:
+### PLOT_LIB = -L/<pgplot path>/libpgplot.a -lpgplot
+### If the user decided not to use PGPLOT, then set PLOT_LINK to a 
+### string of length zero.  
+
+### I'm really not sure how this works.  Does the PLOT_LIB = . . .
+### literally replace the PLOT_LINK variable?  When I try to type
+### in similar commands in the Bourne shell on my machine, the 
+### return from typing
+### echo ${PLOT_LINK}
+### would be the string between the single quotes following PLOT_LINK=.
+#--------------------------------------------------------------------------
+
+if [ ${PLOT_FLAG} = yes ]; then
+   PLOT_LINK=`echo "PLOT_LIB = -L"${PGPLOT_DIR} " -lpgplot"`
+else
+   PLOT_LINK=""
+fi
+
+#--------------------------------------------------------------------------
+# If there is already a Makefile existing in the PSUADE directory, remove
+# it without asking for permission.
+#--------------------------------------------------------------------------
+
+rm -f Makefile
+
+#--------------------------------------------------------------------------
+# If the file Makefile.in does not exist in the PSUADE directory, return
+# an error message and exit.
+#--------------------------------------------------------------------------
+
+if [ ! -f ./Makefile.in ]; then
+   echo "Error : Makefile.in does not exist. "
+   exit
+fi
+
+#**************************************************************************
+# Now put all the pieces together into a Makefile.  This means gathering
+# all the information we have stored in variables (above), and copying
+# this information in a form useful for making into a Makefile.  The cat 
+# utility is used to concatenate files and echoed statements.  The >>
+# means append the statement before >> to the end of the file named
+# after the >>.  The settings added to the Makefile before the insertion
+# of the Makefile.in file have to do with settings for the particular 
+# platform, and settings having to do with options chosed by the user. 
+# In this part of the Makefile the compiler commands are supplied, 
+# as well as the paths to directories that need to be accessed for the 
+# running of PSUADE.  Makefile.in uses the variable assignments from the 
+# beginning of the new Makefile to make the Makefiles in other directories.
+#--------------------------------------------------------------------------
+
+# generate Makefile in this directory
+
+cp ${machine_header} config/mh-machine
+echo "ARCH = ${ARCH}" > Makefile
+cat ${machine_header} >> Makefile
+echo ${PLOT_LINK} >> Makefile
+XTMP=`echo ${X11_NAME} | sed -e 's/lib//'`
+X11_lib=`echo ${XTMP} | sed -e 's/.a//'`
+X11_LIB=`echo "WIN_LIB = -L"${X11_DIR} " -l${X11_lib}"`
+if [ ${SNNS_FLAG} = yes ]; then
+   echo "CFLAGS = -I../External/SNNS/kernel/sources" >> Makefile
+   echo "CXXFLAGS = -I../External/SNNS/kernel/sources" >> Makefile
+fi
+if [ ${TGP_FLAG} = yes ]; then
+   rm -f ./External/TGP/src/Makefile
+   cat ${machine_header} >> ./External/TGP/src/Makefile
+   if [ ${GPMC_FLAG} = yes ]; then
+      echo "CFLAGS = -DHAVE_GPMC" >> ./External/TGP/src/Makefile
+   fi
+   echo "CXXFLAGS = -I../External/TGP/src" >> Makefile
+fi
+echo ${X11_LIB} >> Makefile
+if [ ${PLOT_FLAG} = yes ]; then
+   echo "TARGET = libpsuadePlot" >> Makefile
+else
+   echo "TARGET = libpsuadeNoPlot" >> Makefile
+fi
+
+# locate python include files
+
+if [ "${PYTHON_FLAG}" = yes ]; then
+echo "Build python graphical user interface ? (y or n) "
+read choice
+if [ ${choice} = "y" ]; then
+   PYTH_I_PATH=$(python -c 'import distutils.sysconfig
+   print distutils.sysconfig.get_config_vars()["INCLUDEPY"]')
+   if [ -d "${PYTH_I_PATH}" ]; then
+      echo "PYTH_I_PATH = " ${PYTH_I_PATH}
+      echo "INCPYTH = " -I${PYTH_I_PATH} >> Makefile
+   fi
+fi
+fi
+
+# set up MARS
+
+if [ "$MARS_FLAG" = yes ]; then
+   echo "DEF0 = -DHAVE_MARS" >> Makefile
+   echo "MAKE_MARS = (cd External/MARS; make)" >> Makefile
+   echo 'MAKE_MARS_SO = (cd External/MARS; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_MARS = (cd External/MARS; make clean)" >> Makefile
+   rm -f ./External/MARS/Makefile
+   cat ${machine_header} >> ./External/MARS/Makefile
+   cat ./External/MARS/Makefile.in >> ./External/MARS/Makefile
+elif [ "$MARS_FLAG" = yes36c ]; then
+   echo "DEF0 = -DHAVE_MARS" >> Makefile
+   echo "MAKE_MARS = (cd External/MARS; make libmars1.a)" >> Makefile
+   echo 'MAKE_MARS_SO = (cd External/MARS; make libmars1.a \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_MARS = (cd External/MARS; make clean)" >> Makefile
+   rm -f ./External/MARS/Makefile
+   cat ${machine_header} >> ./External/MARS/Makefile
+   cat ./External/MARS/Makefile.in >> ./External/MARS/Makefile
+elif [ "$MARS_FLAG" = yes35 ]; then
+   echo "DEF0 = -DHAVE_MARS" >> Makefile
+   echo "MAKE_MARS = (cd External/MARS; make libmars2.a)" >> Makefile
+   echo 'MAKE_MARS_SO = (cd External/MARS; make libmars2.a \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_MARS = (cd External/MARS; make clean)" >> Makefile
+   rm -f ./External/MARS/Makefile
+   cat ${machine_header} >> ./External/MARS/Makefile
+   cat ./External/MARS/Makefile.in >> ./External/MARS/Makefile
+elif [ "$MARS_FLAG" = yesNoPrint ]; then
+   echo "DEF0 = -DHAVE_MARS" >> Makefile
+   echo "MAKE_MARS = (cd External/MARS; make libmars3.a)" >> Makefile
+   echo 'MAKE_MARS_SO = (cd External/MARS; make libmars3.a \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_MARS = (cd External/MARS; make clean)" >> Makefile
+   rm -f ./External/MARS/Makefile
+   cat ${machine_header} >> ./External/MARS/Makefile
+   cat ./External/MARS/Makefile.in >> ./External/MARS/Makefile
+else
+   echo "DEF0 = " >> Makefile
+   echo "MAKE_MARS = @true" >> Makefile
+   echo "MAKE_MARS_SO = @true" >> Makefile
+   echo "CLEAN_MARS = @true" >> Makefile
+fi
+
+# set up Earth
+
+if [ "$EARTH_FLAG" = yes ]; then
+   echo "DEF0b = -DHAVE_EARTH" >> Makefile
+   echo "MAKE_EARTH = (cd External/EARTH; make)" >> Makefile
+   echo 'MAKE_EARTH_SO = (cd External/EARTH; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_EARTH = (cd External/EARTH; make clean)" >> Makefile
+   rm -f ./External/EARTH/Makefile
+   cat ${machine_header} >> ./External/EARTH/Makefile
+   cat ./External/EARTH/Makefile.in >> ./External/EARTH/Makefile
+else
+   echo "DEF0b = " >> Makefile
+   echo "MAKE_EARTH = @true" >> Makefile
+   echo "MAKE_EARTH_SO = @true" >> Makefile
+   echo "CLEAN_EARTH = @true" >> Makefile
+fi
+
+# set up TGP
+
+if [ ${TGP_FLAG} = yes ]; then
+   echo "DEF1 = -DHAVE_TGP" >> Makefile
+   echo "MAKE_TGP = (cd External/TGP/src; make)" >> Makefile
+   echo 'MAKE_TGP_SO = (cd External/TGP/src; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_TGP = (cd External/TGP/src; make clean)" >> Makefile
+   cat ./External/TGP/src/Makefile.in >> ./External/TGP/src/Makefile
+   echo "MAKE_R = (cd External/R-2.4.0/nmath; make)" >> Makefile
+   echo 'MAKE_R_SO = (cd External/R-2.4.0/nmath; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_R = (cd External/R-2.4.0/nmath; make clean)" >> Makefile
+   rm -f ./External/R-2.4.0/nmath/Makefile
+   cat ${machine_header} >> ./External/R-2.4.0/nmath/Makefile
+   cat ./External/R-2.4.0/nmath/Makefile.in >> ./External/R-2.4.0/nmath/Makefile
+else
+   echo "DEF1 = " >> Makefile
+   echo "MAKE_TGP = @true" >> Makefile
+   echo "MAKE_TGP_SO = @true" >> Makefile
+   echo "CLEAN_TGP = @true" >> Makefile
+fi
+
+# set up APPSPACK
+
+if [ ${APPSPACK_FLAG} = yes ]; then
+   echo "Configuring appspack"
+   (cd External/APPSPACK; configure)
+   echo "DEF2 = -DHAVE_APPSPACK" >> Makefile
+   APPC=`echo "MAKE_APPSPACK = (cd External/APPSPACK; make; mv src/appspack ../../bin)"` 
+   echo "${APPC}" >> Makefile
+   APPC_SO=`echo 'MAKE_APPSPACK_SO = (cd External/APPSPACK; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)"; mv src/appspack ../../bin)'` 
+   echo "${APPC_SO}" >> Makefile
+   echo "CLEAN_APPSPACK = (cd External/APPSPACK; make clean)" >> Makefile
+else
+   echo "DEF2 = " >> Makefile
+   echo "MAKE_APPSPACK = @true" >> Makefile
+   echo "MAKE_APPSPACK_SO = @true" >> Makefile
+   echo "CLEAN_APPSPACK = @true" >> Makefile
+fi
+
+# set up MINPACK
+
+if [ ${MINPACK_FLAG} = yes ]; then
+   echo "DEF3 = -DHAVE_MINPACK" >> Makefile
+   echo "MAKE_MINPACK = (cd External/MINPACK; make)" >> Makefile
+   echo 'MAKE_MINPACK_SO = (cd External/MINPACK; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_MINPACK = (cd External/MINPACK; make clean)" >> Makefile
+else
+   echo "DEF3 = " >> Makefile
+   echo "MAKE_MINPACK = @true" >> Makefile
+   echo "MAKE_MINPACK_SO = @true" >> Makefile
+   echo "CLEAN_MINPACK = @true" >> Makefile
+fi
+
+# set up COBYLA
+
+if [ ${COBYLA_FLAG} = yes ]; then
+   echo "DEF4 = -DHAVE_COBYLA" >> Makefile
+   echo 'MAKE_COBYLA = (cd External/COBYLA; make CC="${CC}")' >> Makefile
+   echo 'MAKE_COBYLA_SO = (cd External/COBYLA; make CC="${CC}" \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_COBYLA = (cd External/COBYLA; make clean)" >> Makefile
+else
+   echo "DEF4 = " >> Makefile
+   echo "MAKE_COBYLA = @true" >> Makefile
+   echo "MAKE_COBYLA_SO = @true" >> Makefile
+   echo "CLEAN_COBYLA = @true" >> Makefile
+fi
+
+# set up SNNS
+
+if [ ${SNNS_FLAG} = yes ]; then
+   echo "Configuring SNNS"
+   (cd External/SNNS; configure --enable-enzo -quiet)
+   rm -f config.*
+   echo "DEF5 = -DHAVE_SNNS" >> Makefile
+   echo "MAKE_SNNS = (cd External/SNNS; make compile-kernel)" >> Makefile
+   echo 'MAKE_SNNS_SO = (cd External/SNNS; make compile-kernel \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_SNNS = (cd External/SNNS; make clean)" >> Makefile
+else
+   echo "DEF5 = " >> Makefile
+   echo "MAKE_SNNS = @true" >> Makefile
+   echo "MAKE_SNNS_SO = @true" >> Makefile
+   echo "CLEAN_SNNS = @true" >> Makefile
+fi
+
+# set up TPROS
+
+if [ ${TPROS_FLAG} = yes ]; then
+   echo "DEF6 = -DHAVE_TPROS" >> Makefile
+   echo "MAKE_TPROS = (cd External/TPROS; make)" >> Makefile
+   echo 'MAKE_TPROS_SO = (cd External/TPROS; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_TPROS = (cd External/TPROS; make clean)" >> Makefile
+   rm -f ./External/TPROS/Makefile
+   cat ${machine_header} >> ./External/TPROS/Makefile
+   cat ./External/TPROS/Makefile.in >> ./External/TPROS/Makefile
+else
+   echo "DEF6 = " >> Makefile
+   echo "MAKE_TPROS = @true" >> Makefile
+   echo "MAKE_TPROS_SO = @true" >> Makefile
+   echo "CLEAN_TPROS = @true" >> Makefile
+fi
+
+# set up GPMC
+
+if [ ${GPMC_FLAG} = yes ]; then
+   echo "DEF7 = -DHAVE_GPMC" >> Makefile
+   echo "MAKE_GPMC = (cd External/GPMC; make)" >> Makefile
+   echo 'MAKE_GPMC_SO = (cd External/GPMC; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_GPMC = (cd External/GPMC; make clean)" >> Makefile
+   rm -f ./External/GPMC/Makefile
+   cat ${machine_header} >> ./External/GPMC/Makefile
+   cat ./External/GPMC/Makefile.in >> ./External/GPMC/Makefile
+else
+   echo "DEF7 = " >> Makefile
+   echo "MAKE_GPMC = @true" >> Makefile
+   echo "MAKE_GPMC_SO = @true" >> Makefile
+   echo "CLEAN_GPMC = @true" >> Makefile
+fi
+
+# set up METIS
+
+if [ ${METIS_FLAG} = yes ]; then
+   echo "DEF8 = -DHAVE_METIS" >> Makefile
+   echo "MAKE_METIS = (cd External/METIS; make)" >> Makefile
+   echo 'MAKE_METIS_SO = (cd External/METIS; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_METIS = (cd External/METIS; make clean)" >> Makefile
+else
+   echo "DEF8 = " >> Makefile
+   echo "MAKE_METIS = @true" >> Makefile
+   echo "MAKE_METIS_SO = @true" >> Makefile
+   echo "CLEAN_METIS = @true" >> Makefile
+fi
+
+# set up MPI
+
+if [ ${MPI_FLAG} = yes ]; then
+   echo "DEF9 = -DHAVE_PARALLEL -DHAVE_MPICH" >> Makefile
+else
+   echo "DEF9 = " >> Makefile
+fi
+
+# set up SVM
+
+if [ ${SVM_FLAG} = yes ]; then
+   echo "DEFA = -DHAVE_SVM" >> Makefile
+   echo "MAKE_SVM = (cd External/SVM; make)" >> Makefile
+   echo 'MAKE_SVM_SO = (cd External/SVM; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_SVM = (cd External/SVM; make clean)" >> Makefile
+   rm -f ./External/SVM/Makefile
+   cat ${machine_header} >> ./External/SVM/Makefile
+   cat ./External/SVM/Makefile.in >> ./External/SVM/Makefile
+else
+   echo "DEFA = " >> Makefile
+   echo "MAKE_SVM = @true" >> Makefile
+   echo "MAKE_SVM_SO = @true" >> Makefile
+   echo "CLEAN_SVM = @true" >> Makefile
+fi
+
+# set up Bobyqa
+
+if [ "$BOBYQA_FLAG" = yes ]; then
+   echo "DEFB = -DHAVE_BOBYQA" >> Makefile
+   echo "MAKE_BOBYQA = (cd External/BOBYQA; make)" >> Makefile
+   echo 'MAKE_BOBYQA_SO = (cd External/BOBYQA; make \
+      CFLAGS="$(CFLAGS) $(CSHARE)" CXXFLAGS="$(CXXFLAGS) $(CXXSHARE)" \
+      FFLAGS="$(FFLAGS) $(FSHARE)")' >> Makefile
+   echo "CLEAN_BOBYQA = (cd External/BOBYQA; make clean)" >> Makefile
+   rm -f ./External/BOBYQA/Makefile
+   cat ${machine_header} >> ./External/BOBYQA/Makefile
+   cat ./External/BOBYQA/Makefile.in >> ./External/BOBYQA/Makefile
+else
+   echo "DEFB = " >> Makefile
+   echo "MAKE_BOBYQA = @true" >> Makefile
+   echo "MAKE_BOBYQA_SO = @true" >> Makefile
+   echo "CLEAN_BOBYQA = @true" >> Makefile
+fi
+
+echo 'DEFINES1 = $(DEF0) $(DEF0b) $(DEF1) $(DEF2) $(DEF3) $(DEF4) $(DEF5)' >> Makefile
+echo 'DEFINES2 = $(DEF6) $(DEF7) $(DEF8) $(DEF9) $(DEFA) $(DEFB)' >> Makefile
+echo 'DEFINES  = $(DEFINES1) $(DEFINES2)' >> Makefile
+echo "" >> Makefile
+cat ./Makefile.in >> Makefile
+
+#--------------------------------------------------------------------------
+# Now the Makefile for the Src/Main directory is assembled in pretty
+# much the same way as the Makefile in the PSUADE directory.
+#--------------------------------------------------------------------------
+rm -f ./Src/Main/Makefile
+echo "ARCH = ${ARCH}" > ./Src/Main/Makefile
+cat ${machine_header} >> ./Src/Main/Makefile
+if [ "${ARCH}" = LINUX -o "${ARCH}" = LINUX_DBG ]; then
+   if [ "${F2C_LIB}" = "" ]; then
+      echo 'MISC_LIB = ${LIBS} -lg2cutil' >> ./Src/Main/Makefile
+   else
+      echo "F2C_LIB = ${F2C_LIB}" >> ./Src/Main/Makefile
+      echo 'MISC_LIB = ${LIBS} ${F2C_LIB} -lg2cutil' >> ./Src/Main/Makefile
+   fi
+elif [ "${ARCH}" = PG ]; then
+   echo 'MISC_LIB = ${LIBS} -L/opt/pgi/default/linux86-64/default/lib -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt' >> ./Src/Main/Makefile
+elif [ "${ARCH}" = CYGWIN ]; then
+   if [ "${F2C_LIB}" = "" ]; then
+      echo 'MISC_LIB = ${LIBS} -lg2cutil' >> ./Src/Main/Makefile
+   else
+      echo "F2C_LIB = ${F2C_LIB}" >> ./Src/Main/Makefile
+      echo 'MISC_LIB = ${LIBS} {F2C_LIB}' >> ./Src/Main/Makefile
+   fi
+else
+   if [ "${F2C_LIB}" = "" ]; then
+      echo 'MISC_LIB = ${LIBS} -lg2cutil' >> ./Src/Main/Makefile
+   else
+      echo "F2C_LIB = ${F2C_LIB}" >> ./Src/Main/Makefile
+      echo 'MISC_LIB = ${LIBS} ${F2C_LIB} -lg2cutil' >> ./Src/Main/Makefile
+   fi
+fi
+if [ ${MPI_FLAG} = yes ]; then
+   echo "CXXFLAGS1 = -DHAVE_PARALLEL -DHAVE_MPICH" >> ./Src/Main/Makefile
+else
+   echo "CXXFLAGS1 = " >> ./Src/Main/Makefile
+fi
+if [ ${MPI_USR_FCN} = yes ]; then
+   echo 'CXXFLAGS2 = $(CXXFLAGS) -DHAVE_MPI_USR_FCN' >> ./Src/Main/Makefile
+else
+   echo "CXXFLAGS2 = " >> ./Src/Main/Makefile
+fi
+echo 'CXXFLAGS = $(CXXFLAGS1) $(CXXFLAGS2)' >> ./Src/Main/Makefile
+echo ${PLOT_LINK} >> ./Src/Main/Makefile
+if [ ${PLOT_FLAG} = yes ]; then
+   X11_LIB=`echo "WIN_LIB = -L"${X11_DIR} " -lX11"`
+   PLOT_FILE=`echo "PSPLOT_LIB = -lpsuadePlot"`
+else
+   X11_LIB=""
+   PLOT_FILE=`echo "PSPLOT_LIB = -lpsuadeNoPlot"`
+fi
+echo ${X11_LIB} >> ./Src/Main/Makefile
+echo ${PLOT_FILE} >> ./Src/Main/Makefile
+
+if [ ${MARS_FLAG} = yes ]; then
+   echo "MARS_DIR = -L../../External/MARS" >> ./Src/Main/Makefile
+   echo "MARS_LIB = -lmars" >> ./Src/Main/Makefile
+elif [ ${MARS_FLAG} = yes36c ]; then
+   echo "MARS_DIR = -L../../External/MARS" >> ./Src/Main/Makefile
+   echo "MARS_LIB = -lmars1" >> ./Src/Main/Makefile
+elif [ ${MARS_FLAG} = yes35 ]; then
+   echo "MARS_DIR = -L../../External/MARS" >> ./Src/Main/Makefile
+   echo "MARS_LIB = -lmars2" >> ./Src/Main/Makefile
+elif [ ${MARS_FLAG} = yesNoPrint ]; then
+   echo "MARS_DIR = -L../../External/MARS" >> ./Src/Main/Makefile
+   echo "MARS_LIB = -lmars3" >> ./Src/Main/Makefile
+else
+   echo "MARS_DIR = " >> ./Src/Main/Makefile
+   echo "MARS_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${TGP_FLAG} = yes ]; then
+   TGP_DIR=`echo '-L../../External/TGP/src'`
+   echo "TGP_DIR = ${TGP_DIR}" >> ./Src/Main/Makefile
+   TGP_LIB=`echo "-ltgp"`
+   echo "TGP_LIB = ${TGP_LIB}" >> ./Src/Main/Makefile
+   R_DIR=`echo '-L../../External/R-2.4.0/nmath'`
+   echo "R_DIR = ${R_DIR}" >> ./Src/Main/Makefile
+   R_LIB=`echo "-lnmath"`
+   echo "R_LIB = ${R_LIB}" >> ./Src/Main/Makefile
+else
+   echo "TGP_DIR = " >> ./Src/Main/Makefile
+   echo "TGP_LIB = " >> ./Src/Main/Makefile
+   echo "R_DIR = " >> ./Src/Main/Makefile
+   echo "R_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${MINPACK_FLAG} = yes ]; then
+   echo "MINPACK_DIR = -L../../External/MINPACK" >> ./Src/Main/Makefile
+   echo "MINPACK_LIB = -lminpack" >> ./Src/Main/Makefile
+else
+   echo "MINPACK_DIR = " >> ./Src/Main/Makefile
+   echo "MINPACK_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${COBYLA_FLAG} = yes ]; then
+   echo "COBYLA_DIR = -L../../External/COBYLA" >> ./Src/Main/Makefile
+   echo "COBYLA_LIB = -lcobyla2c" >> ./Src/Main/Makefile
+else
+   echo "COBYLA_DIR = " >> ./Src/Main/Makefile
+   echo "COBYLA_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${APPSPACK_FLAG} = yes ]; then
+   APPSPACK_DIR=`echo "../../External/APPSPACK"`
+   APP1=`echo "APPSPACK_DIR = -L${APPSPACK_DIR}/src"`
+   APP2=`echo "-L${APPSPACK_DIR}/src-cache"`
+   echo "${APP1} \\" >> ./Src/Main/Makefile
+   echo "               ${APP2}" >> ./Src/Main/Makefile
+   APP3=`echo '${APPSPACK_DIR}/APPSPACK_Default_FevalMgrFactory.o'`
+   APP4=`echo '${APPSPACK_DIR}/APPSPACK_Default_FevalWkrFactory.o'`
+   echo "APPSPACK_LIB = ${APP3} \\" >> ./Src/Main/Makefile
+   echo "               ${APP4} \\" >> ./Src/Main/Makefile
+   echo "               -lappspack -appspackcache" >> ./Src/Main/Makefile
+else
+   echo "APPSPACK_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${SNNS_FLAG} = yes ]; then
+   echo "SNNS_DIR = -L../../External/SNNS/kernel/sources" >> ./Src/Main/Makefile
+   echo "SNNS_LIB = -lkernel -lfunc" >> ./Src/Main/Makefile
+else
+   echo "SNNS_DIR = " >> ./Src/Main/Makefile
+   echo "SNNS_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${TPROS_FLAG} = yes ]; then
+   echo "TPROS_DIR = -L../../External/TPROS" >> ./Src/Main/Makefile
+   echo "TPROS_LIB = -ltpros" >> ./Src/Main/Makefile
+else
+   echo "TPROS_DIR = " >> ./Src/Main/Makefile
+   echo "TPROS_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${GPMC_FLAG} = yes ]; then
+   echo "GPMC_DIR = -L../../External/GPMC" >> ./Src/Main/Makefile
+   echo "GPMC_LIB = -lgpmc" >> ./Src/Main/Makefile
+else
+  echo "GPMC_DIR = " >> ./Src/Main/Makefile
+  echo "GPMC_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${METIS_FLAG} = yes ]; then
+   echo "METIS_DIR = -L../../External/METIS" >> ./Src/Main/Makefile
+   echo "METIS_LIB = -lmetis" >> ./Src/Main/Makefile
+else
+  echo "METIS_DIR = " >> ./Src/Main/Makefile
+  echo "METIS_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${SVM_FLAG} = yes ]; then
+   echo "SVM_DIR = -L../../External/SVM" >> ./Src/Main/Makefile
+   echo "SVM_LIB = -lsvmlight" >> ./Src/Main/Makefile
+else
+   echo "SVM_DIR = " >> ./Src/Main/Makefile
+   echo "SVM_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${EARTH_FLAG} = yes ]; then
+   echo "EARTH_DIR = -L../../External/EARTH" >> ./Src/Main/Makefile
+   echo "EARTH_LIB = -learth" >> ./Src/Main/Makefile
+else
+   echo "EARTH_DIR = " >> ./Src/Main/Makefile
+   echo "EARTH_LIB = " >> ./Src/Main/Makefile
+fi
+
+if [ ${MPI_USR_FCN} = yes ]; then
+  echo "USR_DIR = -L../Lib" >> ./Src/Main/Makefile
+  echo "USR_LIB = -luf" >> ./Src/Main/Makefile
+fi
+
+if [ ${BOBYQA_FLAG} = yes ]; then
+   echo "BOBYQA_DIR = -L../../External/BOBYQA" >> ./Src/Main/Makefile
+   echo "BOBYQA_LIB = -lbobyqa" >> ./Src/Main/Makefile
+else
+   echo "BOBYQA_DIR = " >> ./Src/Main/Makefile
+   echo "BOBYQA_LIB = " >> ./Src/Main/Makefile
+fi
+
+echo "" >> ./Src/Main/Makefile
+echo "" >> ./Src/Main/Makefile
+cat ./Src/Main/Makefile.in >> ./Src/Main/Makefile
+
+#--------------------------------------------------------------------------
+# massage the Optimizers directory
+#--------------------------------------------------------------------------
+echo "#ifndef PSUADE_INSTALL_DIR_DEFINE" > ./Src/Optimizers/psuade_install_dir
+echo "#define PSUADE_INSTALL_DIR_DEFINE" >> ./Src/Optimizers/psuade_install_dir
+echo "char *PSUADE_INSTALL_DIR = \"`pwd`\";" >> ./Src/Optimizers/psuade_install_dir
+echo "#endif" >> ./Src/Optimizers/psuade_install_dir
+
+#--------------------------------------------------------------------------
+# generate a Makefile in External/Lapack directory
+#--------------------------------------------------------------------------
+rm -f ./External/Lapack/Makefile
+cat ${machine_header} >> ./External/Lapack/Makefile
+cat ./External/Lapack/Makefile.in >> ./External/Lapack/Makefile
+
+#--------------------------------------------------------------------------
+# generate a Makefile in External/Bose directory
+#--------------------------------------------------------------------------
+rm -f ./External/Bose/Makefile
+cat ${machine_header} >> ./External/Bose/Makefile
+cat ./External/Bose/Makefile.in >> ./External/Bose/Makefile
+
+#--------------------------------------------------------------------------
+# clean up
+#--------------------------------------------------------------------------
+rm -f ./Src/*/*.o
+rm -f ./Src/*/*/*.o
+
+#**************************************************************************
+
