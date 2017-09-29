@@ -24,16 +24,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : updated in 2006
 // ************************************************************************
-
 #ifndef __TWOPARAMANALYZERH__
 #define __TWOPARAMANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class TwoParamAnalyzer : public Analyzer
 {
 
@@ -44,6 +42,8 @@ public:
    ~TwoParamAnalyzer();
 
    double analyze(aData &adata);
+
+   TwoParamAnalyzer& operator=(const TwoParamAnalyzer &analyzer);
 
    double analyze1D(int nInputs, int nOutputs, int nSamples,
                     double *sampleInputs, double *sampleOutputs,

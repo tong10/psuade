@@ -28,8 +28,8 @@
 #include <stdio.h>
 using namespace std;
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "BoxBehnkenSampling.h"
 
 // ************************************************************************
@@ -166,7 +166,6 @@ int BoxBehnkenSampling::initialize(int initLevel)
    }
    if (nInputs_ == 7)
    {
-printf("check 1\n");
       sampleID = 0;
       sampleMatrix_[sampleID][3] = lowerBounds_[3];
       sampleMatrix_[sampleID][4] = lowerBounds_[4];
@@ -342,7 +341,6 @@ printf("check 1\n");
       sampleMatrix_[sampleID+7][1] = upperBounds_[1];
       sampleMatrix_[sampleID+7][2] = upperBounds_[2];
       sampleMatrix_[sampleID+7][5] = upperBounds_[5];
-printf("check 2\n");
    }
    return 0;
 }
@@ -350,16 +348,20 @@ printf("check 2\n");
 // ************************************************************************
 // refine the sample space
 // ------------------------------------------------------------------------
-int BoxBehnkenSampling::refine(int ratio, int randomize, double thresh,
-                               int nSamples, double *sampleErrors)
+int BoxBehnkenSampling::refine(int, int, double, int, double *)
 {
-   (void) ratio;
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
    printf("BoxBehnkenSampling::refine ERROR - not available.\n");
    exit(1);
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+BoxBehnkenSampling& BoxBehnkenSampling::operator=(const BoxBehnkenSampling &)
+{
+   printf("BoxBehnkenSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

@@ -28,7 +28,7 @@
 #ifndef __BINOMIALANALYZERH__
 #define __BINOMIALANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~BinomialAnalyzer();
 
    double analyze(aData &adata);
+
+   BinomialAnalyzer& operator=(const BinomialAnalyzer &analyzer);
 
    double *setupBinomialCDF(int n, double p0);
 

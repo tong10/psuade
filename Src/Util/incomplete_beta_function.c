@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// File: incomplete_beta_function.c                                           //
+// File: incomplete_beta_function.c (from mymathlib)                          //
 // Routine(s):                                                                //
 //    Incomplete_Beta_Function                                                //
 //    xIncomplete_Beta_Function                                               //

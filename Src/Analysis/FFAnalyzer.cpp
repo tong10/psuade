@@ -28,9 +28,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include "FFAnalyzer.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Psuade.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -54,30 +54,36 @@ FFAnalyzer::~FFAnalyzer()
 // ------------------------------------------------------------------------
 double FFAnalyzer::analyze(aData &adata)
 {
-   int    nInputs, nOutputs, nSamples, outputID, checkSample;
-   int    ii, ii2, ss, whichOutput, ncount, nplots, *iArray;
-   double *X, *Y, *txArray, *twArray, *tyArray, *mEffect, accum, **iEffect;
-   double **lolo, **lohi, **hilo, **hihi;
-   char   *cString, winput1[500], winput2[500], meFileName[500], pString[500];
+   int    nInputs, nOutputs, nSamples, outputID, checkSample, printLevel;
+   int    ii, ii2, rr, ss, whichOutput, ncount, nplots, *iArray, nReps, offset;
+   double *X, *Y, *txArray, *twArray, *tyArray, **mEffects, accum, ***iEffects;
+   double ***lolos, ***lohis, ***hilos, ***hihis, stdev, mean;
+   char   pString[500], winput[500];
    FILE   *fp=NULL;
 
-   nInputs  = adata.nInputs_;
-   nOutputs = adata.nOutputs_;
-   nSamples = adata.nSamples_;
-   outputID = adata.outputID_;
-   X        = adata.sampleInputs_;
-   Y        = adata.sampleOutputs_;
+   printLevel = adata.printLevel_;
+   nInputs    = adata.nInputs_;
+   nOutputs   = adata.nOutputs_;
+   nSamples   = adata.nSamples_;
+   outputID   = adata.outputID_;
+   X          = adata.sampleInputs_;
+   Y          = adata.sampleOutputs_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("FFAnalyzer INFO: some inputs have non-uniform PDFs, but they\n");
-      printf("                 will not be relevant in this analysis.\n");
+      ncount = 0;
+      for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
+      if (ncount > 0)
+      {
+         printf("FFAnalysis INFO: some inputs have non-uniform PDFs, but\n");
+         printf("           they are not relevant in this analysis.\n");
+      }
    }
    whichOutput = outputID;
    if (whichOutput >= nOutputs || whichOutput < 0) whichOutput = 0;
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("FFAnalyzer ERROR: invalid arguments.\n");
+      printf("FFAnalysis ERROR: invalid arguments.\n");
       printf("   nInputs  = %d\n", nInputs);
       printf("   nOutputs = %d\n", nOutputs); 
       printf("   nSamples = %d\n", nSamples);
@@ -85,62 +91,14 @@ double FFAnalyzer::analyze(aData &adata)
    } 
    if (nSamples / 2 * 2 != nSamples)
    {
-      printf("FFAnalyzer ERROR: nSamples has to be even.\n");
+      printf("FFAnalysis ERROR: nSamples has to be even.\n");
       printf("   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
 
-   if (psPlotTool_ == 0)
-   {
-      if (psAnaExpertMode_ == 1)
-      {
-         sprintf(pString,"Create FF main effect plot ? (y or n) ");
-         getString(pString, winput1);
-         if (winput1[0] == 'y')
-         {
-            sprintf(pString,"Enter scatter plot matlab file name : ");
-            getString(pString, meFileName);
-            if (strlen(meFileName) < 500)
-               meFileName[strlen(meFileName)-1] = '\0';
-            else
-            {
-               printf("ERROR: file name too long.\n");
-               exit(1);
-            }
-         }
-         fp = fopen(meFileName, "w");
-         if (fp != NULL)
-         {
-            printf("FFAnalyzer: main effect matlab file = %s\n",
-                   meFileName);
-         }
-      }
-      else
-      {
-         if (psConfig_ != NULL)
-         {
-            cString = psConfig_->getParameter("FF_matlab_file");
-            if (cString != NULL)
-            {
-               sscanf(cString, "%s %s %s",winput1,winput2,meFileName);
-               fp = fopen(meFileName, "w");
-               if (fp != NULL)
-               {
-                  printf("FFAnalyzer: main effect matlab file = %s\n",
-                         meFileName);
-               }
-            }
-         }
-      }
-   }
-
    txArray = new double[nSamples];
    tyArray = new double[nSamples];
    twArray = new double[nSamples];
-   iArray  = new int[nInputs];
-   mEffect = new double[nInputs];
-   for (ii = 0; ii < nInputs; ii++) mEffect[ii] = 0.0;
-   for (ii = 0; ii < nInputs; ii++) iArray[ii] = ii;
 
    printf("\n");
    printAsterisks(0);
@@ -152,17 +110,42 @@ double FFAnalyzer::analyze(aData &adata)
    printf("* number of Inputs        = %10d \n",nInputs);
    printf("* Output number           = %d\n", whichOutput+1);
    printDashes(0);
+   fp = NULL;
+   if (psAnaExpertMode_ == 1 || psAnalysisInteractive_ == 1)
+   {
+      sprintf(pString,"Create main effect plot ? (y or n) ");
+      getString(pString, winput);
+      if (winput[0] == 'y')
+      {
+         if (psPlotTool_ == 0) fp = fopen("matlabmeff.m", "w");
+         else                  fp = fopen("scilabmeff.sci", "w");
+      }
+   }
    if (fp != NULL)
    {
-      fprintf(fp,"%% ********************************************** \n");
-      fprintf(fp,"%% ********************************************** \n");
-      fprintf(fp,"%% * Fractional Factorial Main Effect Analysis ** \n");
-      fprintf(fp,"%% * (2 level fractional factorial only)       ** \n");
-      fprintf(fp,"%% *-------------------------------------------** \n");
-      fprintf(fp,"%% Output %d\n", whichOutput+1);
-      fprintf(fp,"%% *-------------------------------------------** \n");
+      if (psPlotTool_ == 1)
+      {
+         fprintf(fp,"// ********************************************** \n");
+         fprintf(fp,"// ********************************************** \n");
+         fprintf(fp,"// * Fractional Factorial Main Effect Analysis ** \n");
+         fprintf(fp,"// * (2 level fractional factorial only)       ** \n");
+         fprintf(fp,"// *-------------------------------------------** \n");
+         fprintf(fp,"// Output %d\n", whichOutput+1);
+         fprintf(fp,"// *-------------------------------------------** \n");
+      }
+      else
+      {
+         fprintf(fp,"%% ********************************************** \n");
+         fprintf(fp,"%% ********************************************** \n");
+         fprintf(fp,"%% * Fractional Factorial Main Effect Analysis ** \n");
+         fprintf(fp,"%% * (2 level fractional factorial only)       ** \n");
+         fprintf(fp,"%% *-------------------------------------------** \n");
+         fprintf(fp,"%% Output %d\n", whichOutput+1);
+         fprintf(fp,"%% *-------------------------------------------** \n");
+      }
    }
 
+   nReps = 1;
    for (ii = 0; ii < nInputs; ii++)
    {
       for (ss = 0; ss < nSamples; ss++)
@@ -178,31 +161,93 @@ double FFAnalyzer::analyze(aData &adata)
          if (txArray[ss] != txArray[nSamples/2]) checkSample = 0;
       if (checkSample == 0)
       {
-         printf("FFAnalyzer ERROR: sample not fractional factorial.\n");
-         delete [] iArray;
-         delete [] mEffect;
-         delete [] twArray;
-         delete [] txArray;
-         delete [] tyArray;
-         return 0.0;
+         printf("FFAnalysis ERROR: sample not fractional factorial.\n");
+         printf("If you are using replicated Fractional Factorial\n");
+         printf("enter the number of replications.\n");
+         sprintf(pString, "Number of replications = (2 - %d) ", nSamples/2);
+         nReps = getInt(2, nSamples/2, pString);
+         break;
       }
-      accum = 0.0;
-      for (ss = nSamples/2; ss < nSamples; ss++) accum += tyArray[ss];
-      for (ss = 0; ss < nSamples/2; ss++) accum -= tyArray[ss];
-      mEffect[ii] = accum * 2 / (double) nSamples;
    }
-   accum = 0.0;
-   for (ii = 0; ii < nInputs; ii++) accum += PABS(mEffect[ii]);
-   if (accum > 0.0)
-      for (ii = 0; ii < nInputs; ii++) mEffect[ii] /= accum;
+   if (nReps > 1)
+   {
+      for (ii = 0; ii < nInputs; ii++)
+      {
+         for (ii2 = 0; ii2 < nReps; ii2++)
+         {
+            for (ss = 0; ss < nSamples/nReps; ss++)
+            {
+               txArray[ss] = X[(ii2*nSamples/nReps+ss)*nInputs+ii];
+               tyArray[ss] = Y[(ii2*nSamples/nReps+ss)*nOutputs+whichOutput];
+            }
+            sortDbleList2(nSamples/nReps, txArray, tyArray); 
+            checkSample = 1;
+            for (ss = 1; ss < nSamples/nReps/2; ss++)
+               if (txArray[ss] != txArray[0]) checkSample = 0;
+            for (ss = nSamples/nReps/2+1; ss < nSamples/nReps; ss++)
+               if (txArray[ss] != txArray[nSamples/nReps-1])
+                  checkSample = 0;
+            if (checkSample == 0)
+            {
+               printf("FFAnalysis ERROR: sample not fractional factorial.\n");
+               printf("                  nor replicated fractional factorial.\n");
+               delete [] twArray;
+               delete [] txArray;
+               delete [] tyArray;
+               if(fp != NULL) fclose(fp);
+               return 0.0;
+            }
+         }
+      }
+   }
+
+   mEffects = new double*[nInputs];
+   for (ii = 0; ii < nInputs; ii++) mEffects[ii] = new double[nReps+1];
+   iArray  = new int[nInputs];
+   for (ii = 0; ii < nInputs; ii++) iArray[ii] = ii;
+
+   for (rr = 0; rr < nReps; rr++)
+   {
+      offset = rr * nSamples / nReps;
+      for (ii = 0; ii < nInputs; ii++)
+      {
+         for (ss = 0; ss < nSamples/nReps; ss++)
+         {
+            txArray[ss] = X[(offset+ss)*nInputs+ii];
+            tyArray[ss] = Y[(offset+ss)*nOutputs+whichOutput];
+         }
+         sortDbleList2(nSamples/nReps, txArray, tyArray); 
+         accum = 0.0;
+         for (ss = nSamples/nReps/2; ss < nSamples/nReps; ss++)
+            accum += tyArray[ss];
+         for (ss = 0; ss < nSamples/nReps/2; ss++) accum -= tyArray[ss];
+         mEffects[ii][rr+1] = accum * 2 / (double) (nSamples/nReps);
+      }
+   }
    printf("* Fractional Factorial Main Effect (normalized)\n");
+   printf("* Note: std err is the standard error or mean.\n");
    printDashes(0);
    for (ii = 0; ii < nInputs; ii++)
-      printf("* Input %3d  =  %12.4e\n", ii+1, mEffect[ii]);
+   {
+      mean = 0.0;
+      for (rr = 0; rr < nReps; rr++) mean += mEffects[ii][rr+1];
+      mean /= (double) nReps;
+      mEffects[ii][0] = mean;
+      stdev = 0.0;
+      if (nReps > 1)
+      {
+         for (rr = 0; rr < nReps; rr++)
+            stdev += pow(mEffects[ii][rr+1]-mean, 2.0);
+         stdev = sqrt(stdev / (double) (nReps - 1.0));
+         printf("* Input %3d  =  %12.4e (std err = %12.4e)\n", ii+1,mean,
+                  stdev/sqrt(1.0*nReps));
+      }  
+      else printf("* Input %3d  =  %12.4e\n", ii+1, mean);
+   }
    printDashes(0);
    printf("* Fractional Factorial Main Effect (ordered)\n");
    printDashes(0);
-   for (ii = 0; ii < nInputs; ii++) twArray[ii] = PABS(mEffect[ii]);
+   for (ii = 0; ii < nInputs; ii++) twArray[ii] = PABS(mEffects[ii][0]);
    sortDbleList2a(nInputs, twArray, iArray);
    for (ii = nInputs-1; ii >= 0; ii--)
       printf("* Rank %3d : Input %3d (measure = %12.4e)\n", nInputs-ii, 
@@ -212,91 +257,136 @@ double FFAnalyzer::analyze(aData &adata)
    {
       fprintf(fp, "Y = [\n");
       for (ii = 0; ii < nInputs; ii++)
-         fprintf(fp, "%24.16e \n", mEffect[ii]);
+         fprintf(fp, "%24.16e \n", mEffects[ii][0]);
       fprintf(fp, "]; \n");
-      fprintf(fp, "clf\n");
-      fprintf(fp, "hold off\n");
+      fwritePlotCLF(fp);
       fprintf(fp, "plot(Y,'*'); \n");
-      fprintf(fp, "grid\n");
-      fprintf(fp, "title('Main Effect Plot for Output %d')\n",whichOutput+1);
-      fprintf(fp, "disp('Press enter to continue')\n");
+      fwritePlotAxes(fp);
+      fwritePlotTitle(fp, "Main Effect Plot for Output");
+      fprintf(fp, "disp('Press enter to continue to the next plot')\n");
       fprintf(fp, "pause\n");
    }
 
-   if (nInputs < 2 || adata.samplingMethod_ == PSUADE_SAMP_PBD) return 0.0;
+   if (nInputs < 2 || adata.samplingMethod_ == PSUADE_SAMP_PBD)
+   {
+      delete [] txArray;
+      delete [] twArray;
+      delete [] tyArray;
+      delete [] iArray;
+      for(int i = 0; i < nInputs; i++) delete [] mEffects[i];
+      delete [] mEffects;
+      if (fp != NULL) fclose(fp);
+      return 0.0;
+   }
 
-   iEffect = new double*[nInputs];
-   hihi = new double*[nInputs];
-   lolo = new double*[nInputs];
-   lohi = new double*[nInputs];
-   hilo = new double*[nInputs];
+   iEffects = new double**[nInputs];
+   hihis = new double**[nInputs];
+   lolos = new double**[nInputs];
+   lohis = new double**[nInputs];
+   hilos = new double**[nInputs];
    for (ii = 0; ii < nInputs; ii++)
    {
-      iEffect[ii] = new double[nInputs];
-      hihi[ii] = new double[nInputs];
-      lolo[ii] = new double[nInputs];
-      lohi[ii] = new double[nInputs];
-      hilo[ii] = new double[nInputs];
+      iEffects[ii] = new double*[nInputs];
+      hihis[ii] = new double*[nInputs];
+      lolos[ii] = new double*[nInputs];
+      lohis[ii] = new double*[nInputs];
+      hilos[ii] = new double*[nInputs];
+      for (ii2 = 0; ii2 < nInputs; ii2++)
+      {
+         hihis[ii][ii2] = new double[nReps+1];
+         hilos[ii][ii2] = new double[nReps+1];
+         lohis[ii][ii2] = new double[nReps+1];
+         lolos[ii][ii2] = new double[nReps+1];
+         iEffects[ii][ii2] = new double[nReps+2];
+         for (rr = 0; rr <= nReps; rr++)
+         {
+            iEffects[ii][ii2][rr] = 0.0;
+            hihis[ii][ii2][rr] = 0.0;
+            lolos[ii][ii2][rr] = 0.0;
+            hilos[ii][ii2][rr] = 0.0;
+            lohis[ii][ii2][rr] = 0.0;
+         }
+      }
    }
 
    printAsterisks(0);
    printf("* Fractional Factorial (2-level) Interaction Analysis\n");
-   printf("* The measures are normalized so that the sum = 1.\n");
-   if (adata.samplingMethod_ == PSUADE_SAMP_FF4)
+   if (adata.samplingMethod_ == PSUADE_SAMP_FF4 ||
+       adata.samplingMethod_ == PSUADE_SAMP_RFF4)
    {
       printf("* Note: Since Fractional Factorial Resolution 4 is used,\n");
       printf("* the first and second order effects are confounded.\n");
    }
    printDashes(0);
 
-   for (ii = 0; ii < nInputs; ii++)
+   for (rr = 0; rr < nReps; rr++)
    {
-      for (ii2 = ii+1; ii2 < nInputs; ii2++)
-      {
-
-         for (ss = 0; ss < nSamples; ss++)
-         {
-            txArray[ss] = X[nInputs*ss+ii];
-            twArray[ss] = X[nInputs*ss+ii2];
-            tyArray[ss] = Y[nOutputs*ss+whichOutput];
-         }
-
-
-         sortDbleList3(nSamples, txArray, twArray, tyArray);
-
-
-         for (ss = 0; ss < nSamples; ss+=nSamples/2)
-            sortDbleList2(nSamples/2,&twArray[ss],&tyArray[ss]);
-
-         accum = 0.0;
-         for (ss = 0; ss < nSamples/4; ss++) accum += tyArray[ss];
-         lolo[ii][ii2] = accum;
-         accum = 0.0;
-         for (ss = nSamples*3/4; ss < nSamples; ss++) accum += tyArray[ss];
-         hihi[ii][ii2] = accum;
-         accum = 0.0;
-         for (ss = nSamples/4; ss < nSamples/2; ss++) accum += tyArray[ss];
-         lohi[ii][ii2] = accum;
-         accum = 0.0;
-         for (ss = nSamples/2; ss < nSamples*3/4; ss++)
-            accum += tyArray[ss];
-         hilo[ii][ii2] = accum;
-         iEffect[ii][ii2] = 0.5 * (lolo[ii][ii2] +
-                  hihi[ii][ii2] - lohi[ii][ii2] - hilo[ii][ii2]);
-      }
-   }
-   accum = 0.0;
-   for (ii = 0; ii < nInputs; ii++)
-      for (ii2 = ii+1; ii2 < nInputs; ii2++) accum += PABS(iEffect[ii][ii2]);
-   if (accum > 0.0)
-   {
+      offset = rr * nSamples / nReps;
       for (ii = 0; ii < nInputs; ii++)
       {
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
          {
-            printf("* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, 
-                   PABS(iEffect[ii][ii2]/accum));
+   
+            for (ss = 0; ss < nSamples/nReps; ss++)
+            {
+               txArray[ss] = X[(offset+ss)*nInputs+ii];
+               twArray[ss] = X[(offset+ss)*nInputs+ii2];
+               tyArray[ss] = Y[(offset+ss)*nOutputs+whichOutput];
+            }
+
+
+            sortDbleList3(nSamples/nReps, txArray, twArray, tyArray);
+
+
+            for (ss = 0; ss < nSamples/nReps; ss+=nSamples/nReps/2)
+               sortDbleList2(nSamples/nReps/2,&twArray[ss],&tyArray[ss]);
+
+            accum = 0.0;
+            for (ss = 0; ss < nSamples/nReps/4; ss++) accum += tyArray[ss];
+            lolos[ii][ii2][rr+1] += accum;
+            accum = 0.0;
+            for (ss = nSamples*3/nReps/4; ss < nSamples/nReps; ss++) accum += tyArray[ss];
+            hihis[ii][ii2][rr+1] += accum;
+            accum = 0.0;
+            for (ss = nSamples/nReps/4; ss < nSamples/nReps/2; ss++) accum += tyArray[ss];
+            lohis[ii][ii2][rr+1] += accum;
+            accum = 0.0;
+            for (ss = nSamples/nReps/2; ss < nSamples*3/nReps/4; ss++)
+               accum += tyArray[ss];
+            hilos[ii][ii2][rr+1] += accum;
+            iEffects[ii][ii2][rr+1] = 0.5 * (lolos[ii][ii2][rr+1] +
+                  hihis[ii][ii2][rr+1] - lohis[ii][ii2][rr+1] - hilos[ii][ii2][rr+1]);
          }
+      }
+      accum = 0.0;
+      for (ii = 0; ii < nInputs; ii++)
+         for (ii2 = ii+1; ii2 < nInputs; ii2++) accum += PABS(iEffects[ii][ii2][rr+1]);
+      if (accum == 0.0) accum = 1.0;
+      for (ii = 0; ii < nInputs; ii++)
+         for (ii2 = ii+1; ii2 < nInputs; ii2++) 
+            iEffects[ii][ii2][rr+1] = iEffects[ii][ii2][rr+1]/accum;
+   }
+   for (ii = 0; ii < nInputs; ii++)
+   {
+      for (ii2 = ii+1; ii2 < nInputs; ii2++)
+      {
+         mean = 0.0;
+         for (rr = 0; rr < nReps; rr++) mean += iEffects[ii][ii2][rr+1];
+         mean = mean / (double) nReps;
+         iEffects[ii][ii2][0] = mean;
+         stdev = 0.0;
+         if (nReps > 1)
+         {
+            for (rr = 0; rr < nReps; rr++)
+               stdev += pow(iEffects[ii][ii2][rr+1]-mean, 2.0);
+            stdev = sqrt(stdev / (double) (nReps - 1.0));
+         }
+         iEffects[ii][ii2][nReps+1] = stdev/sqrt(1.0*nReps);
+         if (nReps == 1)
+            printf("* Input %3d %3d =  %12.4e\n",ii+1,ii2+1, mean);
+         else
+            printf("* Input %3d %3d =  %12.4e (std err = %12.4e)\n",ii+1, 
+                   ii2+1, mean, stdev/sqrt(1.0*nReps));
       }
    }
    printAsterisks(0);
@@ -313,17 +403,32 @@ double FFAnalyzer::analyze(aData &adata)
       else if (ncount <= 48) nplots = 48; 
       else                   nplots = 48;
       ncount = 0;
+      if (psPlotTool_ == 1)
+           fprintf(fp, "// matrix of interaction effect: ind1, ind2, effect\n");
+      else fprintf(fp, "%% matrix of interaction effect: ind1, ind2, effect\n");
+      fprintf(fp, "A2 = [\n");
+      for (ii = 0; ii < nInputs; ii++)
+         for (ii2 = ii+1; ii2 < nInputs; ii2++)
+            fprintf(fp, "%3d %3d %12.4e %12.4e\n",ii+1,ii2+1, 
+                   iEffects[ii][ii2][0], iEffects[ii][ii2][nReps+1]);
+      fprintf(fp, "];\n");
       for (ii = 0; ii < nInputs; ii++)
       {
          for (ii2 = ii+1; ii2 < nInputs; ii2++)
          {
             fprintf(fp, "Y1 = [\n");
-            fprintf(fp, "   %24.16e\n", lolo[ii][ii2]);
-            fprintf(fp, "   %24.16e\n", hilo[ii][ii2]);
+            for (rr = 0; rr < nReps; rr++)
+            {
+               fprintf(fp, "   %24.16e\n", lolos[ii][ii2][rr+1]);
+               fprintf(fp, "   %24.16e\n", hilos[ii][ii2][rr+1]);
+            }
             fprintf(fp, "];\n");
             fprintf(fp, "Y2 = [\n");
-            fprintf(fp, "   %24.16e\n", lohi[ii][ii2]);
-            fprintf(fp, "   %24.16e\n", hihi[ii][ii2]);
+            for (rr = 0; rr < nReps; rr++)
+            {
+               fprintf(fp, "   %24.16e\n", lohis[ii][ii2][rr+1]);
+               fprintf(fp, "   %24.16e\n", hihis[ii][ii2][rr+1]);
+            }
             fprintf(fp, "];\n");
             if (nplots == 2)
             {
@@ -349,47 +454,73 @@ double FFAnalyzer::analyze(aData &adata)
             {
                fprintf(fp,"subplot(4,4,%d),",ncount+1);
                ncount++;
-               if (ncount >= 16)
-               {
-                  ncount = 0;
-                  fprintf(fp, "hold off\n");
-               }
+               if (ncount >= 16) ncount = 0;
             }
             fprintf(fp, "plot(Y1,'k')\n");
-            fprintf(fp, "hold on\n");
-            fprintf(fp, "plot(Y2,'b')\n");
-            fprintf(fp, "hold off\n");
-            fprintf(fp, "title('Interaction(%d,%d)')\n",ii+1,ii2+1);
-            fprintf(fp, "text(0.2,0.2,'black: P1 (lo to hi), P2 = lo','sc')\n");
-            fprintf(fp, "text(0.2,0.3,'blue:  P1 (lo to hi), P2 = hi','sc')\n");
-            fprintf(fp, "disp('Press enter to continue') \n");
-            fprintf(fp, "pause \n");
+            if (psPlotTool_ == 1)
+            {
+               fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
+               fprintf(fp, "plot(Y2,'b')\n");
+               sprintf(pString, "Interaction(%d,%d)",ii+1,ii2+1);
+               fwritePlotTitle(fp, pString);
+               fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
+            }
+            else
+            {
+               fprintf(fp, "hold on\n");
+               fprintf(fp, "plot(Y2,'b')\n");
+               fprintf(fp, "hold off\n");
+               fprintf(fp, "title('Interaction(%d,%d)')\n",ii+1,ii2+1);
+               fprintf(fp, "text(0.2,0.2,'black: P1 (lo to hi), P2 = lo','sc')\n");
+               fprintf(fp, "text(0.2,0.3,'blue:  P1 (lo to hi), P2 = hi','sc')\n");
+            }
          }
       }
       fclose(fp);
-      printf("The %s main effect plot has been generated.\n",meFileName);
+      if (psPlotTool_ == 1)
+         printf("The main effect plot has been generated in scilabffme.sci.\n");
+      else
+         printf("The main effect plot has been generated in matlabffme.m.\n");
    }
-   printAsterisks(0);
    printAsterisks(0);
 
    delete [] txArray;
    delete [] twArray;
    delete [] tyArray;
-   delete [] mEffect;
    for (ii = 0; ii < nInputs; ii++)
    {
-      delete [] iEffect[ii];
-      delete [] lolo[ii];
-      delete [] lohi[ii];
-      delete [] hilo[ii];
-      delete [] hihi[ii];
+      delete [] mEffects[ii];
+      for (ii2 = 0; ii2 < nInputs; ii2++)
+      {
+         delete [] iEffects[ii][ii2];
+         delete [] lolos[ii][ii2];
+         delete [] lohis[ii][ii2];
+         delete [] hilos[ii][ii2];
+         delete [] hihis[ii][ii2];
+      }
+      delete [] iEffects[ii];
+      delete [] lolos[ii];
+      delete [] lohis[ii];
+      delete [] hilos[ii];
+      delete [] hihis[ii];
    }
    delete [] iArray;
-   delete [] iEffect;
-   delete [] lolo;
-   delete [] lohi;
-   delete [] hilo;
-   delete [] hihi;
+   delete [] iEffects;
+   delete [] lolos;
+   delete [] lohis;
+   delete [] hilos;
+   delete [] hihis;
+   delete [] mEffects;
    return 0.0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+FFAnalyzer& FFAnalyzer::operator=(const FFAnalyzer &)
+{
+   printf("FFAnalysis operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

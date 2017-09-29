@@ -19,7 +19,7 @@ OBJS = dgemv.o   dlange.o  dlaset.o  dlassq.o  dormbr.o  ilaenv.o\
 	$(F77) $(FFLAGS) -c $*.f
 
 ./liblapack.a: $(OBJS)
-	$(AR) ruv $@ $(OBJS)
+	$(AR) ruv $@ *.o
 	$(RANLIB) $@
 
 clean:

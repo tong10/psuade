@@ -27,7 +27,7 @@
 #ifndef __RSFUNCAPPROXANALYZERH__
 #define __RSFUNCAPPROXANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -45,6 +45,8 @@ public:
    ~RSFuncApproxAnalyzer();
 
    double analyze(aData &adata);
+
+   RSFuncApproxAnalyzer& operator=(const RSFuncApproxAnalyzer &analyzer);
 
    int setParams(int nParams, char **params);
 

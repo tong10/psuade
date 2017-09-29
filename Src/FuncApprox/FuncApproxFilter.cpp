@@ -29,9 +29,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "Util/sysdef.h"
-#include "DataIO/PsuadeData.h"
-#include "FuncApprox/FuncApproxFilter.h"
+#include "sysdef.h"
+#include "PsuadeData.h"
+#include "FuncApproxFilter.h"
 
 // ************************************************************************
 // constructor 
@@ -79,6 +79,7 @@ FuncApproxFilter::FuncApproxFilter(char *filename)
 // ------------------------------------------------------------------------
 FuncApproxFilter::~FuncApproxFilter()
 {
+   delete faPtr_;
 }
 
 // ************************************************************************

@@ -82,8 +82,17 @@ C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% calfun.f %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       COMMON FMODE
       IF (FMODE == 9999) THEN
          CALL MOOBobyqaEvalFunc(N, X, F);
-      ELSE
+      ELSE IF (FMODE == 8888) THEN
+         CALL KRIBobyqaEvalFunc(N, X, F);
+      ELSE IF (FMODE == 7777) THEN
          CALL BobyqaEvalFunc(N, X, F);
+      ELSE IF (FMODE == 6666) THEN
+         CALL EvaluateFunctionMM(N, X, F);
+      ELSE IF (FMODE == 5555) THEN
+         CALL EvaluateFunctionSM(N, X, F);
+      ELSE
+         PRINT *, 'BOBYQA CALFUN : NO FUNCTION PROVIDED.'
+         F = 0.0
       END IF
       RETURN
       END
@@ -96,9 +105,23 @@ C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% bobyqa.f %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION X(*),XL(*),XU(*),W(*)
       COMMON FMODE
-      IF (IPRINT .LT. 0) THEN
+      IF (IPRINT .EQ. 9999) THEN
          FMODE = 9999
-         IPRINT = - IPRINT - 1
+         IPRINT = 0;
+      ELSEIF (IPRINT .EQ. 8888) THEN
+         FMODE = 8888
+         IPRINT = 0;
+      ELSEIF (IPRINT .EQ. 7777) THEN
+         FMODE = 7777
+      ELSEIF (IPRINT .EQ. 6666) THEN
+         FMODE = 6666
+         IPRINT = 0;
+      ELSEIF (IPRINT .EQ. 5555) THEN
+         FMODE = 5555
+         IPRINT = 0;
+      ELSE
+         FMODE = -1
+         IPRINT = 0;
       END IF
 C
 C     This subroutine seeks the least value of a function of many variables,

@@ -30,12 +30,12 @@
 #ifndef __PDFMANAGERH__
 #define __PDFMANAGERH__
 
-#include "Util/Matrix.h"
-#include "Util/Vector.h"
-#include "DataIO/PsuadeData.h"
-#include "PDFLib/PDFBase.h"
-#include "PDFLib/PDFMVNormal.h"
-#include "PDFLib/PDFMVLogNormal.h"
+#include "Matrix.h"
+#include "Vector.h"
+#include "PsuadeData.h"
+#include "PDFBase.h"
+#include "PDFMVNormal.h"
+#include "PDFMVLogNormal.h"
 
 /**
  * @name class for probability density functions

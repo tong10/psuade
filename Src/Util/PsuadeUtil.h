@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <PsuadeConfig.h>
 using    namespace std;
 
 extern "C" 
@@ -47,6 +48,8 @@ extern "C"
    int    PSUADE_rand();
    double PSUADE_drand();
    void   PSUADE_drandn(int, double *);
+   char*  PSUADE_strdup(const char *s);
+   char*  PSUADE_strndup(const char *s, size_t n);
 
    void   plotsamples2d_(long*,double*,double*,long*,double*,
                          double*,double*,double*,long*);
@@ -66,12 +69,7 @@ int     gettimeofday(struct timeval *, void *);
 #define Gettimeofday gettimeofday
 #endif
 
-#ifdef IRIX
-int     BSDgettimeofday(struct timeval *,struct timezone *);
-#define Gettimeofday BSDgettimeofday
-#endif
-
-#ifdef IRIX64
+#if defined(IRIX) || defined(IRIX64)
 int     BSDgettimeofday(struct timeval *,struct timezone *);
 #define Gettimeofday BSDgettimeofday
 #endif
@@ -81,16 +79,15 @@ int     BSDgettimeofday(struct timeval *,struct timezone *);
 #define Gettimeofday gettimeofday
 #endif
 
+#ifdef WINDOWS
+#define Gettimeofday gettimeofday
+#endif
+
 #ifdef MACOS
 #define Gettimeofday gettimeofday
 #endif
 
 #ifdef USER
-#define Gettimeofday gettimeofday
-#endif
-
-#ifdef PCLINUX_MPI
-int     gettimeofday(struct timeval *,struct timezone *);
 #define Gettimeofday gettimeofday
 #endif
 
@@ -109,13 +106,8 @@ int     gettimeofday(struct timeval *,struct timezone *);
 #define Gettimeofday gettimeofday
 #endif
 
-#ifdef SUN4
+#ifdef SUNOS
 int     gettimeofday(struct timeval *,struct timezone *);
-#define Gettimeofday gettimeofday
-#endif
-
-#ifdef SUN5
-int     gettimeofday(struct timeval *, void *);
 #define Gettimeofday gettimeofday
 #endif
 

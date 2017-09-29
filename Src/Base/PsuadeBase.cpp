@@ -35,22 +35,23 @@
 // ------------------------------------------------------------------------
 // local includes : class definition and utilities
 // ------------------------------------------------------------------------
-#include "Main/Psuade.h"
+#include "Psuade.h"
 #include "PsuadeBase.h"
-#include "Util/dtype.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "dtype.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "PrintingTS.h"
 
 // ------------------------------------------------------------------------
 // local includes : sampling methods and input distributions
 // ------------------------------------------------------------------------
-#include "PDFLib/PDFManager.h"
-#include "PDFLib/PDFBase.h"
+#include "PDFManager.h"
+#include "PDFBase.h"
 
 // ------------------------------------------------------------------------
 // local includes : function approximator
 // ------------------------------------------------------------------------
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ------------------------------------------------------------------------
 // local includes : optimizers
@@ -110,7 +111,7 @@ PsuadeBase::~PsuadeBase()
 // ************************************************************************
 // get data and parameters from PsuadeData object
 // ------------------------------------------------------------------------
-int PsuadeBase::getInputFromFile(char *fname, char *psuadeio_filename)
+int PsuadeBase::getInputFromFile(const char *fname, const char *psuadeio_filename)
 {
    int    status, nInputs, nOutputs, *sampleStates, samplingMethod;
    int    randomize, nReps, *symTable, nSamples, nRefines, flag, ii;
@@ -187,12 +188,6 @@ int PsuadeBase::getInputFromFile(char *fname, char *psuadeio_filename)
       sampler_->setInputParams(nInputs, NULL, NULL, symTable);
       sampler_->setOutputParams(nOutputs);
       sampler_->setSamplingParams(nSamples, nReps, randomize);
-      if (samplingMethod == PSUADE_SAMP_SG)
-      {
-         sparam.clear();
-         sprintf(cString, "nLevels %d", nRefines); 
-         sparam.append(cString);
-      }
       sampler_->setParam(sparam);
       sampler_->initialize(1);
       sampler_->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
@@ -200,116 +195,8 @@ int PsuadeBase::getInputFromFile(char *fname, char *psuadeio_filename)
    }
    else
    {
-      if (usePDFs == 1)
-      {
-         if (samplingMethod != PSUADE_SAMP_MC)
-         {
-            printf("PSUADE ERROR: if you want to draw a sample from\n");
-            printf("       non-uniform distributions, set the sampling\n");
-            printf("       method to be Monte Carlo (MC). If you have\n");
-            printf("       created a space-filling sample and would like\n");
-            printf("       to convert it to the desired PDFs, add the PDF\n");
-            printf("       information in the INPUT section of your sample\n");
-            printf("       file, launch PSUADE in command line mode, load\n");
-            printf("       the sample file, use 'pdfconvert' to convert\n");
-            printf("       your sample, and write the converted sample\n");
-            printf("       to another PSUADE data file.\n");
-            exit(1);
-         }
-      }
-      iSum = 0;
-      for (ii = 0; ii < nInputs; ii++) iSum += inputPDFs[ii];
-      if (iSum > 0 && nRefines > 0 && usePDFs == 1)
-      {
-         printf("PSUADE ERROR: you have requested sample refinement.\n");
-         printf("       Sample refinement requires that all the input\n");
-         printf("       probability distribution be uniform. You need to\n");
-         printf("       either reset the number of refinements to be zero,\n");
-         printf("       or not take out the probability distributions\n");
-         printf("       in the INPUT section.\n");
-         exit(1);
-      }
-
-      if (iSum > 0 && usePDFs == 1)
-      {
-         printf("INFO: Creating a sample where some uncertain parameters\n");
-         printf("      are not uniformly distributed.\n");
-         pdfman = new PDFManager();
-         pdfman->initialize(psuadeIO_);
-         pdfman->genSample();
-         delete pdfman;
-         psuadeIO_->getParameter("input_sample", pInputs2);
-         sampleInputs = pInputs2.dbleArray_;
-         psuadeIO_->getParameter("output_states", pStates2);
-         sampleStates = pStates2.intArray_;
-         psuadeIO_->getParameter("output_sample", pOutputs2);
-         sampleOutputs = pOutputs2.dbleArray_;
-         samplingMethod = PSUADE_SAMP_MC;
-         sampler_ = (Sampling *) SamplingCreateFromID(samplingMethod); 
-         sampler_->setPrintLevel(outputLevel_);
-         sampler_->setInputBounds(nInputs, iLowerB, iUpperB);
-         sampler_->setInputParams(nInputs, NULL, NULL, symTable);
-         sampler_->setOutputParams(nOutputs);
-         sampler_->setSamplingParams(nSamples, nReps, randomize);
-         sampler_->initialize(1);
-         sampler_->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                               sampleOutputs, sampleStates);
-      }
-      else
-      {
-         printf("INFO: Creating a sample assuming all uncertain parameters\n");
-         printf("      are uniformly distributed.\n");
-         sampler_ = (Sampling *) SamplingCreateFromID(samplingMethod); 
-         sampler_->setPrintLevel(outputLevel_);
-         sampler_->setInputBounds(nInputs, iLowerB, iUpperB);
-         sampler_->setInputParams(nInputs, NULL, NULL, symTable);
-         sampler_->setOutputParams(nOutputs);
-         sampler_->setSamplingParams(nSamples, nReps, randomize);
-         if (haveSettings)
-         {
-            if (samplingMethod == PSUADE_SAMP_LHS)
-            {
-               flag = 1;
-               for (ii = 1; ii < nInputs; ii++)
-                  if (pSettings.intArray_[ii] != 
-                      pSettings.intArray_[ii-1]) flag = 0;
-               if (flag == 1)
-                  sampler_->setInputParams(nInputs, pSettings.intArray_,
-                                           pSettings.dbleArray2D_, NULL);
-            }
-            else if (samplingMethod == PSUADE_SAMP_FACT)
-            {
-               sampler_->setInputParams(nInputs, pSettings.intArray_,
-                                        pSettings.dbleArray2D_, NULL);
-            }
-            else
-            {
-               printf("Sampling method does not take input settings.\n");
-               exit(1);
-            }
-         }
-         if (samplingMethod == PSUADE_SAMP_SG)
-         {
-            sparam.clear();
-            sprintf(cString, "nLevels %d", nRefines); 
-            sparam.append(cString);
-            sampler_->setParam(sparam);
-         }
-         sampler_->initialize(0);
-         nSamples = sampler_->getNumSamples(); /* may have been modified */
-         sampleInputs  = new double[nSamples * nInputs];
-         sampleOutputs = new double[nSamples * nOutputs];
-         sampleStates  = new int[nSamples];
-         sampler_->getSamples(nSamples, nInputs, nOutputs, sampleInputs,
-                              sampleOutputs, sampleStates);
-         psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
-                                       sampleInputs,NULL); 
-         psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
-                                        sampleStates,NULL); 
-         delete [] sampleInputs;
-         delete [] sampleOutputs;
-         delete [] sampleStates;
-      }
+     sampler_ = (Sampling *) SamplingCreateFromID(samplingMethod);
+     sampler_->doSampling(psuadeIO_);
    }
    psuadeIO_->writePsuadeFile(NULL,1);
 
@@ -375,8 +262,9 @@ int PsuadeBase::run() throw(Psuade_Stop_Exception)
 // ------------------------------------------------------------------------
 int PsuadeBase::analyzeInteractive()
 {
-   interpretInteractive();
-   return 0;
+  setPrintLevelTS(3);
+  interpretInteractive();
+  return 0;
 }
 
 // ************************************************************************
@@ -389,9 +277,9 @@ int PsuadeBase::runUniform()
 {
    int     nInputs, nSamples, nOutputs, oldNSamples, sampleID, refineFlag=1;
    int     *sampleStates, status, nRefinements;
-   int     iR, sampleGraphics, maxJobWaitTime, maxParallelJobs, faType;
+   int     iR, sampleGraphics, maxJobWaitTime, maxParallelJobs;
    int     parallelJobCount, count, runType, iteration;
-   int     *refineNSamples, nReUsed, ii, analysisOutputID, askFlag=1;
+   int     *refineNSamples, nReUsed, ii, askFlag=1;
    int     minJobWaitTime, maxState, mm, analysisMethod, jobsCompletedLast;
    int     launchInterval, saveFrequency, launchOnly, noAnalysis=0;
    int     limitedJobCount, optSwitch=0, randomize, refineRatio;
@@ -470,10 +358,6 @@ int PsuadeBase::runUniform()
    analysisMethod = pPtr.intData_;
    psuadeIO_->getParameter("app_files", pAppFiles);
    appDriver = pAppFiles.strArray_[0];
-   psuadeIO_->getParameter("ana_outputid", pPtr);
-   analysisOutputID = pPtr.intData_;
-   psuadeIO_->getParameter("ana_rstype", pPtr);
-   faType = pPtr.intData_;
    psuadeIO_->getParameter("ana_threshold", pPtr);
    analysisThreshold = pPtr.dbleData_;
    psuadeIO_->getParameter("ana_opt_switch", pPtr);
@@ -1075,15 +959,15 @@ int PsuadeBase::runAdaptiveErrBased0()
 {
    int    faType, samMethod, nInputs, nOutputs, nRefinements, ss, ii, iSum;
    int    maxParallelJobs, maxJobWaitTime, minJobWaitTime, launchInterval;
-   int    saveFrequency, analysisOutputID, iR, nSamples, *refineNSamples;
+   int    saveFrequency, iR = 0, nSamples, *refineNSamples;
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff;
    int    parallelJobCount, status, maxState, jobsCompletedLast, maxInd;
    int    refineFlag, initFlag, count, usedFlag=0, refineRatio, randomize;
    int    *inputPDFs;
-   double *iLowerB, *iUpperB, analysisThreshold, *sampleErrors;
+   double *iLowerB, *iUpperB, *sampleErrors;
    double *sampleInputs, *sampleOutputs, maxError, refineThreshold;
-   char   *appDriver, systemCommand[100];
-   pData  pPtr, pLowerB, pUpperB, pAppFiles, pPDFs;
+   char   systemCommand[100];
+   pData  pPtr, pLowerB, pUpperB, pPDFs;
    FunctionInterface *funcIO;
 
    psuadeIO_->getParameter("input_pdfs", pPDFs);
@@ -1101,13 +985,16 @@ int PsuadeBase::runAdaptiveErrBased0()
       exit(1);
    }
 
-   printf("PSUADE adaptive(0): GP or ANN with METIS.\n");
+   printf("PSUADE adaptive(0): GP, Kriging, or ANN with METIS.\n");
    psuadeIO_->getParameter("ana_rstype", pPtr);
    faType = pPtr.intData_;
-   if (faType != PSUADE_RS_GP1 && faType != PSUADE_RS_ANN)
+   if (faType != PSUADE_RS_GP1   && faType != PSUADE_RS_ANN &&
+       faType != PSUADE_RS_MARSB && faType != PSUADE_RS_KR)
    {
-      printf("PSUADE adaptive(0): GP or ANN. Default to GP.\n");
-      faType = PSUADE_RS_GP1; 
+      printf("PSUADE adaptive(0) INFO: response surface should be one of\n");
+      printf("                         GP, ANN, Kriging, or MarsBag.\n");
+      printf("                         Default to Kriging.\n");
+      faType = PSUADE_RS_KR;
       psuadeIO_->updateAnalysisSection(-1, -1, faType, -1, -1, -1);
    }
    psuadeIO_->getParameter("method_sampling", pPtr);
@@ -1149,13 +1036,6 @@ int PsuadeBase::runAdaptiveErrBased0()
    saveFrequency = pPtr.intData_;
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
-   psuadeIO_->getParameter("ana_outputid", pPtr);
-   analysisOutputID = pPtr.intData_;
-   psuadeIO_->getParameter("ana_threshold", pPtr);
-   analysisThreshold = pPtr.dbleData_;
 
    if (initFlag == 1)
    {
@@ -1257,6 +1137,11 @@ int PsuadeBase::runAdaptiveErrBased0()
 	    if (psuade_stop == 1)
 	    {
 	       psuadeIO_->writePsuadeFile(NULL,0);
+               delete [] refineNSamples;
+               delete [] sampleInputs;
+               delete [] sampleOutputs;
+               delete [] sampleStates;
+               delete funcIO;
 	       throw Psuade_Stop_Exception();
 	    }
 
@@ -1386,16 +1271,16 @@ int PsuadeBase::runAdaptiveNN()
    int    saveFrequency, ss, nSamples, refineRatio, randomize, iSum, *inputPDFs;
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff, ii, jj, marsMode=0;
    int    parallelJobCount, status, maxState, jobsCompletedLast, refineType;
-   int    lastNSamples, rstype, nPtsPerDim=64, length, refineSize, anaMethod;
+   int    lastNSamples, rstype, nPtsPerDim=64, length, refineSize;
    int    tstNSamples=0, tstNInputs, tstNOutputs, ivar1, ivar2, numMars=100;
    int    marsNSamples;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, outData, errAvg;
    double refineThreshold=1.0, errMax, dtemp;
    double anaThreshold, errRMS, *tstSamInputs, *tstSamOutputs;
    double totalSum, *tstOutputs, **marsDataX, **marsDataY;
-   char   *appDriver, systemCommand[100], cString[100], winput[500];
+   char   systemCommand[100], cString[100], winput[500];
    char   *targv[6];
-   pData  pPtr, pLowerB, pUpperB, pAppFiles, pPDFs, pTstInputs, pTstOutputs;
+   pData  pPtr, pLowerB, pUpperB, pPDFs, pTstInputs, pTstOutputs;
    string sparam;
    FILE   *fp;
    FuncApprox        *faPtr=NULL;
@@ -1425,8 +1310,6 @@ int PsuadeBase::runAdaptiveNN()
    printf("Note: Turn on rs_expert mode to set RS parameters.\n");
    printf("      Turn on outputLevel (>0) to get error histogram.\n");
    printEquals(0);
-   psuadeIO_->getParameter("ana_method", pPtr);
-   anaMethod = pPtr.intData_;
    psuadeIO_->getParameter("method_refine_type", pPtr);
    refineType = pPtr.intData_;
    psuadeIO_->getParameter("method_sampling", pPtr);
@@ -1475,9 +1358,6 @@ int PsuadeBase::runAdaptiveNN()
    saveFrequency = pPtr.intData_;
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
    psuadeIO_->getParameter("ana_rstype", pPtr);
    rstype = pPtr.intData_;
    psuadeIO_->getParameter("ana_threshold", pPtr);
@@ -1522,7 +1402,7 @@ int PsuadeBase::runAdaptiveNN()
       tstIO->getParameter("output_sample", pTstOutputs);
       tstSamOutputs = pTstOutputs.dbleArray_;
    }
-   if (psExpertMode_ == 1)
+   if (psRSExpertMode_ == 1)
    {
       if (rstype == PSUADE_RS_MARSB)
       {
@@ -1752,8 +1632,8 @@ int PsuadeBase::runAdaptiveNN()
                 lastNSamples);
          printf("   test response surface with previous %d sample points.\n",
                 nSamples-lastNSamples);
-         faPtr = genFA(rstype, nInputs, lastNSamples);
-         if (faPtr != NULL)
+         faPtr = genFA(rstype, nInputs, nOutputs, lastNSamples);
+         if (faPtr == NULL)
          {
             printf("ERROR: cannot create function approximator.\n");
             exit(1);
@@ -1822,7 +1702,11 @@ int PsuadeBase::runAdaptiveNN()
       if (tstNSamples > 0)
       {
          printEquals(0);
-         faPtr = genFA(rstype, nInputs, nSamples);
+         faPtr = genFA(rstype, nInputs, nOutputs, nSamples);
+         if(faPtr == NULL){
+	   printf("function genFA returned NULL in file %s line %d, exiting\n", __FILE__, __LINE__);
+           exit(1);
+         }
          faPtr->setNPtsPerDim(nPtsPerDim);
          faPtr->setBounds(iLowerB, iUpperB);
          faPtr->setOutputLevel(outputLevel_);
@@ -2032,7 +1916,7 @@ int PsuadeBase::runAdaptiveErrBased1()
    int    saveFrequency, nSamples, refineRatio, randomize, iSum, *inputPDFs;
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff, *samStates2=NULL;
    int    parallelJobCount, status, maxState, jobsCompletedLast, refineType;
-   int    rstype, nPtsPerDim=64, length, refineSize, anaMethod;
+   int    rstype, nPtsPerDim=64, length, refineSize;
    int    nSamples2, *iArray, useRandomPts=0, auxNSamples=0, ivar1, ivar2;
    int    auxNInputs, auxNOutputs, tstNSamples=0, tstNInputs, tstNOutputs;
    int    ii, jj, ss, numMars=100, marsMode=0, marsNSamples;
@@ -2042,9 +1926,9 @@ int PsuadeBase::runAdaptiveErrBased1()
    double *samStds2=NULL, totalSum=0.0, errMax=0.0, errAvg=0.0, errL2=0.0;
    double *auxSamInputs=NULL, *auxSamOutputs=NULL;
    double *tstSamInputs=NULL, *tstSamOutputs=NULL, *tstOutputs;
-   char   *appDriver, systemCommand[100], cString[100], winput[100], *targv[6];
+   char   systemCommand[100], cString[100], winput[100], *targv[6];
    FILE   *fp;
-   pData  pPtr, pLowerB, pUpperB, pAppFiles, pPDFs, pAuxInputs, pAuxOutputs;
+   pData  pPtr, pLowerB, pUpperB, pPDFs, pAuxInputs, pAuxOutputs;
    pData  pTstInputs, pTstOutputs;
    string sparam;
    FuncApprox *faPtr=NULL;
@@ -2053,9 +1937,9 @@ int PsuadeBase::runAdaptiveErrBased1()
    FunctionInterface *funcIO=NULL;
 
    printAsterisks(0);
-   printf("PSUADE adaptive(1): Use Metis with MarsBagging/GP.\n");
+   printf("PSUADE adaptive(1): Use Metis with MarsBagging/GP/Kriging.\n");
    printf("Adaptive sampling based on predicted errors from\n");
-   printf("the MARS-with-bagging/GP response surface.\n");
+   printf("the MARS-with-bagging/GP/Kriging response surface.\n");
    printEquals(0);
    printf("To be able to exercise more control of this method,\n");
    printf("you can turn on interactive and/or expert modes in\n");
@@ -2086,8 +1970,6 @@ int PsuadeBase::runAdaptiveErrBased1()
    getString(cString, winput);
    if (winput[0] == 'y') useRandomPts = 1;
 
-   psuadeIO_->getParameter("ana_method", pPtr);
-   anaMethod = pPtr.intData_;
    psuadeIO_->getParameter("method_refine_type", pPtr);
    refineType = pPtr.intData_;
    psuadeIO_->getParameter("method_sampling", pPtr);
@@ -2159,55 +2041,52 @@ int PsuadeBase::runAdaptiveErrBased1()
       tstSamOutputs = pTstOutputs.dbleArray_;
    }
 
-   if (psExpertMode_ == 1)
+   printf("You may add to the base sample an auxiliary sample which\n");
+   printf("covers the corners (for example, factorial or fractional\n");
+   printf("factorial).\n");
+   sprintf(cString, "Add an auxiliary sample ? (y or n) ");
+   getString(cString, winput);
+   if (winput[0] == 'y')
    {
-      printf("You may add to the base sample an auxiliary sample which\n");
-      printf("covers the corners (for example, factorial or fractional\n");
-      printf("factorial).\n");
-      sprintf(cString, "Add an auxiliary sample ? (y or n) ");
+      sprintf(cString, "Enter auxiliary sample file name : ");
       getString(cString, winput);
-      if (winput[0] == 'y')
+      ss = strlen(winput);
+      winput[ss-1] = '\0';
+      auxIO = new PsuadeData();
+      status = auxIO->readPsuadeFile(winput);
+      if (status == -1) exit(1);
+      auxIO->getParameter("method_nsamples", pPtr);
+      auxNSamples = pPtr.intData_;
+      auxIO->getParameter("input_ninputs", pPtr);
+      auxNInputs = pPtr.intData_;
+      auxIO->getParameter("output_noutputs", pPtr);
+      auxNOutputs = pPtr.intData_;
+      if (auxNInputs != nInputs)
       {
-         sprintf(cString, "Enter auxiliary sample file name : ");
-         getString(cString, winput);
-         ss = strlen(winput);
-         winput[ss-1] = '\0';
-         auxIO = new PsuadeData();
-         status = auxIO->readPsuadeFile(winput);
-         if (status == -1) exit(1);
-         auxIO->getParameter("method_nsamples", pPtr);
-         auxNSamples = pPtr.intData_;
-         auxIO->getParameter("input_ninputs", pPtr);
-         auxNInputs = pPtr.intData_;
-         auxIO->getParameter("output_noutputs", pPtr);
-         auxNOutputs = pPtr.intData_;
-         if (auxNInputs != nInputs)
-         {
-            printf("PSUADE adaptive(1) ERROR : auxiliary nInputs != %d\n",
-                   nInputs);
-            return 0;
-         }
-         if (auxNOutputs > 1)
-         {
-            printf("PSUADE adaptive(1): auxiliary sample nOutputs != 1.\n");
-            printf("       INFO: use 'write' in interactive model to select\n");
-            printf("             1 output only and re-run this.\n");
-            return 0;
-         }
-         auxIO->getParameter("input_sample", pAuxInputs);
-         auxSamInputs = pAuxInputs.dbleArray_;
-         samInputs2 = auxSamInputs;
-         length = (nSamples+auxNSamples+nRefinements*refineSize)*nInputs;
-         auxSamInputs = new double[length];
-         for (ss = 0; ss < auxNSamples*nInputs; ss++)
-            auxSamInputs[ss] = samInputs2[ss];
-         auxIO->getParameter("output_sample", pAuxOutputs);
-         samOutputs2 = pAuxOutputs.dbleArray_;
-         length = (nSamples+auxNSamples+nRefinements*refineSize)*nOutputs;
-         auxSamOutputs = new double[length];
-         for (ss = 0; ss < auxNSamples*nInputs; ss++)
-            auxSamOutputs[ss] = samOutputs2[ss];
+         printf("PSUADE adaptive(1) ERROR : auxiliary nInputs != %d\n",
+                nInputs);
+         return 0;
       }
+      if (auxNOutputs > 1)
+      {
+         printf("PSUADE adaptive(1): auxiliary sample nOutputs != 1.\n");
+         printf("       INFO: use 'write' in interactive model to select\n");
+         printf("             1 output only and re-run this.\n");
+         return 0;
+      }
+      auxIO->getParameter("input_sample", pAuxInputs);
+      auxSamInputs = pAuxInputs.dbleArray_;
+      samInputs2 = auxSamInputs;
+      length = (nSamples+auxNSamples+nRefinements*refineSize)*nInputs;
+      auxSamInputs = new double[length];
+      for (ss = 0; ss < auxNSamples*nInputs; ss++)
+         auxSamInputs[ss] = samInputs2[ss];
+      auxIO->getParameter("output_sample", pAuxOutputs);
+      samOutputs2 = pAuxOutputs.dbleArray_;
+      length = (nSamples+auxNSamples+nRefinements*refineSize)*nOutputs;
+      auxSamOutputs = new double[length];
+      for (ss = 0; ss < auxNSamples*nInputs; ss++)
+         auxSamOutputs[ss] = samOutputs2[ss];
    }
 
    psuadeIO_->getParameter("input_lbounds", pLowerB);
@@ -2227,18 +2106,15 @@ int PsuadeBase::runAdaptiveErrBased1()
    saveFrequency = pPtr.intData_;
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
    psuadeIO_->getParameter("ana_rstype", pPtr);
    rstype = pPtr.intData_;
    if (rstype != PSUADE_RS_MARSB && rstype != PSUADE_RS_GP1 &&
-       rstype != PSUADE_RS_TGP)
+       rstype != PSUADE_RS_TGP   && rstype != PSUADE_RS_KR)
    {
-      printf("PSUADE adaptive(1): RS type defaulted to MarsBag.\n");
+      printf("PSUADE adaptive(1) INFO: RS type defaulted to MarsBag.\n");
       rstype = PSUADE_RS_MARSB; 
    }
-   if (psExpertMode_ == 1)
+   if (psRSExpertMode_ == 1)
    {
       if (rstype == PSUADE_RS_MARSB)
       {
@@ -2495,7 +2371,7 @@ int PsuadeBase::runAdaptiveErrBased1()
       printf("                    test set nSamples = %d\n",
              nSamples2-nSamples);
 
-      faPtr = genFA(rstype, nInputs, nSamples+auxNSamples);
+      faPtr = genFA(rstype, nInputs, nOutputs, nSamples+auxNSamples);
       faPtr->setNPtsPerDim(nPtsPerDim);
       faPtr->setBounds(iLowerB, iUpperB);
       faPtr->setOutputLevel(outputLevel_);
@@ -2771,18 +2647,18 @@ int PsuadeBase::runAdaptiveErrBasedG()
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff, *samStates2=NULL;
    int    parallelJobCount, status, maxState, jobsCompletedLast;
    int    rstype, nPtsPerDim=64, length, refineSize, marsMode=0;
-   int    nSamples2, *iArray, auxNSamples, auxNInputs, auxNOutputs;
-   int    tstNSamples, tstNInputs, tstNOutputs, ivar1, ivar2, numMars=100;
+   int    nSamples2, *iArray, auxNSamples = 0, auxNInputs, auxNOutputs;
+   int    tstNSamples = 0, tstNInputs, tstNOutputs, ivar1, ivar2, numMars=100;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;
    double refineThreshold=1.0, dtemp;
    double anaThreshold, *samInputs2=NULL, *samOutputs2=NULL;
    double *samStds2=NULL, totalSum=0.0, errMax=0.0, errAvg=0.0, errL2=0.0;
    double *auxSamInputs=NULL, *auxSamOutputs=NULL;
    double *tstSamInputs=NULL, *tstSamOutputs=NULL, *tstOutputs;
-   char   *appDriver, systemCommand[100], cString[100], winput[500];
+   char   systemCommand[100], cString[100], winput[500];
    char   *targv[3];
    FILE   *fp;
-   pData  pPtr, pLowerB, pUpperB, pAppFiles, pPDFs, pInpData, pOutData, pStates;
+   pData  pPtr, pLowerB, pUpperB, pPDFs, pInpData, pOutData, pStates;
    pData  pAuxInputs, pAuxOutputs, pTstInputs, pTstOutputs;
    string sparam;
    FuncApprox *faPtr=NULL;
@@ -2799,7 +2675,7 @@ int PsuadeBase::runAdaptiveErrBasedG()
    printf("To run this method, an initial sample can be provided.\n");
    printf("The sample should be somewhat space-filling.\n");
    printf("To use an initial sample, insert it in PSUADE_IO section,\n");
-   printf("use ARSMMBBS with desired number of refinements, and set\n");
+   printf("use ARSMG with desired number of refinements, and set\n");
    printf("refinement size.\n");
    printEquals(0);
    printf("To be able to exercise more control of this method,\n");
@@ -2876,54 +2752,54 @@ int PsuadeBase::runAdaptiveErrBasedG()
       tstSamOutputs = pTstOutputs.dbleArray_;
    }
 
-   if (psExpertMode_ == 1)
+   printf("You may add to the base sample an auxiliary sample which\n");
+   printf("covers the corners (for example, factorial or fractional\n");
+   printf("factorial).\n");
+   sprintf(cString, "Add an auxiliary sample ? (y or n) ");
+   getString(cString, winput);
+   if (winput[0] == 'y')
    {
-      printf("You may add to the base sample an auxiliary sample which\n");
-      printf("covers the corners (for example, factorial or fractional\n");
-      printf("factorial).\n");
-      sprintf(cString, "Add an auxiliary sample ? (y or n) ");
+      sprintf(cString, "Enter auxiliary sample file name : ");
       getString(cString, winput);
-      if (winput[0] == 'y')
+      ss = strlen(winput);
+      winput[ss-1] = '\0';
+      auxIO = new PsuadeData();
+      status = auxIO->readPsuadeFile(winput);
+      if (status == -1) exit(1);
+      auxIO->getParameter("method_nsamples", pPtr);
+      auxNSamples = pPtr.intData_;
+      auxIO->getParameter("input_ninputs", pPtr);
+      auxNInputs = pPtr.intData_;
+      auxIO->getParameter("output_noutputs", pPtr);
+      auxNOutputs = pPtr.intData_;
+      if (auxNInputs != nInputs)
       {
-         sprintf(cString, "Enter auxiliary sample file name : ");
-         getString(cString, winput);
-         ss = strlen(winput);
-         winput[ss-1] = '\0';
-         auxIO = new PsuadeData();
-         status = auxIO->readPsuadeFile(winput);
-         if (status == -1) exit(1);
-         auxIO->getParameter("method_nsamples", pPtr);
-         auxNSamples = pPtr.intData_;
-         auxIO->getParameter("input_ninputs", pPtr);
-         auxNInputs = pPtr.intData_;
-         auxIO->getParameter("output_noutputs", pPtr);
-         auxNOutputs = pPtr.intData_;
-         if (auxNInputs != nInputs)
-         {
-            printf("PSUADE adaptive(G) ERROR : auxiliary nInputs != %d\n",
-                   nInputs);
-            return 0;
-         }
-         if (auxNOutputs > 1)
-         {
-            printf("PSUADE adaptive(G): auxiliary sample nOutputs != 1.\n");
-            printf("       INFO: use 'write' in interactive model to select\n");
-            printf("             1 output only and re-run this.\n");
-            return 0;
-         }
-         auxIO->getParameter("input_sample", pAuxInputs);
-         samInputs2 = pAuxInputs.dbleArray_;
-         length = (nSamples+auxNSamples+nRefinements*refineSize)*nInputs;
-         auxSamInputs = new double[length];
-         for (ss = 0; ss < auxNSamples*nInputs; ss++)
-            auxSamInputs[ss] = samInputs2[ss];
-         auxIO->getParameter("output_sample", pAuxOutputs);
-         samOutputs2 = pAuxOutputs.dbleArray_;
-         length = (nSamples+auxNSamples+nRefinements*refineSize)*nOutputs;
-         auxSamOutputs = new double[length];
-         for (ss = 0; ss < auxNSamples*nInputs; ss++)
-            auxSamOutputs[ss] = samOutputs2[ss];
+         printf("PSUADE adaptive(G) ERROR : auxiliary nInputs != %d\n",
+                nInputs);
+         return 0;
       }
+      if (auxNOutputs > 1)
+      {
+         printf("PSUADE adaptive(G): auxiliary sample nOutputs != 1.\n");
+         printf("       INFO: use 'write' in interactive model to select\n");
+         printf("             1 output only and re-run this.\n");
+         return 0;
+      }
+      auxIO->getParameter("input_sample", pAuxInputs);
+      samInputs2 = pAuxInputs.dbleArray_;
+      length = (nSamples+auxNSamples+nRefinements*refineSize)*nInputs;
+      auxSamInputs = new double[length];
+      for (ss = 0; ss < auxNSamples*nInputs; ss++)
+         auxSamInputs[ss] = samInputs2[ss];
+      auxIO->getParameter("output_sample", pAuxOutputs);
+      samOutputs2 = pAuxOutputs.dbleArray_;
+      length = (nSamples+auxNSamples+nRefinements*refineSize)*nOutputs;
+      auxSamOutputs = new double[length];
+      for (ss = 0; ss < auxNSamples*nInputs; ss++)
+         auxSamOutputs[ss] = samOutputs2[ss];
+   }
+   if (psRSExpertMode_ == 1)
+   {
       sprintf(cString, "Number of MARS (default = 100, > 2, < 502) = ");
       numMars = getInt(3, 501, cString);
       sprintf(cString, "Use mean (0) or median (1) of MarSBag : ");
@@ -2954,9 +2830,6 @@ int PsuadeBase::runAdaptiveErrBasedG()
    saveFrequency = pPtr.intData_;
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
    psuadeIO_->getParameter("ana_rstype", pPtr);
    rstype = pPtr.intData_;
    if (rstype != PSUADE_RS_MARSB)
@@ -3181,7 +3054,7 @@ int PsuadeBase::runAdaptiveErrBasedG()
       printf("                    test set nSamples = %d\n",
              nSamples2-nSamples);
 
-      faPtr = genFA(rstype, nInputs, nSamples+auxNSamples);
+      faPtr = genFA(rstype, nInputs, nOutputs, nSamples+auxNSamples);
       faPtr->setNPtsPerDim(nPtsPerDim);
       faPtr->setBounds(iLowerB, iUpperB);
       faPtr->setOutputLevel(outputLevel_);
@@ -3387,13 +3260,13 @@ int PsuadeBase::runAdaptivePRA()
    int    saveFrequency, nSamples, refineRatio, randomize, count, askFlag=0;
    int    ss, loopFlag, currNJobs, *sampleStates, nJobsDiff;
    int    parallelJobCount, status, maxState, jobsCompletedLast, curVol;
-   int    totVol, refineType, numSuccess=0, refineSize, anaMethod;
+   int    totVol, refineType, numSuccess=0, refineSize;
    int    nUniform, iSum, *inputPDFs;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, *tempY;
    double refineThreshold=1.0, anaThreshold, curVal=1.0, lastVal, relMax;
    double relMin, *sampErrors, ddata;
-   char   *appDriver, systemCommand[100], cString[100];
-   pData  pPtr, pLowerB, pUpperB, pAppFiles, pPDFs;
+   char   systemCommand[100], cString[100];
+   pData  pPtr, pLowerB, pUpperB, pPDFs;
    string sparam;
    FunctionInterface *funcIO=NULL;
 
@@ -3412,8 +3285,6 @@ int PsuadeBase::runAdaptivePRA()
       exit(1);
    }
 
-   psuadeIO_->getParameter("ana_method", pPtr);
-   anaMethod = pPtr.intData_;
    psuadeIO_->getParameter("method_refine_type", pPtr);
    refineType = pPtr.intData_;
    psuadeIO_->getParameter("method_sampling", pPtr);
@@ -3464,9 +3335,6 @@ int PsuadeBase::runAdaptivePRA()
    saveFrequency = pPtr.intData_;
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
 
    if (initFlag == 1)
    {
@@ -3838,12 +3706,12 @@ int PsuadeBase::runAdaptiveOpt()
    int    saveFrequency, nSamples, refineRatio, randomize;
    int    ss, loopFlag, currNJobs, *sampleStates, nJobsDiff;
    int    parallelJobCount, status, maxState, jobsCompletedLast;
-   int    ii, refineType, refineSize, anaMethod;
+   int    ii, refineType, refineSize;
    int    nUniform, iSum, *inputPDFs, nMins=1, *sortList;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, *tempY;
    double refineThreshold=1.0, *sampErrors, dmin;
-   char   *appDriver, systemCommand[100], cString[100];
-   pData  pPtr, pLowerB, pUpperB, pAppFiles, pPDFs;
+   char   systemCommand[100], cString[100];
+   pData  pPtr, pLowerB, pUpperB, pPDFs;
    string sparam;
    FunctionInterface *funcIO=NULL;
 
@@ -3862,8 +3730,6 @@ int PsuadeBase::runAdaptiveOpt()
       exit(1);
    }
 
-   psuadeIO_->getParameter("ana_method", pPtr);
-   anaMethod = pPtr.intData_;
    psuadeIO_->getParameter("method_refine_type", pPtr);
    refineType = pPtr.intData_;
    psuadeIO_->getParameter("method_sampling", pPtr);
@@ -3912,9 +3778,6 @@ int PsuadeBase::runAdaptiveOpt()
    saveFrequency = pPtr.intData_;
    psuadeIO_->getParameter("ana_diagnostics", pPtr);
    outputLevel_ = pPtr.intData_;
-
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
 
    if (initFlag == 1)
    {
@@ -4010,6 +3873,10 @@ int PsuadeBase::runAdaptiveOpt()
 	    if (psuade_stop == 1)
 	    {
 	       psuadeIO_->writePsuadeFile(NULL,0);
+               delete [] sampleStates;
+               delete [] sampleOutputs;
+               delete [] sampleInputs;
+               delete funcIO;
 	       throw Psuade_Stop_Exception();
 	    }
 
@@ -4152,6 +4019,9 @@ int PsuadeBase::runAdaptiveOpt()
    }
 
    delete funcIO;
+   delete [] sampleStates;
+   delete [] sampleInputs;
+   delete [] sampleOutputs;
    return 0;
 }
 
@@ -4191,7 +4061,7 @@ void PsuadeBase::pgPlotResponseSurface()
    if ((graphics & 1) != 0 && (nInputs > 1))
    {
       faPtr = genFAInteractive(psuadeIO_, 0);
-      if (faPtr != NULL)
+      if (faPtr == NULL)
       {
          printf("INFO: cannot create function approximator.\n");
          return;
@@ -4408,5 +4278,15 @@ int PsuadeBase::fillInSamples(int nSamples, int nOutputs,
       }
    } 
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+PsuadeBase& PsuadeBase::operator=(const PsuadeBase &)
+{
+   printf("PsuadeBase operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

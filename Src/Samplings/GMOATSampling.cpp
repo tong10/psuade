@@ -30,11 +30,11 @@
 #include <math.h>
 using namespace std;
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "DataIO/pData.h"
-#include "DataIO/PsuadeData.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "pData.h"
+#include "PsuadeData.h"
+#include "Psuade.h"
 #include "GMOATSampling.h"
 #define PABS(x) ((x) > 0 ? (x) : -(x))
 
@@ -48,6 +48,62 @@ GMOATSampling::GMOATSampling() : Sampling()
    inputSubset_ = NULL;
    P_  = 4;
    initX_ = NULL;
+}
+
+//*************************************************************************
+//* Copy Constructor added by Bill Oliver
+//*------------------------------------------------------------------------
+GMOATSampling::GMOATSampling(const GMOATSampling & gms) : Sampling()
+{
+   int maxReps = 5000;
+   int nlevels;
+   samplingID_  = gms.samplingID_;
+   P_ = gms.P_;
+   nInputs_ = gms.nInputs_;
+   inpLevels_   = new int[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+     inpLevels_[i] = gms.inpLevels_[i];
+   
+   inputSubset_ = new int[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+     inputSubset_[i] = gms.inputSubset_[i];
+   
+   initX_ = new int*[nInputs_];
+   for(int i = 0; i < nInputs_; i++){
+     nlevels = inpLevels_[i];
+     initX_[i] = new int[maxReps+nlevels];
+     for(int j = 0; j < maxReps; j++)
+       initX_[i][j] = gms.initX_[i][j];
+   }
+
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = gms.printLevel_;
+   samplingID_ = gms.samplingID_;
+   nSamples_ = gms.nSamples_;
+   nOutputs_ = gms.nOutputs_;
+   randomize_ = gms.randomize_;
+   nReplications_ = gms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = gms.lowerBounds_[i];
+      upperBounds_[i] = gms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = gms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = gms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = gms.sampleStates_[i];
 }
 
 //********************************************************************
@@ -75,7 +131,7 @@ int GMOATSampling::initialize(int initLevel)
    int    maxReps=5000, base1, base2, nSub;
    double **BS, *ranges, ddata, delta, rdata, **ranArray, *tempX, maxDist;
    double dDist;
-   char   winput1[500];
+   char   *cString, winput1[500], winput2[500];
    char   partitionFile[500], pString[500], pString2[500];
    FILE   *fp;
 
@@ -97,9 +153,10 @@ int GMOATSampling::initialize(int initLevel)
 
    if (printLevel_ > 4)
    {
-      printf("GMOATSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("GMOATSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("GMOATSampling::initialize: nOutputs = %d\n", nOutputs_);
+      printf("GMOATSampling::initialize: nSamples  = %d\n", nSamples_);
+      printf("GMOATSampling::initialize: nInputs   = %d\n", nInputs_);
+      printf("GMOATSampling::initialize: nOutputs  = %d\n", nOutputs_);
+      printf("GMOATSampling: initialize: numLevels = %d\n", P_);
       if (randomize_ != 0)
            printf("GMOATSampling::initialize: randomize on\n");
       else printf("GMOATSampling::initialize: randomize off\n");
@@ -108,14 +165,75 @@ int GMOATSampling::initialize(int initLevel)
                 lowerBounds_[ii2], upperBounds_[ii2]);
    }
 
+   if (nInputs_ > 100)
+   {
+      printf("GMOATSampling: nInputs > 100, use fast version.\n");
+      initializeHighDimension();
+      return 0;
+   }
+
    if (nReps > maxReps) maxReps = nReps;
    if (inpLevels_ != NULL) delete [] inpLevels_;
    inpLevels_ = new int[nInputs_];
    for (ii = 0; ii < nInputs_; ii++) inpLevels_[ii] = P_;
 
+   if (psConfig_ != NULL)
+   {
+      cString = psConfig_->getParameter("GMOAT_P");
+      if (cString != NULL)
+      {
+         sscanf(cString, "%s %s %d",winput1,winput2,&P_);
+         P_ = P_ / 2 * 2;
+         if (P_ <= 0 || P_ > 100) P_ = 4;
+         printf("GMOATSampling: P set to %d (config)\n", P_);
+         for (ii = 0; ii < nInputs_; ii++) inpLevels_[ii] = P_;
+      }
+      cString = psConfig_->getParameter("GMOAT_partition_file");
+      if (cString != NULL)
+      {
+         sscanf(cString, "%s %s %s",winput1,winput2,partitionFile);
+         printf("GMOATSampling: use GMOAT input partition file %s.\n",
+                partitionFile);
+         fp = fopen(partitionFile, "r");
+         if (fp != NULL)
+         {
+            if (inputSubset_ != NULL) delete [] inputSubset_;
+            inputSubset_ = NULL;
+            fscanf(fp, "%d", &ss);
+            if (ss <= 0 || ss >= nInputs_)
+            {
+               printf("GMOATSampling: invalid GMOAT input partition file.\n");
+               printf("              The first line should be nInputs.\n");
+               fclose(fp);
+               fp = NULL;
+            }
+            else
+            {
+               inputSubset_ = new int[nInputs_];
+               for (ii = 0; ii < nInputs_; ii++) inputSubset_[ii] = 0;
+               for (ii = 0; ii < ss; ii++)
+               {
+                  fscanf(fp, "%d", &ii2);
+                  if (ii2 < 1 || ii2 > nInputs_)
+                  {
+                     printf("GMOATSampling: invalid input partition file.\n");
+                     printf("               invalid input index %d.\n", ii);
+                     delete [] inputSubset_;
+                     inputSubset_ = NULL;
+                     if(fp != NULL) fclose(fp);
+                     fp = NULL;
+                     break;
+                  }
+                  else inputSubset_[ii2-1] = 1;
+               }
+            }
+            if (fp != NULL) fclose(fp);
+         }
+      }
+   }
    if (psSamExpertMode_ == 1)
    {
-      printf("GMOATSampling: default number of levels = 4.\n");
+      printf("GMOATSampling: default number of levels = %d.\n", P_);
       sprintf(pString,
               "Change number of levels for individual inputs ? (y or n) ");
       getString(pString, winput1);
@@ -152,50 +270,7 @@ int GMOATSampling::initialize(int initLevel)
       sprintf(pString,"Do you have a MOAT input partition file ? (y or n) ");
       getString(pString, winput1);
       if (winput1[0] == 'y')
-      {
-         sprintf(pString, "Please enter name of the partition file : ");
-         getString(pString, partitionFile);
-         partitionFile[strlen(partitionFile)-1] = '\0';
-         fp = fopen(partitionFile, "r");
-         if (fp == NULL)
-         {
-            printf("GMOATSampling ERROR: partition file not found.\n");
-            exit(1);
-         }
-         else
-         {
-            if (inputSubset_ != NULL) delete [] inputSubset_;
-            inputSubset_ = NULL;
-            fscanf(fp, "%d", &ss);
-            if (ss <= 0 || ss >= nInputs_)
-            {
-               printf("GMOATSampling: invalid MOAT partition file.\n");
-               printf("               The first line must be nInputs.\n");
-               fclose(fp);
-               fp = NULL;
-            }
-            else
-            {
-               inputSubset_ = new int[nInputs_];
-               for (ii = 0; ii < nInputs_; ii++) inputSubset_[ii] = 0;
-               for (ii = 0; ii < ss; ii++)
-               {
-                  fscanf(fp, "%d", &ii2);
-                  if (ii2 < 1 || ii2 > nInputs_)
-                  {
-                     printf("GMOATSampling: invalid partition file.\n");
-                     printf("               invalid input index %d.\n",ii);
-                     delete [] inputSubset_;
-                     inputSubset_ = NULL;
-                     fclose(fp);
-                     fp = NULL;
-                  }
-                  else inputSubset_[ii2-1] = 1;
-               }
-            }
-            if (fp != NULL) fclose(fp);
-         }
-      }
+         printf("GMOAT INFO: this option is now available only in configFile.\n");
    }
 
    if (initX_ != NULL)
@@ -443,7 +518,6 @@ int GMOATSampling::generate(double **BS, int index)
    }
 
 #if 1 
-   X = new double[nInputs_];
    for (ii = 0; ii < nInputs_; ii++)
    {
       idata = initX_[ii][index];
@@ -523,15 +597,8 @@ int GMOATSampling::generate(double **BS, int index)
 //*************************************************************************
 // refine the sample space (not supported)
 //-------------------------------------------------------------------------
-int GMOATSampling::refine(int refineRatio, int randomize, double thresh,
-                          int nSamples, double *sampleErrors)
+int GMOATSampling::refine(int, int, double, int, double *)
 {
-   (void) refineRatio;
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
-
    printf("GMOATSampling: refine not implemented and not needed.\n");
    printf("               You can create a new GMOAT sample and\n");
    printf("               concatenate with the old one.\n");
@@ -561,7 +628,7 @@ int GMOATSampling::repair(char *fname, int start)
    {
       fp = fopen(fname, "r");
       if (fp != NULL)
-            printf("GMOAT repair file found = %s.\n", fname);
+         printf("GMOAT repair file found = %s.\n", fname);
    }
    if (fp == NULL && psConfig_ != NULL)
    {
@@ -691,7 +758,7 @@ int GMOATSampling::repair(char *fname, int start)
    }
 
    delete [] inpList;
-   for (ii = 0; ii < nPatterns*(nInps+1); ii++) delete [] patterns[ii];
+   for (ii = 0; ii < nPatterns; ii++) delete [] patterns[ii];
    delete [] patterns;
    delete [] tempSample;
    return 0;
@@ -705,14 +772,14 @@ int GMOATSampling::merge()
    int        nInps1, nOuts1, nSamp1, nInps2, nSamp2, nOutputs, count; 
    int        samplingMethod, ii, ii2, rr, nSamples, nInputs, cnt1, cnt2;
    int        *sampleStates, nReps;
-   double     *lower1, *upper1, *lower2, *upper2, *sampleInputs1;
+   double     *sampleInputs1;
    double     *sampleInputs2, *sampleInputs, *sampleOutputs;
    char       **inpNames1, **inpNames2, **inpNames, file1[500], file2[500];
    char       pString[500];
    FILE       *fp1, *fp2;
    PsuadeData *psuadeIO1, *psuadeIO2;
-   pData      pPtr1, pINames1, pLower1, pUpper1;
-   pData      pPtr2, pINames2, pLower2, pUpper2;
+   pData      pPtr1, pINames1;
+   pData      pPtr2, pINames2;
 
    sprintf(pString,"Please enter the name of the first MOAT datafile: ");
    getString(pString, file1);
@@ -735,10 +802,6 @@ int GMOATSampling::merge()
    nInps1 = pPtr1.intData_;
    psuadeIO1->getParameter("input_names", pINames1);
    inpNames1 = pINames1.strArray_;
-   psuadeIO1->getParameter("input_lbounds", pLower1);
-   lower1 = pLower1.dbleArray_;
-   psuadeIO1->getParameter("input_ubounds", pUpper1);
-   upper1 = pUpper1.dbleArray_;
    psuadeIO1->getParameter("output_noutputs", pPtr1);
    nOuts1 = pPtr1.intData_;
    psuadeIO1->getParameter("method_sampling", pPtr1);
@@ -788,10 +851,6 @@ int GMOATSampling::merge()
    nInps2 = pPtr2.intData_;
    assert(psuadeIO2->getParameter("input_names", pINames2) == 0);
    inpNames2 = pINames2.strArray_;
-   assert(psuadeIO2->getParameter("input_lbounds", pLower2) == 0);
-   lower2 = pLower2.dbleArray_;
-   assert(psuadeIO2->getParameter("input_ubounds", pUpper2) == 0);
-   upper2 = pUpper2.dbleArray_;
    assert(psuadeIO2->getParameter("method_sampling", pPtr2) == 0);
    samplingMethod = pPtr2.intData_;
    if (samplingMethod != PSUADE_SAMP_GMOAT)
@@ -920,8 +979,13 @@ int GMOATSampling::checkSample(int nInputs, int nSamples, double **X)
       }
       nDiff = 0;
       for (ii = 0; ii < nInputs; ii++) nDiff += errArray[ii];
-      if (nDiff != nInputs) return 1;
+      if (nDiff != nInputs){
+	// Clean up by Bill Oliver
+	delete [] errArray;
+	return 1;
+      }
    }
+   delete [] errArray;
    return 0;
 }
 
@@ -949,8 +1013,170 @@ int GMOATSampling::checkSample2(int nInputs, int nSamples, double *X)
       }
       nDiff = 0;
       for (ii = 0; ii < nInputs; ii++) nDiff += errArray[ii];
-      if (nDiff != nInputs) return 1;
+      if (nDiff != nInputs){
+	// Cleanup by Bill Oliver
+	delete [] errArray;
+	return 1;
+      }
+   }
+   delete [] errArray;
+   return 0;
+}
+
+//*************************************************************************
+//* initialize the sampling data
+//*------------------------------------------------------------------------
+int GMOATSampling::initializeHighDimension()
+{
+   int    nReps, ii, rr, ind1, ind2, kk, *SI, count, *bins;
+   int    ii2, nn, currBin;
+   double *ranges, *S1, *S2, *tempX;
+
+   nReps = nSamples_ / (nInputs_ + 1);
+   allocSampleData();
+   ranges = new double[nInputs_];
+   for (ii = 0;  ii < nInputs_;  ii++) 
+      ranges[ii] = upperBounds_[ii] - lowerBounds_[ii];
+
+   S1 = new double[nInputs_];
+   S2 = new double[nInputs_];
+   SI = new int[nInputs_];
+   for (rr = 0; rr < nReps; rr++)
+   {
+      for (ii = 0; ii < nInputs_; ii++)
+      {
+         ind1 = PSUADE_rand() % P_; 
+         S1[ii] = ranges[ii] / (P_ - 1) * ind1 + lowerBounds_[ii]; 
+         kk = PSUADE_rand() % 2;
+         if (kk == 0) ind2 = ind1 - 1;
+         else         ind2 = ind1 + 1;
+         if      (ind2 < 0)    ind2 = ind2 + 2;
+         else if (ind2 > P_-1) ind2 = ind2 - 2;
+         S2[ii] = ranges[ii] / (P_ - 1) * ind2 + lowerBounds_[ii]; 
+      }
+      for (ii = 0; ii < nInputs_; ii++)
+         sampleMatrix_[rr*(nInputs_+1)][ii] = S1[ii];
+      for (ii = 0; ii < nInputs_; ii++) SI[ii] = ii;
+      count = nInputs_;
+      for (kk = 0; kk < nInputs_; kk++)
+      {
+         ind1 = PSUADE_rand() % count; 
+         ind2 = SI[ind1];
+         for (ii = ind1; ii < count-1; ii++) SI[ii] = SI[ii+1];
+         count--;
+         for (ii = 0; ii < nInputs_; ii++)
+            sampleMatrix_[rr*(nInputs_+1)+kk+1][ii] = 
+               sampleMatrix_[rr*(nInputs_+1)+kk][ii]; 
+         sampleMatrix_[rr*(nInputs_+1)+kk+1][ind2] = S2[ind2]; 
+      }
+   }
+
+   delete [] ranges;
+   delete [] S1;
+   delete [] S2;
+   delete [] SI;
+
+   if (printLevel_ > 2)
+   {
+      tempX = new double[2*nReps];
+      bins  = new int[P_];
+      for (ii = 0; ii < P_; ii++) bins[ii] = 0;
+      for (ii = 0; ii < nInputs_; ii++)
+      {
+         for (rr = 0; rr < nReps; rr++)
+         {
+            tempX[rr*2] = sampleMatrix_[rr*(nInputs_+1)][ii];
+            for (ii2 = 1; ii2 < nInputs_+1; ii2++)
+            {
+               if (sampleMatrix_[rr*(nInputs_+1)+ii2][ii] != tempX[2*rr])
+               {
+                  tempX[rr*2+1] = sampleMatrix_[rr*(nInputs_+1)+ii2][ii];
+                  break;
+               }
+            }
+         }
+         sortDbleList(2*nReps, tempX);
+         nn = 1;
+         currBin = 0;
+         for (ii2 = 1; ii2 < 2*nReps; ii2++)
+         {
+            if (tempX[ii2] != tempX[ii2-1])
+            {
+               printf("GMOAT: input %3d - level = %12.4e, # times = %4d\n",
+                      ii+1, tempX[ii2-1], nn);
+               bins[currBin++] += nn;
+               nn = 1;
+            } else nn++;
+         }
+         printf("GMOAT: input %3d - level = %12.4e, # times = %4d\n",
+                ii+1, tempX[ii2-1], nn);
+         bins[currBin++] += nn;
+      }
+      for (ii = 0; ii < P_; ii++) 
+         printf("GMOAT: frequency of visit to bin %5d = %d\n",ii+1,bins[ii]);
+      delete [] bins;
+      delete [] tempX;
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator modified by Bill Oliver
+// ------------------------------------------------------------------------
+GMOATSampling& GMOATSampling::operator=(const GMOATSampling &gms)
+{
+   if(this == &gms) return *this;
+
+   int maxReps = 5000;
+   int nlevels;
+   samplingID_  = gms.samplingID_;
+   P_ = gms.P_;
+   nInputs_ = gms.nInputs_;
+   inpLevels_   = new int[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+      inpLevels_[i] = gms.inpLevels_[i];
+   
+   inputSubset_ = new int[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+      inputSubset_[i] = gms.inputSubset_[i];
+   
+   initX_ = new int*[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      nlevels = inpLevels_[i];
+      initX_[i] = new int[maxReps+nlevels];
+      for(int j = 0; j < maxReps; j++)
+         initX_[i][j] = gms.initX_[i][j];
+   }
+
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = gms.printLevel_;
+   samplingID_ = gms.samplingID_;
+   nSamples_ = gms.nSamples_;
+   nOutputs_ = gms.nOutputs_;
+   randomize_ = gms.randomize_;
+   nReplications_ = gms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = gms.lowerBounds_[i];
+      upperBounds_[i] = gms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = gms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = gms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = gms.sampleStates_[i];
+   return (*this);
 }
 

@@ -28,14 +28,13 @@
 #ifndef __FUNCAPPROXH__
 #define __FUNCAPPROXH__
 
-#include "DataIO/PsuadeData.h"
+#include "PsuadeData.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
 class FuncApprox 
 {
-
 public:
    int    outputLevel_;
    int    faID_;
@@ -45,8 +44,18 @@ public:
    double *lowerBounds_;
    double *upperBounds_;
    double *weights_;
+   double *XMeans_;
+   double *XStds_;
+   double YMean_;
+   double YStd_;
 
    FuncApprox(int, int);
+   // Bill Oliver add prototype for copy constructor
+   FuncApprox(const FuncApprox & fa);
+
+   // Bill Oliver added overload operator=
+   FuncApprox & operator=(const FuncApprox & fa);
+
    virtual ~FuncApprox();
 
    int            getID();
@@ -69,6 +78,12 @@ public:
    virtual double evaluatePointFuzzy(double *, double &);
    virtual double evaluatePointFuzzy(int, double *, double *, double *);
    virtual double setParams(int, char **);
+   int            initInputScaling(double *, double *, int);
+   int            initOutputScaling(double *, double *);
+
+public:
+   virtual int    genNDGrid(int*,double**);
+
 };
 
 // ************************************************************************
@@ -79,7 +94,7 @@ extern "C"
    int        getFAType(char *pString);
    void       printThisFA(int faType);
    int        writeFAInfo();
-   FuncApprox *genFA(int faType, int nInputs, int nSamples);
+   FuncApprox *genFA(int faType, int nInputs, int nOutputs, int nSamples);
    FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag);
    FuncApprox *genFAFromFile(char *name, int outputID);
 }

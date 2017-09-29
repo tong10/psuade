@@ -65,7 +65,10 @@ public:
    double *retValues_;
 
    aData();
+
    ~aData();
+
+   aData& operator=(const aData &obj);
 };
 
 #endif // __ADATAH__

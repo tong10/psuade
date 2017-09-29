@@ -28,7 +28,7 @@
 #define __SPARSEGRIDSAMPLINGH__
 
 #include "Sampling.h"
-#include "Util/Vector.h"
+#include "Vector.h"
 
 /**
  * @name sparse grid samping method
@@ -41,18 +41,53 @@
 class SparseGridSampling : public Sampling 
 {
    int    pOrder_;
-   double *sampleWeights_;
+   double *sampleWeights_; 
 
 public:
 
+   /** constructor */
    SparseGridSampling();
+
+   // Bill Oliver added a copy constructor
+   SparseGridSampling(const SparseGridSampling & gs);
+
+   /** destructor */
    ~SparseGridSampling();
 
-   int initialize(int);
-   int refine(int, int, double, int, double *);
+   /** initialization 
+       @param flag: flag to signal how far to initialize
+    */
+   int initialize(int flag);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   SparseGridSampling& operator=(const SparseGridSampling &);
+
+   /** This function sets internal parameters
+       @param sparam : parameter string
+    */
    int setParam(string sparam);
+
+   /** This function computes Kronecker product
+    */
    int KronProd(int, int *, double ***, double **);
+
+   /** This function generates level sequence
+    */
    int GenSequence(int, int, int ***);
+
+   /** This function computes combinatorial numbers
+    */
    int nChooseK(int, int);
 };
 

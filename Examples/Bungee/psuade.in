@@ -11,7 +11,7 @@ OUTPUT
 END
 METHOD
    sampling = LPTAU
-   num_samples = 100
+   num_samples = 300
    randomize
    random_seed = 41491431
 END
@@ -20,8 +20,6 @@ APPLICATION
 END
 ANALYSIS
    analyzer output_id  = 1
-#  analyzer method  = ANOVA
-   analyzer rs_legendre_order = 2
    diagnostics 1
 END
 END

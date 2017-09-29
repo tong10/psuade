@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-                                                                                             
 #ifndef __OASAMPLINGH__
 #define __OASAMPLINGH__
 
@@ -38,7 +37,6 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class OASampling : public Sampling 
 {
    int    trueRandom_;
@@ -46,12 +44,38 @@ class OASampling : public Sampling
 
 public:
 
+   /** constructor */
    OASampling();
+
+   /** destructor */
    ~OASampling();
 
-   int initialize(int);
-   int refine(int, int, double, int, double *);
-   int setInputParams(int, int *, double **, int *);
+   /** initialization 
+       @param flag: flag to signal how far to initialize
+    */
+   int initialize(int flag);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   OASampling& operator=(const OASampling &);
+
+   /** This function sets internal input parameters
+       @param nInputs : number of inputs
+       @param counts : number of symbols per input
+       @param settings : input settings
+       @param symTable : symbol table
+    */
+   int setInputParams(int nInputs, int *counts, double **settings, int *symTable);
 };
 
 #endif // __OASAMPLINGH__

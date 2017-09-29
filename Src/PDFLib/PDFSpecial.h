@@ -22,36 +22,37 @@
 // ************************************************************************
 // Definition for the class PDFSpecial
 // AUTHOR : CHARLES TONG
-// DATE   : 2010
+// DATE   : 2013
 // ************************************************************************
-
 #ifndef __PDFSPECIALH__
-#define __PDFBSPECIAL__
+#define __PDFSPECIALH__
 
 /**
- * @name User-specified distribution 
+ * @name User-provided distribution 
  *
  **/
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 #include "PDFBase.h"
 
 class PDFSpecial : public PDFBase
 {
-   int    nSteps_;
-   double *storeValues_;
+   int    nInputs_;
+   int    nSamples_;
+   double *samples_;
+
 public:
 
-   PDFSpecial(double, double);    
+   PDFSpecial(int);    
    ~PDFSpecial();
 
    int getPDF(int, double *, double *);
-   int invCDF(int, double *, double *, double, double);
    int getCDF(int, double *, double *);
-   int genSample(int, double *);
+   int invCDF(int, double *, double *, double, double);
+   int genSample(int, double *, double, double);
+   double getMean();
 };
 
 #endif // __PDFSPECIALH__

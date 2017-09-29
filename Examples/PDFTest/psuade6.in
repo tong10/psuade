@@ -11,6 +11,7 @@ END
 METHOD
    sampling = MC
    num_samples = 10000
+   random_seed = 47587387
 END
 APPLICATION
    driver = ./simulator

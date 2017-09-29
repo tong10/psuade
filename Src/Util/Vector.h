@@ -47,6 +47,12 @@ class Vector
 public:
 
    Vector();
+   // Copy Constructor by Bill Oliver
+   Vector(const Vector & v);
+
+   // Overload operator= by Bill Oliver
+   Vector & operator=(const Vector & v);
+
    ~Vector();
    int     length();
    int     load(Vector &);

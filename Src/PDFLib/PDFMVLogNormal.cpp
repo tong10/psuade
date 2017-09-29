@@ -28,8 +28,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "PDFNormal.h"
 #include "PDFMVLogNormal.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))

@@ -61,6 +61,8 @@
 #define PSUADE_SAMP_SG          27
 #define PSUADE_SAMP_DISCRETE    28
 #define PSUADE_SAMP_LSA         29
+#define PSUADE_SAMP_RFF4        30
+#define PSUADE_SAMP_RFF5        31
 
 #define PSUADE_ANA_MOMENT       1
 #define PSUADE_ANA_ME           1<<1
@@ -96,8 +98,10 @@
 #define PSUADE_ANA_LSA          1<<31
 
 /* do not change these settings, as they
-   have been hardwired. */
-#define PSUADE_NUM_RS           18
+   have been hardwired. 
+   both MGP1 and PWL are not used
+*/
+#define PSUADE_NUM_RS           20
 #define PSUADE_RS_MARS          0
 #define PSUADE_RS_REGR1         1
 #define PSUADE_RS_REGR2         2
@@ -108,7 +112,7 @@
 #define PSUADE_RS_GP1           7
 #define PSUADE_RS_GP2           8
 #define PSUADE_RS_SVM           9
-#define PSUADE_RS_PWL           10
+#define PSUADE_RS_REGRGL        10
 #define PSUADE_RS_TGP           11
 #define PSUADE_RS_MARSB         12
 #define PSUADE_RS_EARTH         13
@@ -116,7 +120,10 @@
 #define PSUADE_RS_REGRL         15
 #define PSUADE_RS_REGRU         16
 #define PSUADE_RS_REGSG         17
-#define PSUADE_RS_MGP1          18
+#define PSUADE_RS_KR            18
+#define PSUADE_RS_NPL           19
+#define PSUADE_RS_MGP1          20
+#define PSUADE_RS_PWL           21
 
 #define PSUADE_GRAPHICS         1
 #define PSUADE_SAMPLE_GRAPHICS  2
@@ -129,4 +136,5 @@
 #define PSUADE_PDF_WEIBULL      5
 #define PSUADE_PDF_GAMMA        6
 #define PSUADE_PDF_EXPONENTIAL  7
+#define PSUADE_PDF_USER         8
 

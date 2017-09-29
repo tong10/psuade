@@ -43,9 +43,9 @@ extern "C"
 #endif
 
 #include "TBGP.h"
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -269,7 +269,10 @@ int TGP::genNDGridData(double *X, double *Y, int *N, double **X2,
    (*X2) = XX;
    (*Y2) = ZZMean;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
+   (*N) = 0;
+   (*X2) = NULL;
+   (*Y2) = NULL;
    return -1;
 #endif
    return 0;
@@ -448,7 +451,7 @@ int TGP::gen1DGridData(double *X, double *Y, int ind1,
    (*Y2) = ZZMean;
    delete [] XX;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    return 0;
 }
@@ -635,7 +638,7 @@ int TGP::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    (*Y2) = ZZMean;
    delete [] XX;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    return 0;
 }
@@ -828,7 +831,7 @@ int TGP::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    (*Y2) = ZZMean;
    delete [] XX;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    return 0;
 }
@@ -1029,7 +1032,7 @@ int TGP::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
    (*Y2) = ZZMean;
    delete [] XX;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    return 0;
 }
@@ -1060,7 +1063,7 @@ double TGP::evaluatePoint(double *X)
    return ZZMean;
 #endif
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
    return 0.0;
 #endif
 }
@@ -1137,7 +1140,7 @@ double TGP::evaluatePoint(int npts, double *X, double *Y)
    delete [] ZZMedian;
    delete [] ZZQ2;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    return 0.0;
 }
@@ -1169,7 +1172,7 @@ double TGP::evaluatePointFuzzy(double *X, double &std)
    return ZZMean;
 #endif
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
    return 0.0;
 #endif
 }
@@ -1248,7 +1251,7 @@ double TGP::evaluatePointFuzzy(int npts,double *X, double *Y, double *Ystd)
    delete [] ZZMedian;
    delete [] ZZQ2;
 #else
-   printf("PSUADE ERROR : TGP not used.\n");
+   printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    return 0.0;
 }
@@ -1262,7 +1265,7 @@ double TGP::setParams(int targc, char **targv)
    {
 #ifdef HAVE_TGP
 #else
-      printf("PSUADE ERROR : TGP not used.\n");
+      printf("PSUADE ERROR : TGP not installed.\n");
 #endif
    }
    return 0.0;

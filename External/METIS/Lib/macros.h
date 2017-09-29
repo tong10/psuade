@@ -20,7 +20,7 @@
 #define RandomInRange(u) ((rand()>>3)%(u))
 #define RandomInRangeFast(u) ((rand()>>3)%(u))
 #else
-#define RandomInRange(u) ((int)(drand48()*((double)(u))))
+#define RandomInRange(u) ((int)((rand()/RAND_MAX)*((double)(u)))) /*Jim Leek 6/4/13 changed drand48 to rand so it will build with MinGW on Windows */
 #define RandomInRangeFast(u) ((rand()>>3)%(u))
 #endif
 

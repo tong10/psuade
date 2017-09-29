@@ -1,6 +1,6 @@
 clean:
 	@rm -f */*.o
-	@rm -f */simulator
+	@rm -f */simulator */.psuade_mars */psuadeMetisInfo */psuadeGMetisInfo
 	@rm -f */*/simulator
 	@rm -f */psuadeData*
 	@rm -f */*/psuadeData*

@@ -28,12 +28,12 @@
 #ifndef __PSUADEBASEH__
 #define __PSUADEBASEH__
 
-#include "DataIO/PsuadeData.h"
-#include "DataIO/FunctionInterface.h"
-#include "Samplings/Sampling.h"
-#include "Analysis/Analyzer.h"
-#include "Analysis/AnalysisManager.h"
-#include "Util/Exceptions.h"
+#include "PsuadeData.h"
+#include "FunctionInterface.h"
+#include "Sampling.h"
+#include "Analyzer.h"
+#include "AnalysisManager.h"
+#include "Exceptions.h"
 
 // ************************************************************************
 // class definition 
@@ -66,15 +66,25 @@ public:
 
 public:
 
+   // Constructor 
    PsuadeBase();
 
+   // Destructor 
    ~PsuadeBase();
 
-   int  getInputFromFile(char *filename, char *psuadeio_filename = NULL);
+   // get input data from a given file
+   // @param filename - name of file from which data are to be read
+   // @param psuadeio_filename - optional - file to read psuade_io data from
+   int  getInputFromFile(const char *filename, const char *psuadeio_filename = NULL);
 
+   // run the experiments
    int  run() throw(Psuade_Stop_Exception);
 
+   // run in interactive mode
    int  analyzeInteractive();
+
+   // assign operator 
+   PsuadeBase& operator=(const PsuadeBase &);
 
 private:
 

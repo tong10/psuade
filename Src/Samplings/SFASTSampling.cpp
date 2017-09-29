@@ -24,12 +24,11 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2006
 // ************************************************************************
-                                                                                             
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "SFASTSampling.h"
 
 #define PABS(x) ((x) > 0 ? x : -(x))
@@ -37,7 +36,6 @@
 // ************************************************************************
 // Constructor 
 // ------------------------------------------------------------------------
-
 SFASTSampling::SFASTSampling() : Sampling()
 {
 }
@@ -45,7 +43,6 @@ SFASTSampling::SFASTSampling() : Sampling()
 // *******************************************************************
 // destructor 
 // -------------------------------------------------------------------
-
 SFASTSampling::~SFASTSampling()
 {
 }
@@ -53,23 +50,19 @@ SFASTSampling::~SFASTSampling()
 // ************************************************************************
 // initialize the sampling data (default M = 4)
 // ------------------------------------------------------------------------
-
 int SFASTSampling::initialize(int initLevel)
 {
    int    M=4, NS, *omegas, ii, jj, jj2;
    double *ranges, ds, ss, ps_pi=3.14159, ddata;
 
-                                                                                
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("SFASTSampling::initialize ERROR - input not set up.\n");
       exit(1);
    }
 
-
    deleteSampleData();
    if (initLevel != 0) return 0;
-
 
    NS = nSamples_ / nInputs_;
    if (((NS-1)/(2*M)*(2*M)+1) != NS) 
@@ -97,7 +90,6 @@ int SFASTSampling::initialize(int initLevel)
       }
    }
 
-
    ranges = new double[nInputs_];
    for (jj = 0; jj < nInputs_; jj++) 
       ranges[jj] = upperBounds_[jj] - lowerBounds_[jj];
@@ -111,7 +103,6 @@ int SFASTSampling::initialize(int initLevel)
       }
    } 
 
-                                                                                
    if (printLevel_ > 4)
    {
       printf("SFASTSampling::initialize: nSamples = %d\n", nSamples_);
@@ -122,7 +113,6 @@ int SFASTSampling::initialize(int initLevel)
                 lowerBounds_[jj], upperBounds_[jj]);
    }
 
-
    delete [] ranges;
    delete [] omegas;
    return 0;
@@ -131,20 +121,17 @@ int SFASTSampling::initialize(int initLevel)
 // ************************************************************************
 // refine the sample space
 // ------------------------------------------------------------------------
-
 int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
                           int nSamples, double *sampleErrors)
 {
-   int    *omegas, NS, omi, M=4, nLevels, oldNSamples, *oldStates, oldNS;
+   int    *omegas, NS, omi, M=4, nLevels, *oldStates, oldNS;
    int    ii, jj, jj2, fail;
    double *ranges, **oldSamples, *oldOutputs, ds, ss, ps_pi=3.14159, ddata;
-
 
    (void) randomize;
    (void) thresh;
    (void) nSamples;
    (void) sampleErrors;
-
 
    omegas = new int[nInputs_];
    NS  = nSamples_ / nInputs_;
@@ -156,9 +143,7 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
       exit(1);
    } 
    
-
    nLevels     = refineRatio;
-   oldNSamples = nSamples_;
    oldSamples  = sampleMatrix_;
    oldOutputs  = sampleOutput_;
    oldStates   = sampleStates_;
@@ -170,7 +155,6 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
    NS = (NS - 1) * 2 + 1;
    nSamples_ = NS * nInputs_;
    allocSampleData();
-
 
    ds = ps_pi / (double) (2 * NS);
    for (jj = 0; jj < nInputs_; jj++)
@@ -188,7 +172,6 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
       }
    }
 
-
    ranges = new double[nInputs_];
    for (jj = 0; jj < nInputs_; jj++) 
       ranges[jj] = upperBounds_[jj] - lowerBounds_[jj];
@@ -201,7 +184,6 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
          sampleMatrix_[ii][jj] = ddata * ranges[jj] + lowerBounds_[jj];
       }
    } 
-
 
    fail = 0;
    for (jj = 0; jj < nInputs_; jj++)
@@ -226,7 +208,6 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
       exit(1);
    }
 
-                                                                                
    if (printLevel_ > 4)
    {
       printf("SFASTSampling::refine: nSamples = %d\n", nSamples_);
@@ -237,7 +218,6 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
                 lowerBounds_[jj], upperBounds_[jj]);
    }
 
-
    delete [] omegas;
    delete [] ranges;
    return 0;
@@ -246,7 +226,6 @@ int SFASTSampling::refine(int refineRatio, int randomize, double thresh,
 // ************************************************************************
 // calculate frequencies
 // ------------------------------------------------------------------------
-
 int SFASTSampling::calculateOmegas(int nInputs, int *omegas, int index)
 {
    int om1, step, offset, ii;
@@ -264,5 +243,15 @@ int SFASTSampling::calculateOmegas(int nInputs, int *omegas, int index)
    }
    omegas[index] = om1;
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+SFASTSampling& SFASTSampling::operator=(const SFASTSampling &)
+{
+   printf("SFASTSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

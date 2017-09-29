@@ -28,11 +28,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "MomentAnalyzer.h"
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "DataIO/pData.h"
-#include "Samplings/RSConstraints.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "pData.h"
+#include "RSConstraints.h"
 
 // ************************************************************************
 // constructor
@@ -65,6 +65,10 @@ double MomentAnalyzer::analyze(aData &adata)
    PsuadeData    *ioPtr;
    pData         pPtr;
 
+   // Providing initialization by Bill Oliver
+   outID = 0;
+   nValid = 1;  // nValid is set to 1 to avoid a divide by zero later
+
    printLevel = adata.printLevel_;
    nInputs  = adata.nInputs_;
    nOutputs = adata.nOutputs_;
@@ -76,34 +80,39 @@ double MomentAnalyzer::analyze(aData &adata)
    ioPtr       = adata.ioPtr_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("MomentAnalyzer INFO: non-uniform probability distributions\n");
-      printf("                     have been defined in the data file, but\n");
-      printf("                     they will not be used in this analysis.\n");
+      cnt = 0;
+      for (ii = 0; ii < nInputs; ii++) cnt += adata.inputPDFs_[ii];
+      if (cnt > 0)
+      {
+         printf("SampleStatistics INFO: non-uniform probability distributions\n");
+         printf("               have been defined in the data file, but\n");
+         printf("               they will not be used in this analysis.\n");
+      }
    }
    if (ioPtr != NULL) ioPtr->getParameter("output_names", pPtr);
 
    if (nInputs <= 0 || nOutputs <= 0)
    {
-      printf("MomentAnalyzer ERROR: invalid nInputs or nOutputs.\n");
+      printf("SampleStatistics ERROR: invalid nInputs or nOutputs.\n");
       printf("   nInputs  = %d\n", nInputs);
       printf("   nOutputs = %d\n", nOutputs); 
       return PSUADE_UNDEFINED;
    } 
    if (nSamples <= 1)
    {
-      printf("MomentAnalyzer ERROR: nSamples should be > 1.\n");
+      printf("SampleStatistics ERROR: nSamples should be > 1.\n");
       printf("   nSamples = %d\n", nSamples);
       return PSUADE_UNDEFINED;
    } 
    if (nSubSamples <= 0)
    {
-      printf("MomentAnalyzer ERROR: nSubSamples should be > 0.\n");
+      printf("SampleStatistics ERROR: nSubSamples should be > 0.\n");
       printf("   nSubSamples = %d\n", nSubSamples);
       return PSUADE_UNDEFINED;
    } 
    if (nSamples/nSubSamples*nSubSamples != nSamples)
    {
-      printf("MomentAnalyzer ERROR : nSamples != k*nSubSamples.\n");
+      printf("SampleStatistics ERROR: nSamples != k*nSubSamples.\n");
       printf("   nSamples    = %d\n", nSamples);
       printf("   nSubSamples = %d\n", nSubSamples);
       return PSUADE_UNDEFINED;
@@ -111,7 +120,7 @@ double MomentAnalyzer::analyze(aData &adata)
    whichOutput = outputID;
    if (whichOutput < -1 || whichOutput >= nOutputs)
    {
-      printf("MomentAnalyzer ERROR: invalid outputID (%d).\n",whichOutput+1);
+      printf("SampleStatistics ERROR: invalid outputID (%d).\n",whichOutput+1);
       printf("   outputID = %d\n", outputID+1);
       return PSUADE_UNDEFINED;
    } 
@@ -131,8 +140,8 @@ double MomentAnalyzer::analyze(aData &adata)
    if (errFlag == 0) Y = YY;
    else
    {
-      printf("MomentAnalyzer INFO: Some outputs are undefined,\n");
-      printf("               which are purged before processing.\n");
+      printf("SampleStatistics INFO: Some outputs are undefined,\n");
+      printf("                 which are purged before processing.\n");
       Y = new double[nSamples*nOutputs];
       cnt = 0;
       for (ss = 0; ss < nSamples; ss++)
@@ -147,9 +156,9 @@ double MomentAnalyzer::analyze(aData &adata)
          } 
       }
       if (nSubSamples == nSamples) nSubSamples = cnt;
-      printf("MomentAnalyzer INFO: original sample size = %d\n",nSamples);
+      printf("SampleStatistics INFO: original sample size = %d\n",nSamples);
       nSamples = cnt;
-      printf("MomentAnalyzer INFO: purged   sample size = %d\n",nSamples);
+      printf("SampleStatistics INFO: purged   sample size = %d\n",nSamples);
    }
    
    nConstr = 0;
@@ -210,7 +219,7 @@ double MomentAnalyzer::analyze(aData &adata)
       }
       if (nValid == 0)
       {
-         printf("MomemtAnalyzer INFO: no valid data points.\n");
+         printf("SampleStatistics INFO: no valid data points.\n");
          delete [] Y2;
          delete constrPtr;
          if (fp != NULL) fclose(fp);
@@ -510,6 +519,7 @@ double MomentAnalyzer::analyze(aData &adata)
             printAsterisks(0);
          }
          if (errFlag != 0 && Y != NULL) delete [] Y;
+         delete constrPtr;
          return sqrt(variance2/(double) nSamples);
       }
       for (groupID = 0; groupID < nGroups; groupID++)
@@ -555,6 +565,7 @@ double MomentAnalyzer::analyze(aData &adata)
 
    delete [] gMeans;
    delete [] gVariances;
+   delete constrPtr;
    if (errFlag != 0 && Y != NULL) delete [] Y;
    return sqrt(variance/nValid);
 }
@@ -662,5 +673,15 @@ int MomentAnalyzer::analyzeMore(int nInputs, int nOutputs, int nSamples,
       delete [] gVariances;
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+MomentAnalyzer& MomentAnalyzer::operator=(const MomentAnalyzer &)
+{
+   printf("SampleStatistics operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

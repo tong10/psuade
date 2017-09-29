@@ -492,16 +492,11 @@ int ispow2(int a)
 **************************************************************************/
 void InitRandom(int seed)
 {
+/*Jim Leek 6/4/13 changed removed srand48 here so it will build with MinGW on Windows */
   if (seed == -1) {
-#ifndef __VC__
-    srand48(7654321L);  
-#endif
     srand(4321);  
   }
   else {
-#ifndef __VC__
-    srand48(seed);  
-#endif
     srand(seed);  
   }
 }

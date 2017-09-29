@@ -28,7 +28,7 @@
 #ifndef __PCANALYZERH__
 #define __PCANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -45,6 +45,8 @@ public:
    ~PCAnalyzer();
 
    double analyze(aData &adata);
+
+   PCAnalyzer& operator=(const PCAnalyzer &analyzer);
 };
 
 #endif // __PCANALYZERH__

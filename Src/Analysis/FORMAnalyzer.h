@@ -28,7 +28,7 @@
 #ifndef __FORMANALYZERH__
 #define __FORMANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -45,6 +45,8 @@ public:
    ~FORMAnalyzer();
 
    double analyze(aData &adata);
+
+   FORMAnalyzer& operator=(const FORMAnalyzer &analyzer);
 
    int setParams(int nParams, char **params);
 };

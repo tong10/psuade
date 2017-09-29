@@ -25,8 +25,8 @@
 // DATE   : 2012
 // ************************************************************************
 using namespace std;
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "LSASampling.h"
 
 // ************************************************************************
@@ -96,5 +96,15 @@ int LSASampling::refine(int, int, double, int, double *)
 {
    printf("LSASampling ERROR - refine not available.\n");
    return -1;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+LSASampling& LSASampling::operator=(const LSASampling &)
+{
+   printf("LSASampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

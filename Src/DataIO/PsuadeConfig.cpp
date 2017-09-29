@@ -43,7 +43,6 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
    if (fIn == NULL) 
    {
       printf("PsuadeConfig ERROR:: configure file %s not found.\n",fname);
-      fclose(fIn);
       exit(1);
    }
 
@@ -58,7 +57,6 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
       fclose(fIn);
       exit(1);
    }
-
    nLines_ = 0;
    while ((fgets(lineIn, lineLeng, fIn) != NULL) && (feof(fIn) == 0))
    {
@@ -92,6 +90,25 @@ PsuadeConfig::PsuadeConfig(char *fname, int printLevel)
       fclose(fIn);
    }
    printLevel_ = printLevel;
+}
+
+// ************************************************************************
+// copy constructor by Bill Oliver
+// ------------------------------------------------------------------------
+PsuadeConfig::PsuadeConfig(const PsuadeConfig & ps)
+{
+   fileData_ = NULL; 
+   printLevel_ = ps.printLevel_;
+   nLines_ = ps.nLines_;
+   if(ps.fileData_ != NULL)
+   { 
+      fileData_ = new char *[nLines_];
+      for(int i = 0; i < nLines_; i++)
+      {
+	 fileData_[i] = new char[strlen(ps.fileData_[i] + 1)];
+	 strcpy(fileData_[i], ps.fileData_[i]); 
+      }
+   }
 }
 
 // ************************************************************************
@@ -139,7 +156,7 @@ void PsuadeConfig::writeToFile(char *fname)
    {
       printf("PsuadeConfig ERROR:: cannot write to configure file %s.\n",
              fname);
-      fclose(fOut);
+      // fclose(fOut);  No need to call fclose if the file pointer is NULL
       exit(1);
    }
 
@@ -148,5 +165,64 @@ void PsuadeConfig::writeToFile(char *fname)
       fprintf(fOut, "%s\n", fileData_[ii]);
    fprintf(fOut, "PSUADE_END\n");
    fclose(fOut);
+}
+
+// ************************************************************************
+// friend function (create a function approximator given a file name)
+// perform PDF transformation
+// check invalid sample points
+// RS type from file 
+// ------------------------------------------------------------------------
+extern "C"
+int genConfigFileTemplate(char *fname)
+{
+   FILE *fp;
+   fp = fopen(fname, "w");
+   if (fp != NULL)
+   {
+      fprintf(fp, "# Use this file if you need to set options but\n");
+      fprintf(fp, "# but it is cumbersome to use, e.g., rs_expert mode.\n");
+      fprintf(fp, "# Current options are listed in the following\n");
+      fprintf(fp, "# Uncomment and add information to activate them.\n");
+      fprintf(fp, "# To use this, add this line in ANALYSIS section\n");
+      fprintf(fp, "#       use_configure_file = <this file name>\n");
+      fprintf(fp, "PSUADE_CONFIG\n");
+      fprintf(fp, "## tell some response surface methods to normalize the input\n");
+      fprintf(fp, "#normalize_input (take out the # to turn on)\n");
+      fprintf(fp, "## tell response surface methods to normalize the output\n");
+      fprintf(fp, "#normalize_output (take out the # to turn on)\n");
+      fprintf(fp, "## MARS parameters (take out the # to turn on)\n");
+      fprintf(fp, "#MARS_num_bases = 50\n");
+      fprintf(fp, "#MARS_interaction = 2\n");
+      fprintf(fp, "## SVM parameters (take out the # to turn on)\n");
+      fprintf(fp, "#SVM_gamma = 1.0 (1e-6 - 1.0)\n");
+      fprintf(fp, "#SVM_tol = 1.0 (1e-6 - 1.0)\n");
+      fprintf(fp, "#SVM_kernel = 1 (1:linear, 2:cubic, 3:RBF, 4:sigmoid)\n");
+      fprintf(fp, "## Kriging parameters (take out the # to turn on)\n");
+      fprintf(fp, "#KRI_MODE = 2\n");
+      fprintf(fp, "#KRI_TOL = 1.0e-6\n");
+      fprintf(fp, "#KRI_DATA_STDEV_FILE = <add a file here>\n");
+      fprintf(fp, "#KRI_LENG_SCALE 1 = 0.1\n");
+      fprintf(fp, "#KRI_LENG_SCALE 2 = 0.1\n");
+      fprintf(fp, "## Legendre parameters (take out the # to turn on)\n");
+      fprintf(fp, "#Legendre_order = 1\n");
+      fprintf(fp, "## MOAT parameter (number of levels)\n");
+      fprintf(fp, "#MOAT_P = 4\n");
+      fprintf(fp, "## GMOAT parameter (number of levels)\n");
+      fprintf(fp, "#GMOAT_P = 4\n");
+      fprintf(fp, "## RS-based Sobol index parameters\n");
+      fprintf(fp, "#RSMSobol1_nsubsamples = 1000\n");
+      fprintf(fp, "#RSMSobol1_nlevels = 200\n");
+      fprintf(fp, "#RSMSobol2_nsubsamples = 1000\n");
+      fprintf(fp, "#RSMSobol2_nlevels = 200\n");
+      fprintf(fp, "#RSMSoboltsi_nsubsamples = 1000\n");
+      fprintf(fp, "#RSMSoboltsi_nlevels = 100\n");
+      fprintf(fp, "#RSMSoboltG_nsubsamples_ingroup = 500\n");
+      fprintf(fp, "#RSMSoboltG_nsubsamples_outgroup = 2000\n");
+      fprintf(fp, "PSUADE_END\n");
+      fclose(fp);
+      return 0;
+   }
+   else return -1;
 }
 

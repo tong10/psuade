@@ -24,15 +24,14 @@
 // AUTHOR : Amer Abdulla 
 // DATE   : 2009
 // ************************************************************************
-
 #include <stdio.h>
 #include <stdlib.h>
-#include "Util/PsuadeUtil.h"
+#include "PsuadeUtil.h"
 #include "SCEOptimizer.h"
-#include "Util/PsuadeUtil.h"
-#include "Samplings/Sampling.h"
-#include "Util/sysdef.h"
-#include "Main/Psuade.h"
+#include "PsuadeUtil.h"
+#include "Sampling.h"
+#include "sysdef.h"
+#include "Psuade.h"
 
 // ------------------------------------------------------------------------
 #include <math.h> // for standev and georange functions
@@ -51,7 +50,6 @@ void    *psSCEObj_=NULL;
 // ************************************************************************
 // resident function to perform evaluation 
 // ------------------------------------------------------------------------
-
 #ifdef __cplusplus
 extern "C" 
 {
@@ -588,5 +586,15 @@ void SCEOptimizer::newPoint(double *sfNew, int* iCall, int nInputs,
       }
    }
    *sfNew = sfNew1;
+}
+
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+SCEOptimizer& SCEOptimizer::operator=(const SCEOptimizer &)
+{
+   printf("SCEOptimizer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

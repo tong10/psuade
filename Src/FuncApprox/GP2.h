@@ -29,7 +29,7 @@
 #define __GP2H__
 
 #include <stdio.h>
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

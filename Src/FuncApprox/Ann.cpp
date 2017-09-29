@@ -31,11 +31,13 @@
 #include <math.h>
 #include <string.h>
 
+#include "sysdef.h"
 #include "Ann.h"
 
 #ifdef HAVE_SNNS
 extern "C" {
 #include "AnnFunctions.h"
+typedef float   FlintType;
 #include "cc_mac.h"
 }
 #endif
@@ -53,7 +55,8 @@ extern "C" {
 Ann::Ann(int nInputs, int nSamples) : FuncApprox(nInputs, nSamples)
 {	
 #ifdef HAVE_SNNS
-
+   this->nInputs_ = nInputs;
+   this->nSamples_ = nSamples;
    faID_ = PSUADE_RS_ANN;
    learnFuncName_ = NULL;
    inputDataMax_  = NULL;
@@ -154,6 +157,58 @@ Ann::Ann(int nInputs, int nSamples) : FuncApprox(nInputs, nSamples)
 }
 
 //****************************************************************************
+// Copy Constructor Created by Bill Oliver
+//****************************************************************************
+Ann::Ann(const Ann & an) : FuncApprox(an.nInputs_, an.nSamples_)  
+{	
+   nNet_ = an.nNet_;
+   nHidden_ = an.nHidden_;	
+
+   samplingMethod_ = an.samplingMethod_;
+   normFlag_ = an.normFlag_;
+   normBounds_[0] = an.normBounds_[0];
+   normBounds_[1] = an.normBounds_[1];	
+
+   learnFuncName_ = (char *)malloc(strlen(an.learnFuncName_) + 1);
+   if(learnFuncName_ == NULL)
+   {
+      printf("Out of Heap Memory in file %s line %d aborting.\n", 
+             __FILE__, __LINE__);
+      exit(1);
+   }
+   strcpy(learnFuncName_, an.learnFuncName_);
+   nLearnFuncParam_ = an.nLearnFuncParam_;
+   nMaxRetrain_ =an.nMaxRetrain_;	
+   trainPerformed_ = an.trainPerformed_;
+
+   maxMagnitudeOutput_ = an.maxMagnitudeOutput_;
+   accuracyLevel_ = an.accuracyLevel_;
+
+   verboseFlag_ = an.verboseFlag_;
+   saveNetFlag_ = an.saveNetFlag_;
+   savePatFlag_ = an.savePatFlag_;		
+
+   scalingFactor_ = an.scalingFactor_;
+
+   for(int i = 0; i < 28; i++)
+   {
+     aLearnFuncParam_[i] = an.aLearnFuncParam_[i];
+   }
+   inputDataMax_ = new double[nInputs_];
+   inputDataMin_ = new double[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+   {
+      inputDataMax_[i] = an.inputDataMax_[i];
+      inputDataMin_[i] = an.inputDataMin_[i];
+   }
+   inputData_ = new double[nInputs_*nSamples_];
+   for(int i = 0; i < nInputs_*nSamples_; i++)
+   {
+      inputData_[i] = an.inputData_[i];
+   }
+}
+
+//****************************************************************************
 // FUNCTION : ~Ann()  
 // PURPOSE  : Destructor for object class Ann
 //****************************************************************************
@@ -240,7 +295,7 @@ void Ann::checkClassVars(void)
 //****************************************************************************
 void Ann::readConfigFile(void)
 {
-#ifdef HAVE_ANNS
+#ifdef HAVE_SNNS
    int lineLength = 200;
    char line[300], winput[200];
    char *keywords[] = {"ANN","TOPOLOGY","DATA","TRAINING","OUTPUT","END"};
@@ -289,7 +344,7 @@ void Ann::readConfigFile(void)
 //****************************************************************************
 void Ann::readTopologySection(FILE *fp)
 {
-#ifdef HAVE_ANNS
+#ifdef HAVE_SNNS
    int lineLength = 200;
    char line[200], winput[200], winput2[200];
    char *keywords[] = {"num_networks","num_hidden_units","END"};
@@ -345,7 +400,7 @@ void Ann::readTopologySection(FILE *fp)
 //****************************************************************************
 void Ann::readDataSection(FILE *fp)
 {
-#ifdef HAVE_ANNS
+#ifdef HAVE_SNNS
    int lineLength = 200;
    char line[200], winput[200], winput2[200], winput3[200];
    char *keywords[]={"sampling_method","nonormalize","normalize_bounds","END"};
@@ -406,7 +461,8 @@ void Ann::readDataSection(FILE *fp)
       else if (winput[0] == '#') { /* comment line */ }
       else 
       {
-         fprintf(stderr, "ANN::readDataSection ERROR - unrecognized line: %s\n",                 line);
+         fprintf(stderr, "ANN::readDataSection ERROR - unrecognized line: %s\n",
+                 line);
          exit(1);
       }
    }
@@ -424,7 +480,7 @@ void Ann::readDataSection(FILE *fp)
 //****************************************************************************
 void Ann::readTrainingSection(FILE *fp)
 {
-#ifdef HAVE_ANNS
+#ifdef HAVE_SNNS
    int lineLength = 200;
    char line[200], winput[200], winput2[200], winput3[200];
    char *keywords[] = {"training_algorithm","training_num_param",
@@ -858,14 +914,15 @@ void Ann::generateNet(double *X, double *Y)
 int Ann::genNDGridData(double *X, double *Y, int *N, double **X2, double **Y2)
 {
 #ifdef HAVE_SNNS
-   int     totPts, sampleID, inputID;
-   double  *HX, *Xloc, std;
+   int     totPts, mm;
 
-   if (nInputs_ <= 0 || nSamples_ <= 0) {
+   if (nInputs_ <= 0 || nSamples_ <= 0)
+   {
       printf("ANN::genNDGridData ERROR - invalid argument.\n");
       exit(1);
    } 
-   if (nSamples_ <= nInputs_) {
+   if (nSamples_ <= nInputs_)
+   {
       printf("ANN::genNDGridData INFO - not enough points.\n");
       return 0;
    }
@@ -874,74 +931,18 @@ int Ann::genNDGridData(double *X, double *Y, int *N, double **X2, double **Y2)
    if (trainPerformed_ == false) { generateNet(X, Y); }
 	
    if ((*N) == -999) return 0;
-   if (nInputs_ > 21) {
-      printf("ANN::genNDGridData INFO - nInputs > 6.\n");
-      printf("            No lattice points generated.\n");
-      (*N) = 0;
-      (*X2) = 0;
-      (*Y2) = 0;
-      return 0;
-   }
 
-   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 18 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 17 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 16 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 15 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;   
-	totPts = nPtsPerDim_;
-   for (inputID = 1; inputID < nInputs_; inputID++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      HX[inputID] = (upperBounds_[inputID] - lowerBounds_[inputID]) /
-                    (double) (nPtsPerDim_ - 1);
+   genNDGrid(N, X2);
+   if ((*N) == 0) return 0;
+   totPts = (*N);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
-   (*N) = totPts;
-   Xloc  = new double[nInputs_];
+   (*N)  = totPts;
+   for (mm = 0; mm < totPts; mm++)
+      (*Y2)[mm] = evaluatePoint(&((*X2)[mm*nInputs_]));
 
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      Xloc[inputID] = lowerBounds_[inputID];
+   return 0;
 
-   for (sampleID = 0; sampleID < totPts; sampleID++)
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         (*X2)[sampleID*nInputs_+inputID] = Xloc[inputID];
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         Xloc[inputID] += HX[inputID];
-         if (Xloc[inputID] < upperBounds_[inputID] ||
-              PABS(Xloc[inputID] - upperBounds_[inputID]) < 1.0E-7) break;
-         else Xloc[inputID] = lowerBounds_[inputID];
-      }
-      (*Y2)[sampleID] = evaluatePointFuzzy(&((*X2)[sampleID*nInputs_]),std);
-      if (outputLevel_ > 3)
-      {
-         for (inputID = 0; inputID < nInputs_; inputID++)
-            printf("     X %4d = %12.4e\n", inputID, Xloc[inputID]);
-         printf("     Y     = %12.4e (std = %12.4e)\n", (*Y2)[sampleID], std);
-      }
-   }
-
-   delete [] Xloc;
-   delete [] HX;
 #endif
    return 0;
 }
@@ -1336,12 +1337,12 @@ double Ann::evaluatePointFuzzy(int npts, double *X, double *Y, double *Ystd)
       }
       if (nNet_ > 1) mean /= (double) (nNet_ - 1);
       Y[kk] = mean;
-      std = 0.0;
+      double thisStd = 0.0;
       for (ii = 1; ii < nNet_; ii++) 
-         std += (netValues[ii] - mean) * (netValues[ii] - mean);
-      if (nNet_ > 2) std = sqrt(std/(double) (nNet_-2));
-      Ystd[kk] = std;
-      if (outputLevel_ > 2) printf("ANN mean/std = %12.4e %12.4e\n",mean,std);
+         thisStd += (netValues[ii] - mean) * (netValues[ii] - mean);
+      if (nNet_ > 2) thisStd = sqrt(thisStd/(double) (nNet_-2));
+      Ystd[kk] = thisStd;
+      if (outputLevel_ > 2) printf("ANN mean/std = %12.4e %12.4e\n",mean,thisStd);
    }
    delete [] xPoint;
    delete [] netValues;

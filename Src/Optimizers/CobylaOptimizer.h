@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __COBYLAOPTIMIZER__
 #define __COBYLAOPTIMIZER__
 
@@ -34,14 +33,23 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class CobylaOptimizer : public Optimizer
 {
 public:
 
+   /** constructor */
    CobylaOptimizer();
+
+   /** destructor */
    ~CobylaOptimizer();
-   void optimize(oData *odata);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   CobylaOptimizer& operator=(const CobylaOptimizer &);
 };
 
 #endif // __COBYLAOPTIMIZER__

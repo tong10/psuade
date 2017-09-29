@@ -33,14 +33,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "Util/sysdef.h"
-#include "DataIO/PsuadeData.h"
-#include "FuncApprox/FuncApprox.h"
+#include "sysdef.h"
+#include "PsuadeData.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // Class Definition 
 // ************************************************************************
-
 class FunctionInterface 
 {
    int    nInputs_;
@@ -61,28 +60,86 @@ class FunctionInterface
    int    *rsIndices_;
    double *rsValues_;
    int    rsRanFlag_;
+   int    nInps_;
 
 public:
+
+   /** constructor */
    FunctionInterface();
+
+   /** Copy constructor by Bill Oliver */
+   FunctionInterface(const FunctionInterface & fi);
+
+   /** destructor */
    ~FunctionInterface();
 
-   int  loadInputData(int, char **);
-   int  loadOutputData(int, char **);
-   int  loadFunctionData(int, char **);
+   /** This function loads input data 
+       @param nInputs - number of inputs
+       @param iNames - names of each input
+    */
+   int  loadInputData(int nInputs, char **iNames);
+
+   /** This function loads output data 
+       @param nOutputs - number of outputs
+       @param oNames - names of each output
+    */
+   int  loadOutputData(int nOutputs, char **oNames);
+
+   /** This function loads output data 
+       @param nFunc - number of function names
+       @param fNames - names of each function
+    */
+   int  loadFunctionData(int nFunc, char **fNames);
+
+   /** This function sets the run mode to be asynchronous */
    int  setAsynchronousMode();
+
+   /** This function sets stochastic response surface evaluation */
+   int  setStochasticRSMode(int);
+
+   /** This function sets the run mode to be synchronous */
    int  setSynchronousMode();
+
+   /** This function sets print level */
    int  setOutputLevel(int);
+
+   /** This function sets interval between launching each run */
    int  setLaunchInterval(int);
-   int  setDriver(int);
+
+   /** This function sets the simulator number
+       @param num - simulator number
+     */
+   int  setDriver(int num);
+
+   /** This function calls the simulation runs */
    int  evaluate(int,int,double *,int,double *,int);
+
+   /** This function extracts the number of inputs */
    int  getNumInputs();
+
+   /** This function extracts the number of outputs */
    int  getNumOutputs();
+
+   /** This function gets the simulator number */
    int  getDriver();
+
+   /** This function extracts the names of the inputs */
    char **getInputNames();
+
+   /** This function extracts the names of the outputs */
    char **getOutputNames();
+
+   /** This function extracts the name of the application driver */
    char *getApplicationDriver();
+
+   /** This function extracts the name of the optimization driver */
    char *getOptimizationDriver();
+
+   /** This function extracts the name of the auxiliary optimization driver */
    char *getAuxOptimizationDriver();
+
+   /** This function overrides the assign operator */
+   FunctionInterface& operator=(const FunctionInterface &);
 
 private :
    int createInputFile(int, double *dinputs);
@@ -96,7 +153,6 @@ private :
 // ************************************************************************
 // function to instantiate this class
 // ------------------------------------------------------------------------
-
 FunctionInterface *createFunctionInterface(PsuadeData *psuadeIO);
 FunctionInterface *createFunctionInterfaceSimplified(PsuadeData *psuadeIO);
 FunctionInterface *createFunctionInterfaceGivenAppDriver(int, int, char *fname);

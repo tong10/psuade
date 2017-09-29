@@ -26,8 +26,8 @@
 
 #include <stdio.h>
 #include <assert.h>
-#include "Util/dtype.h"
-#include "Util/sysdef.h"
+#include "dtype.h"
+#include "sysdef.h"
 #include "aData.h"
 
 // ************************************************************************
@@ -69,5 +69,15 @@ aData::~aData()
 { 
    if (sampleErrors_ != NULL) delete [] sampleErrors_;
    if (inputXsforms_ != NULL) delete [] inputXsforms_;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+aData& aData::operator=(const aData &)
+{
+   printf("aData operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

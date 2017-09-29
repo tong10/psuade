@@ -31,7 +31,7 @@
 #ifdef HAVE_PYTHON
 #include <Python.h>
 #endif
-#include "DataIO/FunctionInterface.h"
+#include "FunctionInterface.h"
 
 /**
  * @name Job control

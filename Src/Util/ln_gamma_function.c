@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// File: ln_gamma_function.c                                                  //
+// File: ln_gamma_function.c (from mymathlib)                                 //
 // Routine(s):                                                                //
 //    Ln_Gamma_Function                                                       //
 //    xLn_Gamma_Function                                                      //

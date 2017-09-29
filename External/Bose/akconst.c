@@ -22,6 +22,7 @@ work.
   when q is even. */
 
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include "galois.h"

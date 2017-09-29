@@ -19,11 +19,11 @@ main(int argc, char **argv)
    for (i = 0; i < nInputs; i++) fscanf(fIn, "%lg", &X[i]);
 
    Y1 = Y2 = Y3 = Y4 = 0.0;
-   Y1 = sin(X[0] * pi2);
-   Y2 = Y1 + sin(X[0] * pi2 * 2);
-   Y3 = Y2 + sin(X[0] * pi2 * 4);
-   Y4 = Y3 + sin(X[0] * pi2 * 8);
-   Y5 = Y4 + sin(X[0] * pi2 * 16);
+   Y1 = Y1 + sin(X[0] * pi2);
+   Y2 = Y2 + sin(X[0] * pi2 * 2);
+   Y3 = Y3 + sin(X[0] * pi2 * 4);
+   Y4 = Y4 + sin(X[0] * pi2 * 8);
+   Y5 = 0.0;
 
    fOut = fopen(argv[2], "w");
    fprintf(fOut, " %24.16e\n", Y1);

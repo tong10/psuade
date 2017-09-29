@@ -30,8 +30,8 @@
 #include <string.h>
 #include <math.h>
 
-#include "Util/sysdef.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "Psuade.h"
 #include "SVM.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
@@ -54,6 +54,7 @@ extern "C"
 // ------------------------------------------------------------------------
 SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
+   int    idata;
    double ddata;
    char   *inStr, winput1[500], winput2[500];
 
@@ -61,7 +62,7 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
    gamma_ = 1.0;
    tolerance_ = 1.0e-6;
    kernel_ = 2;
-   if (psConfig_ != NULL)
+   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
    {
       inStr = psConfig_->getParameter("SVM_tol");
       if (inStr != NULL)
@@ -70,11 +71,14 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          if (winput2[0] != '=')
             printf("SVM read config file syntax error : %s\n", inStr);
          else if (ddata < 0.0 || ddata < 1.0-6 || ddata >= 1.0)
-            printf("SVM read config file read tol error : %e\n", ddata);
+         {
+            printf("SVM read config file : read tol error : %e\n", ddata);
+            printf("                       tol kept at %e\n", tolerance_);
+         }
          else
          {
             tolerance_ = ddata;
-            printf("SVM : tol   preset to %e\n", tolerance_);
+            printf("SVM : tol   set to %e (config)\n", tolerance_);
          }
       }
       inStr = psConfig_->getParameter("SVM_gamma");
@@ -84,11 +88,32 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
          if (winput2[0] != '=')
             printf("SVM read config file syntax error : %s\n", inStr);
          else if (ddata < 0.0 || ddata < 1.0-6 || ddata > 1.0e6)
-            printf("SVM read config file read gamma error : %e\n", ddata);
+         {
+            printf("SVM read config file : gamma error : %e\n", ddata);
+            printf("                       gamma kept at %e\n", gamma_);
+         }
          else
          {
             gamma_ = ddata;
-            printf("SVM : gamma preset to %e\n", gamma_);
+            printf("SVM : gamma set to %e (config)\n", gamma_);
+         }
+      }
+      inStr = psConfig_->getParameter("SVM_kernel");
+      if (inStr != NULL)
+      {
+         sscanf(inStr, "%s %s %d\n", winput1, winput2, &idata);
+         if (winput2[0] != '=')
+            printf("SVM read config file syntax error : %s\n", inStr);
+         else if (idata < 1 || idata > 4)
+         {
+            printf("SVM read config file : kernel error : %d (must be 1-4)\n",
+                   idata);
+            printf("                       kernel kept at %d\n",kernel_+1);
+         }
+         else
+         {
+            kernel_ = idata - 1;
+            printf("SVM : kernel set to %d (config)\n", kernel_);
          }
       }
    }
@@ -118,7 +143,7 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       if (kernel_ < 1 || kernel_ > 4)
       {
          printf("SVM ERROR : invalid kernel type, set to 3.\n");
-         gamma_ = 3;
+         kernel_ = 3;
       }
       kernel_--;
       fgets(winput1, 500, stdin);
@@ -135,18 +160,22 @@ SVM::~SVM()
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int SVM::genNDGridData(double *X, double *Y, int *N, double **X2, 
+int SVM::genNDGridData(double *X, double *Y, int *N2, double **X2, 
                       double **Y2)
 {
 #ifdef HAVE_SVM
-   int    totPts, ss, ii;
-   double *HX, *Xloc, *XX, *YY, *stds;
+   int    totPts, ss;
+   double *stds;
 
    stds = new double[nSamples_];
    if (outputLevel_ >= 1)
    {
       printf("SVM training begins....\n");
       printf("SVM gamma, epsilon = %e %e\n",tolerance_,gamma_);
+      if (kernel_ == 0) printf("SVM kernel = linear\n");
+      if (kernel_ == 1) printf("SVM kernel = third order polynomial\n");
+      if (kernel_ == 2) printf("SVM kernel = radial basis function\n");
+      if (kernel_ == 3) printf("SVM kernel = sigmoid function\n");
    }
    if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
    if (kernel_ != -1) SVMSetKernel(kernel_);
@@ -154,42 +183,16 @@ int SVM::genNDGridData(double *X, double *Y, int *N, double **X2,
    for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
    if (outputLevel_ >= 1) printf("SVM training completed.\n");
   
-   if ((*N) == -999 || X2 == NULL || Y2 == NULL) return 0;
+   if ((*N2) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
-   totPts = nPtsPerDim_;
-   for (ii = 1; ii < nInputs_; ii++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++) 
-      HX[ii] = (upperBounds_[ii] - lowerBounds_[ii]) /
-               (double) (nPtsPerDim_ - 1); 
- 
-   XX = new double[totPts*nInputs_];
-   YY = new double[totPts];
-   Xloc = new double[nInputs_];
- 
-   for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
- 
-   for (ss = 0; ss < totPts; ss++)
-   {
-      for (ii = 0; ii < nInputs_; ii++ ) XX[ss*nInputs_+ii] = Xloc[ii];
-      for (ii = 0; ii < nInputs_; ii++ ) 
-      {
-         Xloc[ii] += HX[ii];
-         if (Xloc[ii] < upperBounds_[ii] || 
-             PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-         else Xloc[ii] = lowerBounds_[ii];
-      }
-   }
- 
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
+
+   (*Y2) = new double[totPts];
    if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
-   SVMInterp(totPts, nInputs_, XX, YY, NULL);
+   SVMInterp(totPts, nInputs_, *X2, *Y2, NULL);
    if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
-   (*N) = totPts;
-   (*X2) = XX;
-   (*Y2) = YY;
-   delete [] Xloc;
-   delete [] HX;
 #else
    printf("PSUADE ERROR : SVM not used.\n");
    return -1;

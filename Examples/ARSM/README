@@ -7,6 +7,12 @@ To run it:
     <answer 'n' to random selection or not>
     <answer 'n' to whether a test set is available>
 
+Note: ARSM1 uses stochastic response surface and metis to
+      bisect and estimate errors in order to add new points 
+Note: ARSMNN uses response surface and metis and add new 
+      points based on gradients of adjacent subdomains.
+Note: ARSMG is similar to ARSM1 but it allows an initial
+      sample to be used.
 =============================================================
 If you would like to generate a test set, do:
 

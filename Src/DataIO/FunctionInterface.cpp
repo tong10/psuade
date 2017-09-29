@@ -27,13 +27,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 //#include <stream.h>
-#include "Util/dtype.h"
-#include "Util/PsuadeUtil.h"
+#include "dtype.h"
+#include "PsuadeUtil.h"
 #include "FunctionInterface.h"
-#include "FuncApprox/FuncApprox.h"
-#include "DataIO/pData.h"
-#include "PDFLib/PDFBase.h"
+#include "FuncApprox.h"
+#include "pData.h"
+#include "PDFBase.h"
 #include "PsuadeData.h"
 
 // ************************************************************************
@@ -59,6 +60,57 @@ FunctionInterface::FunctionInterface()
    rsValues_ = NULL;
    rsRanFlag_ = 0;
    printLevel_ = 0;
+   nInps_ = 0;
+}
+
+// ************************************************************************
+// Copy Constructor by Bill Oliver
+// ------------------------------------------------------------------------
+FunctionInterface::FunctionInterface(const FunctionInterface & fi)
+{
+   nInputs_ = fi.nInputs_;
+   nOutputs_ = fi.nOutputs_;
+   strcpy(appDriver_, fi.appDriver_);
+   strcpy(optDriver_, fi.optDriver_);
+   strcpy(auxOptDriver_, fi.auxOptDriver_);
+   strcpy(appInputTemplate_, fi.appInputTemplate_);
+   strcpy(appOutputTemplate_, fi.appOutputTemplate_);
+   rsRanFlag_ = fi.rsRanFlag_;
+   printLevel_ = fi.printLevel_;
+   nInps_ = fi.nInps_;
+
+   //Now for the dynamic memory
+
+   // inputNames_
+   inputNames_ = new char*[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+   {
+      inputNames_[i] = new char[80];
+      strcpy(inputNames_[i], fi.inputNames_[i]);
+   }
+  
+   //  outputNames_
+   outputNames_ = new char *[nOutputs_];
+   for(int i = 0; i < nOutputs_; i++)
+   {
+      outputNames_[i] = new char[80];
+      strcpy(outputNames_[i], fi.outputNames_[i]);
+   }
+
+   // rsPtrs_
+   rsPtrs_ = new FuncApprox*[nOutputs_];
+   // FuncApprox is a class whose copy constructor has been created and the
+   // operator= has been defined so we can just do a copy
+   for(int i = 0; i < nOutputs_; i++) rsPtrs_[i] = fi.rsPtrs_[i];
+
+   //rsIndices_ and rsValues_
+   rsIndices_ = new int[nInps_];
+   rsValues_ = new double[nInps_];
+   for(int i = 0; i < nInps_; i++)
+   {
+      rsIndices_[i] = fi.rsIndices_[i];
+      rsValues_[i] = fi.rsValues_[i];
+   }
 }
 
 // ************************************************************************
@@ -145,7 +197,7 @@ int FunctionInterface::loadOutputData(int nOutputs, char **names)
 // ------------------------------------------------------------------------
 int FunctionInterface::loadFunctionData(int length, char **names)
 { 
-   int  ii, kk, nInps, cnt, ranFlag;
+   int  ii, kk, nInps, cnt;
    char inString[200], fname[200];
    FILE *fp;
    PsuadeData *psIO;
@@ -214,8 +266,6 @@ int FunctionInterface::loadFunctionData(int length, char **names)
          psIO = new PsuadeData();
          psIO->setOutputLevel(0);
          psIO->readPsuadeFile(fname);
-         psIO->getParameter("method_randomflag", pPtr);
-         ranFlag = pPtr.intData_;
          psIO->getParameter("input_ninputs", pPtr);
          kk = pPtr.intData_;
          if (kk < nInputs_ || kk > nInputs_)
@@ -346,6 +396,15 @@ int FunctionInterface::setSynchronousMode()
 }
 
 // ************************************************************************
+// set stochastic response surface mode (1:minus 3 sigma, 2: plus 3 sigma)
+// ------------------------------------------------------------------------
+int FunctionInterface::setStochasticRSMode(int indata)
+{
+   rsRanFlag_ = indata;
+   return 0;
+}
+
+// ************************************************************************
 // set time interval between asynchronous jobs
 // ------------------------------------------------------------------------
 int FunctionInterface::setLaunchInterval(int interval)
@@ -427,7 +486,6 @@ int FunctionInterface::setDriver(int which)
    {
       fscanf(fp, "%10c", inString);
       if (!strncmp(inString, "PSUADE_IO",9)) useRSModel_ = 1;
-      fclose(fp);
       if (useRSModel_ == 1)
       {
          psIO = new PsuadeData();
@@ -470,6 +528,7 @@ int FunctionInterface::setDriver(int which)
                {
                   printf("INFO: rs index file %s found.\n", pPtr.strArray_[0]);
                   fscanf(fp,"%d", &nInps);
+                  nInps_ = nInps;
                   if (kk != nInps)
                   {
                      printf("ERROR: invalid nInputs in rs index file.\n");
@@ -547,6 +606,7 @@ int FunctionInterface::setDriver(int which)
          }
       }
    }
+   if(fp != NULL) fclose(fp);
    return 0;
 }
 
@@ -562,7 +622,7 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
 {
    int    ii, outputCount, status, length, outputType;
    double value, *myInputs, stdev;
-   char   lineIn[500], command[500], *strPtr, outString[500], space=' ';
+   char   lineIn[500], command[500];
    char   outfile[500], infile[500];
    FILE   *fp, *fIn, *fOut;
 
@@ -779,9 +839,9 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
       for (ii = 0; ii < 100000; ii++) length = (length + ii) %  32768;
 
       outputType = 0;
-      if (strcmp(appOutputTemplate_, "psuadeApps_ct.out")) outputType = 1;
 
       fIn = fopen(outfile, "r");
+      if(fIn == NULL) return 2;
       outputCount = 0;
       if (outputType == 0)
       {
@@ -796,16 +856,19 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
       }
       else
       {
+#if 0
+         char space=' ';
          while (fgets(lineIn, 100, fIn) != NULL)
          {
             for (ii = 0; ii < nOutputs_; ii++)
             {
-               strPtr=strstr((const char *) lineIn,(const char*)outputNames_[ii]);
+               const char * strPtr=strstr((const char *) lineIn,
+                                          (const char*)outputNames_[ii]);
                if (strPtr != NULL)
                {
                   if (strPtr != lineIn && strPtr[-1] != space) strPtr--;
-                  sscanf(strPtr, "%s", outString);
-                  if (!strcmp(outString, (const char*)outputNames_[ii]))
+                  sscanf(strPtr, "%s", lineIn);
+                  if (!strcmp(lineIn, (const char*)outputNames_[ii]))
                   {
                      getPatternData(lineIn, outputNames_[ii], &value);
                      outputs[ii] = value;
@@ -816,6 +879,10 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
             }
             if (feof(fIn) == 1) break; 
          }
+#else
+         printf("FunctionInterface: output_template option not currently supported.\n");
+         exit(1);
+#endif
       }
       fclose(fIn);
 
@@ -829,13 +896,11 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
 
       if (strcmp(infile, "*"))
       {
-         sprintf(command, "/bin/rm -f %s", infile);
-         system(command);
+         unlink(infile);
       }
       if (strcmp(outfile, "*"))
       {
-         sprintf(command, "/bin/rm -f %s", outfile);
-         system(command);
+         unlink(outfile);
       }
    }
    else if (useRSModel_ == 1 && rsPtrs_ != NULL)
@@ -858,8 +923,9 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
             for (ii = 0; ii < nOutputs; ii++)
             {
                outputs[ii] = rsPtrs_[ii]->evaluatePointFuzzy(myInputs,stdev);
-               value = PSUADE_drand() * 2.0 * stdev;
-               outputs[ii] = outputs[ii] - stdev + value;
+               value = 3.0 * stdev;
+               if (rsRanFlag_ == 1) outputs[ii] -= value;
+               else                 outputs[ii] += value;
             } 
          }
          delete [] myInputs;
@@ -876,8 +942,9 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
             for (ii = 0; ii < nOutputs; ii++)
             {
                outputs[ii] = rsPtrs_[ii]->evaluatePointFuzzy(inputs,stdev);
-               value = PSUADE_drand() * 2.0 * stdev;
-               outputs[ii] = outputs[ii] - stdev + value;
+               value = 3.0 * stdev;
+               if (rsRanFlag_ == 1) outputs[ii] -= value;
+               else                 outputs[ii] += value;
             }
          }
       }
@@ -962,12 +1029,17 @@ char *FunctionInterface::getAuxOptimizationDriver()
 // ------------------------------------------------------------------------
 int FunctionInterface::createInputFile(int sampleID, double *inputs)
 {
+   if (strcmp(appInputTemplate_, "psuadeApps_ct.in")) 
+   {
+     printf("FunctionInterface: user provided input template feature is\n");
+     printf("                   no longer supported.\n");
+     exit(1);
+   }
+   return 1;
+#if 0
    int  i, stat, length, *trackArray;
    char infile[500], lineIn[500], lineOut[500], lineTemp[500];
    FILE *fIn, *fOut;
-
-
-   if (!strcmp(appInputTemplate_, "psuadeApps_ct.in")) return 1;
 
    if ((fIn=fopen(appInputTemplate_, "r")) == NULL) 
    {
@@ -986,7 +1058,7 @@ int FunctionInterface::createInputFile(int sampleID, double *inputs)
    {
       printf("FunctionInterface createInputFile ERROR: \n");
       printf("\t\t cannot open input file %s.\n", infile);
-      fclose(fOut);
+      //fclose(fOut);
       exit(1);
    }
    trackArray = new int[nInputs_];
@@ -1023,27 +1095,15 @@ int FunctionInterface::createInputFile(int sampleID, double *inputs)
    fclose(fOut);
    if (stat > 0) exit(1);
    return 0;
+#endif
 }
 
 // ************************************************************************
 // Given an input string inputString and a pattern, take out the 
 // pattern from the string
 // ------------------------------------------------------------------------
-int FunctionInterface::removePattern(char *inputString, 
-                                     char *outputString, char *pattern)
+int FunctionInterface::removePattern(char *, char *, char *)
 {
-   int        i, pLength, cLength;
-   const char *stringPtr;
-
-   for (i = 0; i < 80; i++) outputString[i] = '\0';
-   strcpy(outputString, "");
-   stringPtr = strstr((const char*) inputString, (const char*) pattern);
-   if (stringPtr == NULL) return -1;
-   cLength = strlen((const char *)inputString) - 
-             strlen((const char *)stringPtr);
-   strncpy(outputString, (const char*) inputString, cLength);
-   pLength = (int) strlen(pattern);
-   strcpy(&outputString[cLength+1], (const char*) &stringPtr[pLength]);
    return 0;
 }
 
@@ -1051,23 +1111,9 @@ int FunctionInterface::removePattern(char *inputString,
 // Given an input string inputString and a pattern, replace the 
 // pattern with the given value.
 // ------------------------------------------------------------------------
-int FunctionInterface::substitutePattern(char *inputString, 
-                        char *outputString, char *pattern, double value)
+int FunctionInterface::substitutePattern(char *, char *, char *, double)
 {
-   char *stringPtr, valueStr[80];
-   int  i, pLength, cLength;
-
-   for ( i = 0; i < 80; i++ ) outputString[i] = '\0';
-   strcpy(outputString, "");
-   stringPtr  = strstr((const char *) inputString, (const char*) pattern);
-   if (stringPtr == NULL) return 1;
-   cLength = strlen((const char*) inputString) - 
-             strlen((const char*) stringPtr);
-   strncpy(outputString, (const char*) inputString, cLength);
-   sprintf(valueStr, "%24.16e ", value);
-   strcat(outputString, valueStr);
-   pLength = strlen((const char *) pattern);
-   strcat(outputString, (const char*) &stringPtr[pLength]);
+   // Bill Oliver added code to check string lengths
    return 0;
 }
 
@@ -1075,15 +1121,8 @@ int FunctionInterface::substitutePattern(char *inputString,
 // Given an input string inputString and a pattern, find the pattern
 // and get the value
 // ------------------------------------------------------------------------
-int FunctionInterface::getPatternData(char *inputString, 
-                                      char *pattern, double *value)
+int FunctionInterface::getPatternData(char *, char *, double *)
 {
-   const char *stringPtr, *stringPtr2;
-   stringPtr  = strstr((const char*) inputString, (const char*) pattern);
-   if (stringPtr == NULL) return -1;
-   stringPtr2 = strstr((const char*) stringPtr, "=");
-   if (stringPtr2 == NULL) return -1;
-   sscanf(&stringPtr2[1], "%lg", value);
    return 0;
 }
 
@@ -1211,6 +1250,101 @@ int FunctionInterface::psLocalFunction(int nInputs, double *inputs,
    double pi=3.14159;
    outputs[0] = sin(2.0*pi*inputs[0]) * sin(2.0*pi*inputs[1]);
 #endif
+#if 1
+   /* Table 5 : t=25-80, w=20%-100%, load=0 */
+
+   int nW = 3, ii, jj;
+   int nA = 6;
+   int nT = 5;
+   int    index;
+   double xwMEA, T, T2, muH2O, muH2O_20, CO2Load, muX, muBlend, ddata;
+   muH2O_20 = 1.002; /* mPa-s at 20C */
+   double *Table = (double *) malloc(nW * nA * nT*sizeof(double));
+   Table[0] =1.7; Table[1] =1.8;Table[2] =1.9;Table[3] =1.9;Table[4] =2.1;Table[5] =2.2;
+   Table[6]=1.18; Table[7] =1.3;Table[8] =1.3;Table[9] =1.3;Table[10]=1.4;Table[11]=1.6;
+   Table[12]=0.95;Table[13]=1.0;Table[14]=1.0;Table[15]=1.1;Table[16]=1.2;Table[17]=1.3;
+   Table[18]=0.67;Table[19]=0.7;Table[20]=0.7;Table[21]=0.8;Table[22]=0.8;Table[23]=0.9;
+   Table[24]=0.58;Table[25]=0.6;Table[26]=0.6;Table[27]=0.7;Table[28]=0.7;Table[29]=0.8;
+   Table[30]=2.48;Table[31]=2.6;Table[32]=2.9;Table[33]=3.1;Table[34]=3.5;Table[35]=3.9;
+   Table[36]=1.67;Table[37]=1.7;Table[38]=2.0;Table[39]=2.0;Table[40]=2.4;Table[41]=2.7;
+   Table[42]=1.33;Table[43]=1.4;Table[44]=1.6;Table[45]=1.6;Table[46]=1.9;Table[47]=2.1;
+   Table[48]=0.92;Table[49]=0.9;Table[50]=1.1;Table[51]=1.1;Table[52]=1.3;Table[53]=1.5;
+   Table[54]=0.77;Table[55]=0.8;Table[56]=0.9;Table[57]=0.9;Table[58]=1.1;Table[59]=1.3;
+   Table[60]=3.58;Table[61]=4.0;Table[62]=4.6;Table[63]=5.1;Table[64]=6.0;Table[65]=7.0;
+   Table[66]=2.28;Table[67]=2.5;Table[68]=3.0;Table[69]=3.3;Table[70]=4.0;Table[71]=4.6;
+   Table[72]=1.75;Table[73]=2.0;Table[74]=2.3;Table[75]=2.6;Table[76]=3.1;Table[77]=3.8;
+   Table[78]=1.14;Table[79]=1.3;Table[80]=1.5;Table[81]=1.7;Table[82]=2.0;Table[83]=2.3;
+   Table[84]=0.95;Table[85]=1.1;Table[86]=1.3;Table[87]=1.4;Table[88]=1.7;Table[89]=1.9;
+   /* start processing */
+   double *Ts = (double *) malloc(nT * sizeof(double));
+   Ts[0] = 25;
+   Ts[1] = 40;
+   Ts[2] = 50;
+   Ts[3] = 70;
+   Ts[4] = 80;
+   double *As = (double *) malloc(nA * sizeof(double));
+   As[0] = 0.0;
+   As[1] = 0.1;
+   As[2] = 0.2;
+   As[3] = 0.3;
+   As[4] = 0.4;
+   As[5] = 0.5;
+   double *Ws = (double *) malloc(nW * sizeof(double));
+   Ws[0] = 20;
+   Ws[1] = 30;
+   Ws[2] = 40;
+   double A = 0;
+   double B = 0;
+   double C = inputs[0];
+   double D = inputs[1];
+   double E = inputs[2];
+   double F = inputs[3];
+   double G = inputs[4];
+   double rms = 0.0;
+   double nrms = 0.0;
+   double avg = 0.0;
+   double navg = 0.0;
+   for (int kk = 0; kk < nW; kk++)
+   {
+      xwMEA = Ws[kk];
+      for (ii = 0; ii < nT; ii++)
+      {
+         T = Ts[ii];
+         T2 = 1.0 / ((T+273.15) * (T+273.15));
+         muH2O = muH2O_20 *
+                 pow(10.0, (1.3272*(20-T)-0.001053*(T-20)*(T-20))/(T+105));
+         for (jj = 0; jj < nA; jj++)
+         {
+            CO2Load = As[jj];
+            muBlend = (A*xwMEA + B) * (T+273.15) + (C*xwMEA + D);
+            muBlend = muBlend *(CO2Load*(E*xwMEA + F*(T+273.15) + G)+1)*xwMEA;
+            muBlend = muBlend * T2;
+            muBlend = exp(muBlend);
+            muX = muBlend * muH2O;
+            index = kk * nT * nA + ii * nA + jj;
+            ddata = muX - Table[index];
+            rms += ddata * ddata;
+            ddata = ddata / Table[index];
+            nrms += ddata * ddata;
+            if (muX >= Table[index]) avg += muX - Table[index];
+            else                     avg += Table[index] - muX;
+            if (ddata >= 0) navg += ddata;
+            else            navg -= ddata;
+         }
+      }
+   }
+   rms /= (nW * nA * nT);
+   rms = sqrt(rms);
+   nrms /= (nW * nA * nT);
+   rms = sqrt(nrms);
+   avg /= (nW * nA * nT);
+   navg /= (nW * nA * nT);
+   free(Ts);
+   free(As);
+   free(Ws);
+   free(Table);
+   outputs[0] = avg;
+#endif
    return 0;
 }
 
@@ -1318,5 +1452,15 @@ FunctionInterface *createFunctionInterfaceGivenAppDriver(int nInputs,
    delete [] outputNames;
 
    return funcIO;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+FunctionInterface& FunctionInterface::operator=(const FunctionInterface &)
+{
+   printf("FunctionInterface operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

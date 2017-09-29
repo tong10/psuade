@@ -27,7 +27,7 @@
 #ifndef __DELTAANALYZERH__
 #define __DELTAANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~DeltaAnalyzer();
 
    double analyze(aData &adata);
+
+   DeltaAnalyzer& operator=(const DeltaAnalyzer &analyzer);
 
    int setParams(int nParams, char **params);
 };

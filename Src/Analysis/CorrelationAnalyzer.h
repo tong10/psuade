@@ -28,7 +28,7 @@
 #ifndef __CORRELATIONANALYZERH__
 #define __CORRELATIONANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~CorrelationAnalyzer();
 
    double analyze(aData &adata);
+
+   CorrelationAnalyzer& operator=(const CorrelationAnalyzer& analyzer);
 
 private:
    int computeMeanVariance(int nSamples, int xDim, double *X, double *xmean,

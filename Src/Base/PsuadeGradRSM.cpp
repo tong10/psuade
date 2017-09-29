@@ -39,13 +39,13 @@ extern "C" {
 // ------------------------------------------------------------------------
 // local includes : class definition and utilities
 // ------------------------------------------------------------------------
-#include "Main/Psuade.h"
+#include "Psuade.h"
 #include "PsuadeBase.h"
-#include "Util/dtype.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "PDFLib/PDFManager.h"
-#include "Comm/JobCntl.h"
+#include "dtype.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "PDFManager.h"
+#include "JobCntl.h"
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
@@ -65,12 +65,12 @@ int PsuadeBase::runAdaptiveGradBased()
    double *currentPt, YVal, *gradients, *hessian, errMax, dtemp;
    double diff, eigMax, dsum2, *work, *eigs, stdev, mean;
    double tolerance, tol2, eig2, threshDec, minEigen=0.0;
-   char   *appDriver, jobz, uplo, **outNames, lineIn[500], fileName[500];
+   char   jobz, uplo, **outNames, lineIn[500], fileName[500];
    char   **inNames;
    FILE   *fileIn;
    PsuadeData        *psIO;
    FunctionInterface *funcIO;
-   pData             pPtr, pLowerB, pUpperB, pAppFiles;
+   pData             pPtr, pLowerB, pUpperB;
    pData             pInputs, pOutputs, pInputs2, pOutputs2;
 
    printAsterisks(0);
@@ -125,8 +125,6 @@ int PsuadeBase::runAdaptiveGradBased()
    iLowerB = pLowerB.dbleArray_;
    psuadeIO_->getParameter("input_ubounds", pUpperB);
    iUpperB = pUpperB.dbleArray_;
-   psuadeIO_->getParameter("app_files", pAppFiles);
-   appDriver = pAppFiles.strArray_[0];
    Ysize = (nInputs + 1) * nInputs / 2 + nInputs + 2;
    currentPt = new double[nInputs];
 

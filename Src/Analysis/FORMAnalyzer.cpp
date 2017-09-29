@@ -28,9 +28,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "FuncApprox/FuncApprox.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "FuncApprox.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "FORMAnalyzer.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
@@ -59,7 +59,7 @@ FORMAnalyzer::~FORMAnalyzer()
 double FORMAnalyzer::analyze(aData &adata)
 {
    int        nInputs, nOutputs, nSamples, outputID, sInd, ii, status;
-   int        nPtsPerDim=64, length, wgtID, iter, printLevel;
+   int        nPtsPerDim=64, length, wgtID, iter, printLevel, iOne=1;
    double     *X, *Y, *xLower, *xUpper, *YY, *wgts=NULL, *currZ, beta;
    double     ddata, gdata, Ldata, oldbeta, *alphas, thresh;
    FuncApprox *fa;
@@ -113,7 +113,7 @@ double FORMAnalyzer::analyze(aData &adata)
          wgts[sInd] = Y[sInd*nOutputs+wgtID];
    }
 
-   fa = genFA(rsType_, nInputs, nSamples);
+   fa = genFA(rsType_, nInputs, iOne=1, nSamples);
    if (fa == NULL)
    {
       printf("FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
@@ -211,5 +211,15 @@ int FORMAnalyzer::setParams(int argc, char **argv)
       exit(1);
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+FORMAnalyzer& FORMAnalyzer::operator=(const FORMAnalyzer &)
+{
+   printf("FORMAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

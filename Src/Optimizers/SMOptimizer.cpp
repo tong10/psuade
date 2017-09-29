@@ -26,11 +26,15 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
+#include "PsuadeUtil.h"
 #include "SMOptimizer.h"
-#ifdef HAVE_COBYLA
-#include "../../External/COBYLA/cobyla.h"
+
+#ifdef HAVE_BOBYQA
+extern "C" void bobyqa_(int *,int *, double *, double *, double *, double *,
+                        double *, int *, int *, double*);
 #endif
 
+void   *psSMBobyqaObj_=NULL;
 double *px0, *B0, *x0, *fx, *y, normy;
 int coarseoptimtype = 1;
 //void savesmaux(int, int, double *, double *, double *);
@@ -43,43 +47,33 @@ int coarseoptimtype = 1;
 extern "C"
 {
 #endif
-int evaluateFunctionSM(int nInputs, int nConstraints, double *XValues,
-                       double *YValue, double *constraints, void *data)
+int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
 {
-   int    i, j, funcID, nOutputs, outputID, currDriver;
-   double *localY, *aux; /*, *localX2, *localY2, deltaX;*/
+   int    i, j, funcID, nInputs, nOutputs, outputID, currDriver;
+   double *localY, *aux, *xaux;
    oData  *odata;
-   //extern double *px0, *B0, *x0, *fx, y[4], normy;
-   //extern int coarseoptimtype;
-   double *xaux;
 
-
-   odata    = (oData *) data;
+   // ------ actual data from simulation should be 1 more ------
+   odata    = (oData *) psSMBobyqaObj_;
+   nInputs  = *nInps;
    nOutputs = odata->nOutputs_;
-   localY   = (double *) malloc(nOutputs * sizeof(double));
-   aux      = (double *) malloc( nInputs *sizeof(double));
-   xaux     = (double *) malloc( nInputs *sizeof(double));
+   if(nOutputs <= 0)
+   {
+      printf("(file %s line %d) Invalid nOutputs = %d (should be > 0)",
+              __FILE__, __LINE__, nOutputs);
+      exit(1);
+   }
+
+   // allocate memory
+   localY   = new double[nOutputs];
+   aux      = new double[nInputs];
+   xaux     = new double[nInputs];
    funcID   = odata->numFuncEvals_++;
    outputID = odata->outputID_;
-
-   // check
-   /*for (i = 0; i < nInputs; i++)
-         printf("%lg ", px0[i]);
-         printf("\n");
-     for (i = 0; i < nInputs; i++){
-        for(j = 0; j < nInputs; j++)
-           printf("%lg ", B0[j + i*nInputs]);
-           printf("\n");
-      }
-      for (i = 0; i < nInputs; i++)
-         printf("%lg ", x0[i]);
-      printf("\n");*/
-
-
-
    for (i=0; i < nInputs; i++) xaux[i] = XValues[i];
 
-   if (coarseoptimtype == 1)      // modify values
+   // modify values 
+   if (coarseoptimtype == 1)
    {
       /* Computing pxk + Bk * (S - xk) */
       for (i = 0; i < nInputs; i++)
@@ -91,14 +85,16 @@ int evaluateFunctionSM(int nInputs, int nConstraints, double *XValues,
       for (i = 0; i < nInputs; i++) xaux[i] = px0[i] + aux[i];
    }
 
-
+   // ------ run simulation ------
    currDriver = odata->funcIO_->getDriver();
    odata->funcIO_->setDriver(2);      /* we always optimize the coarse model */
    odata->funcIO_->evaluate(funcID,nInputs,xaux,nOutputs,localY,0);
    odata->funcIO_->setDriver(currDriver);
 
+   // ------ compute objective function ------
    (*YValue) = 0.0;
-   if (coarseoptimtype == 1){       // optim
+   if (coarseoptimtype == 1)
+   {
       for (i=0; i<nOutputs; i++)
          (*YValue) += (localY[i] - y[i])*(localY[i] - y[i]);
       (*YValue) = sqrt((*YValue))/normy*100.00;
@@ -110,23 +106,28 @@ int evaluateFunctionSM(int nInputs, int nConstraints, double *XValues,
       (*YValue) = sqrt((*YValue));
    }
 
-
-
+   // ------ update current optimal settings ------
+   // ------ output optimization information ------
    if ((*YValue) < odata->optimalY_)
    {
       odata->optimalY_ = (*YValue);
       for (i = 0; i < nInputs; i++) odata->optimalX_[i] = XValues[i];
-      if (odata->outputLevel_ > 0)
-         printf("CobylaOptimizer %6d : Ymin = %16.8e\n",
-                odata->numFuncEvals_, odata->optimalY_);
+      if (odata->outputLevel_ > 1)
+      {
+         printDashes(0);
+         for (i = 0; i < nInputs; i++)
+            printf("SMOptimizer %6d : X %3d = %16.8e\n",odata->numFuncEvals_,
+                   i+1, XValues[i]);
+         printf("SMOptimizer %6d : Ymin = %16.8e\n",
+                 odata->numFuncEvals_, odata->optimalY_);
+         printf("SMOptimizer %6d : output 1 = %16.8e\n",
+                   odata->numFuncEvals_, localY[0]);
+         printDashes(0);
+      }
    }
-   for (i = 0; i < nInputs; i++)
-   {
-      constraints[i] = XValues[i] - odata->lowerBounds_[i];
-      constraints[i+nInputs] = odata->upperBounds_[i] - XValues[i];
-   }
-   free(localY);
-   free(aux);
+   delete [] localY;
+   delete [] aux;
+   delete [] xaux;
    return 0;
 }
 #ifdef __cplusplus
@@ -152,25 +153,23 @@ SMOptimizer::~SMOptimizer()
 // ------------------------------------------------------------------------
 void SMOptimizer::optimize(oData *odata)
 {
-   int    nInputs, nOutputs, nConstraints, i,j, maxfun=1000;
+   int    nInputs, nOutputs, i,j, maxfun=1000;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp;
    double *zstar, *px1, *B1, *x1, *B0h;
-   int    coboutput = 0, nIter = 1, nIterMAX = 10, ncevals = 0, nfevals = 0;
+   int    nIter = 1, nIterMAX = 10, ncevals = 0, nfevals = 0;
    double Fx, h = 1e50, tolX = 1e-4;
    extern double *px0, *B0, *x0, *fx, *y, normy;
    extern int coarseoptimtype;
 
-/* --- VOY AQUI ------------------------------------- *
-   odata->targetFile_ = "./specs";
-   FILE *fspecs = fopen(odata->targetFile_, "r");
- * -------------------------------------------------- */
-
-   /*FILE  *ffineaux    = fopen(  "fineaux", "rw"); */
-   /*FILE  *fcoarseaux  = fopen("coarseaux", "rw"); */
 
    nInputs = odata->nInputs_;
    nOutputs = odata->nOutputs_;
-   nConstraints = 2 * nInputs;
+   if(nOutputs <= 0)
+   {
+      printf("nOutputs in file %s line %d has nOutputs <= 0 (%d)",
+             __FILE__, __LINE__, nOutputs);
+      exit(1);
+   }
    for (i = 0; i < nInputs; i++) odata->optimalX_[i] = 0.0;
    odata->numFuncEvals_ = 0;
    odata->optimalY_     = 1.0e50;
@@ -183,7 +182,7 @@ void SMOptimizer::optimize(oData *odata)
    }
    FILE *fspecs = fopen(odata->targetFile_, "r");
 
-   y      = (double *) malloc(nOutputs * sizeof(double));
+   y = new double[nOutputs];
    for (i = 0; i < nOutputs; i++) fscanf(fspecs, "%lg", &y[i]);
    fclose(fspecs);
 
@@ -192,98 +191,99 @@ void SMOptimizer::optimize(oData *odata)
    normy = sqrt(normy);
 
    printf("\n\n");
-   printf(" ****************************************************\n");
+   printAsterisks(0);
    printf(" SPACE MAPPING: Specifications: \n");
    for(i=0; i<nOutputs; i++)
    printf("                                      %20.14f\n", y[i]);
-   printf(" ****************************************************\n");
+   printAsterisks(0);
 
-   XValues = (double *) malloc((nInputs+1) * sizeof(double));
+   // sm auxiliary variables: initialization + storing in file smaux 
+   XValues = new double[nInputs+1];
+   fx      = new double[nOutputs];
+   x0      = new double[nInputs+1];
+   px0     = new double[nInputs+1];
+   B0      = new double[nInputs*nInputs];
+   x1      = new double[nInputs+1];
+   px1     = new double[nInputs+1];
+   B1      = new double[nInputs*nInputs];
+   B0h     = new double[nInputs];
+   zstar   = new double[nInputs];
 
-   /* sm auxiliary variables: initialization + storing in file smaux */
-   fx      = (double *) malloc(nOutputs * sizeof(double));
-   x0      = (double *) malloc((nInputs+1) * sizeof(double));
-   px0     = (double *) malloc((nInputs+1) * sizeof(double));
-   B0      = (double *) malloc(nInputs * nInputs * sizeof(double));
-
-   x1      = (double *) malloc((nInputs+1) * sizeof(double));
-   px1     = (double *) malloc((nInputs+1) * sizeof(double));
-   B1      = (double *) malloc(nInputs * nInputs * sizeof(double));
-
-   B0h     = (double *) malloc(nInputs * sizeof(double));
-
-   zstar   = (double *) malloc(nInputs * sizeof(double));
-
-   /* Cobyla STOP Criteria   */
+   /* Bobyqa STOP Criteria   */
    rhobeg = odata->upperBounds_[0] - odata->lowerBounds_[0];
    for (i = 0; i < nInputs; i++)
    {
       dtemp = odata->upperBounds_[i] - odata->lowerBounds_[i];
       if (dtemp > rhobeg) rhobeg = dtemp;
    }
-
-   rhobeg *= 0.05;                    /* orig: 0.5    */
-   rhoend = rhobeg * 0.00001/2;         /* orig: 0.0001 */
+   rhobeg *= 0.05;
+   rhoend = rhobeg * odata->tolerance_;
+   if (rhobeg < rhoend)
+   {
+      printf("SMOptimizer WARNING: tolerance too large.\n");
+      printf("                      tolerance reset to 1.0e-6.\n");
+      rhoend = rhobeg * 1.0e-6;
+   }
 
    /* Initializing state variables */
-
-   for (i = 0; i < nInputs; i++){
+   for (i = 0; i < nInputs; i++)
+   {
       x0[i]  = 0.0;
       px0[i] = 0.0;
       for (j = 0; j < nInputs; j++)
+      {
          if (i==j) B0[i + j*nInputs] = 1.0;
 	 else      B0[i + j*nInputs] = 0.0;
-   };
+      }
+   }
 
    /* next is optimization => 1 */
    //savesmaux(1, nInputs, px0, B0, x0);
 
-////--------------------------------------------------------------------
-//   odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
-//   odata->funcIO_->evaluate(odata->numFuncEvals_++,2,x0,nOutputs,Fx,0);
-////--------------------------------------------------------------------
 
    /* I. INITIAL GUESS */
    for (i = 0; i < nInputs; i++) XValues[i] = odata->initialX_[i];
 
-   printf(" ****************************************************\n");
+   printAsterisks(0);
    printf(" SPACE MAPPING: Initial Guess: \n");
    for(i=0; i<nInputs; i++)
    printf("                                      %20.14f\n", XValues[i]);
-   printf(" ****************************************************\n");
+   printAsterisks(0);
 
    /* 0. COARSE MODEL OPTIMIZATION */
-
    // ------ call optimizer ------
 
-#ifdef HAVE_COBYLA
-   cobyla(nInputs, nConstraints, XValues, rhobeg, rhoend,
-          coboutput, &maxfun, evaluateFunctionSM,
-          (void *) odata);
+#ifdef HAVE_BOBYQA
+   psSMBobyqaObj_ = (void *) odata;
+   maxfun = 1000;
+   int    printLevel=5555;
+   int    nPts = (nInputs + 1) * (nInputs + 2) / 2;
+   double *workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
+   bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_, odata->upperBounds_,
+           &rhobeg, &rhoend, &printLevel, &maxfun, workArray);
+   delete [] workArray;
 #else
-   printf("ERROR : Cobyla optimizer not installed.\n");
+   printf("ERROR : Bobyqa optimizer not installed.\n");
    exit(1);
 #endif
    ncevals += maxfun;
    coarseoptimtype = 0;
 
-/*   zstar = XValues; */
-   for (i=0;i<nInputs;i++){
+   for (i=0;i<nInputs;i++)
+   {
       x0[i]       = XValues[i];
       zstar[i]    = XValues[i];
    }
 
    printf("\n\n");
-   printf(" ****************************************************\n");
+   printAsterisks(0);
    printf(" SPACE MAPPING: Coarse model optimum: \n");
    for(i=0; i<nInputs; i++)
    printf("                                      %20.14f\n", x0[i]);
-   printf(" ****************************************************\n");
+   printAsterisks(0);
    printf("\n\n");
 
    /* 1. EVALUATING THE FINE MODEL AT THE COARSE OPTIMUM */
-
-   /*currDriver = odata->funcIO_->getDriver(); */
    odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
    odata->funcIO_->evaluate(odata->numFuncEvals_++,nInputs,x0,nOutputs,fx,0);
 
@@ -293,244 +293,178 @@ void SMOptimizer::optimize(oData *odata)
    Fx = sqrt(Fx)/normy*100.00;
 
    nfevals += 1;
-   /* odata->funcIO_->setDriver(currDriver); */
-   /* (*YValue) = localY[outputID]; */
-   /*printf("                                      %20.14f\n", Fx); */
    printf("   Iteration      # f evals   # c eval   Fine Cost Function    ||x_{k+1} - x_k||\n");
    printf(" ---------------------------------------------------------------------------------\n");
    printf("   %5d           %5d       %5d         %8.3f\n",nIter,nfevals,ncevals,Fx);
 
-
-   /* Now f(x0) is stored in the file fileaux (format: m f(x0)) */
-
+   // Now f(x0) is stored in the file fileaux (format: m f(x0)) 
    /* 2. EVALUATING THE SPACE-MAPPING FUNCTION AT x0            */
-   //savesmaux(0, nInputs, px0, B0, x0);       /* parameter extraction */
    for (i=0;i<nInputs;i++)
-      px0[i]       = x0[i];         /* makes sense for parameter extraction */
-#ifdef HAVE_COBYLA
+      px0[i] = x0[i];         /* makes sense for parameter extraction */
+
+#ifdef HAVE_BOBYQA
    maxfun=1000;
-   cobyla(nInputs, nConstraints, px0, rhobeg, rhoend,
-          coboutput, &maxfun, evaluateFunctionSM, (void *) odata);
+   printLevel=5555;
+   nPts = (nInputs + 1) * (nInputs + 2) / 2;
+   workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
+   bobyqa_(&nInputs, &nPts, px0, odata->lowerBounds_, odata->upperBounds_,
+           &rhobeg, &rhoend, &printLevel, &maxfun, workArray);
+   delete [] workArray;
 #else
-   printf("ERROR : Cobyla optimizer not installed.\n");
-   exit(1);
-#endif
-   ncevals += maxfun;
-   coarseoptimtype = 1;
-   //savesmaux(1, nInputs, px0, B0, x0);
-
-while (1){
-
-   /* 2. OPTIMIZING THE MAPPED COARSE MODEL          */
-
-   for (i=0;i<nInputs;i++)
-      x1[i]       = x0[i];         /* makes sense for parameter extraction */
-
-
-#ifdef HAVE_COBYLA
-   maxfun=1000;
-   cobyla(nInputs, nConstraints, x1, rhobeg, rhoend,
-          coboutput, &maxfun, evaluateFunctionSM, (void *) odata);
-#else
-   printf("ERROR : Cobyla optimizer not installed.\n");
-   exit(1);
-#endif
-   ncevals += maxfun;
-   coarseoptimtype = 0;
-
-   //printf("x = %10.6f   %10.6f\n",  x1[0], x1[1]);
-
-   /* 3. EVALUATING THE FINE MODEL AT x1 */
-
-   odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
-   odata->funcIO_->evaluate(odata->numFuncEvals_++,nInputs,x1,nOutputs,fx,0);
-   Fx   = 0.0;
-   for (i=0; i<nOutputs; i++)
-      Fx   += (fx[i] - y[i])*(fx[i] - y[i]);
-   Fx   = sqrt(Fx)/normy*100.00;
-   nfevals += 1;
-   /*printf("                                      %20.14f\n", Fx);*/
-
-   /* Now f(x1) is stored in the file fileaux (format: m f(x1)) */
-
-   /* S. STOPPING CRITERIA              */
-   h = 0.0;
-   for (i=0;i<nInputs;i++)
-      h += (x1[i]-x0[i])*(x1[i]-x0[i]);
-   h = sqrt(h);
-   /*printf(" h = %10.6f\n", h); */
-   printf("   %5d           %5d       %5d         %8.3f              %4.2e \n", nIter+1,nfevals,ncevals,Fx,h);
-   if (nIter == nIterMAX || h < tolX)
-      break;
-
-
-   /* 4. EVALUATING THE SPACE-MAPPING FUNCTION AT x1            */
-   //savesmaux(0, nInputs, px0, B0, x0);       /* parameter extraction */
-   for (i=0;i<nInputs;i++)
-      px1[i]       = px0[i];         /* makes sense for parameter extraction */
-#ifdef HAVE_COBYLA
-   maxfun=1000;
-   cobyla(nInputs, nConstraints, px1, rhobeg, rhoend,
-          coboutput, &maxfun, evaluateFunctionSM, (void *) odata);
-#else
-   printf("ERROR : Cobyla optimizer not installed.\n");
+   printf("ERROR : Bobyqa optimizer not installed.\n");
    exit(1);
 #endif
    ncevals += maxfun;
    coarseoptimtype = 1;
 
-   /*savesmaux(1, nInputs, px0, B0, x0);*/
+   while (1)
+   {
+      /* 2. OPTIMIZING THE MAPPED COARSE MODEL          */
+      for (i=0;i<nInputs;i++) x1[i] = x0[i]; /* for parameter extraction */
 
-   nIter = nIter + 1;
+#ifdef HAVE_BOBYQA
+      maxfun=1000;
+      printLevel=5555;
+      nPts = (nInputs + 1) * (nInputs + 2) / 2;
+      workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
+      bobyqa_(&nInputs, &nPts, x1, odata->lowerBounds_, odata->upperBounds_,
+              &rhobeg, &rhoend, &printLevel, &maxfun, workArray);
+      delete [] workArray;
+#else
+      printf("ERROR : Bobyqa optimizer not installed.\n");
+      exit(1);
+#endif
+      ncevals += maxfun;
+      coarseoptimtype = 0;
 
-   /* 5. UPDATING THE APPROX. OF p */
-   /*    B1 = B0 + (px1-px0-B0*h)/(h'*h)*h' */
+      /* 3. EVALUATING THE FINE MODEL AT x1 */
+      odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
+      odata->funcIO_->evaluate(odata->numFuncEvals_++,nInputs,x1,nOutputs,fx,0);
+      Fx   = 0.0;
+      for (i=0; i<nOutputs; i++)
+         Fx   += (fx[i] - y[i])*(fx[i] - y[i]);
+      Fx   = sqrt(Fx)/normy*100.00;
+      nfevals += 1;
+      /*printf("                                      %20.14f\n", Fx);*/
+      /* Now f(x1) is stored in the file fileaux (format: m f(x1)) */
 
-   for (i=0;i<nInputs;i++){
-      B0h[i] = 0.0;
-      for (j=0;j<nInputs;j++)
-         B0h[i] += B0[i+j*nInputs]*(x1[j]-x0[j]);
-   }
+      /* S. STOPPING CRITERIA              */
+      h = 0.0;
+      for (i=0;i<nInputs;i++)
+         h += (x1[i]-x0[i])*(x1[i]-x0[i]);
+      h = sqrt(h);
+      /*printf(" h = %10.6f\n", h); */
+      printf("   %5d           %5d       %5d         %8.3f              %4.2e \n", 
+             nIter+1,nfevals,ncevals,Fx,h);
+      if (nIter == nIterMAX || h < tolX) break;
 
-   for (i=0;i<nInputs;i++)
-      for (j=0;j<nInputs;j++)
-         B1[i+j*nInputs] = B0[i+j*nInputs] + 
-                           (px1[i]-px0[i]-B0h[i])/(h*h)*(x1[j]-x0[j]);
+      /* 4. EVALUATING THE SPACE-MAPPING FUNCTION AT x1            */
+      for (i=0;i<nInputs;i++) px1[i] = px0[i];/* for parameter extraction */
+#ifdef HAVE_BOBYQA
+      maxfun=1000;
+      printLevel=5555;
+      nPts = (nInputs + 1) * (nInputs + 2) / 2;
+      workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
+      bobyqa_(&nInputs, &nPts, px1, odata->lowerBounds_, odata->upperBounds_,
+              &rhobeg, &rhoend, &printLevel, &maxfun, workArray);
+      delete [] workArray;
+#else
+      printf("ERROR : Bobyqa optimizer not installed.\n");
+      exit(1);
+#endif
+      ncevals += maxfun;
+      coarseoptimtype = 1;
+
+      nIter = nIter + 1;
+
+      /* 5. UPDATING THE APPROX. OF p */
+      /*    B1 = B0 + (px1-px0-B0*h)/(h'*h)*h' */
+      for (i=0;i<nInputs;i++)
+      {
+         B0h[i] = 0.0;
+         for (j=0;j<nInputs;j++)
+            B0h[i] += B0[i+j*nInputs]*(x1[j]-x0[j]);
+      }
+      for (i=0;i<nInputs;i++)
+         for (j=0;j<nInputs;j++)
+            B1[i+j*nInputs] = B0[i+j*nInputs] + 
+                              (px1[i]-px0[i]-B0h[i])/(h*h)*(x1[j]-x0[j]);
 
 /* - CHECKINGS ------------------------------------------------------ */
 /*
-
-   for (i=0;i<nInputs;i++){
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", B0[i+j*nInputs]);
+      for (i=0;i<nInputs;i++)
+      {
+         for (j=0;j<nInputs;j++)
+            printf("%10.6f   ", B0[i+j*nInputs]);
+         printf("\n");
+      }
       printf("\n");
-   }
+      for (i=0;i<nInputs;i++)
+      {
+         for (j=0;j<nInputs;j++)
+            printf("%10.6f   ", B1[i+j*nInputs]);
+         printf("\n");
+      }
       printf("\n");
-
-
-   for (i=0;i<nInputs;i++){
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", B1[i+j*nInputs]);
-      printf("\n");
-   }
-      printf("\n");
-
-
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", x0[j]);
-      printf("\n");
-      printf("\n");
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", x1[j]);
-      printf("\n");
-      printf("\n");
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", px0[j]);
-      printf("\n");
-      printf("\n");
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", px1[j]);
-      printf("\n");
-      printf("\n");
-      for (j=0;j<nInputs;j++)
-         printf("%10.6f   ", B0h[j]);
-      printf("\n");
-      printf("\n"); 
+      for (j=0;j<nInputs;j++) printf("%10.6f   ", x0[j]);
+      printf("\n\n");
+      for (j=0;j<nInputs;j++) printf("%10.6f   ", x1[j]);
+      printf("\n\n");
+      for (j=0;j<nInputs;j++) printf("%10.6f   ", px0[j]);
+      printf("\n\n");
+      for (j=0;j<nInputs;j++) printf("%10.6f   ", px1[j]);
+      printf("\n\n");
+      for (j=0;j<nInputs;j++) printf("%10.6f   ", B0h[j]);
+      printf("\n\n");
 */
 
-   /* updating variables */
-
-   for (i=0;i<nInputs;i++){
-        x0[i]  = x1[i];
-	px0[i] = px1[i];
-	for (j=0;j<nInputs;j++)
-           B0[i+j*nInputs] = B1[i+j*nInputs];
+      /* updating variables */
+      for (i=0;i<nInputs;i++)
+      {
+         x0[i]  = x1[i];
+	 px0[i] = px1[i];
+	 for (j=0;j<nInputs;j++)
+            B0[i+j*nInputs] = B1[i+j*nInputs];
+      }
    }
 
-   //savesmaux(1, nInputs, px0, B0, x0);
-/*   x1  = x0;
-   B1  = B0;
-   px1 = px0;*/
-}
-
-/* DIAGNOSTICS */
+   /* DIAGNOSTICS */
    if (nIter == nIterMAX)
       printf("\n Maximum number of %4d SM iterations reached.\n\n", nIterMAX);
    else
       printf("\n Normal termination.\n\n");
 
    printf("\n\n");
-   printf(" ****************************************************\n");
+   printAsterisks(0);
    printf(" SPACE MAPPING: Space-mapping solution:\n");
    for(i=0; i<nInputs; i++)
    printf("                                      %20.14f\n", x1[i]);
-   printf(" ****************************************************\n");
+   printAsterisks(0);
    printf("\n\n");
-
-
    odata->optimalY_ = Fx;
    for (i = 0; i < nInputs; i++) odata->optimalX_[i] = x1[i];
 
-   free(x0);
-   free(px0);
-   free(B0);
-   free(x1);
-   /*free(px1);
-   free(B1);*/
-   free(zstar);
-   free(XValues);
-   free(fx);
-   free(y);
-
-   /*fclose(ffineaux);*/
-   /*fclose(fcoarseaux);*/
-   // ------ set return values and clean up ------
+   // clean up
+   delete [] XValues;
+   delete [] fx;
+   delete [] x0;
+   delete [] px0;
+   delete [] B0;
+   delete [] x1;
+   delete [] px1;
+   delete [] B1;
+   delete [] B0h;
+   delete [] zstar;
+   delete [] y;
 }
 
-//void savesmaux(int coarsetype,int nInputs,double *px0,double *B0,double *x0)
-//{
-//   int i,j;
-//   FILE  *fsmaux      = fopen(    "smaux", "w");
-//
-//
-//if (coarsetype == 0){      /* parameter extraction */
-//
-//   fprintf(fsmaux, "%d ", 0);
-//   fprintf(fsmaux, "\n");
-//   for (i = 0; i < nInputs; i++)
-//      fprintf(fsmaux, "%lg ", 0.0);
-//   fprintf(fsmaux, "\n");
-//   for (i = 0; i < nInputs; i++){
-//      for(j = 0; j < nInputs; j++)
-//         if (i==j)
-//            fprintf(fsmaux, "%lg ", 1.0);
-//         else
-//            fprintf(fsmaux, "%lg ", 0.0);
-//      fprintf(fsmaux, "\n");
-//   }
-//   for (i = 0; i < nInputs; i++)
-//      fprintf(fsmaux, "%lg ", 0.0);
-//   fprintf(fsmaux, "\n");
-//}
-//else{
-//
-//   fprintf(fsmaux, "%d ", 1);
-//   fprintf(fsmaux, "\n");
-//
-//   for (i = 0; i < nInputs; i++)
-//      fprintf(fsmaux, "%lg ", px0[i]);
-//   fprintf(fsmaux, "\n");
-//   for (i = 0; i < nInputs; i++){
-//      for(j = 0; j < nInputs; j++)
-//         fprintf(fsmaux, "%lg ", B0[j + i*nInputs]);
-//         fprintf(fsmaux, "\n");
-//   }
-//   for (i = 0; i < nInputs; i++)
-//      fprintf(fsmaux, "%lg ", x0[i]);
-//   fprintf(fsmaux, "\n");
-//
-//}
-//
-//   fclose(fsmaux);
-//}
-//
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+SMOptimizer& SMOptimizer::operator=(const SMOptimizer &)
+{
+   printf("SMOptimizer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
+}
+

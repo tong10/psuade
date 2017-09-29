@@ -30,12 +30,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "TwoSampleAnalyzer.h"
-#include "Main/Psuade.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/Matrix.h"
-#include "Util/Vector.h"
-#include "Util/sysdef.h"
-#include "PDFLib/PDFManager.h"
+#include "Psuade.h"
+#include "PsuadeUtil.h"
+#include "Matrix.h"
+#include "Vector.h"
+#include "sysdef.h"
+#include "PDFManager.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -215,7 +215,7 @@ TwoSampleAnalyzer::~TwoSampleAnalyzer()
 double TwoSampleAnalyzer::analyze(aData &adata)
 {
    int    testOption=-1, length1, length2, ss;
-   double retval, *Y1, *Y2;
+   double retval, *Y1=NULL, *Y2=NULL;
    char   filename1[500], filename2[500];
    FILE   *file1, *file2;
 
@@ -284,15 +284,33 @@ double TwoSampleAnalyzer::analyze(aData &adata)
       fclose(file2);
       return PSUADE_UNDEFINED;
    }
-   fclose(file1);
+   fclose(file2);
 
    file1 = fopen(filename1, "r");
-   fscanf(file1, "%d", &length1); 
+   if (file1 != NULL)
+   {
+      fscanf(file1, "%d", &length1);
+   }
+   else
+   {
+      printf("file %s does not exist when trying to open in file %s, LINE %d\n", 
+              filename1, __FILE__, __LINE__);
+      exit(1);
+   }
    Y1 = new double[length1];
    for (ss = 0; ss < length1; ss++) fscanf(file1, "%lg", &Y1[ss]); 
    fclose(file1);
    file2 = fopen(filename2, "r");
-   fscanf(file2, "%d", &length2); 
+   if(file2 != NULL)
+   { 
+      fscanf(file2, "%d", &length2);
+   }
+   else
+   {
+      printf("file %s does not exist when trying to open in file %s, Line %d\n",
+             filename2, __FILE__, __LINE__);
+      exit(1);
+   }
    Y2 = new double[length2];
    for (ss = 0; ss < length2; ss++) fscanf(file2, "%lg", &Y2[ss]); 
    fclose(file2);
@@ -304,6 +322,8 @@ double TwoSampleAnalyzer::analyze(aData &adata)
       case 3: retval = MWAnalyze(length1, Y1, length2, Y2, 2); break; 
    }
 
+   if(Y1 != NULL) delete [] Y1;
+   if(Y2 != NULL) delete [] Y2;
    return retval;
 }
 
@@ -461,9 +481,8 @@ double TwoSampleAnalyzer::KSAnalyze(int length1, double *Y1, int length2,
          fwritePlotTitle(outfile, "Kolgomorov Smirnov Test");
          fclose(outfile);
          if (psPlotTool_ == 1)
-            printf("KSAnalyzer: scilabks.sci created.\n");
-         else
-            printf("KSAnalyzer: matlabks.m created.\n");
+              printf("KSAnalyzer: scilabks.sci created.\n");
+         else printf("KSAnalyzer: matlabks.m created.\n");
       }
    }
 
@@ -603,10 +622,20 @@ double TwoSampleAnalyzer::MWAnalyze(int length1, double *Y1, int length2,
       printAsterisks(0);
    }
 
-   delete [] Y1;
-   delete [] Y2;
    delete [] Y;
+   delete [] Y1L;
+   delete [] Y2L;
    delete [] dSortList;
    return (PABS(Z)- cval);
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+TwoSampleAnalyzer& TwoSampleAnalyzer::operator=(const TwoSampleAnalyzer &)
+{
+   printf("TwoSampleAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

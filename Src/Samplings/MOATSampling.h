@@ -31,7 +31,7 @@
 #include <string.h>
 #include <math.h>
 #include "Sampling.h"
-#include "../DataIO/PsuadeData.h"
+#include "PsuadeData.h"
 
 /**
  * @name Morris one-at-a-time samping method
@@ -48,13 +48,50 @@ class MOATSampling: public Sampling
 
 public:
 
+   /** constructor */
    MOATSampling();
+
+   // Bill Oliver added a Copy Constructor
+   MOATSampling(const MOATSampling &);
+
+   /** destructor */
    ~MOATSampling();
 
-   int initialize(int);
-   int refine(int, int, double, int, double *);
-   int repair(char *, int);
-   int genRepair(int, double *, double *);
+   /** initialization 
+       @param flag: flag to signal how far to initialize
+    */
+   int initialize(int flag);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   MOATSampling& operator=(const MOATSampling &);
+
+   /** This function modifies the current sample
+       @param fname : name of file containing repair data
+       @param start : the first sample location for repair
+    */
+   int repair(char *fname, int start);
+
+   /** This function generates samples with constraints
+       @param nInputs : number of inputs
+       @param lbounds : input lower bounds
+       @param ubounds : input upper bounds
+    */
+   int genRepair(int nInputs, double *lower, double *upper);
+
+   /** This function generates samples with constraints
+       @param psuadeIO : container for all available data
+    */
    int genRepair(PsuadeData *);
 
 private:

@@ -35,10 +35,10 @@
 // ------------------------------------------------------------------------
 // local includes : class definition and utilities
 // ------------------------------------------------------------------------
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "DataIO/pData.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "pData.h"
+#include "PsuadeUtil.h"
 #include "PWLinear.h"
 
 #define PABS(x)  ((x) > 0 ? x : -(x))
@@ -74,8 +74,7 @@ PWLinear::~PWLinear()
 int PWLinear::genNDGridData(double *X, double *Y, int *N2, double **X2,
                             double **Y2)
 {
-   int     totPts, mm, ii, iOne=1;
-   double  *HX, *Xloc;
+   int     totPts, mm, iOne=1;
 
    if (nInputs_ <= 0 || nSamples_ <= 0)
    {
@@ -101,47 +100,14 @@ int PWLinear::genNDGridData(double *X, double *Y, int *N2, double **X2,
    if (ROMStorePts_ == NULL) setParams(iOne, NULL);
    if ((*N2) == -999) return 0;
 
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
-   totPts = nPtsPerDim_;
-   for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++)
-      HX[ii] = (upperBounds_[ii] - lowerBounds_[ii]) /
-               (double) (nPtsPerDim_ - 1);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
-   (*N2) = totPts;
-   Xloc  = new double[nInputs_];
-
-   for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
-
    for (mm = 0; mm < totPts; mm++)
-   {
-      for (ii = 0; ii < nInputs_; ii++ ) (*X2)[mm*nInputs_+ii] = Xloc[ii];
-      for (ii = 0; ii < nInputs_; ii++ )
-      {
-         Xloc[ii] += HX[ii];
-         if (Xloc[ii] < upperBounds_[ii] ||
-             PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-         else Xloc[ii] = lowerBounds_[ii];
-      }
       (*Y2)[mm] = evaluatePoint(&((*X2)[mm*nInputs_]));
-   }
 
-   delete [] Xloc;
-   delete [] HX;
    return 0;
 }
 
@@ -429,7 +395,7 @@ double PWLinear::setParams(int targc, char **targv)
    int        status, iR, ii, nOutputs, kk;
    double     *sampleInputs, *sampleOutputs;
    char       filename[500], lineIn[500];
-   PsuadeData *psIO;
+   PsuadeData *psIO = NULL;
    pData      pPtr, pInputs, pOutputs; 
 
    if (targc == 1)
@@ -527,6 +493,7 @@ double PWLinear::setParams(int targc, char **targv)
          exit(1);
       }
    }
+   if (psIO != NULL) delete psIO;
    return 0.0;
 }
 

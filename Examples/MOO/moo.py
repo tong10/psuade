@@ -46,14 +46,10 @@ inputfileName  = sys.argv[1]
 outputfileName = sys.argv[2]
 
 inputData = getInputData(inputfileName)
-F = inputData[0]
-G = 1.0
-for ind in range(4):
-   G = G + inputData[ind+1] * 9 / 4
-H = F * G
-F2 = G * H
+F1 = inputData[0] * inputData[0] + inputData[1] * inputData[1] 
+F2 = 1 - F1
 outdata = range(2)
-outdata[0] = F
+outdata[0] = F1
 outdata[1] = F2
 genOutputFile(outputfileName, outdata)
 

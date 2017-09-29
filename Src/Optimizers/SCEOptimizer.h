@@ -24,7 +24,6 @@
 // AUTHOR : Amer Abdulla - Charles Tong
 // DATE   : 2009
 // ************************************************************************
-
 #ifndef __SCEOPTIMIZER__
 #define __SCEOPTIMIZER__
 
@@ -34,14 +33,23 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class SCEOptimizer : public Optimizer
 {
 public:
 
+   /** constructor */
    SCEOptimizer();
+
+   /** destructor */
    ~SCEOptimizer();
-   void optimize(oData *odata);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   SCEOptimizer& operator=(const SCEOptimizer &);
 
 private:
    void   standev(int, int, double*, double*);

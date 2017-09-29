@@ -28,8 +28,8 @@
 #define __MARSBAGGH__
 
 #include <stdio.h>
-#include "FuncApprox/FuncApprox.h"
-#include "FuncApprox/Mars.h"
+#include "FuncApprox.h"
+#include "Mars.h"
 
 // ************************************************************************
 // class definition
@@ -41,6 +41,7 @@ class MarsBagg : public FuncApprox
    int    mode_;
    int    maxBasis_;
    int    varPerBasis_;
+   int    usageIndex_;
    double **dataSetX_;
    double **dataSetY_;
 

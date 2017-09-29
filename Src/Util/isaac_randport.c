@@ -49,6 +49,7 @@ randctx *ctx;
 }
 
 
+
 #define mix(a,b,c,d,e,f,g,h) \
 { \
    a^=b<<11; d+=a; b+=c; \
@@ -59,6 +60,32 @@ randctx *ctx;
    f^=g>>4;  a+=f; g+=h; \
    g^=h<<8;  b+=g; h+=a; \
    h^=a>>9;  c+=h; a+=b; \
+}
+
+void randinitBySeed(ctx, seed)
+randctx *ctx;
+ub4     seed;
+{
+  int i;
+  ub4 a,b,c,d,e,f,g,h;
+  a=b=c=d=e=f=g=h=seed;
+
+   for (i=0; i<4; ++i)          /* scramble it */
+   {
+     mix(a,b,c,d,e,f,g,h);
+   }
+
+   ctx->randrsl[0] = a;
+   ctx->randrsl[1] = b;
+   ctx->randrsl[2] = c;
+   ctx->randrsl[3] = d;
+   ctx->randrsl[4] = e;
+   ctx->randrsl[5] = f;
+   ctx->randrsl[6] = g;
+   ctx->randrsl[7] = h;
+
+   randinit(ctx, TRUE);
+
 }
 
 /* if (flag==TRUE), then use the contents of randrsl[] to initialize mm[]. */

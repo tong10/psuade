@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// File: factorial.c                                                          //
+// File: factorial.c (from mymathlib)                                         //
 // Routine(s):                                                                //
 //    Factorial                                                               //
 //    xFactorial                                                              //

@@ -27,13 +27,14 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sstream>
+#include <unistd.h>
 using namespace std;
 
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "FuncApprox/FuncApprox.h"
-#include "FuncApprox/Mars.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "FuncApprox.h"
+#include "Mars.h"
 #include "GMetisSampling.h"
 
 #define PABS(x) ((x) > 0 ? x : -(x))
@@ -65,6 +66,73 @@ GMetisSampling::GMetisSampling() : Sampling()
 }
 
 // ************************************************************************
+// constructor 
+// ------------------------------------------------------------------------
+GMetisSampling::GMetisSampling(const GMetisSampling & gms) : Sampling()
+{
+   refineType_ = gms.refineType_;
+   refineSize_ = gms.refineSize_;
+   n1d_ = gms.n1d_;
+   nAggrs_ = gms.nAggrs_;
+   graphN_ = gms.graphN_;
+ 
+   aggrLabels_ = new int*[nAggrs_]; 
+   aggrCnts_ = new int[nAggrs_];
+   for(int i = 0; i < nAggrs_; i++)
+   {
+      aggrCnts_[i] = gms.aggrCnts_[i];
+      for(int j = 0; j < aggrCnts_[j]; j++)
+      {
+         aggrLabels_[j] = new int[aggrCnts_[i]];
+         aggrLabels_[i][j] = gms.aggrLabels_[i][j];
+      }
+   }
+   
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = gms.printLevel_;
+   samplingID_ = gms.samplingID_;
+   nSamples_ = gms.nSamples_;
+   nInputs_ = gms.nInputs_;
+   nOutputs_ = gms.nOutputs_;
+   randomize_ = gms.randomize_;
+   nReplications_ = gms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = gms.lowerBounds_[i];
+      upperBounds_[i] = gms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = gms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = gms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = gms.sampleStates_[i];
+
+   graphI_ = new int[graphN_+1];
+   for(int i = 0; i <= graphN_; i++)
+      graphI_[i] = gms.graphI_[i];
+
+   graphJ_ = new int[graphN_*nInputs_*2 + 1];
+   for(int i = 0; i <= graphN_*nInputs_*2; i++)
+      graphJ_[i] = gms.graphJ_[i];
+
+   cellsOccupied_ = new int[graphN_];
+   for(int i = 0; i < graphN_; i++)
+      cellsOccupied_[i] = gms.cellsOccupied_[i];
+
+}
+
+// ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
 GMetisSampling::~GMetisSampling()
@@ -86,10 +154,10 @@ GMetisSampling::~GMetisSampling()
 // ------------------------------------------------------------------------
 int GMetisSampling::initialize(int initLevel)
 {
-   int    *incrs, inputID, ii, jj, itmp, jtmp, nnz, sampleID, randFlag;
+   int    *incrs, inputID, ii, jj, itmp, jtmp, nnz, sampleID;
    int    options[10], index, count, kk;
 #ifdef HAVE_METIS
-   int    wgtflag=0, numflag=0, edgeCut=0, itwo=2;
+   int    wgtflag=0, numflag=0, edgeCut=0;
 #endif
    double *ranges=NULL, dtmp, *lbounds, *ubounds, expand=0.0;
    char   response[500], pString[500];
@@ -115,7 +183,6 @@ int GMetisSampling::initialize(int initLevel)
    aggrCnts_      = NULL;
    aggrLabels_    = NULL;
    cellsOccupied_ = NULL;
-   randFlag  = randomize_;
    if (nInputs_ > 21)
    {
       printf("GMetisSampling ERROR : nInputs > 21 currently not supported.\n");
@@ -208,7 +275,6 @@ int GMetisSampling::initialize(int initLevel)
             fscanf(fp, "%d %d", &jj, &kk);
             cellsOccupied_[jj] = - kk - 1;
          }
-         fclose(fp);
       }
    }
 
@@ -250,7 +316,8 @@ int GMetisSampling::initialize(int initLevel)
          aggrLabels_[index][aggrCnts_[index]++] = ii;  
       }
    }
-
+  
+   if(fp != NULL)  fclose(fp);
    fp = fopen("psuadeGMetisInfo", "w");
    if (fp != NULL)
    {
@@ -341,7 +408,7 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
 #endif
    int    *tmpCnts, **tmpLabels, currNAggr, newCell, oldNumSamples;
    int    *oldSampleStates, *labels, status, outputID, ss, maxNNZ;
-   int    *refineArray=NULL, *node2Aggr=NULL, splitCount, *aggrErrCnts;
+   int    *refineArray=NULL, *node2Aggr=NULL, splitCount;
    int    splitSuccess, cellCnt=0;
    double *ranges, dtmp, **oldSampleMatrix, *oldSampleOutput;
    double *lbounds, *ubounds, *sortList2;
@@ -415,7 +482,6 @@ int GMetisSampling::refine(int nLevels, int randFlag, double threshold,
 
    refineArray = NULL;
    aggrErrs = NULL;
-   aggrErrCnts = NULL;
 
    if (refineType_ == 1 && sampleErrors == NULL)
    {
@@ -699,7 +765,7 @@ int GMetisSampling::setParam(string sparam)
       if (fp != NULL)
       {
          fclose(fp);
-         system("rm -f psuadeGMetisInfo");
+         unlink("psuadeGMetisInfo");
       }
       return 0;
    }
@@ -751,5 +817,73 @@ int GMetisSampling::setParam(string sparam)
    }
    printf("GMetisSampling ERROR:: setParam - invalid param.\n");
    return -1;
+}
+
+// ************************************************************************
+// equal operator  Modified by Bill Oliver
+// ------------------------------------------------------------------------
+GMetisSampling& GMetisSampling::operator=(const GMetisSampling & gms)
+{
+   if(this == &gms) return *this;
+   refineType_ = gms.refineType_;
+   refineSize_ = gms.refineSize_;
+   n1d_ = gms.n1d_;
+   nAggrs_ = gms.nAggrs_;
+   graphN_ = gms.graphN_;
+ 
+   aggrLabels_ = new int*[nAggrs_]; 
+   aggrCnts_ = new int[nAggrs_];
+   for(int i = 0; i < nAggrs_; i++)
+   {
+      aggrCnts_[i] = gms.aggrCnts_[i];
+      for(int j = 0; j < aggrCnts_[j]; j++)
+      {
+         aggrLabels_[j] = new int[aggrCnts_[i]];
+         aggrLabels_[i][j] = gms.aggrLabels_[i][j];
+      }
+   }
+   
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = gms.printLevel_;
+   samplingID_ = gms.samplingID_;
+   nSamples_ = gms.nSamples_;
+   nInputs_ = gms.nInputs_;
+   nOutputs_ = gms.nOutputs_;
+   randomize_ = gms.randomize_;
+   nReplications_ = gms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = gms.lowerBounds_[i];
+      upperBounds_[i] = gms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = gms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = gms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = gms.sampleStates_[i];
+
+   graphI_ = new int[graphN_+1];
+   for(int i = 0; i <= graphN_; i++)
+      graphI_[i] = gms.graphI_[i];
+
+   graphJ_ = new int[graphN_*nInputs_*2 + 1];
+   for(int i = 0; i <= graphN_*nInputs_*2; i++)
+      graphJ_[i] = gms.graphJ_[i];
+
+   cellsOccupied_ = new int[graphN_];
+   for(int i = 0; i < graphN_; i++)
+      cellsOccupied_[i] = gms.cellsOccupied_[i];
+   return (*this);
 }
 

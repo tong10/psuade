@@ -30,7 +30,7 @@
 #include <math.h>
 
 #include "sysdef.h"
-#include "Util/sysdef.h"
+#include "sysdef.h"
 #include "Sampling.h"
 #include "MCSampling.h"
 #include "FactorialSampling.h"
@@ -53,6 +53,13 @@
 #include "GMetisSampling.h"
 #include "SparseGridSampling.h"
 #include "DiscreteSampling.h"
+#include "RFractFactSampling.h"
+
+// ------------------------------------------------------------------------
+// local includes : The OTHER way to do sampling...
+// ------------------------------------------------------------------------
+#include "PDFManager.h"
+#include "PDFBase.h"
 
 // ************************************************************************
 // Constructor 
@@ -75,7 +82,81 @@ Sampling::Sampling()
    inputSettings_ = NULL;
    inputNumSettings_ = NULL;
 }
-   
+
+// ************************************************************************
+// Copy Constructor created by Bill Oliver 
+// ------------------------------------------------------------------------
+Sampling::Sampling(const Sampling & smp)
+{
+   printLevel_ = smp.printLevel_;
+   samplingID_ = smp.samplingID_;
+   nSamples_ = smp.nSamples_;
+   nInputs_ = smp.nInputs_;
+   nOutputs_ = smp.nOutputs_;
+   randomize_ = smp.randomize_;
+   nReplications_ = smp.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = smp.lowerBounds_[i];
+      upperBounds_[i] = smp.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = smp.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = smp.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = smp.sampleStates_[i];
+   // symTable_,inputSettings_,and inputNumSettings_ are currently not 
+   // being allocated
+} 
+
+// ************************************************************************
+// Overload operator=  by Bill Oliver 
+// ------------------------------------------------------------------------
+Sampling & Sampling::operator=(const Sampling & smp)
+{
+   if(this == & smp) return *this;
+
+   printLevel_ = smp.printLevel_;
+   samplingID_ = smp.samplingID_;
+   nSamples_ = smp.nSamples_;
+   nInputs_ = smp.nInputs_;
+   nOutputs_ = smp.nOutputs_;
+   randomize_ = smp.randomize_;
+   nReplications_ = smp.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = smp.lowerBounds_[i];
+      upperBounds_[i] = smp.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = smp.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = smp.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = smp.sampleStates_[i];
+
+   return *this;
+}
+
 // ************************************************************************
 // destructor 
 // ------------------------------------------------------------------------
@@ -96,6 +177,145 @@ Sampling::~Sampling()
       delete [] inputSettings_;
    }
    if (inputNumSettings_ != NULL) delete [] inputNumSettings_;
+}
+
+// ************************************************************************
+// This function fully constructs a sampling from the psuadeIO_
+// input.  All the common functionality it done in the Sampleing
+// class, subclasses should overwrite this function.
+// Currently this function does not support adaptive sampling or refinement, 
+// although it probably could.  (The psuadeIO object has all the info for it)
+// @param psuadeIO_ : A Psuade Data file, should have Input/Output variables 
+// and Method defined.
+// ------------------------------------------------------------------------
+int Sampling::doSampling(PsuadeData* psuadeIO_) 
+{
+   pData  pPtr, pSymTable, pLowerB, pUpperB, pOutputs, pInputs;
+   pData  pStates, pPDFs, pSettings;
+
+   int outputLevel_ = 0;
+   psuadeIO_->getParameter("ana_diagnostics", pPtr);
+   outputLevel_ = pPtr.intData_;
+
+   int nInputs = 0;
+   int nOutputs = 0;
+   double *iLowerB, *iUpperB = NULL;
+   psuadeIO_->getParameter("input_ninputs", pPtr);
+   nInputs = pPtr.intData_;
+   psuadeIO_->getParameter("output_noutputs", pPtr);
+   nOutputs = pPtr.intData_;
+   psuadeIO_->getParameter("input_lbounds", pLowerB);
+   iLowerB = pLowerB.dbleArray_;
+   psuadeIO_->getParameter("input_ubounds", pUpperB);
+   iUpperB = pUpperB.dbleArray_;
+
+   int *symTable = NULL;
+   psuadeIO_->getParameter("input_symtable", pSymTable);
+   symTable = pSymTable.intArray_;
+
+   int    randomize, nReps, nSamples = 0;
+   psuadeIO_->getParameter("method_nsamples", pPtr);
+   nSamples = pPtr.intData_;
+   psuadeIO_->getParameter("method_randomflag", pPtr);
+   randomize = pPtr.intData_;
+   psuadeIO_->getParameter("method_nreplications", pPtr);
+   nReps = pPtr.intData_;  
+
+   int    *inputPDFs, iSum, usePDFs, nRefines, samplingMethod = 0;
+   psuadeIO_->getParameter("method_sampling", pPtr);
+   samplingMethod = pPtr.intData_;
+   psuadeIO_->getParameter("input_use_input_pdfs", pPtr);
+   usePDFs = pPtr.intData_;
+   psuadeIO_->getParameter("input_pdfs", pPDFs);
+   inputPDFs = pPDFs.intArray_;
+   psuadeIO_->getParameter("method_nrefinements", pPtr);
+   nRefines = pPtr.intData_;
+
+   int haveSettings = 0;
+   psuadeIO_->getParameter("input_settings", pSettings);
+   haveSettings = pSettings.nInts_;
+
+   //Blow away any existing samples:
+   psuadeIO_->resetSamples();
+
+   //Set up the Sampler
+   setPrintLevel(outputLevel_);
+   setInputBounds(nInputs, iLowerB, iUpperB);
+   setOutputParams(nOutputs);
+   setInputParams(nInputs, NULL, NULL, symTable);
+   setSamplingParams(nSamples, nReps, randomize);
+   if (haveSettings) 
+   {
+      setInputParams(nInputs, pSettings.intArray_,
+                    pSettings.dbleArray2D_, NULL);
+   }
+
+   //There are two ways to sample, the normal way, and the PDF way
+   //Figure out if we're supposed to do the PDF way
+   for (int ii = 0; ii < nInputs; ii++) iSum += inputPDFs[ii];
+   bool doingPDFs = false;
+   if(iSum >0 && usePDFs) doingPDFs = true;
+  
+   //I wish PDFs were part of the normal sampling class hierarchy
+   if(doingPDFs) 
+   {
+      if (nRefines > 0)
+      {
+         printf("PSUADE ERROR: you have requested both sample refinement and PDFs.\n");
+         printf("       Sample refinement requires that all the input\n");
+         printf("       probability distribution be uniform. You need to\n");
+         printf("       either reset the number of refinements to be zero,\n");
+         printf("       or not take out the probability distributions.\n");
+         exit(1);
+       }
+
+       printf("INFO: Creating a sample where some uncertain parameters\n");
+       printf("      are not uniformly distributed.\n");
+       PDFManager *pdfman;
+       pdfman = new PDFManager();
+       pdfman->initialize(psuadeIO_);
+       pdfman->genSample();
+       delete pdfman;
+    
+       pData pPtr;
+       double *sampleInputs, *sampleOutputs = NULL;
+       int *sampleStates = NULL;
+
+       psuadeIO_->getParameter("input_sample", pPtr);
+       sampleInputs = pPtr.dbleArray_;
+       psuadeIO_->getParameter("output_states", pPtr);
+       sampleStates = pPtr.intArray_;
+       psuadeIO_->getParameter("output_sample", pPtr);
+       sampleOutputs = pPtr.dbleArray_;
+
+       initialize(1);
+       loadSamples(nSamples, nInputs, nOutputs, sampleInputs,
+                   sampleOutputs, sampleStates);
+   }
+   else
+   {
+      printf("INFO: Creating a sample assuming all uncertain parameters\n");
+      printf("      are uniformly distributed.\n");
+
+      double *sampleInputs, *sampleOutputs = NULL;
+      int *sampleStates = NULL;
+
+      initialize(0);
+      nSamples = getNumSamples(); /* may have been modified */
+      sampleInputs  = new double[nSamples * nInputs];
+      sampleOutputs = new double[nSamples * nOutputs];
+      sampleStates  = new int[nSamples];
+      getSamples(nSamples, nInputs, nOutputs, sampleInputs,
+                         sampleOutputs, sampleStates);
+      psuadeIO_->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
+                                  sampleInputs,NULL); 
+      psuadeIO_->updateOutputSection(nSamples,nOutputs,sampleOutputs,
+                                   sampleStates,NULL); 
+      delete [] sampleInputs;
+      delete [] sampleOutputs;
+      delete [] sampleStates;
+   }
+   return 0;
 }
 
 // ************************************************************************
@@ -554,6 +774,18 @@ Sampling *SamplingCreateFromID(int samplingMethod)
       case PSUADE_SAMP_LSA:
            sampler = (Sampling *) new LSASampling();
            break;
+      case PSUADE_SAMP_RFF4:
+           sampler = (Sampling *) new RFractFactSampling();
+           sparam.clear();
+           sparam.append("setResolution 4");
+           sampler->setParam(sparam);
+           break;
+      case PSUADE_SAMP_RFF5:
+           sampler = (Sampling *) new RFractFactSampling();
+           sparam.clear();
+           sparam.append("setResolution 5");
+           sampler->setParam(sparam);
+           break;
       default :
            printf("PSUADE::SamplingCreateFromID ERROR - ");
            printf("invalid sampling method (%d).\n",samplingMethod);
@@ -589,6 +821,7 @@ int SamplingDestroy(Sampling *sampler)
    SparseGridSampling       *SparseGridSampler;
    DiscreteSampling         *DiscreteSampler;
    LSASampling              *LSASampler;
+   RFractFactSampling       *RFFSampler;
 
    switch (sampler->samplingID_)
    {
@@ -711,6 +944,18 @@ int SamplingDestroy(Sampling *sampler)
       case PSUADE_SAMP_LSA:
            LSASampler = (LSASampling *) sampler;
            delete LSASampler;
+           break;
+      case PSUADE_SAMP_RFF4:
+           RFFSampler = (RFractFactSampling *) sampler;
+           // delete FFSampler;  
+	   // deleted wrong object. Fixed by Bill Oliver
+	   delete RFFSampler;
+           break;
+      case PSUADE_SAMP_RFF5:
+           RFFSampler = (RFractFactSampling *) sampler;
+	   // delete FFSampler;  
+	   // deleted wrong object. Fixed by Bill Oliver
+	   delete RFFSampler;
            break;
    }
    return 0;

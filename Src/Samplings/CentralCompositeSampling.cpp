@@ -28,8 +28,8 @@
 #include <sstream>
 using namespace std;
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "CentralCompositeSampling.h"
 
 // ************************************************************************
@@ -79,9 +79,11 @@ int CentralCompositeSampling::initialize(int initLevel)
    }
    samplePtr->setInputBounds(nInputs_, lowerBounds_, upperBounds_);
    samplePtr->setOutputParams(nOutputs_);
+   nSamples = samplePtr->getNumSamples();
    samplePtr->setSamplingParams(nSamples, 1, 0);
    samplePtr->initialize(0);
-   nSamples = samplePtr->getNumSamples();
+   // moved this statement above the statement that uses nSamples
+   // nSamples = samplePtr->getNumSamples();
    sampleInputs  = new double[nSamples * nInputs_];
    sampleOutputs = new double[nSamples * nOutputs_];
    sampleStates  = new int[nSamples];
@@ -154,21 +156,17 @@ int CentralCompositeSampling::initialize(int initLevel)
    }
    for (inputID = 0; inputID < nInputs_; inputID++)
        sampleMatrix_[nSamples_-1][inputID] = 0.5 * 
-                    (lowerBounds_[inputID] + upperBounds_[inputID]); 
+                    (lowerBounds_[inputID] + upperBounds_[inputID]);
+   // Cleanup by Bill Oliver
+   delete samplePtr;
    return 0;
 }
 
 // ************************************************************************
 // refine the sample space
 // ------------------------------------------------------------------------
-int CentralCompositeSampling::refine(int ratio,int randomize,double thresh,
-                                     int nSamples, double *sampleErrors)
+int CentralCompositeSampling::refine(int,int,double, int, double *)
 {
-   (void) ratio;
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
    printf("CentralCompositeSampling::refine ERROR - not available.\n");
    exit(1);
    return 0;
@@ -212,5 +210,16 @@ int CentralCompositeSampling::setParam(string sparam)
    if (resolution_ == 4 && scheme_ == 2) samplingID_ = PSUADE_SAMP_CCC4;
    if (resolution_ == 5 && scheme_ == 2) samplingID_ = PSUADE_SAMP_CCC5;
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+CentralCompositeSampling& CentralCompositeSampling::operator=
+                                  (const CentralCompositeSampling &)
+{
+   printf("CentralCompositeSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

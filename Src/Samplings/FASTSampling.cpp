@@ -29,8 +29,8 @@
 #include <math.h>
 using namespace std;
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "FASTSampling.h"
 
 #define PABS(x) ((x) > 0 ? x : -(x))
@@ -153,7 +153,7 @@ int FASTSampling::initialize(int initLevel)
 int FASTSampling::refine(int refineRatio, int randomize, double thresh,
                          int nSamples, double *sampleErrors)
 {
-   int    *omegas, M, nLevels, oldNSamples, *oldStates, ii, inputID, fail;
+   int    *omegas, M, oldNSamples, *oldStates, ii, inputID, fail;
    double *ranges, **oldSamples, *oldOutputs, ds, ss, ps_pi=3.14159, ddata;
 
    (void) randomize;
@@ -171,7 +171,6 @@ int FASTSampling::refine(int refineRatio, int randomize, double thresh,
       exit(1);
    } 
    
-   nLevels = refineRatio;
    oldNSamples = nSamples_;
    oldSamples  = sampleMatrix_;
    oldOutputs  = sampleOutput_;
@@ -249,5 +248,15 @@ int FASTSampling::calculateOmegas(int nInputs, int *omegas)
    for (ii = 1; ii < nInputs; ii++)
       omegas[ii] = omegas[ii-1] + PSUADE_FAST_DELTA[nInputs-1-ii];
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+FASTSampling& FASTSampling::operator=(const FASTSampling &)
+{
+   printf("FASTSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

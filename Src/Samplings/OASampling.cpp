@@ -28,8 +28,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "OASampling.h"
 
 // ************************************************************************
@@ -630,5 +630,15 @@ int OASampling::setInputParams(int nInputs, int *counts,
       }
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+OASampling& OASampling::operator=(const OASampling &)
+{
+   printf("OASampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

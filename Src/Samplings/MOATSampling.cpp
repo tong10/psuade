@@ -29,13 +29,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "DataIO/pData.h"
-#include "DataIO/pData.h"
-#include "DataIO/PsuadeData.h"
-#include "FuncApprox/FuncApprox.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "pData.h"
+#include "pData.h"
+#include "PsuadeData.h"
+#include "FuncApprox.h"
+#include "Psuade.h"
 #include "MOATSampling.h"
 #define PABS(x) ((x) > 0 ? (x) : -(x))
 
@@ -47,6 +47,47 @@ MOATSampling::MOATSampling() : Sampling()
    samplingID_ = PSUADE_SAMP_MOAT;
    P_ = 4;
    inputSubset_ = NULL;
+}
+
+//*************************************************************************
+//* Copy Constructor added by Bill Oliver
+//*------------------------------------------------------------------------
+MOATSampling::MOATSampling(const MOATSampling & ms) : Sampling()
+{
+   samplingID_ = ms.samplingID_;
+   P_ = ms.P_;
+   nInputs_ = ms.nInputs_;
+   inputSubset_ = new int[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+     inputSubset_[i] = ms.inputSubset_[i];
+
+   //MetisSampling inherits from Sampling so include the parent class data members
+   printLevel_ = ms.printLevel_;
+   samplingID_ = ms.samplingID_;
+   nSamples_ = ms.nSamples_;
+   nOutputs_ = ms.nOutputs_;
+   randomize_ = ms.randomize_;
+   nReplications_ = ms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ms.lowerBounds_[i];
+      upperBounds_[i] = ms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ms.sampleStates_[i];
 }
 
 //********************************************************************
@@ -63,7 +104,7 @@ MOATSampling::~MOATSampling()
 int MOATSampling::initialize(int initLevel)
 {
    int    ii, ii2, rr, ss, nReps, nn, randomize, *bins, currBin, nSub=0;
-   int    kk1, kk2, maxReps=500, maxSamples, index, base1, base2;
+   int    kk1, kk2, maxReps=500, maxSamples, index, base1, base2, setFlag=0;
    double **BS, *ranges, ddata, *tempX, maxDist, dDist;
    char   *cString, partitionFile[200], winput1[200], winput2[200];
    FILE*  fp;
@@ -93,7 +134,8 @@ int MOATSampling::initialize(int initLevel)
          sscanf(cString, "%s %s %d",winput1,winput2,&P_);
          P_ = P_ / 2 * 2;
          if (P_ <= 0 || P_ > 100) P_ = 4;
-         printf("MOATSampling: P set to %d\n", P_);
+         printf("MOATSampling: P set to %d (config)\n", P_);
+         setFlag = 1;
       }
       cString = psConfig_->getParameter("MOAT_partition_file");
       if (cString != NULL)
@@ -119,16 +161,17 @@ int MOATSampling::initialize(int initLevel)
                inputSubset_ = new int[nInputs_];
                for (ii = 0; ii < nInputs_; ii++) inputSubset_[ii] = 0;
                for (ii = 0; ii < ss; ii++)
-               {
-                  fscanf(fp, "%d", &ii2);
+	       {
+		  fscanf(fp, "%d", &ii2);
                   if (ii2 < 1 || ii2 > nInputs_)
                   {
                      printf("MOATSampling: invalid input partition file.\n");
                      printf("               invalid input index %d.\n", ii);
                      delete [] inputSubset_;
                      inputSubset_ = NULL;
-                     fclose(fp);
+                     if(fp != NULL) fclose(fp);
                      fp = NULL;
+                     break;
                   }
                   else inputSubset_[ii2-1] = 1;
                }
@@ -137,7 +180,7 @@ int MOATSampling::initialize(int initLevel)
          }
       }
    }
-   if (psSamExpertMode_ == 1)
+   if (psSamExpertMode_ == 1 && setFlag == 0)
    {
       printf("MOATSampling: the current P is %d.\n", P_);
       sprintf(winput1, "Please choose a new P: (4 - 10, even) ");
@@ -147,15 +190,16 @@ int MOATSampling::initialize(int initLevel)
 
    if (printLevel_ > 4)
    {
-      printf("MOATSampling: initialize: nSamples = %d\n", nSamples_);
-      printf("MOATSampling: initialize: nInputs  = %d\n", nInputs_);
-      printf("MOATSampling: initialize: nOutputs = %d\n", nOutputs_);
+      printf("MOATSampling: initialize: nSamples  = %d\n", nSamples_);
+      printf("MOATSampling: initialize: nInputs   = %d\n", nInputs_);
+      printf("MOATSampling: initialize: nOutputs  = %d\n", nOutputs_);
+      printf("MOATSampling: initialize: numLevels = %d\n", P_);
       if (randomize != 0)
            printf("MOATSampling: initialize: randomize on\n");
       else printf("MOATSampling: initialize: randomize off\n");
    }
 
-   if (nInputs_ > 19)
+   if (nInputs_ > 100)
    {
       printf("MOATSampling: nInputs > 100, use fast version.\n");
       initializeHighDimension();
@@ -665,14 +709,14 @@ int MOATSampling::merge()
    int        nInps1, nOuts1, nSamp1, nInps2, nSamp2, nOutputs, count; 
    int        samplingMethod, ii, ii2, rr, nSamples, nInputs, cnt1, cnt2;
    int        *sampleStates, nReps;
-   double     *lower1, *upper1, *lower2, *upper2, *sampleInputs1;
+   double     *sampleInputs1;
    double     *sampleInputs2, *sampleInputs, *sampleOutputs;
    char       **inpNames1, **inpNames2, **inpNames, file1[500], file2[500];
    char       pString[500];
    FILE       *fp1, *fp2;
    PsuadeData *psuadeIO1, *psuadeIO2;
-   pData      pPtr1, pINames1, pLower1, pUpper1;
-   pData      pPtr2, pINames2, pLower2, pUpper2;
+   pData      pPtr1, pINames1;
+   pData      pPtr2, pINames2;
 
    sprintf(pString,"Please enter the name of the first MOAT datafile: ");
    getString(pString, file1);
@@ -695,10 +739,6 @@ int MOATSampling::merge()
    nInps1 = pPtr1.intData_;
    assert(psuadeIO1->getParameter("input_names", pINames1) == 0);
    inpNames1 = pINames1.strArray_;
-   assert(psuadeIO1->getParameter("input_lbounds", pLower1) == 0);
-   lower1 = pLower1.dbleArray_;
-   assert(psuadeIO1->getParameter("input_ubounds", pUpper1) == 0);
-   upper1 = pUpper1.dbleArray_;
    assert(psuadeIO1->getParameter("output_noutputs", pPtr1) == 0);
    nOuts1 = pPtr1.intData_;
    assert(psuadeIO1->getParameter("method_sampling", pPtr1) == 0);
@@ -749,10 +789,6 @@ int MOATSampling::merge()
    nInps2 = pPtr2.intData_;
    assert(psuadeIO2->getParameter("input_names", pINames2) == 0);
    inpNames2 = pINames2.strArray_;
-   assert(psuadeIO2->getParameter("input_lbounds", pLower2) == 0);
-   lower2 = pLower2.dbleArray_;
-   assert(psuadeIO2->getParameter("input_ubounds", pUpper2) == 0);
-   upper2 = pUpper2.dbleArray_;
    assert(psuadeIO2->getParameter("method_sampling", pPtr2) == 0);
    samplingMethod = pPtr2.intData_;
    if (samplingMethod != PSUADE_SAMP_MOAT &&
@@ -882,8 +918,14 @@ int MOATSampling::checkSample(int nInputs, int nSamples, double **X)
       }
       nDiff = 0;
       for (ii = 0; ii < nInputs; ii++) nDiff += errArray[ii];
-      if (nDiff != nInputs) return 1;
+      if (nDiff != nInputs)
+      {
+         // Cleanup by Bill Oliver
+	 delete [] errArray;
+	 return 1;
+      }
    }
+   delete [] errArray;
    return 0;
 }
 
@@ -910,8 +952,14 @@ int MOATSampling::checkSample2(int nInputs, int nSamples, double *X)
       }
       nDiff = 0;
       for (ii = 0; ii < nInputs; ii++) nDiff += errArray[ii];
-      if (nDiff != nInputs) return 1;
+      if (nDiff != nInputs)
+      {
+         // Cleanup by Bill Oliver
+	 delete [] errArray;
+	 return 1;
+      }
    }
+   delete [] errArray;
    return 0;
 }
 
@@ -1190,18 +1238,22 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
       return 0; 
    }
    fp = fopen("MOAT_repair_file", "w");
-   fprintf(fp, "BEGIN\n");
-   fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
-   for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
-   fprintf(fp, "\n");
-   for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+   // Add a check for NULL by Bill Oliver
+   if(fp != NULL)
    {
-      for (jj = 0; jj < nInputs; jj++)
-         fprintf(fp, "%e ", moatSample[ii][jj]);
+      fprintf(fp, "BEGIN\n");
+      fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
+      for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
       fprintf(fp, "\n");
+      for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+      {
+         for (jj = 0; jj < nInputs; jj++)
+            fprintf(fp, "%e ", moatSample[ii][jj]);
+         fprintf(fp, "\n");
+      }
+      fprintf(fp, "END\n");
+      fclose(fp);
    }
-   fprintf(fp, "END\n");
-   fclose(fp);
    count = nPaths * (nInputs + 1); 
    tempW = new double[count*nInputs];
    states = new int[count];
@@ -1227,7 +1279,7 @@ int MOATSampling::genRepair(int nInputs, double *lbounds, double *ubounds)
 }
 
 //*************************************************************************
-//* generate sample with response/surfaceconstraints
+//* generate sample with response/surface constraints
 //*------------------------------------------------------------------------
 int MOATSampling::genRepair(PsuadeData *psIO)
 {
@@ -1281,6 +1333,8 @@ int MOATSampling::genRepair(PsuadeData *psIO)
    if (threshL >= threshU)
    {
       printf("ERROR : lower bound >= upper bound.\n");
+      // Cleanup by Bill Oliver
+      delete faPtr;
       return 0;
    }
    sprintf(pString,"Please enter the number of paths to search: ");
@@ -1450,21 +1504,25 @@ int MOATSampling::genRepair(PsuadeData *psIO)
       for (ii = 0; ii < nPaths*(nInputs+1); ii++)
          delete [] moatSample[ii];
       delete [] moatSample;
+      delete faPtr;
       return 0;
    }
    fp = fopen("MOAT_repair_file", "w");
-   fprintf(fp, "BEGIN\n");
-   fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
-   for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
-   fprintf(fp, "\n");
-   for (ii = 0; ii < nPaths*(nInputs+1); ii++)
-   {
-      for (jj = 0; jj < nInputs; jj++)
-         fprintf(fp, "%e ", moatSample[ii][jj]);
-      fprintf(fp, "\n");
+   // add a check for NULL by Bill Oliver
+   if(fp != NULL){
+     fprintf(fp, "BEGIN\n");
+     fprintf(fp, "%d %d\n", nPaths*(nInputs+1), nInputs);
+     for (ii = 0; ii < nInputs; ii++) fprintf(fp, "%d ", ii+1);
+     fprintf(fp, "\n");
+     for (ii = 0; ii < nPaths*(nInputs+1); ii++)
+       {
+	 for (jj = 0; jj < nInputs; jj++)
+	   fprintf(fp, "%e ", moatSample[ii][jj]);
+	 fprintf(fp, "\n");
+       }
+     fprintf(fp, "END\n");
+     fclose(fp);
    }
-   fprintf(fp, "END\n");
-   fclose(fp);
    count = nPaths * (nInputs + 1); 
    tempW = new double[count*nInputs];
    states = new int[count];
@@ -1486,6 +1544,7 @@ int MOATSampling::genRepair(PsuadeData *psIO)
    delete [] moatSample;
    delete [] tempW;
    delete [] states;
+   delete faPtr;
    return 0;
 }
 
@@ -1584,5 +1643,48 @@ int MOATSampling::initializeHighDimension()
       delete [] tempX;
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator modified by Bill Oliver
+// ------------------------------------------------------------------------
+MOATSampling& MOATSampling::operator=(const MOATSampling & ms)
+{
+  if(this == &ms) return *this;
+   samplingID_ = ms.samplingID_;
+   P_ = ms.P_;
+   nInputs_ = ms.nInputs_;
+   inputSubset_ = new int[nInputs_];
+   for(int i = 0; i < nInputs_; i++)
+     inputSubset_[i] = ms.inputSubset_[i];
+
+   //MetisSampling inherits from Sampling so include the parent class data members
+   printLevel_ = ms.printLevel_;
+   samplingID_ = ms.samplingID_;
+   nSamples_ = ms.nSamples_;
+   nOutputs_ = ms.nOutputs_;
+   randomize_ = ms.randomize_;
+   nReplications_ = ms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ms.lowerBounds_[i];
+      upperBounds_[i] = ms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ms.sampleStates_[i];
+   return (*this);
 }
 

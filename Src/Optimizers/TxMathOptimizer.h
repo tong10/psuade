@@ -25,7 +25,6 @@
 // DATE   : 2003
 // ************************************************************************
 // ************************************************************************
-
 #ifndef __TXMATHOPTIMIZER__
 #define __TXMATHOPTIMIZER__
 
@@ -35,13 +34,23 @@
 // ************************************************************************
 // Class definition
 // ************************************************************************
-
 class TxMathOptimizer : public Optimizer
 {
 public:
+
+   /** constructor */
    TxMathOptimizer();
+
+   /** destructor */
    ~TxMathOptimizer();
-   void optimize(oData *);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   TxMathOptimizer& operator=(const TxMathOptimizer &);
 };
 
 #endif // __TXMATHOPTIMIZER__

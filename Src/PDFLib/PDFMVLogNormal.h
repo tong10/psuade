@@ -37,8 +37,8 @@
 // class definition
 // ************************************************************************
                                                                                 
-#include "Util/Matrix.h"
-#include "Util/Vector.h"
+#include "Matrix.h"
+#include "Vector.h"
 #include "PDFMVNormal.h"
 
 class PDFMVLogNormal

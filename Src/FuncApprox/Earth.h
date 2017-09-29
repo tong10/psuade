@@ -29,7 +29,7 @@
 #define __EARTHH__
 
 #include <stdio.h>
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition
@@ -56,9 +56,16 @@ class Earth: public FuncApprox
 
 public:
 
+   /** constructor */
    Earth(int, int);
+
+   /** destructor */
    ~Earth();
 
+   /** copy constructor */
+   Earth& operator=(const Earth &);
+
+   /** generate functions */
    int    genNDGridData(double*,double*,int*,double**,double**);
    int    gen1DGridData(double*,double *,int,double*, 
                         int *, double **, double **);
@@ -68,6 +75,8 @@ public:
                         int *, double **, double **);
    int    gen4DGridData(double*,double *,int,int,int,int,double*, 
                         int *, double **, double **);
+
+   /** evaluate functions */
    double evaluatePoint(double *);
    double evaluatePoint(int, double *, double *);
    double evaluatePointFuzzy(double *, double &);

@@ -29,7 +29,7 @@
 #ifndef __RSMSOBOL2ANALYZERH__
 #define __RSMSOBOL2ANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -47,6 +47,8 @@ public:
    double analyze(aData &adata);
 
    double analyze2(aData &adata);
+
+   RSMSobol2Analyzer& operator=(const RSMSobol2Analyzer &analyzer);
 };
 
 #endif // __RSMSOBOL2ANALYZERH__

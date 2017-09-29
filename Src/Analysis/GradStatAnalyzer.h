@@ -28,8 +28,8 @@
 #ifndef __GRADSTATANALYZERH__
 #define __GRADSTATANALYZERH__
 
-#include "Samplings/Sampling.h"
-#include "Analysis/Analyzer.h"
+#include "Sampling.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -51,6 +51,8 @@ public:
    ~GradStatAnalyzer();
 
    double analyze(aData &);
+
+   GradStatAnalyzer& operator=(const GradStatAnalyzer &analyzer);
 
 private:
    int computeMeanVariance(int nInputs, int nOutputs, int nSamples, 

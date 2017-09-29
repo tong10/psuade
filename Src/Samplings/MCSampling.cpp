@@ -25,8 +25,8 @@
 // DATE   : 2003
 // ************************************************************************
 using namespace std;
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "MCSampling.h"
 
 // ************************************************************************
@@ -137,5 +137,15 @@ int MCSampling::refine(int refineRatio, int randomize, double thresh,
    delete [] oldSampleOutput;
    delete [] oldSampleStates;
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+MCSampling& MCSampling::operator=(const MCSampling &)
+{
+   printf("MCSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

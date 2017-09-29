@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
-
 #ifdef HAVE_TXMATH
 
 #include <stdio.h>
@@ -33,7 +32,6 @@
 //--------------------------------------------------------------------------
 // local variables
 //--------------------------------------------------------------------------
-
 FunctionInterface *TxMath_funcIO_=NULL;
 int TxMath_nInputs_=0;
 int TxMath_nOutputs_=0;
@@ -50,7 +48,6 @@ double TxMath_optimalY_=1.0e49;
 //**************************************************************************
 // function evaluation 
 //--------------------------------------------------------------------------
-
 void TxMathPSUADEInitialize(oData *odata)
 {
    int    nInputs, nOutputs;
@@ -98,7 +95,6 @@ void TxMathPSUADEInitialize(oData *odata)
 //**************************************************************************
 // function evaluation 
 //--------------------------------------------------------------------------
-
 double TxMathPSUADEFunction(const TXSTD::vector<double>& x) 
 {
    int    i, evaluateFlag=1, currDriver;
@@ -154,7 +150,6 @@ double TxMathPSUADEFunction(const TXSTD::vector<double>& x)
 //**************************************************************************
 // define starting point
 //--------------------------------------------------------------------------
-
 TXSTD::vector<double> TxMathPSUADEGetStartingPoint() 
 {
    TXSTD::vector<double> point(TxMath_nInputs_);
@@ -166,7 +161,6 @@ TXSTD::vector<double> TxMathPSUADEGetStartingPoint()
 //**************************************************************************
 // define input dimension
 //--------------------------------------------------------------------------
-
 size_t TxMathPSUADEGetDimension()
 {
    return TxMath_nInputs_;
@@ -175,7 +169,6 @@ size_t TxMathPSUADEGetDimension()
 //**************************************************************************
 // fetch optimal data 
 //--------------------------------------------------------------------------
-
 double TxMathPSUADEGetOptimalData(double *optX)
 {
    for (int i = 0; i < TxMath_nInputs_; i++ ) optX[i] = TxMath_optimalX_[i];
@@ -185,7 +178,6 @@ double TxMathPSUADEGetOptimalData(double *optX)
 //**************************************************************************
 // clean up 
 //--------------------------------------------------------------------------
-
 void TxMathPSUADECleanUp()
 {
    if (TxMath_startingPoint_ != NULL) delete [] TxMath_startingPoint_;
@@ -203,7 +195,6 @@ void TxMathPSUADECleanUp()
 //**************************************************************************
 // get number of function evaluations
 //--------------------------------------------------------------------------
-
 int TxMathPSUADEGetNumFuncEval()
 {
    return (TxMath_sampleID_+1);

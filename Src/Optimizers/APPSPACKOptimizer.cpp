@@ -24,25 +24,22 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #ifdef HAVE_APPSPACK
 
 #include <stdio.h>
-#include "psuade_install_dir"
-#include "Util/PsuadeUtil.h"
+#include "PsuadeUtil.h"
 
-#include <vector.h>
-#include "APPSPACK_Common.H"
-#include "APPSPACK_BasePoint.H"
-#include "APPSPACK_APPS.H"
+#include <vector>
+//#include "APPSPACK_Common.H"
+//#include "APPSPACK_BasePoint.H"
+//#include "APPSPACK_APPS.H"
 #include "APPSPACKOptimizer.h"
 
-using namespace APPSPACK;
+//using namespace APPSPACK;
 
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-
 APPSPACKOptimizer::APPSPACKOptimizer()
 {
 }
@@ -50,7 +47,6 @@ APPSPACKOptimizer::APPSPACKOptimizer()
 // ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
-
 APPSPACKOptimizer::~APPSPACKOptimizer()
 {
 }
@@ -58,7 +54,6 @@ APPSPACKOptimizer::~APPSPACKOptimizer()
 // ************************************************************************
 // optimize
 // ------------------------------------------------------------------------
-
 void APPSPACKOptimizer::optimize(oData *odata)
 {
    FILE   *fp;
@@ -68,7 +63,6 @@ void APPSPACKOptimizer::optimize(oData *odata)
    char   lineIn[500], *subString;
    char   *keywords[] = {"FINAL MINIMUM", "f=", "x=[", "Fevals:"};
  
-
    sprintf(inputFile, "psuadeAPPSPACK.in");
    sprintf(outputFile, "psuadeAPPSPACK.out");
    fp = fopen(inputFile, "w");
@@ -98,7 +92,6 @@ void APPSPACKOptimizer::optimize(oData *odata)
    fprintf(fp, "num_workers = 1\n");
    fclose(fp);
 
-
    h = odata->upperBounds_[0] - odata->lowerBounds_[0];
    for (i = 1; i < nInputs; i++)
       if ((odata->upperBounds_[i]-odata->lowerBounds_[i]) < h) 
@@ -119,10 +112,10 @@ void APPSPACKOptimizer::optimize(oData *odata)
    odata->numFuncEvals_ = 0;
    while ((fgets(lineIn, 500, fp) != NULL) && (feof(fp) == 0))
    {
-      subString = strstr((const char*)lineIn,(const char*)keywords[0]);
+      subString = strstr(lineIn,keywords[0]);
       if ( subString != NULL )
       {
-         subString = strstr((const char*)lineIn,(const char*)keywords[1]);
+         subString = strstr(lineIn,keywords[1]);
          if ( subString == NULL )
          {
             printf("PSUADE appspack optimize : fmin not found.\n");
@@ -134,7 +127,7 @@ void APPSPACKOptimizer::optimize(oData *odata)
             sscanf(subString, "%lg", &(odata->optimalY_));
             printf("PSUADE appspack optimize : fmin = %16.8e.\n",
                    odata->optimalY_);
-            subString = strstr((const char*)lineIn,(const char*)keywords[2]);
+            subString = strstr(lineIn,keywords[2]);
             if ( subString == NULL )
             {
                printf("PSUADE appspack optimize : Xmin not found.\n");
@@ -153,7 +146,7 @@ void APPSPACKOptimizer::optimize(oData *odata)
       }
       else
       {
-         subString = strstr((const char*)lineIn,(const char*)keywords[3]);
+         subString = strstr(lineIn,keywords[3]);
          if ( subString != NULL )
          {
             subString = &(subString[8]);
@@ -164,9 +157,20 @@ void APPSPACKOptimizer::optimize(oData *odata)
    }
    fclose(fp);
 
-
 }
+
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+APPSPACKOptimizer& APPSPACKOptimizer::operator=(const APPSPACKOptimizer &)
+{
+   printf("APPSPACKAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
+}
+
 #else
    int bogus;
 #endif
+
 

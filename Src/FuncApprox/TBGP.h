@@ -32,7 +32,7 @@
 #include "tgp.h"
 #endif
 #include <stdio.h>
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

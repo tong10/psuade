@@ -34,7 +34,7 @@
  **/
 /*@{*/
 
-#include "Util/Vector.h"
+#include "Vector.h"
 
 // ************************************************************************
 // class definition
@@ -50,6 +50,10 @@ class Matrix
 public:
 
    Matrix();
+   // Copy constructor by Bill Oliver
+   Matrix(const Matrix & ma);
+   // overload = operator
+   Matrix & operator=(const Matrix & ma);
    ~Matrix();
    int    nrows();
    int    ncols();
@@ -59,9 +63,10 @@ public:
    double getEntry(const int, const int);
    double getDeterminant();
    int    submatrix(Matrix &, const int, const int *);
-   void   CholDecompose();
+   int    CholDecompose();
    void   CholMatvec(Vector &);
    void   CholSolve(Vector &);
+   void   CholTSolve(Vector &);
 
 private:
    double computeDeterminant(int, double **);

@@ -47,6 +47,12 @@ class iVector
 public:
 
    iVector();
+   // Copy Constructor by Bill Oliver
+   iVector(const iVector & v);
+
+   // Overload operator= by Bill Oliver
+   iVector & operator=(const iVector & v);
+
    ~iVector();
    int length();
    int load(iVector &);

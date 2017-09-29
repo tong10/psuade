@@ -28,7 +28,7 @@
 #ifndef __PDFBASEH__
 #define __PDFBASEH__
 
-#include "DataIO/PsuadeData.h"
+#include "PsuadeData.h"
 
 /**
  * @name Base class for probability density functions

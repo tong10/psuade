@@ -29,9 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifndef PSUADE_NO_MARS
+#ifdef HAVE_MARS
 
-#if !defined(SUN4) || !defined(SUN5)
+#if !defined(SUNOS)
 extern void mars_(int *,int *, float *, float *, float *, int *,
 	      int *, int *, float *, int *, float *, double*, int*);
 extern void fmod_(int *, int *, float *, float *, int *, float *,
@@ -42,7 +42,7 @@ extern void fmod_(int *, int *, float *, float *, int *, float *,
 /* call MARS to generate regression coefficients                         */
 /*-----------------------------------------------------------------------*/
 
-#if defined(SUN4) || defined(SUN5)
+#if defined(SUNOS)
 
 void mars_process(nsamples, ninputs, x, y, wgts, nk, mi, lx, fm, im)
 int    nsamples, ninputs, nk, mi, *lx, *im;
@@ -92,7 +92,7 @@ void mars_process(int nsamples, int ninputs, double **x, double *y,
 /* call MARS to interpolate input data                                   */
 /*-----------------------------------------------------------------------*/
 
-#if defined(SUN4) || defined(SUN5)
+#if defined(SUNOS)
 void mars_fmod(tot_npts, ninputs, x, y, fm, im)
 int    tot_npts, ninputs, *im;
 double **x, *y;

@@ -20,6 +20,7 @@ work.
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "oa.h"
   
 int  **imatrix(), *ivector();
@@ -237,7 +238,7 @@ if(  *nrow<1  ){
 if(  argc >1  ){
   *A = imatrix( 0,*nrow-1,0,*ncol-1 );
   if(  !(*A)  ){
-    fprintf(stderr,"The array is too large (%d by %d) to fit in memory.\n",nrow,ncol);
+    fprintf(stderr,"The array is too large (%d by %d) to fit in memory.\n",*nrow,*ncol);
     exit(1);
   }
   

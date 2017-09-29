@@ -27,9 +27,9 @@
 #ifndef __PDFDATAH__
 #define __PDFDATAH__
 
-#include "Util/Vector.h"
-#include "Util/iVector.h"
-#include "Util/Matrix.h"
+#include "Vector.h"
+#include "iVector.h"
+#include "Matrix.h"
 
 // ************************************************************************
 // class definition

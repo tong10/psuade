@@ -28,7 +28,8 @@
 #ifndef __MAINEFFECTANALYZERH__
 #define __MAINEFFECTANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
+#include "PsuadeData.h"
 
 // ************************************************************************
 // class definition
@@ -46,6 +47,10 @@ public:
    ~MainEffectAnalyzer();
 
    double analyze(aData &adata);
+
+   int printResults(int, double, double *, PsuadeData *);
+
+   MainEffectAnalyzer& operator=(const MainEffectAnalyzer &analyzer);
 
    int plotResponse(int nInputs, int nSamples, double *sampleInputs,
                     double *sampleOutputs, double *xLower, double *xUpper, 

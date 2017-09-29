@@ -25,9 +25,10 @@
 // DATE   : 2003
 // ************************************************************************
 #include <math.h>
-#include "Main/Psuade.h"
+#include "Psuade.h"
 #include "PsuadeUtil.h"
-
+#include "PrintingTS.h"
+#include <string>
 
 // ------------------------------------------------------------------------
 // local defines
@@ -44,32 +45,31 @@ static long    pgplotFlag_;
 // ------------------------------------------------------------------------
 void PSUADE_randInit()
 {
-   int    ntime, i, nbits;
+   int    ntime, ii, nbits;
    double dtime;
 
    if (psRandomSeed_ == -1)
    {
-      for ( i = 0; i < RANDSIZ; ++i ) 
+      for (ii = 0; ii < RANDSIZ; ii++) 
       {
          dtime = getClock();
          ntime = (int) (dtime * 1.0E6);
          ntime = ntime % 10000;
          dtime = getClock();
          ntime = ntime * 10000 + (int) (dtime * 1.0E6);
-         rctx_.randrsl[i] = ntime;
+         rctx_.randrsl[ii] = ntime;
          dtime = getClock();
          ntime = (int) (dtime * 1.0E6);
          ntime = ntime % 10000;
          dtime = getClock();
          ntime = ntime * 10000 + (int) (dtime * 1.0E6);
-         rctx_.randmem[i] = ntime;
+         rctx_.randmem[ii] = ntime;
       }
       randinit(&rctx_, TRUE);
    }
    else
    {
-      srand48((long) psRandomSeed_);
-      srandom((long) psRandomSeed_);
+      randinitBySeed(&rctx_, psRandomSeed_);
    }
    nbits = sizeof(int) * 8;  
    randMask_ = (1 << (nbits-2)) + ((1 << (nbits-2)) - 1);
@@ -82,19 +82,12 @@ void PSUADE_randInit()
 int PSUADE_rand()
 {
    int  irand;
-   long lrand;
 
    if (randFlag_ == 0) PSUADE_randInit(); 
-   if (psRandomSeed_ == -1)
-   {
-      irand = rand(&rctx_);
-      irand = irand & randMask_;
-   }
-   else
-   {
-      lrand = random();
-      irand = (int) (lrand & randMask_);
-   }
+
+   irand = ISAAC_RAND_RAND(&rctx_);
+   irand = irand & randMask_;
+      
    return irand;
 }
 
@@ -104,9 +97,43 @@ int PSUADE_rand()
 double PSUADE_drand()
 {
    ub4 irand;
+   double drand;
 
    irand = PSUADE_rand();
-   return ((double) irand / (double) randMask_);
+   drand = ((double) irand / (double) randMask_);
+   if (drand > 1 - 1.2e-7) drand = 1.0 - 1.2e-7;
+   return drand;
+}
+
+// ************************************************************************
+// copies a string into a new malloc'd pointer
+// ************************************************************************
+char* PSUADE_strdup(const char *s)
+{
+  size_t len = strlen (s) + 1;
+  char *result = (char*) malloc (len);
+  if (result == (char*) 0)
+    return (char*) 0;
+  return (char*) memcpy (result, s, len);
+}
+
+// ************************************************************************
+// copies a n characters of a string into a new malloc'd pointer
+// ************************************************************************
+char* PSUADE_strndup(const char *s, size_t n)
+{
+  char *result;
+  size_t len = strlen (s);
+
+  if (n < len)
+    len = n;
+
+  result = (char *) malloc (len + 1);
+  if (!result)
+    return 0;
+
+  result[len] = '\0';
+  return (char *) memcpy (result, s, len);
 }
 
 // ************************************************************************
@@ -585,11 +612,31 @@ void sortDbleList4(int length, double *valueList, double *dataList,
 // ------------------------------------------------------------------------
 int sortAndDelete(int nrows, int ncols, double **ddata)
 {
-   int    *isortList, ii, jj, kk, ll, check, ibegin, iclose, nrows2;
+   int    *isortList, ii, jj, kk, ll, ibegin, iclose, nrows2;
    double *dsortList;
+   
+   // range checking by Bill Oliver
+   if(nrows <= 0){ 
+     printf("First parameter to function sortAndDelete is <= 0 in file %s \
+              and must be >0 returning -1", __FILE__);
+     return -1;
+   }
 
+   if(ncols <= 0){ 
+     printf("Second parameter to function sortAndDelete is <= 0 in file %s \
+              and must be >0 returning -1", __FILE__);
+     return -1;
+   }
+             
    dsortList = (double *) malloc(nrows * sizeof(double));
    isortList = (int *) malloc(nrows * sizeof(int));
+
+   // Bill Oliver check for out of memory
+   if(dsortList == NULL || isortList == NULL){
+     printf("out of memory in file %s line %d aborting\n", __FILE__, __LINE__);
+     abort();
+   }
+
    for (ii = 0; ii < ncols-1; ii++)
    {
       if (ii == 0)
@@ -620,7 +667,6 @@ int sortAndDelete(int nrows, int ncols, double **ddata)
               if (ddata[jj][ii-1] != ddata[jj-1][ii-1]) break;
               else
               {
-                 check = 0;
                  for (kk = 0; kk < ii-1; kk++)
                     if (ddata[jj][kk] != ddata[jj-1][kk]) break;
                  if (kk < ii-1) break;
@@ -696,14 +742,24 @@ int binarySearchInt(int sKey, int *sData, int length)
 }
 
 // ************************************************************************
+// output a line of the provided character
+// ------------------------------------------------------------------------
+void printCharLine(int printLevel, int length, char printchar)
+{
+  if(length <= 0) {
+    length = 70;
+  }
+  std::string outString = std::string(length, printchar);
+  printOutTS(printLevel, "%s\n", outString.c_str());
+}
+
+
+// ************************************************************************
 // output a line of asterisks
 // ------------------------------------------------------------------------
 void printAsterisks(int length)
 {
-   int ii;
-   if (length > 0) for (ii = 0; ii < length; ii++) printf("*");
-   else            for (ii = 0; ii < 61; ii++) printf("*");
-   printf("\n");
+  printCharLine(2, length, '*');
 }
 
 // ************************************************************************
@@ -711,10 +767,7 @@ void printAsterisks(int length)
 // ------------------------------------------------------------------------
 void printDashes(int length)
 {
-   int ii;
-   if (length > 0) for (ii = 0; ii < length; ii++) printf("-");
-   else            for (ii = 0; ii < 61; ii++) printf("-");
-   printf("\n");
+  printCharLine(2, length, '-');
 }
 
 // ************************************************************************
@@ -722,10 +775,7 @@ void printDashes(int length)
 // ------------------------------------------------------------------------
 void printEquals(int length)
 {
-   int ii;
-   if (length > 0) for (ii = 0; ii < length; ii++) printf("=");
-   else            for (ii = 0; ii < 61; ii++) printf("=");
-   printf("\n");
+  printCharLine(2, length, '=');
 }
 
 // ************************************************************************
@@ -966,67 +1016,6 @@ int computeNumPCEPermutations(int nRVs, int pOrder)
    return nTerms;
 }
 
-#if 1
-
-/************************************************************* 
-This is the random number generator ran1() from "Numerical
-Recipes in C"
-**************************************************************/
-
-#define IA 16807
-#define IM 2147483647
-#define AM (1.0/IM)
-#define IQ 127773
-#define IR 2836
-#define NTAB 32
-#define NDIV (1+(IM-1)/NTAB)
-#define EPS 1.2e-7
-#define RNMX (1.0-EPS)
-
-float ran1(long *idum)
-/* Minimum random number generator of Park an Miller with Bays-Durham
-shuffle and added safeguards.  Returns uniform random deviate between
-0.0 and 1.0 (exclusive of the endpoint values).  Call with idum a
-negative integer to initialize; thereafter, do not alter idum between
-successive deviates in a sequence.  RNMX should approximate the largest
-floating value that is less than 1. */
-{
-     int j;
-     long k;
-     static long iy=0;
-     static long iv[NTAB];
-     float temp;
-
-     if(*idum <= 0 || !iy){
-        if(-(*idum) < 1) *idum=1;
-        else *idum = -(*idum);
-        for(j = NTAB+7;j >= 0;j--){
-           k = (*idum)/IQ;
-           *idum = IA*(*idum - k*IQ) - IR*k;
-           if(*idum < 0) *idum += IM;
-           if(j < NTAB) iv[j] = *idum;
-        }
-        iy = iv[0];
-     }
-     k = (*idum)/IQ; /* Start here when not initializing */
-     *idum = IA*(*idum - k*IQ) - IR*k; /* Compute idum = (IA*idum) % IM
-                                          without overflows by Schrage's
-                                          method. */
-     if(*idum < 0) *idum += IM;
-     j = iy/NDIV; /* Will be in the range 0..NTAB-1. */
-     iy = iv[j]; /* Output previously stored value and refill the
-                    shuffle table. */
-     iv[j] = *idum;
-     if((temp = AM*iy) > RNMX) return RNMX; /* Because users don't expect
-                                               endpoint values. */
-     else return temp;
-} /* end ran1 */
-
-/*****************************************************************
-This routine returns a random integer between 0 and imax.
-******************************************************************/
-
-#endif
 
 // ************************************************************************
 // plot stuff for scilab or matlab

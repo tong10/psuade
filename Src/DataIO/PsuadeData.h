@@ -34,7 +34,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "pData.h"
-#include "Util/Matrix.h"
+#include "Matrix.h"
+
 
 // ************************************************************************
 // subclasses
@@ -43,6 +44,9 @@
 class psuadeInputSection 
 {
 public:
+   int    nFixed_;
+   double *fixedValues_;
+   char   **fixedNames_;
    int    nInputs_;
    double *inputLBounds_;
    double *inputUBounds_;
@@ -57,6 +61,7 @@ public:
    double *sampleInputs_;
    Matrix corMatrix_;
    int    useInputPDFs_;
+   char   sampleFileName_[500];
 
    psuadeInputSection();
    ~psuadeInputSection();
@@ -128,9 +133,29 @@ typedef struct
 class psuadeAnalysisSection 
 {
 public:
-   int    analysisIntOptions_[10];
+
+   //  analysisIntOptions[0] = analysis method
+   //  analysisIntOptions[1] = output ID
+   //  analysisIntOptions[2] = rstype
+   //  analysisIntOptions[3] = diagnostics
+   //  analysisIntOptions[4] = graphics
+   int analysisIntOptions_[10];
+   
+   //  analysisDbleOptions[0] = threshold
    double analysisDbleOptions_[10];
+
+   //  optimizeIntOptions[0] = turn on/off optimization
+   //  optimizeIntOptions[1] = choose optimization method
+   //  optimizeIntOptions[2] = store num_local_minima
+   //  optimizeIntOptions[3] = use response surface for optimization
+   //  optimizeIntOptions[4] = output level
+   //  optimizeIntOptions[5] = num of fmin to calculate
+   //  optimizeIntOptions[6] = optimization output ID
    int    optimizeIntOptions_[10];
+  
+   //  optimizeDbleOptions[0] = fmin
+   //  optimizeDbleOptions[1] = cutoff point for optimization
+   //  optimizeDbleOptions[2] = tolerance for optimization
    double optimizeDbleOptions_[10];
    int    fileWriteFlag_;
    char   specsFile_[200];
@@ -168,45 +193,204 @@ class PsuadeData
 
 public:
 
+   // Constructor
    PsuadeData();
 
+   // Destructor
    ~PsuadeData();
 
-   int readPsuadeFile(char *fname);
+   // Read input file
+   // param fname - name of the file to read
+   int readPsuadeFile(const char *fname);
 
+   // Write to output file
+   // param fname - name of the file to write
+   // param flag  - to indicate duplicate save or not
    void writePsuadeFile(const char *fname, int);
 
+   // Get parameter 
    int getParameter(const char *, pData &);
 
+   // create the input section (no samples)
+   //param nInputs  - number of input variables (for checking only)
+   //param nSymbols - number of symbols for the inputs
+   //param lowerB - lower bounds
+   //param upperb - upper bounds
+   //param names    - input names
+   void createInputSection(int nInputs, int *nSymbols,
+                           double *lowerB, double *upperB,
+                           char **names);
+
+   // Update information about the input section
+   // param nSamples - number of sample points
+   // param nInputs  - number of input variables (for checking only)
+   // param nSymbols - number of symbols for the inputs
+   // param lowerB - lower bounds
+   // param upperb - upper bounds
+   // param sampleInputs - sample input values
+   // param names    - input names
+   // Note : set to NULL or -1 if update not requested.
    void updateInputSection(int nSamples, int nInputs, int *nSymbols,
                            double *lowerB, double *upperB,
                            double *sampleInputs, char **names);
 
+   // Basic creation of the output section (no samples)
+   // param nOutputs - number of output variables (for checking only)
+   // param names         - output names
+   void createOutputSection(int nOutputs, char **names);
+   
+   // Update information about the output section
+   // param nSamples - number of sample points
+   // param nOutputs - number of output variables (for checking only)
+   // param sampleOutputs - sample output values
+   // param sampleStates  - execution states of the samples
+   // param names         - output names
    void updateOutputSection(int nSamples, int nOutputs,
                             double *sampleOutputs, int *sampleStates,
                             char **names);
 
+
+   // Clears out any existing samples so they can be replaced.
+   void resetSamples();
+
+   // Update information about the method section
+   // param method - sampling method
+   // param nSamples - number of samples
+   // param nReps - number of replications
+   // param nRefines - number of refinements
+   // param randomize - randomize flag
    void updateMethodSection(int method, int nSamples, int nReps,
                             int nRefines, int randomize);
 
+   // Update information about the application section
+   // @param appDriver - appDriver name
+   // @param optDriver - optDriver name
+   // @param maxJobs - maximum number of parallel jobs
    void updateApplicationSection(char *appDriver, char *optDriver,
                                  int maxJobs);
 
+   // @param methods - analysis method bitmask
+   // @param transform - input/output transform
+   // @param rstype - response surface type
+   // @param diag - diagnostics level 
+   // @param outputID - output identifier (base 1)
+   // @param usePDFs - flag to indicate PDFs are used
    void updateAnalysisSection(int methods, int transform, int rstype,
 			      int diag, int outputID, int usePDFs);
 
+   // Update information about the optimization section
+   // @param methods   - opt method 
+   // @param tolerance - opt tolerance 
    void updateOptimizationSection(int methods, double tolerance);
 
+   // special processing of output (e.g. write to file in matlab format)
    void processOutputData();
 
+   // set output level for error outputs
    void setOutputLevel(int);
 
-   void readPsuadeIO(char *);
+   // read in sample data from the PSUADE_IO section of a psuadeData file
+   void readPsuadeIO(const char *);
 
+   // assignment operator override
+   PsuadeData& operator=(const PsuadeData &);
+
+   // accessor functions for SWIG to read C array data
    int    getSampleState(int sampleid);
    double getSampleInput(int inputNumber, int sampleid);
    double getSampleOutput(int outputNumber, int sampleid);
    pData  *getAuxData() {return &auxData_;}
+
+   // accessor functions for everything.  Arrays are copied before return,
+   // so the caller must call delete[] on them.
+   int     getInput_nInputs();
+   double* getInput_inputLBounds();
+   double* getInput_inputUBounds();
+   char**  getInput_inputNames();
+   int*    getInput_inputPDFs();
+   double* getInput_inputMeans();
+   double* getInput_inputStdevs();
+   double* getInput_inputAuxs();
+   int*    getInput_symbolTable();
+   //   double* getInput_inputSettings();  //Use getParameter("input_settings""
+   //int*    getInput_inputNumSettings();  //to get settings and numsettings
+   double* getInput_sampleInputs();
+   Matrix  getInput_corMatrix();
+   int     getInput_useInputPDFs();
+
+   
+   //Output getters
+   int getOutput_nOutputs();
+   char** getOutput_outputNames();
+   double* getOutput_sampleOutputs();
+   int* getOutput_sampleStates();
+
+   //method getters
+   int getMethod_samplingMethod();
+   int getMethod_nSamples();
+   int getMethod_nReplications();
+   int getMethod_nRefinements();
+   int getMethod_refNumRefinements();
+   int getMethod_refinementType();
+   int getMethod_refinementSize();
+   int getMethod_sampleRandomize();
+   
+   //application section getters
+   char* getApplication_appDriver();
+   char* getApplication_rsDriver();
+   char* getApplication_optDriver();
+   char* getApplication_auxOptDriver();
+   char* getApplication_inputTemplate();
+   char* getApplication_outputTemplate();
+   int getApplication_maxParallelJobs();
+   int getApplication_maxJobWaitTime();
+   int getApplication_minJobWaitTime();
+   int getApplication_runType();
+   int getApplication_useFunction();
+   int getApplication_launchInterval();
+   int getApplication_saveFrequency();
+
+   //analysis section getters
+   int getAnalysis_fileWriteFlag();
+   int getAnalysis_useInputPDFs();
+   int getAnalysis_legendreOrder();
+
+   //Returns an array of length 10 with the following values:
+   //  analysisIntOptions[0] = analysis method
+   //  analysisIntOptions[1] = output ID
+   //  analysisIntOptions[2] = rstype
+   //  analysisIntOptions[3] = diagnostics
+   //  analysisIntOptions[4] = graphics
+   int* getAnalysis_analysisIntOptions();
+
+   //Returns an array of length 10 with the following values:
+   //  analysisDbleOptions[0] = threshold
+   double* getAnalysis_analysisDbleOptions();
+
+   //Returns an array of length 10 with the following values:
+   //  optimizeIntOptions[0] = turn on/off optimization
+   //  optimizeIntOptions[1] = choose optimization method
+   //  optimizeIntOptions[2] = store num_local_minima
+   //  optimizeIntOptions[3] = use response surface for optimization
+   //  optimizeIntOptions[4] = output level
+   //  optimizeIntOptions[5] = num of fmin to calculate
+   //  optimizeIntOptions[6] = optimization output ID
+   int* getAnalysis_optimizeIntOptions();
+
+   //Returns an array of length 10 with the following values:
+   //  optimizeDbleOptions[0] = fmin
+   //  optimizeDbleOptions[1] = cutoff point for optimization
+   //  optimizeDbleOptions[2] = tolerance for optimization
+   double* getAnalysis_optimizeDbleOptions();
+   
+   char* getAnalysis_specsFile();
+   char* getAnalysis_rsIndexFile();
+   
+   // Use the GetParameter interface to get information on RSFilters and MOATFilters
+   //   int getAnalysis_numRSFilters();
+   //int getAnalysis_numMOATFilters();
+   //psuadeFilter **RSFilters_;
+   //psuadeFilter **MOATFilters_;
 
 private:
     void readInputSection(FILE *);

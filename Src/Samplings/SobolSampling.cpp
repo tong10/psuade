@@ -27,8 +27,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "SobolSampling.h"
 #include "Sampling.h"
 #include "MCSampling.h"
@@ -251,6 +251,12 @@ int SobolSampling::refine(int refineRatio, int randomize, double thresh,
    nLevels = refineRatio;
    nReps = nSamples_ * (nLevels - 1) / (nInputs_ + 2);
 
+   // First do some defensive programming and range checking by Bill Oliver
+   if(nSamples_*nLevels <= 0)
+   {
+      printf("nSamples_*nLevels <= 0 in file %s line %d\n",__FILE__,__LINE__);
+      exit(1);
+   }
    newSamples = new double*[nSamples_*nLevels];
    for (iD = 0;  iD < nSamples_*nLevels; iD++)
       newSamples[iD] = new double[nInputs_];
@@ -403,5 +409,15 @@ int SobolSampling::refine(int refineRatio, int randomize, double thresh,
                 lowerBounds_[iD2], upperBounds_[iD2]);
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+SobolSampling& SobolSampling::operator=(const SobolSampling &)
+{
+   printf("SobolSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

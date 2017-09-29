@@ -32,10 +32,10 @@
 using namespace std;
 
 #include "MultiObjectiveOptimizer.h"
-#include "Samplings/Sampling.h"
-#include "DataIO/PsuadeData.h"
-#include "Util/PsuadeUtil.h"
-#include "Main/Psuade.h"
+#include "Sampling.h"
+#include "PsuadeData.h"
+#include "PsuadeUtil.h"
+#include "Psuade.h"
 
 extern "C" void bobyqa_(int *,int *, double *, double *, double *, double *,
                         double *, int *, int *, double*);
@@ -61,7 +61,7 @@ extern "C"
       double *localY, ddata, dsum;
       char   fName[500], runLine[500];
       oData  *odata;
-      FILE   *fp;
+      FILE   *fp = NULL;
 
       nInputs = (*nInps);
       odata    = (oData *) psMOOObj_;
@@ -133,6 +133,7 @@ extern "C"
          for (ii = 0; ii < nOutputs; ii++) MO_Outputs_[ii] = localY[ii];
       }
       free(localY);
+      if(fp != NULL) fclose(fp);
       return NULL;
    }
 #ifdef __cplusplus
@@ -378,7 +379,6 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
    MO_Variables_ = new double[MO_NumVars_];
    MO_Outputs_ = new double[nOutputs];
    odata->numFuncEvals_ = 0;
-   pLevel = - printLevel - 1;
    MO_OptX = new double[numVars];
    MO_OptY = PSUADE_UNDEFINED;
 
@@ -391,6 +391,7 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
       for (ii = 0; ii < nInputs; ii++) XValues[ii] = odata->initialX_[ii];
       odata->optimalY_ = 1.0e50;
 #ifdef HAVE_BOBYQA
+      pLevel = 9999;
       bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_,
               odata->upperBounds_, &rhobeg, &rhoend, &pLevel, &maxfun, 
               workArray);
@@ -403,6 +404,13 @@ void MultiObjectiveOptimizer::optimize(oData *odata)
          sampleOut[nn*(nInputs+nOutputs+1)+ii+1] = odata->optimalX_[ii];
       for (ii = 0; ii < nOutputs; ii++)
          sampleOut[nn*(nInputs+nOutputs+1)+nInputs+ii+1] = MO_Outputs_[ii];
+      if (printLevel > 2)
+      {
+         printf("Iteration %5d (%5d) : inputs =", nn+1,nSamples);
+         for (ii = 0; ii < numVars; ii++)
+            printf(" %e", sampleIns[nn*numVars+ii]);
+         printf(", min = %e\n",odata->optimalY_);
+      }
       if (odata->optimalY_ < MO_OptY)
       {
          MO_OptY = odata->optimalY_;
@@ -579,5 +587,16 @@ int MultiObjectiveOptimizer::GenPermutations(int nInputs, int pOrder,
    (*nPerms) = numPerms;
    (*pPerms) = pcePerms;
    return 0;
+}
+
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+MultiObjectiveOptimizer& MultiObjectiveOptimizer::operator=(const 
+                                                 MultiObjectiveOptimizer &)
+{
+   printf("MultiObjectiveOptimzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

@@ -28,9 +28,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "PCAnalyzer.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
-#include "Main/Psuade.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
+#include "Psuade.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -62,11 +62,11 @@ PCAnalyzer::~PCAnalyzer()
 double PCAnalyzer::analyze(aData &adata)
 {
    int    nInputs, nOutputs, nSamples, jj, ss, ii, M, N, info;
-   int    wlen, pcCnt, pcaFlag=0;
+   int    wlen, pcCnt, pcaFlag=0, count;
    double *Y, *YY, mean, stdev, *WW, *SS, *VV, *UU, dtemp;
    char   jobu, jobvt, winput1[500], winput2[500], pcaFile[500], *cString;
    char   pString[500];
-   FILE   *fp;
+   FILE   *fp = NULL;
 
    nInputs  = adata.nInputs_;
    nOutputs = adata.nOutputs_;
@@ -74,13 +74,18 @@ double PCAnalyzer::analyze(aData &adata)
    Y        = adata.sampleOutputs_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("PCAAnalyzer INFO: some inputs have non-uniform PDFs, but\n");
-      printf("                  they will not be relevant in this analysis.n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("PCA INFO: some inputs have non-uniform PDFs, but\n");
+         printf("          they are not relevant in this analysis.\n");
+      }
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("PCAnalyzer ERROR: invalid arguments.\n");
+      printf("PCA ERROR: invalid arguments.\n");
       printf("    nInputs  = %d\n", nInputs);
       printf("    nOutputs = %d\n", nOutputs);
       printf("    nSamples = %d\n", nSamples);
@@ -88,7 +93,7 @@ double PCAnalyzer::analyze(aData &adata)
    } 
    if (nOutputs == 1)
    {
-      printf("PCAnalyzer ERROR: analysis not done since nOutputs=1.\n");
+      printf("PCA ERROR: analysis not done since nOutputs=1.\n");
       return PSUADE_UNDEFINED;
    }
    
@@ -109,7 +114,7 @@ double PCAnalyzer::analyze(aData &adata)
             fclose(fp);
             pcaFlag = 1;
          }
-         else printf("PCAnalyzer: cannot open matlab file %s\n", pcaFile);
+         else printf("PCA: cannot open matlab file %s\n", pcaFile);
       }
    }
    else
@@ -126,7 +131,7 @@ double PCAnalyzer::analyze(aData &adata)
                fclose(fp);
                pcaFlag = 1;
             }
-            else printf("PCAnalyzer ERROR: cannot open matlab file %s\n", 
+            else printf("PCA ERROR: cannot open matlab file %s\n", 
                         pcaFile);
          }
       }
@@ -166,7 +171,7 @@ double PCAnalyzer::analyze(aData &adata)
    dgesvd_(&jobu, &jobvt, &M, &N, YY, &M, SS, UU, &M, VV, &N, WW,
            &wlen, &info);
    if (info != 0)
-      printf("* PCAnalyzer INFO: dgesvd returns a nonzero (%d).\n",info);
+      printf("* PCA INFO: dgesvd returns a nonzero (%d).\n",info);
    for (ii = 0; ii < N; ii++) SS[ii] = SS[ii] * SS[ii];
    for (ii = 0; ii < N; ii++)
       printf("principal component %3d has variance = %16.8e\n",ii+1,
@@ -196,7 +201,7 @@ double PCAnalyzer::analyze(aData &adata)
    if (pcaFlag == 1)
    {
       fp = fopen(pcaFile, "w");
-      if (fp == NULL)
+      if (fp != NULL)
       {
          fprintf(fp, "%% Contribution of principal component to each output\n");
          fprintf(fp, "%% First display the Scree diagram\n");
@@ -286,10 +291,12 @@ double PCAnalyzer::analyze(aData &adata)
          Y[pcCnt*ss+jj] = dtemp;
       }
    }
+   if(fp != NULL) fclose(fp);
+
    fp = fopen("psPCA.out", "w");
    if (fp == NULL)
    {
-      printf("PCAnalyzer ERROR: failed to store principal component.\n");
+      printf("PCA ERROR: failed to store principal component.\n");
    }
    else
    {
@@ -301,7 +308,7 @@ double PCAnalyzer::analyze(aData &adata)
          fprintf(fp, "\n");
       }
       fclose(fp);
-      printf("PCAnalyzer: principal components stored in psPCA.out file.\n");
+      printf("PCA: principal components stored in psPCA.out file.\n");
    }
 
    adata.nOutputs_ = pcCnt;
@@ -310,7 +317,17 @@ double PCAnalyzer::analyze(aData &adata)
    delete [] VV;
    delete [] UU;
    delete [] YY;
-   printf("PCAnalysis completed: you can use write to update file.\n");
+   printf("PCA completed: you can use write to update file.\n");
    return 0.0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+PCAnalyzer& PCAnalyzer::operator=(const PCAnalyzer &)
+{
+   printf("PCA operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

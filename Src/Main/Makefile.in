@@ -20,8 +20,8 @@ PYTH_O     = ../PythonWrapper/psuade_wrap.o
 #---------------------------------------------------------------------
 
 psuade: Psuade.o
-	$(CXX) -o psuade Psuade.o $(CXXFLAGS) $(PLOT_LIB) $(WIN_LIB) \
-        $(PSUADE_LIB_DIR) $(PSPLOT_LIB) \
+	$(CXX) -o psuade Psuade.o $(CXXFLAGS) $(PLOT_LIB) \
+        $(WIN_LIB) $(PSUADE_LIB_DIR) $(PSPLOT_LIB) \
         $(METIS_DIR) $(METIS_LIB) $(MARS_DIR) $(MARS_LIB) \
         $(SNNS_DIR) $(SNNS_LIB) $(TPROS_DIR) $(TPROS_LIB) \
         $(GPMC_DIR) $(GPMC_LIB) $(SVM_DIR) $(SVM_LIB) \
@@ -56,5 +56,5 @@ clean:
 
 .SUFFIXES : .cpp
 .cpp.o :
-	$(CXX) -O -w -c $(CXXFLAGS) -D$(ARCH) $(PSUADE_INCLUDE) $<
+	$(CXX) -O -w -c $(CXXFLAGS) $(DEFINES) -D$(ARCH) $(PSUADE_INCLUDE) $<
 

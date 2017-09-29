@@ -27,8 +27,8 @@
 #ifndef __RSCONSTRAINTS__
 #define __RSCONSTRAINTS__
 
-#include "FuncApprox/FuncApproxFilter.h"
-#include "DataIO/PsuadeData.h"
+#include "FuncApproxFilter.h"
+#include "PsuadeData.h"
 
 /**
  * @name Defining output constraints
@@ -52,11 +52,42 @@ class RSConstraints
 
 public:
 
+   /** constructor */
    RSConstraints();
+
+   /** destructor */
    ~RSConstraints();
 
+   /** initialization 
+       @param flag: flag to signal how far to initialize
+    */
+   int initialize(int flag);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   RSConstraints& operator=(const RSConstraints &);
+
+   /** This function generates the constraints
+       @param psuadeIO : data container
+    */
    int    genConstraints(PsuadeData *psuadeIO);
-   double evaluate(double *, double, int &);
+
+   /** This function evaluates the constraints
+       @param samInputs : sample inputs
+       @param samOutputs : sample output
+       @param flag : return status flag
+    */
+   double evaluate(double *samInputs, double samOutput, int &flag);
 };
 
 #endif // __RSCONSTRAINTS__

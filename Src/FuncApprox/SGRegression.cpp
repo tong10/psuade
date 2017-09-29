@@ -28,9 +28,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "SGRegression.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Base/Globals.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Globals.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -71,6 +71,7 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
    {
       printf("SparseGridRegression ERROR: nSamples or nInputs does not match.\n");
       printf("                            SparseGrid is rigid in its sample.\n");
+      fclose(fp);
       return;
    }
    sampleInputs_ = new double[nSamples_*nInputs_];
@@ -123,8 +124,7 @@ SparseGridRegression::~SparseGridRegression()
 int SparseGridRegression::genNDGridData(double *X, double *Y, int *N2,
                                         double **X2, double **Y2)
 {
-   int     totPts, sampleID, inputID;
-   double  *HX, *Xloc;
+   int totPts, ss;
 
    if (sampleInputs_ == NULL)
    {
@@ -140,69 +140,15 @@ int SparseGridRegression::genNDGridData(double *X, double *Y, int *N2,
    analyze(X, Y);
 
    if ((*N2) == -999) return 0;
-   if (nInputs_ > 21)
-   {
-      printf("SparseGridRegression::genNDGridData INFO - nInputs > 21.\n");
-      printf("                      No lattice points generated.\n");
-      (*N2) = 0;
-      (*X2) = 0;
-      (*Y2) = 0;
-      return 0;
-   }
 
-   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 18 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 17 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 16 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 15 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
-   totPts = nPtsPerDim_;
-   for (inputID = 1; inputID < nInputs_; inputID++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      HX[inputID] = (upperBounds_[inputID] - lowerBounds_[inputID]) /
-                    (double) (nPtsPerDim_ - 1);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
-   (*N2) = totPts;
-   Xloc  = new double[nInputs_];
+   for (ss = 0; ss < totPts; ss++)
+      (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
 
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      Xloc[inputID] = lowerBounds_[inputID];
-
-   for (sampleID = 0; sampleID < totPts; sampleID++)
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-         (*X2)[sampleID*nInputs_+inputID] = Xloc[inputID];
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-      {
-         Xloc[inputID] += HX[inputID];
-         if (Xloc[inputID] < upperBounds_[inputID] ||
-              PABS(Xloc[inputID] - upperBounds_[inputID]) < 1.0E-7) break;
-         else Xloc[inputID] = lowerBounds_[inputID];
-      }
-      (*Y2)[sampleID] = evaluatePoint(&((*X2)[sampleID*nInputs_]));
-   }
-
-   delete [] Xloc;
-   delete [] HX;
    return 0;
 }
 

@@ -28,7 +28,7 @@
 #ifndef __PWLINEARH__
 #define __PWLINEARH__
 
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

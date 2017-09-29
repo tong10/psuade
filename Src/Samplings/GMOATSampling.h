@@ -51,15 +51,43 @@ class GMOATSampling: public Sampling
 
 public:
 
+   /** constructor */
    GMOATSampling();
+
+   // Bill Oliver added a Copy Constructor
+   GMOATSampling(const GMOATSampling &);
+
+   /** destructor */
    ~GMOATSampling();
 
-   int initialize(int);
-   int refine(int, int, double, int, double *);
-   int repair(char *, int);
+   /** initialization 
+       @param flag: flag to signal how far to initialize
+    */
+   int initialize(int flag);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   GMOATSampling& operator=(const GMOATSampling &);
+
+   /** This function modifies a MOAT design 
+       @param fname : name of file to read new pattern
+       @param start : which sample point to begin repair
+    */
+   int repair(char *fname, int start);
 
 private:
 
+   int initializeHighDimension();
    int generate(double **, int index);
    int merge();
    int checkSample(int, int, double **);

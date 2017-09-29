@@ -28,11 +28,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "LegendreRegression.h"
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "PDFLib/PDFBase.h"
-#include "PDFLib/PDFNormal.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "PsuadeConfig.h"
+#include "PDFBase.h"
+#include "PDFNormal.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -50,17 +51,40 @@ LegendreRegression::LegendreRegression(int nInputs,int nSamples):
                                        FuncApprox(nInputs,nSamples)
 {
    int  ii;
-   char line[101];
+   char line[101], *cString, winput1[500], winput2[500];
+
    faID_ = PSUADE_RS_REGRL;
    pOrder_ = -1;
    numPerms_ = 0;
    pcePerms_ = NULL;
-   regCoeffs_ = new double[numPerms_];
-   for (ii = 0; ii < numPerms_; ii++) regCoeffs_[ii] = 0.0;
-   regStdevs_ = new double[numPerms_+1];
-   for (ii = 0; ii < numPerms_; ii++) regStdevs_[ii] = 0.0;
+   regCoeffs_ = NULL;
+   regStdevs_ = NULL;
    fuzzyC_ = NULL;
    normalizeFlag_ = 0;
+   printAsterisks(0);
+   printf("* LegendreRegression constructor\n");
+   printDashes(0);
+   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
+   {
+      cString = psConfig_->getParameter("normalize_inputs");
+      if (cString != NULL) normalizeFlag_ = 1;
+      cString = psConfig_->getParameter("Legendre_order");
+      if (cString != NULL)
+      {
+         sscanf(cString, "%s %s %d", winput1, winput2, &ii);
+         if (ii < 0)
+         {
+            pOrder_ = 0;
+            printf("Legendre INFO: polynomial order %d not valid.\n",ii);
+            printf("               polynomial order set to 0.\n");
+         }
+         else
+         {
+            pOrder_ = ii;
+            printf("Legendre INFO: polynomial order set to %d (config)\n", pOrder_);
+         }
+      }
+   }
    if (psRSExpertMode_ == 1)
    {
       printf("Normalize the input parameters to [-1, 1]? (y - yes) ");
@@ -97,8 +121,7 @@ LegendreRegression::~LegendreRegression()
 int LegendreRegression::genNDGridData(double *X, double *Y, int *N2,
                                       double **X2, double **Y2)
 {
-   int     totPts, sampleID, inputID, status;
-   double  *HX, *Xloc;
+   int totPts, ss, status;
 
    status = analyze(X, Y);
    if (status != 0)
@@ -109,67 +132,15 @@ int LegendreRegression::genNDGridData(double *X, double *Y, int *N2,
    }
 
    if ((*N2) == -999) return 0;
-   if (nInputs_ > 21)
-   {
-      printf("LegendreRegression::genNDGridData INFO - nInputs > 21.\n");
-      printf("                    No lattice points generated.\n");
-      (*N2) = 0;
-      return 0;
-   }
 
-   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 18 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 17 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 16 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 15 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
-   totPts = nPtsPerDim_;
-   for (inputID = 1; inputID < nInputs_; inputID++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      HX[inputID] = (upperBounds_[inputID] - lowerBounds_[inputID]) /
-                    (double) (nPtsPerDim_ - 1);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
-   (*N2) = totPts;
-   Xloc  = new double[nInputs_];
+   for (ss = 0; ss < totPts; ss++)
+      (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
 
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      Xloc[inputID] = lowerBounds_[inputID];
-
-   for (sampleID = 0; sampleID < totPts; sampleID++)
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-         (*X2)[sampleID*nInputs_+inputID] = Xloc[inputID];
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-      {
-         Xloc[inputID] += HX[inputID];
-         if (Xloc[inputID] < upperBounds_[inputID] ||
-              PABS(Xloc[inputID] - upperBounds_[inputID]) < 1.0E-7) break;
-         else Xloc[inputID] = lowerBounds_[inputID];
-      }
-      (*Y2)[sampleID] = evaluatePoint(&((*X2)[sampleID*nInputs_]));
-   }
-
-   delete [] Xloc;
-   delete [] HX;
    return 0;
 }
 
@@ -422,6 +393,7 @@ double LegendreRegression::evaluatePointFuzzy(int npts,double *X,double *Y,
    double *regStore;
    PDFBase **PDFPtrs;
 
+printf("Leg: fuzzy\n");
    if (regCoeffs_ == NULL) return 0.0;
 
    if (fuzzyC_ == NULL)
@@ -431,16 +403,18 @@ double LegendreRegression::evaluatePointFuzzy(int npts,double *X,double *Y,
       regStore = new double[numPerms_];
       for (nn = 0; nn < numPerms_; nn++) regStore[nn] = regCoeffs_[nn];
 
-      PDFPtrs = new PDFBase*[numPerms_+1];
-      uppers = new double[numPerms_+1];
-      lowers = new double[numPerms_+1];
-      for (mm = 0; mm <= numPerms_; mm++) 
+      PDFPtrs = new PDFBase*[numPerms_];
+      uppers = new double[numPerms_];
+      lowers = new double[numPerms_];
+      for (mm = 0; mm < numPerms_; mm++) 
       {
          mean = regCoeffs_[mm];
          stds = regStdevs_[mm];
          uppers[mm] = mean + 2.0 * stds;
          lowers[mm] = mean - 2.0 * stds;
-         PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, stds);
+         if (stds > 0)
+              PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, stds);
+         else PDFPtrs[mm] = NULL;
       }
       Ys = new double[nTimes*npts];
 
@@ -449,8 +423,8 @@ double LegendreRegression::evaluatePointFuzzy(int npts,double *X,double *Y,
          for (mm = 0; mm < numPerms_; mm++)
          {
             C1 = PSUADE_drand();
-            PDFPtrs[numPerms_]->invCDF(1, &C1, &C2, lowers[numPerms_], 
-                                     uppers[numPerms_]);
+            if  (PDFPtrs[mm] == NULL) C2 = regCoeffs_[mm];
+            else PDFPtrs[mm]->invCDF(1, &C1, &C2, lowers[mm], uppers[mm]);
             fuzzyC_[mm][cc] = regCoeffs_[mm] = C2;
          }
          evaluatePoint(npts, X, &Ys[cc*npts]);
@@ -466,7 +440,7 @@ double LegendreRegression::evaluatePointFuzzy(int npts,double *X,double *Y,
          Ystd[kk] = sqrt(stds / (nTimes - 1));
       }
 
-      for (mm = 0; mm <= numPerms_; mm++) delete PDFPtrs[mm];
+      for (mm = 0; mm < numPerms_; mm++) delete PDFPtrs[mm];
       delete [] PDFPtrs;
       delete [] uppers;
       delete [] lowers;
@@ -507,8 +481,8 @@ double LegendreRegression::evaluatePointFuzzy(int npts,double *X,double *Y,
 // ------------------------------------------------------------------------
 int LegendreRegression::analyze(double *X, double *Y)
 {
-   int    N, M, mm, nn, wlen, info, NRevised;
-   double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bvar;
+   int    N, M, ii, mm, nn, wlen, info, NRevised;
+   double *B, *XX, SSresid, SStotal, R2, *XTX = NULL, var, *Bvar;
    double esum, ymax, *WW, *SS, *AA, *UU, *VV;
    char   jobu  = 'A', jobvt = 'A';
    char   pString[100];
@@ -525,6 +499,12 @@ int LegendreRegression::analyze(double *X, double *Y)
       return -1;
    }
    GenPermutations();
+   if (regCoeffs_ != NULL) delete [] regCoeffs_;
+   if (regStdevs_ != NULL) delete [] regStdevs_;
+   regCoeffs_ = new double[numPerms_];
+   for (ii = 0; ii < numPerms_; ii++) regCoeffs_[ii] = 0.0;
+   regStdevs_ = new double[numPerms_];
+   for (ii = 0; ii < numPerms_; ii++) regStdevs_[ii] = 0.0;
    
    if (outputLevel_ >= 0)
    {
@@ -557,6 +537,12 @@ int LegendreRegression::analyze(double *X, double *Y)
    if (psRSExpertMode_ == 1 && outputLevel_ > 0)
    {
       fp = fopen("Legendre_regression_matrix.m", "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n", 
+                __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "%% the sample matrix where svd is computed\n");
       fprintf(fp, "%% the last column is the right hand side\n");
       fprintf(fp, "AA = [\n");
@@ -616,12 +602,12 @@ int LegendreRegression::analyze(double *X, double *Y)
    }
    if (psRSExpertMode_ == 1)
    {
-      printf("LegendreRegression: singular values for the Vandermonde matrix\n");
-      printf("The VERY small ones may cause poor numerical accuracy,\n");
-      printf("but not keeping them may ruin the approximation power.\n");
-      printf("So, select them judiciously.\n");
+      printf("* LegendreRegression: singular values for the Vandermonde matrix\n");
+      printf("* The VERY small ones may cause poor numerical accuracy,\n");
+      printf("* but not keeping them may ruin the approximation power.\n");
+      printf("* So, select them judiciously.\n");
       for (nn = 0; nn < N; nn++)
-         printf("Singular value %5d = %e\n", nn+1, SS[nn]);
+         printf("* Singular value %5d = %e\n", nn+1, SS[nn]);
       sprintf(pString, "How many to keep (1 - %d) ? ", N);
       NRevised = getInt(1,N,pString);
       for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
@@ -659,6 +645,12 @@ int LegendreRegression::analyze(double *X, double *Y)
    if (outputLevel_ >= 5)
    {
       fp = fopen("regression_error_file.m", "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n", 
+                __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "%% This file contains errors of each data point.\n");
    }
    else fp = NULL;
@@ -677,7 +669,7 @@ int LegendreRegression::analyze(double *X, double *Y)
    }
    esum /= (double) nSamples_;
    esum = sqrt(esum);
-   printf("* Regression:: LS mean error = %10.3e (max=%10.3e)\n",
+   printf("* LegendreRegression:: LS mean error = %10.3e (max=%10.3e)\n",
           esum, ymax); 
 
    if (fp != NULL)
@@ -687,24 +679,16 @@ int LegendreRegression::analyze(double *X, double *Y)
    }
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
-   R2  = (SStotal - SSresid) / SStotal;
+   R2  = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
 
    Bvar = new double[N];
+   computeXTX(N, XX, &XTX);
+   computeCoeffVariance(N, XTX, var, Bvar);
 
    if (outputLevel_ >= 0)
    {
-      if (outputLevel_ >= 1)
-      {
-         computeXTX(N, XX, &XTX);
-         computeCoeffVariance(N, XTX, var, Bvar);
-      }
-      else
-      {
-         XTX = NULL;
-         for (mm = 0; mm < numPerms_; mm++) Bvar[mm] = 0.0;
-      }
       printRC(N, B, Bvar, XX, Y);
       printf("* Regression R-square = %10.3e\n", R2);
       if (M-N-1 > 0)
@@ -712,12 +696,14 @@ int LegendreRegression::analyze(double *X, double *Y)
                 1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
       if (outputLevel_ > 1) printSRC(X, B, SStotal);
    }
+   printAsterisks(0);
  
    if (regCoeffs_ != NULL) delete [] regCoeffs_;
+   if (regStdevs_ != NULL) delete [] regStdevs_;
    regCoeffs_ = B;
+   regStdevs_ = Bvar;
    delete [] XX;
-   if (XTX != NULL) delete [] XTX;
-   delete [] Bvar;
+   delete [] XTX;
    delete [] WW;
    return 0;
 }
@@ -805,22 +791,25 @@ int LegendreRegression::computeSS(int N, double *XX, double *Y,
                               double *B, double &SSresid, double &SStotal)
 {
    int    nn, mm;
-   double *R, ymean;
+   double ymean, SSreg, ddata, rdata;
                                                                                 
-   SSresid = SStotal = ymean = 0.0;
-   R = new double[nSamples_];
+   SSresid = SStotal = ymean = SSreg = 0.0;
+   for (mm = 0; mm < nSamples_; mm++)
+      ymean += (sqrt(weights_[mm]) * Y[mm]);
+   ymean /= (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
    {
-      R[mm] = Y[mm];
-      for (nn = 0; nn < N; nn++) R[mm] -= (XX[mm+nn*nSamples_] * B[nn]);
-      SSresid += R[mm] * Y[mm] * weights_[mm];
-      ymean += (sqrt(weights_[mm]) * Y[mm]);
+      ddata = 0.0;
+      for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
+      rdata = Y[mm] - ddata;
+      SSresid += rdata * rdata * weights_[mm];
+      SSreg += (ddata - ymean) * (ddata - ymean);
    }
-   ymean /= (double) nSamples_;
-   SStotal = - ymean * ymean * (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
-      SStotal += weights_[mm] * Y[mm] * Y[mm];
-   delete [] R;
+      SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+   printf("* LegendreRegression: SStot = %e\n", SStotal);
+   printf("* LegendreRegression: SSreg = %e\n", SSreg);
+   printf("* LegendreRegression: SSres = %e\n", SSresid);
    return 0;
 }
 
@@ -847,7 +836,7 @@ int LegendreRegression::computeCoeffVariance(int N,double *XX,double var,
       dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
       if (info != 0)
          printf("LegendreRegression WARNING: dgels returns error %d.\n",info);
-      if (B2[i] < 0) B[i] = -sqrt(-B2[i]);
+      if (B2[i] < 0) B[i] = 0;
       else           B[i] = sqrt(B2[i]);
    }
    delete [] B2;
@@ -870,10 +859,13 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
    for (ii = 0; ii < numPerms_; ii++) 
       if (pcePerms_[ii][0] > maxTerms) maxTerms = pcePerms_[ii][0];
 
+   printEquals(0);
+   if (normalizeFlag_ == 1)
+      printf("* Note: the coefficients below are for normalized input ranges.\n");
    printDashes(0);
    printf("*      ");
    for (ii = 0; ii < nInputs_; ii++) printf("     ");
-   printf("           coefficient  std. error  t-value\n");
+   printf("               coefficient  std. error  t-value\n");
 
    for (ii = 0; ii < numPerms_; ii++)
    {
@@ -882,11 +874,10 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
       {
          printf("* Input orders: ");
          for (jj = 0; jj < nInputs_; jj++)
-            printf(" %3d ", pcePerms_[ii][jj]);
+            printf(" %4d ", pcePerms_[ii][jj]);
          printf("= %11.3e %11.3e %11.3e\n", B[ii], Bvar[ii], coef);
       }
    }
-   printDashes(0);
    flag = 1;
    for (ii = 0; ii < nInputs_; ii++)
       if (upperBounds_[ii] != 1.0) flag = 0;
@@ -894,7 +885,8 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
       if (lowerBounds_[ii] != -1.0) flag = 0;
    if (normalizeFlag_ == 1 || flag == 1)
    {
-      printf("Mean     = %12.4e\n", B[0]);
+      printDashes(0);
+      printf("* Mean     = %12.4e\n", B[0]);
       coef = 0.0;
       for (jj = 1; jj < numPerms_; jj++) 
       {
@@ -903,7 +895,7 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
             ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
          coef = coef + ddata * ddata;
       }
-      printf("variance = %12.4e\n", coef);
+      printf("* Variance = %12.4e\n", coef);
       variance = coef;
       fp = fopen("matlablegendre.m", "w");
       fwritePlotCLF(fp);
@@ -925,7 +917,7 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
             }
          }
          fprintf(fp, "%e\n", coef/variance);
-         printf("Conditional variance %4d = %12.4e\n", ii+1, coef);
+         printf("* Conditional variance %4d = %12.4e\n", ii+1, coef);
       }
       fprintf(fp, "];\n");
       fprintf(fp, "bar(A, 0.8);\n");
@@ -936,7 +928,7 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
       fclose(fp);
       printf("Legendre VCE ranking is now in matlablegendre.m.\n");
    }
-   printDashes(0);
+   printEquals(0);
    return 0;
 }
 
@@ -996,10 +988,10 @@ int LegendreRegression::printSRC(double *X, double *B, double SStotal)
 // -------------------------------------------------------------------------
 int LegendreRegression::GenPermutations()
 {
-   int  ii, kk, orderTmp, rvTmp;
-   char pString[500];
+   int  ii, kk, orderTmp, rvTmp, setFlag=0;
+   char pString[500], *cString, winput1[500], winput2[500];
 
-   if (pOrder_ <= 0)
+   if (pOrder_ < 0)
    {
       numPerms_ = 0;
       pOrder_ = 0;
@@ -1007,7 +999,7 @@ int LegendreRegression::GenPermutations()
       { 
          pOrder_++;
          numPerms_ = 1;
-         if (nInputs_ < pOrder_)
+         if (nInputs_ > pOrder_)
          {
             for (ii = nInputs_+pOrder_; ii > nInputs_; ii--)
                numPerms_ = numPerms_ * ii / (nInputs_+pOrder_-ii+1);
@@ -1019,9 +1011,32 @@ int LegendreRegression::GenPermutations()
          }
       }
       if (numPerms_ > nSamples_) pOrder_--;
-      printf("Legendre polynomial maximum order = %d\n", pOrder_);
-      sprintf(pString, "Desired order (>=1 and <= %d) ? ", pOrder_);
-      pOrder_ = getInt(1, pOrder_, pString);
+      printf("* Legendre polynomial maximum order = %d\n", pOrder_);
+      if (psConfig_ != NULL)
+      {
+         cString = psConfig_->getParameter("LEGENDRE_order");
+         if (cString != NULL)
+         {
+            sscanf(cString, "%s %s %d",winput1,winput2,&orderTmp);
+            if (orderTmp >= 0 && orderTmp <= pOrder_)
+            {
+               printf("LegendreRegression: order from config file = %d\n",
+                      orderTmp);
+               pOrder_ = orderTmp;
+               setFlag = 1;
+            }
+            else
+            {
+               printf("LegendreRegression ERROR: order from config file ");
+               printf("is not valid (%d).\n",orderTmp);
+            }
+         }
+      }
+      if (setFlag == 0)
+      {
+         sprintf(pString, "Desired order (>=1 and <= %d) ? ", pOrder_);
+         pOrder_ = getInt(1, pOrder_, pString);
+      }
    }
    numPerms_ = 1;
    if (nInputs_ < pOrder_)
@@ -1034,8 +1049,8 @@ int LegendreRegression::GenPermutations()
       for (ii = nInputs_+pOrder_; ii > pOrder_; ii--)
          numPerms_ = numPerms_ * ii / (nInputs_+pOrder_-ii+1);
    }
-   printf("LegendreRegression: order of polynomials = %d\n", pOrder_);
-   printf("LegendreRegression: number of permutations = %d\n",numPerms_);
+   printf("* LegendreRegression: order of polynomials   = %d\n", pOrder_);
+   printf("* LegendreRegression: number of permutations = %d\n",numPerms_);
    
    pcePerms_ = new int*[numPerms_];
    for (ii = 0; ii < numPerms_; ii++) pcePerms_[ii] = new int[nInputs_];

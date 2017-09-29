@@ -30,9 +30,9 @@
 #include <math.h>
 
 #include "MarsBagg.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Psuade.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -47,38 +47,54 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 
    faID_ = PSUADE_RS_MARSB;
 
-   numMars_ = 51;
+   numMars_ = 100;
 
    mode_ = 0;
 
-   printAsterisks(0);
-   maxBasis_ = 51;
-   if (maxBasis_ > nSamples-10) maxBasis_ = nSamples - 10;
-   varPerBasis_ = nInputs;
+   usageIndex_ = 3;
+
+   maxBasis_ = 50;
+   if (maxBasis_ > nSamples) maxBasis_ = nSamples - 1;
+
+   if (nInputs >= 8) varPerBasis_ = 8;
+   else              varPerBasis_ = nInputs;
+
    if (outputLevel_ > 1)
    {
-      printf("MARS with bagging: default mode = mean (options: mean, median).\n");
-      printf("                   number of instantiations   = 51\n");
-      printf("                   no. of basis functions     = %d\n",maxBasis_);
-      printf("                   no. of variables per basis = %d\n",varPerBasis_);
+      printAsterisks(0);
+      printf("*                MarsBag Analysis\n");
+      printDashes(0);
+      printf("Default mode = mean (options: mean, median).\n");
+      printf("Number of instantiations   = 51\n");
+      printf("No. of basis functions     = %d\n",maxBasis_);
+      printf("No. of variables per basis = %d\n",varPerBasis_);
+      printf("* Turn on rs_expert mode to select internal parameters.\n");
+      printf("* Set print level to 5 to print out ranking information.\n");
+      printEquals(0);
    }
    if (psRSExpertMode_ == 1)
    {
       sprintf(pString, "MARS with bagging: mean (0) or median (1) mode ? ");
       mode_ = getInt(0, 1, pString);
-      sprintf(pString, "How many instantiation of MARS (10-5000) ? ");
+      sprintf(pString, "How many instantiation of MARS (10-5000, default=100) ? ");
       numMars_ = getInt(10, 5000, pString);
-      sprintf(pString, "How many basis functions in MARS (< %d) ? ",nSamples);
+      sprintf(pString, "How many basis functions in MARS (< %d, default = %d) ? ",
+              nSamples, maxBasis_);
       maxBasis_ = getInt(1, nSamples, pString);
-      sprintf(pString, "How many variables per basis (<= %d) ? ",nInputs);
+      sprintf(pString, "How many variables per basis (<= %d, default = %d) ? ",
+              nInputs, varPerBasis_);
       varPerBasis_ = getInt(1, nInputs, pString);
-   }
-   else if (outputLevel_ > 1)
-   {
-      printf("MARS with bagging: default mode = mean.\n");
-      printf("                   To change mode, turn on interactive.\n");
-      numMars_  = 51;
-      printf("MARS with bagging: default number of instantiation = 51.\n");
+      if (psGMMode_ == 1)
+      {
+         printf("You can control the probability of using more of the sample\n");
+         printf("points in any instantiation by setting a 'frequency' knob.\n");
+         printf("The default is 4, which gives 80-90 percent usage.\n");
+         printf("Set this number to a larger value to increase usage.\n");
+         printf("If you do not know what this knob does, enter 3.\n");
+         printf("To see the actual usage percentage, turn on printlevel 2.\n");
+         sprintf(pString, "What value should be assigned to this knob? (2 - 8) ");
+         usageIndex_ = getInt(2, 8, pString);
+      }   
    }
 
    strcpy(pString, "mars_params");
@@ -152,8 +168,9 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
                             double **Y2)
 {
 #ifdef HAVE_MARS
-   int    totPts, ii, ss, jj, index, SAFlag, *iArray, *iCnts;
+   int    totPts, ii, ss, jj, index, SAFlag, *iArray, *iCnts, expertFlag;
    double *XXt, *Yt, *XB, *YB, **YM, **SAIndices, *means, *stdevs;
+   FILE   *fp;
 
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
@@ -176,27 +193,42 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
    if ((*N) == -999)
    {
       iCnts = new int[nSamples_];
+      expertFlag = psRSExpertMode_;
+      psRSExpertMode_ = 0;
       for (ii = 0; ii < numMars_; ii++)
       {
-         if (outputLevel_ >= 4)
+         if (outputLevel_ >= 2)
             printf("MarsBagg::genNDGridData : creating Mars #%d (of %d)\n",
                    ii+1, numMars_);
          if (dataSetX_ == NULL)
          {
-            for (ss = 0; ss < nSamples_; ss++) iCnts[ss] = 2;
+            for (ss = 0; ss < nSamples_; ss++) iCnts[ss] = usageIndex_ * 2;
             for (ss = 0; ss < nSamples_; ss++)
             {
                index = -1;
                while (index == -1)
                {
                   index = PSUADE_rand() % nSamples_;
-                  if (iCnts[index] <= 0) index = -1; 
+                  if (iCnts[index] > 0 && (iCnts[index] % usageIndex_) == 0)
+                  {
+                     iCnts[index]--;
+                  }
+                  else if (iCnts[index] > 0 && (iCnts[index] % usageIndex_) != 0)
+                  {
+                     iCnts[index]--;
+                     index = -1;
+                  }
+                  else if (iCnts[index] <= 0) index = -1;
                }
                for (jj = 0; jj < nInputs_; jj++)
                   XB[ss*nInputs_+jj] = XX[index*nInputs_+jj]; 
                YB[ss] = Y[index]; 
-               iCnts[index]--;
             }
+            index = 0;
+            for (ss = 0; ss < nSamples_; ss++) if (iCnts[ss] < usageIndex_*2) index++;
+            if (outputLevel_ >= 2)
+               printf("     Number of sample points used = %d (out of %d)\n",
+                      index,nSamples_);
          }
          else
          {
@@ -207,10 +239,17 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
                YB[ss] = dataSetY_[ii][ss]; 
             }
          }
-         marsObjs_[ii]->setOutputLevel(outputLevel_);
+         marsObjs_[ii]->setOutputLevel(0);
          marsObjs_[ii]->genNDGridData(XB, YB, N, NULL, NULL);
-         if (outputLevel_ > 4) 
+         if (outputLevel_ >= 4) 
             SAFlag += getImportance(nInputs_, SAIndices[ii]);
+         fp = fopen("ps_print", "r");
+         if (fp != NULL)
+         {
+            printf("MarsBagg: set print level to 2\n");
+            outputLevel_ = 2;
+            fclose(fp);
+         }
       }
       delete [] iCnts;
       if (SAFlag == 0 && SAIndices != NULL)
@@ -221,25 +260,133 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
          {
             means[jj] = stdevs[jj] = 0.0;
             for (ii = 0; ii < numMars_; ii++) means[jj] += SAIndices[ii][jj];
-            means[jj]/= (double) numMars_;
+            means[jj] /= (double) numMars_;
             for (ii = 0; ii < numMars_; ii++)
                stdevs[jj] += pow(SAIndices[ii][jj] - means[jj], 2.0e0);
             stdevs[jj] /= (double) numMars_;
             stdevs[jj] = sqrt(stdevs[jj]);
          }     
+         if (psPlotTool_ == 1)
+         {
+            fp = fopen("scilabmarsbsa.sci", "w");
+            if (fp == NULL)
+            {
+               printf("MarsBag ERROR: cannot open scilab file.\n");
+               if (SAIndices != NULL)
+               {
+                  for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
+                  delete [] SAIndices;
+                  delete [] iArray;
+               }
+               delete [] XB;
+               delete [] YB;
+               return 0;
+            } 
+            fprintf(fp,"// This file contains MarsBag ranking measures\n");
+            fprintf(fp,"// and also their spreads based on bootstraping.\n");
+            fprintf(fp,"// To select the most important ones to display,\n");
+            fprintf(fp,"// set sortFlag = 1 and set nn to be the number\n");
+            fprintf(fp,"// of inputs to display.\n");
+         }
+         else
+         {
+            fp = fopen("matlabmarsbsa.m", "w");
+            if (fp == NULL)
+            {
+               printf("MarsBag ERROR: cannot open matlab file.\n");
+               if (SAIndices != NULL)
+               {
+                  for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
+                  delete [] SAIndices;
+                  delete [] iArray;
+               }
+               delete [] XB;
+               delete [] YB;
+               return 0;
+            } 
+            fprintf(fp,"%% This file contains MarsBag ranking measures\n");
+            fprintf(fp,"%% and also their spreads based on bootstraping.\n");
+            fprintf(fp,"%% To select the most important ones to display,\n");
+            fprintf(fp,"%% set sortFlag = 1 and set nn to be the number\n");
+            fprintf(fp,"%% of inputs to display.\n");
+         }
+         fwritePlotCLF(fp);
+         fprintf(fp, "nn = %d;\n", nInputs_);
+         fprintf(fp, "Means = [\n");
+         for (ii = 0; ii < nInputs_; ii++)
+         {
+            index = (int) (100 * means[ii]);
+            fprintf(fp, "%d\n", index);
+         }
+         fprintf(fp, "];\n");
+         fprintf(fp, "Stds = [\n");
+         for (ii = 0; ii < nInputs_; ii++)
+         {
+            index = (int) (100 * stdevs[ii]);
+            fprintf(fp, "%d\n", index);
+         }
+         fprintf(fp, "];\n");
+         fprintf(fp, "ymax = max(Means);\n");
+         fprintf(fp, "ymin = min(Means);\n");
+         fprintf(fp, "if (ymax == ymin)\n");
+         fprintf(fp, "   ymax = ymax * 1.01;\n");
+         fprintf(fp, "   ymin = ymin * 0.99;\n");
+         fprintf(fp, "end;\n");
+         fprintf(fp, "if (ymax == ymin)\n");
+         fprintf(fp, "   ymax = ymax + 0.01;\n");
+         fprintf(fp, "   ymin = ymin - 0.01;\n");
+         fprintf(fp,"end;\n");
+         fprintf(fp, "bar(Means,0.8);\n");
+         fprintf(fp, "for ii = 1:nn\n");
+         fprintf(fp, "   if (ii == 1)\n");
+         if (psPlotTool_ == 1)
+              fprintf(fp, "   set(gca(),\"auto_clear\",\"off\")\n");
+         else fprintf(fp, "   hold on\n");
+         fprintf(fp, "   end;\n");
+         fprintf(fp, "   XX = [ii ii];\n");
+         fprintf(fp, "   YY = [Means(ii)-Stds(ii) Means(ii)+Stds(ii)];\n");
+         fprintf(fp, "   plot(XX,YY,'-ko','LineWidth',3.0,'MarkerEdgeColor',");
+         fprintf(fp, "'k','MarkerFaceColor','g','MarkerSize',12)\n");
+         fprintf(fp, "end;\n");
+         fwritePlotAxes(fp);
+         fwritePlotTitle(fp, "MARSB Rankings");
+         fwritePlotXLabel(fp, "Input parameters");
+         fwritePlotYLabel(fp, "MARSB ranks");
+         if (psPlotTool_ == 1)
+         {
+            fprintf(fp, "a=gca();\n");
+            fprintf(fp, "a.data_bounds=[0, ymin-0.01*(ymax-ymin); ");
+            fprintf(fp, "nn+1, ymax+0.01*(ymax-ymin)];\n");
+         }
+         else
+         {
+            fprintf(fp,"axis([0 nn+1 ymin-0.01*(ymax-ymin) ");
+            fprintf(fp,"ymax+0.01*(ymax-ymin)])\n");
+         }
+         fclose(fp);
+
          for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
          sortDbleList2a(nInputs_, means, iArray);
          printf("* ========== MARS screening rankings =========== *\n");
          for (ii = nInputs_-1; ii >= 0; ii--)
-            printf("*  Rank %3d : Input = %3d (measure = %9.3e, stdev = %9.3e)\n",
-                   nInputs_-ii, iArray[ii]+1, means[ii], stdevs[ii]);
+         {
+            index = (int) (100 * means[ii]);
+            printf("*  Rank %3d : Input = %3d (measure = %3d, stdev = %9.3e)\n",
+                   nInputs_-ii, iArray[ii]+1, index, 100.0*stdevs[ii]);
+         }
          printf("* ============================================== *\n");
+         if (psPlotTool_ == 1)
+              printf("MarsBag ranking is now in scilabmarsbsa.sci.\n");
+         else printf("MarsBag ranking is now in matlabmarsbsa.m.\n");
          delete [] means;
          delete [] stdevs;
+
       }
+      psRSExpertMode_ = expertFlag;
    }
    else
    {
+      expertFlag = psRSExpertMode_;
       totPts = nPtsPerDim_;
       for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
       (*XX2) = new double[nInputs_ * totPts];
@@ -299,8 +446,11 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
          sortDbleList2a(nInputs_, means, iArray);
          printf("* ========= MARSBAG screening rankings ========= *\n");
          for (ii = nInputs_-1; ii >= 0; ii--)
-            printf("*  Rank %3d : Input = %3d (measure = %9.3e, stdev = %9.3e)\n",
-                   nInputs_-ii, iArray[ii]+1, means[ii], stdevs[ii]);
+         {
+            index = (int) (100 * means[ii]);
+            printf("*  Rank %3d : Input = %3d (measure = %3d, stdev = %9.3e)\n",
+                   nInputs_-ii, iArray[ii]+1, index, 100.0*stdevs[ii]);
+         }
          printf("* ============================================== *\n");
          delete [] means;
          delete [] stdevs;
@@ -322,6 +472,7 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
       { 
          for (ss = 0; ss < totPts; ss++) (*Y2)[ss] /= (double) numMars_;
       }
+      psRSExpertMode_ = expertFlag;
    }
    if (SAIndices != NULL)
    {
@@ -332,7 +483,7 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
    delete [] XB;
    delete [] YB;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
    return -1;
 #endif
    return 0;
@@ -346,9 +497,10 @@ int MarsBagg::gen1DGridData(double *X, double *Y, int ind1,
                             double **YY)
 {
 #ifdef HAVE_MARS
-   int    totPts, ii, ss, jj, index;
+   int    totPts, ii, ss, jj, index, expertFlag;
    double *XB, *YB, *XXt, *Yt, **YM;
 
+   expertFlag = psRSExpertMode_;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_;
@@ -416,8 +568,9 @@ int MarsBagg::gen1DGridData(double *X, double *Y, int ind1,
    }
    delete [] XB;
    delete [] YB;
+   psRSExpertMode_ = expertFlag;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
    return -1;
 #endif
    return 0;
@@ -431,9 +584,10 @@ int MarsBagg::gen2DGridData(double *X, double *Y, int ind1, int ind2,
                             double **YY)
 {
 #ifdef HAVE_MARS
-   int    totPts, ii, ss, jj, index;
+   int    totPts, ii, ss, jj, index, expertFlag;
    double *XB, *YB, *XXt, *Yt, **YM;
 
+   expertFlag = psRSExpertMode_;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_ * nPtsPerDim_;
@@ -506,8 +660,9 @@ int MarsBagg::gen2DGridData(double *X, double *Y, int ind1, int ind2,
    }
    delete [] XB;
    delete [] YB;
+   psRSExpertMode_ = expertFlag;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
    return -1;
 #endif
    return 0;
@@ -521,9 +676,10 @@ int MarsBagg::gen3DGridData(double *X, double *Y, int ind1, int ind2,
                             double **YY)
 {
 #ifdef HAVE_MARS
-   int    totPts, ii, ss, jj, index;
+   int    totPts, ii, ss, jj, index, expertFlag;
    double *XB, *YB, *XXt, *Yt, **YM;
 
+   expertFlag = psRSExpertMode_;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
@@ -593,8 +749,9 @@ int MarsBagg::gen3DGridData(double *X, double *Y, int ind1, int ind2,
    }
    delete [] XB;
    delete [] YB;
+   psRSExpertMode_ = expertFlag;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
    return -1;
 #endif
    return 0;
@@ -608,9 +765,10 @@ int MarsBagg::gen4DGridData(double *X, double *Y, int ind1, int ind2,
                             double **XX, double **YY)
 {
 #ifdef HAVE_MARS
-   int    totPts, ii, ss, jj, index;
+   int    totPts, ii, ss, jj, index, expertFlag;
    double *XB, *YB, *XXt, *Yt, **YM;
 
+   expertFlag = psRSExpertMode_;
    XB = new double[nInputs_ * nSamples_];
    YB = new double[nSamples_];
    totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
@@ -680,8 +838,9 @@ int MarsBagg::gen4DGridData(double *X, double *Y, int ind1, int ind2,
    }
    delete [] XB;
    delete [] YB;
+   psRSExpertMode_ = expertFlag;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
    return -1;
 #endif
    return 0;
@@ -695,7 +854,7 @@ double MarsBagg::evaluatePoint(double *X)
    double Y=0.0;
 #ifdef HAVE_MARS
    int    ii;
-   double Yt, *YM;
+   double Yt, *YM = NULL;
 
    if (mode_ != 0) YM = new double[numMars_];
 
@@ -705,11 +864,11 @@ double MarsBagg::evaluatePoint(double *X)
       if (mode_ != 0) YM[ii] = Yt;
       else            Y += Yt;
    }
-printf("\n");
    if (mode_ != 0) Y = YM[numMars_/2];
    else            Y /= (double) numMars_;
+   if(YM != NULL) delete [] YM;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
    return Y;
 }
@@ -721,8 +880,7 @@ double MarsBagg::evaluatePoint(int npts, double *X, double *Y)
 {
 #ifdef HAVE_MARS
    int    in, ii;
-   double YY, Yt, *YM;
-FILE *fp = fopen("marsfile", "a");
+   double YY, Yt, *YM = NULL;
 
    if (mode_ != 0) YM = new double[numMars_];
 
@@ -734,15 +892,13 @@ FILE *fp = fopen("marsfile", "a");
          Yt = marsObjs_[ii]->evaluatePoint(&(X[in*nInputs_]));
          if (mode_ != 0) YM[ii] = Yt;
          else            YY += Yt;
-fprintf(fp, "%14.6e ", Yt);
       }
-fprintf(fp, "\n");
       if (mode_ != 0) Y[in] = YM[numMars_/2];
       else            Y[in] = YY / (double) numMars_;
    }
-fclose(fp);
+   if(YM != NULL) delete[] YM;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
    return 0.0;
 }
@@ -770,7 +926,7 @@ double MarsBagg::evaluatePointFuzzy(double *X, double &std)
    std = sqrt(std / (double) numMars_);
    delete [] Y;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
    return Ymean;
 }
@@ -800,7 +956,7 @@ double MarsBagg::evaluatePointFuzzy(int npts, double *X, double *Y,
    }
    delete [] YY;
 #else
-   printf("PSUADE ERROR : MARS not used.\n");
+   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
    return 0.0;
 }

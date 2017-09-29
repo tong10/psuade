@@ -27,7 +27,7 @@
 #ifndef __ETAANALYZERH__
 #define __ETAANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~EtaAnalyzer();
 
    double analyze(aData &adata);
+
+   EtaAnalyzer& operator=(const EtaAnalyzer &analyzer);
 };
 
 #endif // __ETAANALYZERH__

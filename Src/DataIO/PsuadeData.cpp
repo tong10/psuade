@@ -26,10 +26,11 @@
 // ************************************************************************
 #include <stdio.h>
 #include <assert.h>
-#include "Util/dtype.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
-#include "Base/Globals.h"
+#include <algorithm>
+#include "dtype.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
+#include "Globals.h"
 #include "PsuadeData.h"
 #include "Psuade.h"
 #include "PsuadeConfig.h"
@@ -45,7 +46,7 @@ extern PsuadeConfig *psConfig_;
 // ------------------------------------------------------------------------ 
 PsuadeData::PsuadeData()
 {
-   strcpy(psuadeFileName_, "psuadeData");
+   strcpy(psuadeFileName_, psOutputFilename_);
    outputLevel_ = 0;
    writeCnt_ = 0;
 }
@@ -60,7 +61,7 @@ PsuadeData::~PsuadeData()
 // ************************************************************************
 // read from a Psuade input file
 // ------------------------------------------------------------------------ 
-int PsuadeData::readPsuadeFile(char *fname)
+int PsuadeData::readPsuadeFile(const char *fname)
 {
    int   lineLeng=300;
    char  lineIn[300], winput[200];
@@ -68,12 +69,18 @@ int PsuadeData::readPsuadeFile(char *fname)
                              "APPLICATION", "ANALYSIS", "END"};
    FILE* fIn;
 
+   // -------------------------------------------------------------------- 
+   //  clean up first
+   // -------------------------------------------------------------------- 
    pInput_.reset();
    pOutput_.reset();
    pMethod_.reset();
    pApplication_.reset();
    pAnalysis_.reset();
 
+   // -------------------------------------------------------------------- 
+   //  error checking 
+   // -------------------------------------------------------------------- 
    fIn = fopen(fname, "r");
    if (fIn == NULL) 
    {
@@ -88,9 +95,22 @@ int PsuadeData::readPsuadeFile(char *fname)
    }
    fclose(fIn);
 
+   // -------------------------------------------------------------------- 
+   //  read input and output data from the given file, if any
+   // -------------------------------------------------------------------- 
    readPsuadeIO(fname);
 
+   // -------------------------------------------------------------------- 
+   //  read in parameters
+   // -------------------------------------------------------------------- 
    fIn = fopen(fname, "r");
+   if(fIn == NULL)
+   {
+      printf("PsuadeData ERROR: Cannot open file %s in file %s line %d exiting",
+             fname, __FILE__,__LINE__);
+      exit(1);
+   }
+
    while ((fgets(lineIn, lineLeng, fIn) != NULL) && (feof(fIn) == 0))
    {
       sscanf(lineIn,"%s", winput);
@@ -133,16 +153,30 @@ void PsuadeData::writePsuadeFile(const char *inFilename, int flag)
    int    length, cnt;
    char   command[100], fname[100], fname2a[100], fname2b[100];
    FILE   *fOut;
+  
+   //----------------------------------------------------------------- 
+   //  Error checking.  If we are missing all the PSUADE_IO info, we're OK.
+   //  If we have some but not all of it, we have an issue 
+   //----------------------------------------------------------------- 
 
-   if (pInput_.sampleInputs_ == NULL || pOutput_.sampleOutputs_ == NULL)
+   if ((pInput_.sampleInputs_ == NULL || pOutput_.sampleOutputs_ == NULL || 
+       pOutput_.sampleStates_ == NULL) && (pInput_.sampleInputs_ != NULL || 
+       pOutput_.sampleOutputs_ != NULL || pOutput_.sampleStates_ != NULL))
    {
       if (pInput_.sampleInputs_ == NULL) 
-         printf("writePsuadeFile ERROR: no input\n");
+        printf("writePsuadeFile ERROR: no input\n");
       else if (pOutput_.sampleOutputs_ == NULL) 
-         printf("writePsuadeFile ERROR: no outputs\n");
+        printf("writePsuadeFile ERROR: no outputs\n");
+      else if (pOutput_.sampleOutputs_ == NULL) 
+        printf("writePsuadeFile ERROR: no outputs\n");
+      else if (pOutput_.sampleStates_ == NULL) 
+        printf("writePsuadeFile ERROR: no sample states\n");
       exit(1);
    }
 
+   // -------------------------------------------------------------------- 
+   //  if archive file exists, store it somewhere else first
+   // -------------------------------------------------------------------- 
    if      (inFilename      != NULL) strcpy(fname, inFilename);
    else if (psuadeFileName_ != NULL) strcpy(fname, psuadeFileName_);
    else 
@@ -152,9 +186,11 @@ void PsuadeData::writePsuadeFile(const char *inFilename, int flag)
    }
    length = strlen(fname);
    fOut = fopen(fname, "r");
+   // write once per psuade run
    if (fOut != NULL)
    {
       fclose(fOut);
+#if 0
       if (writeCnt_ == 0 && flag == 1)
       {
          strcpy(fname2a, fname);
@@ -190,8 +226,12 @@ void PsuadeData::writePsuadeFile(const char *inFilename, int flag)
          system(command);
          writeCnt_++;
       }
+#endif
    }
-
+  
+   // -------------------------------------------------------------------- 
+   // open archive file
+   // ----------------------------------------------------------------- 
    fOut = fopen(fname, "w");
    if (fOut == NULL)
    {
@@ -199,8 +239,14 @@ void PsuadeData::writePsuadeFile(const char *inFilename, int flag)
       exit(1);
    } 
 
+   // -------------------------------------------------------------------- 
+   //  write data to archive file 
+   // -------------------------------------------------------------------- 
    writePsuadeIO(fOut, 0);
 
+   // -------------------------------------------------------------------- 
+   //  write parameters 
+   // -------------------------------------------------------------------- 
    fprintf(fOut, "PSUADE\n");
    writeInputSection(fOut);
    writeOutputSection(fOut);
@@ -632,11 +678,11 @@ int PsuadeData::getAnalysisParameter(const char *keyword, pData &pd)
 }
 
 // ************************************************************************
-// update the input section
+// Generate basic input section (No samples)
 // ------------------------------------------------------------------------ 
-void PsuadeData::updateInputSection(int nSamples,int nInputs,int *symTable,
+void PsuadeData::createInputSection(int nInputs, int *symTable,
                                     double *lowerB, double *upperB, 
-                                    double *sampleInputs, char **names)
+                                    char **names)
 {
    int ii;
 
@@ -657,12 +703,6 @@ void PsuadeData::updateInputSection(int nSamples,int nInputs,int *symTable,
       }
    }
    pInput_.nInputs_ = nInputs;
-
-   if (pInput_.sampleInputs_ != NULL) delete [] pInput_.sampleInputs_; 
-   pMethod_.nSamples_ = nSamples;
-   pInput_.sampleInputs_ = new double[nSamples * nInputs];
-   for (ii = 0; ii < nInputs*nSamples; ii++) 
-      pInput_.sampleInputs_[ii] = sampleInputs[ii]; 
 
    if (lowerB != NULL)
    {
@@ -700,14 +740,31 @@ void PsuadeData::updateInputSection(int nSamples,int nInputs,int *symTable,
       pInput_.corMatrix_.setDim(nInputs, nInputs);
    }
    pInput_.corMatrix_.setDim(nInputs, nInputs);
+}
+
+// ************************************************************************
+// update the input section
+// ------------------------------------------------------------------------ 
+void PsuadeData::updateInputSection(int nSamples,int nInputs,int *symTable,
+                                    double *lowerB, double *upperB, 
+                                    double *sampleInputs, char **names)
+{
+   int ii;
+
+   createInputSection( nInputs, symTable, lowerB, upperB, names);
+
+   if (pInput_.sampleInputs_ != NULL) delete [] pInput_.sampleInputs_; 
+   pMethod_.nSamples_ = nSamples;
+   pInput_.sampleInputs_ = new double[nSamples * nInputs];
+   for (ii = 0; ii < nInputs*nSamples; ii++) 
+      pInput_.sampleInputs_[ii] = sampleInputs[ii]; 
+
 } 
 
 // ************************************************************************
-// update the output section
+// create the output section (No sample points or states)
 // ------------------------------------------------------------------------ 
-void PsuadeData::updateOutputSection(int nSamples, int nOutputs,  
-                                     double *sampleOutputs, int *sampleStates, 
-                                     char **names)
+void PsuadeData::createOutputSection(int nOutputs, char **names)
 {
    int ii, ss;
 
@@ -728,6 +785,19 @@ void PsuadeData::updateOutputSection(int nSamples, int nOutputs,
       }
    }
    pOutput_.nOutputs_ = nOutputs;
+} 
+
+// ************************************************************************
+// update the output section
+// ------------------------------------------------------------------------ 
+void PsuadeData::updateOutputSection(int nSamples, int nOutputs,  
+                                     double *sampleOutputs, int *sampleStates, 
+                                     char **names)
+{
+   int ii, ss;
+
+   createOutputSection(nOutputs, names);
+
    pMethod_.nSamples_ = nSamples;
    if (pOutput_.sampleOutputs_ != NULL) delete [] pOutput_.sampleOutputs_; 
    if (pOutput_.sampleStates_  != NULL) delete [] pOutput_.sampleStates_; 
@@ -738,6 +808,19 @@ void PsuadeData::updateOutputSection(int nSamples, int nOutputs,
    for (ss = 0; ss < nSamples; ss++)
       pOutput_.sampleStates_[ss] = sampleStates[ss]; 
 } 
+
+// ************************************************************************
+// Clears out any existing samples so they can be replaced.
+// ------------------------------------------------------------------------ 
+void PsuadeData::resetSamples() 
+{
+  if (pInput_.sampleInputs_ != NULL) delete [] pInput_.sampleInputs_;
+  if (pOutput_.sampleOutputs_ != NULL) delete [] pOutput_.sampleOutputs_;
+  if (pOutput_.sampleStates_  != NULL) delete [] pOutput_.sampleStates_;
+  pInput_.sampleInputs_ = NULL;
+  pOutput_.sampleOutputs_ = NULL;
+  pOutput_.sampleStates_  = NULL;
+}
 
 // ************************************************************************
 // update method information 
@@ -772,7 +855,7 @@ void PsuadeData::updateAnalysisSection(int method, int transform, int rstype,
    if (method    >=  0) pAnalysis_.analysisIntOptions_[0] = method;
    if (transform >=  0) pAnalysis_.analysisIntOptions_[5] = transform;
    if (rstype    >=  0) pAnalysis_.analysisIntOptions_[2] = rstype;
-   if (diag      >= -1) pAnalysis_.analysisIntOptions_[3] = diag;
+   if (diag      >= -2) pAnalysis_.analysisIntOptions_[3] = diag;
    if (outputID  >=  0) pAnalysis_.analysisIntOptions_[1] = outputID;
    if (usePDFs   >=  0) pAnalysis_.useInputPDFs_ = usePDFs;
 }
@@ -823,11 +906,9 @@ void PsuadeData::processOutputData()
       for (ss = 0; ss < nSamples; ss++) 
       {
          for (ii = 0; ii < nInputs; ii++) 
-            fprintf(fp, "   %24.16e\n",
-                    sampleInputs[ss*nInputs+ii]);
+            fprintf(fp, "   %24.16e\n", sampleInputs[ss*nInputs+ii]);
          for (ii = 0; ii < nOutputs; ii++) 
-            fprintf(fp, "   %24.16e\n",
-                    sampleOutputs[ss*nOutputs+ii]);
+            fprintf(fp, "   %24.16e\n", sampleOutputs[ss*nOutputs+ii]);
       }
       fprintf(fp, "];\n");
       fprintf(fp, "X = [\n");
@@ -846,7 +927,353 @@ void PsuadeData::processOutputData()
                  nOutputs, nSamples*nOutputs);
       fclose(fp);
    }
-} 
+}
+
+// ************************************************************************
+// auxiliary functions
+// ------------------------------------------------------------------------ 
+char** PsuadeData::getInput_inputNames()
+{
+   char** retVal = NULL;
+   if(pInput_.inputNames_) 
+   {
+      retVal = new char*[pInput_.nInputs_];
+      for (int ii = 0; ii < pInput_.nInputs_; ii++)
+      {
+         retVal[ii] = strdup(pInput_.inputNames_[ii]);
+      }
+   }
+   return retVal;
+}
+
+// ************************************************************************
+int PsuadeData::getInput_nInputs()
+{
+   return pInput_.nInputs_;
+}
+
+// ************************************************************************
+double* PsuadeData::getInput_inputLBounds()
+{
+   double* retVal = NULL;
+   if (pInput_.inputLBounds_)
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new double[len];
+      std::copy(pInput_.inputLBounds_, pInput_.inputLBounds_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+double* PsuadeData::getInput_inputUBounds() 
+{
+  double* retVal = NULL;
+  if (pInput_.inputUBounds_) 
+  {
+     int len = pInput_.nInputs_ * pMethod_.nSamples_;
+     retVal = new double[len];
+     std::copy(pInput_.inputUBounds_, pInput_.inputUBounds_+len, retVal);
+  } 
+  return retVal;
+}
+
+// ************************************************************************
+int* PsuadeData::getInput_inputPDFs() 
+{
+   int* retVal = NULL;
+   if (pInput_.inputPDFs_) 
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new int[len];
+      std::copy(pInput_.inputPDFs_, pInput_.inputPDFs_+len, retVal);
+   } 
+  return retVal;
+}
+
+// ************************************************************************
+double* PsuadeData::getInput_inputMeans() 
+{
+   double* retVal = NULL;
+   if(pInput_.inputMeans_) 
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new double[len];
+      std::copy(pInput_.inputMeans_, pInput_.inputMeans_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+double* PsuadeData::getInput_inputStdevs() 
+{
+   double* retVal = NULL;
+   if(pInput_.inputStdevs_) 
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new double[len];
+      std::copy(pInput_.inputStdevs_, pInput_.inputStdevs_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+double* PsuadeData::getInput_inputAuxs() 
+{
+   double* retVal = NULL;
+   if(pInput_.inputAuxs_) 
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new double[len];
+      std::copy(pInput_.inputAuxs_, pInput_.inputAuxs_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+int* PsuadeData::getInput_symbolTable() 
+{
+   int* retVal = NULL;
+   if(pInput_.symbolTable_) 
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new int[len];
+      std::copy(pInput_.symbolTable_, pInput_.symbolTable_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+/*int* PsuadeData::getInput_inputNumSettings() {
+  int* retVal = NULL;
+  if(pInput_.inputNumSettings_) {
+    int len = pInput_.nInputs_ * pMethod_.nSamples_;
+    retVal = new int[len];
+    std::copy(pInput_.inputNumSettings_, pInput_.inputNumSettings_+len, retVal);
+  } 
+  return retVal;
+}
+*/
+// ************************************************************************
+double* PsuadeData::getInput_sampleInputs() 
+{
+   double* retVal = NULL;
+   if (pInput_.sampleInputs_) 
+   {
+      int len = pInput_.nInputs_ * pMethod_.nSamples_;
+      retVal = new double[len];
+      std::copy(pInput_.sampleInputs_, pInput_.sampleInputs_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+Matrix PsuadeData::getInput_corMatrix() 
+{
+   return pInput_.corMatrix_;
+}
+
+// ************************************************************************
+int PsuadeData::getInput_useInputPDFs() 
+{
+   return pInput_.useInputPDFs_;
+}
+
+// ************************************************************************
+int PsuadeData::getOutput_nOutputs() 
+{
+   return pOutput_.nOutputs_;
+}
+
+// ************************************************************************
+char** PsuadeData::getOutput_outputNames() 
+{
+   char** retVal = NULL;
+   if (pOutput_.outputNames_) 
+   {
+      retVal = new char*[pOutput_.nOutputs_];
+      for (int ii = 0; ii < pOutput_.nOutputs_; ii++)
+      {
+         retVal[ii] = strdup(pOutput_.outputNames_[ii]);
+      }
+   }
+   return retVal;
+}
+
+// ************************************************************************
+double* PsuadeData::getOutput_sampleOutputs() 
+{
+   double* retVal = NULL;
+   if(pOutput_.sampleOutputs_) 
+   {
+      int len = pOutput_.nOutputs_ * pMethod_.nSamples_;
+      retVal = new double[len];
+      std::copy(pOutput_.sampleOutputs_, pOutput_.sampleOutputs_+len, retVal);
+   } 
+   return retVal;
+}
+
+// ************************************************************************
+int* PsuadeData::getOutput_sampleStates() 
+{
+   int* retVal = NULL;
+   if (pOutput_.sampleStates_) 
+   {
+      int len = pOutput_.nOutputs_ * pMethod_.nSamples_;
+      retVal = new int[len];
+      std::copy(pOutput_.sampleStates_, pOutput_.sampleStates_+len, retVal);
+   } 
+   return retVal;
+}
+
+/************************************************************************/
+//  Method Getters
+/************************************************************************/
+int PsuadeData::getMethod_samplingMethod() 
+{
+   return pMethod_.samplingMethod_;
+}
+int PsuadeData::getMethod_nSamples() 
+{
+   return pMethod_.nSamples_;
+}
+int PsuadeData::getMethod_nReplications() 
+{
+   return pMethod_.nReplications_;
+}
+int PsuadeData::getMethod_nRefinements() 
+{
+   return pMethod_.nRefinements_;
+}
+int PsuadeData::getMethod_refNumRefinements() 
+{
+   return pMethod_.refNumRefinements_;
+}
+int PsuadeData::getMethod_refinementType() 
+{
+   return pMethod_.refinementType_;
+}
+int PsuadeData::getMethod_refinementSize() 
+{
+   return pMethod_.refinementSize_;
+}
+int PsuadeData::getMethod_sampleRandomize() 
+{
+   return pMethod_.sampleRandomize_;
+}
+
+/************************************************************************/
+//  Application Getters
+/************************************************************************/
+
+char* PsuadeData::getApplication_appDriver() 
+{
+   return strdup(pApplication_.appDriver_);
+}
+char* PsuadeData::getApplication_rsDriver() 
+{
+   return strdup(pApplication_.rsDriver_);
+}
+char* PsuadeData::getApplication_optDriver() 
+{
+   return strdup(pApplication_.optDriver_);
+}
+char* PsuadeData::getApplication_auxOptDriver() 
+{
+   return strdup(pApplication_.auxOptDriver_);
+}
+char* PsuadeData::getApplication_inputTemplate() 
+{
+   return strdup(pApplication_.inputTemplate_);
+}
+char* PsuadeData::getApplication_outputTemplate() 
+{
+   return strdup(pApplication_.outputTemplate_);
+}
+int PsuadeData::getApplication_maxParallelJobs() 
+{
+   return pApplication_.maxParallelJobs_;
+}
+int PsuadeData::getApplication_maxJobWaitTime() 
+{
+   return pApplication_.maxJobWaitTime_;
+}
+int PsuadeData::getApplication_minJobWaitTime() 
+{
+   return pApplication_.minJobWaitTime_;
+}
+int PsuadeData::getApplication_runType() 
+{
+   return pApplication_.runType_;
+}
+int PsuadeData::getApplication_useFunction() 
+{
+   return pApplication_.useFunction_;
+}
+int PsuadeData::getApplication_launchInterval() 
+{
+   return pApplication_.launchInterval_;
+}
+int PsuadeData::getApplication_saveFrequency() 
+{
+   return pApplication_.saveFrequency_;
+}
+
+/************************************************************************/
+//  Analysis Getters
+/************************************************************************/
+int PsuadeData::getAnalysis_fileWriteFlag() 
+{
+   return pAnalysis_.fileWriteFlag_;
+}
+int PsuadeData::getAnalysis_useInputPDFs() 
+{
+   return pAnalysis_.useInputPDFs_;
+}
+int PsuadeData::getAnalysis_legendreOrder() 
+{
+   return pAnalysis_.legendreOrder_;
+}
+char* PsuadeData::getAnalysis_specsFile() 
+{
+   return strdup(pAnalysis_.specsFile_);
+}
+char* PsuadeData::getAnalysis_rsIndexFile() 
+{
+   return strdup(pAnalysis_.rsIndexFile_);
+}
+
+int* PsuadeData::getAnalysis_analysisIntOptions() 
+{
+   int* retVal = new int[10];
+   std::copy(pAnalysis_.analysisIntOptions_, 
+             pAnalysis_.analysisIntOptions_+10, retVal);
+   return retVal;
+}
+
+double* PsuadeData::getAnalysis_analysisDbleOptions() 
+{
+   double* retVal = new double[10];
+   std::copy(pAnalysis_.analysisDbleOptions_, 
+             pAnalysis_.analysisDbleOptions_+10, retVal);
+   return retVal;
+}
+
+int* PsuadeData::getAnalysis_optimizeIntOptions() 
+{
+   int* retVal = new int[10];
+   std::copy(pAnalysis_.optimizeIntOptions_, 
+             pAnalysis_.optimizeIntOptions_+10, retVal);
+   return retVal;
+}
+
+double* PsuadeData::getAnalysis_optimizeDbleOptions() 
+{
+   double* retVal = new double[10];
+   std::copy(pAnalysis_.optimizeDbleOptions_, 
+             pAnalysis_.optimizeDbleOptions_+10, retVal);
+   return retVal;
+}
 
 // ************************************************************************
 // internal functions
@@ -855,10 +1282,9 @@ void PsuadeData::processOutputData()
 // ************************************************************************
 // A function for reading PSUADE IO data
 // ------------------------------------------------------------------------ 
-void PsuadeData::readPsuadeIO(char *fname) 
+void PsuadeData::readPsuadeIO(const char *fname) 
 {
    int    nInputs, nOutputs, *sampleStates, nSamples, ss, ii, idata;
-   int    found=0;
    double *sampleInputs, *sampleOutputs;
    char   lineInput[500], keyword[500];
    FILE   *fIn;
@@ -874,7 +1300,6 @@ void PsuadeData::readPsuadeIO(char *fname)
    }
    if (!strcmp(keyword, "PSUADE_IO")) /* data is in this section */
    {
-      found = 1;
       fscanf(fIn, "%d %d %d\n", &nInputs, &nOutputs, &nSamples);
       if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
       {
@@ -924,13 +1349,22 @@ void PsuadeData::readPsuadeIO(char *fname)
 // ************************************************************************
 // A function for reading PSUADE parameters from an input file.
 // ------------------------------------------------------------------------ 
+//  INPUT
+//     dimension 3
+//     variable  1 X1name = lbound1 ubound1 
+//     variable  2 X2name = lbound2 ubound2 
+//     variable  3 X3name = lbound3 ubound3 
+//     PDF       1 U/N/L  mean stdev
+//  END
+// ------------------------------------------------------------------------ 
 void PsuadeData::readInputSection(FILE *fp) 
 {
    int    ii, idata, itmp, lineLeng=200, nInputs=0;
    double ddata;
    char   line[200], winput[200], winput2[200], winput3[200];
    const char *keywords[] = {"dimension", "variable", "PDF", "COR", "NAME", 
-                             "END"};
+                             "num_fixed", "fixed", "END"};
+   FILE  *fp2;
 
    if (fp == NULL)
    {
@@ -957,15 +1391,55 @@ void PsuadeData::readInputSection(FILE *fp)
             printf("readInputSection ERROR: nInputs mismatch.\n");
             printf("        Check nInputs in INPUT & PSUADE_IO sections.\n");
             exit(1);
-         } 
+         }
          pInput_.nInputs_ = nInputs;
+
+	 if(pInput_.inputLBounds_ != NULL)
+         {
+	    delete [] pInput_.inputLBounds_;
+	    pInput_.inputLBounds_ = NULL;
+	 }
          pInput_.inputLBounds_ = new double[nInputs];
+	 if(pInput_.inputUBounds_ != NULL)
+         {
+	    delete [] pInput_.inputUBounds_;
+	    pInput_.inputUBounds_ = NULL;
+	 }
          pInput_.inputUBounds_ = new double[nInputs];
-	 pInput_.inputNames_   = new char*[nInputs];
-	 pInput_.inputPDFs_    = new int[nInputs];
-	 pInput_.inputMeans_   = new double[nInputs];
-	 pInput_.inputStdevs_  = new double[nInputs];
-	 pInput_.inputAuxs_    = new double[nInputs];
+
+	 if(pInput_.inputNames_ != NULL)
+         {
+	    delete [] pInput_.inputNames_;
+	    pInput_.inputNames_ = NULL;
+	 }
+	 pInput_.inputNames_ = new char*[nInputs];
+
+	 if(pInput_.inputPDFs_ != NULL)
+         {
+	    delete [] pInput_.inputPDFs_;
+	    pInput_.inputPDFs_ = NULL;
+	 }
+	 pInput_.inputPDFs_ = new int[nInputs];
+
+	 if(pInput_.inputMeans_ != NULL)
+         {
+	    delete [] pInput_.inputMeans_;
+	    pInput_.inputMeans_ = NULL;
+	 }
+	 pInput_.inputMeans_ = new double[nInputs];
+
+         if(pInput_.inputStdevs_ != NULL)
+         {
+	    delete [] pInput_.inputStdevs_;
+	    pInput_.inputStdevs_ = NULL;
+	 }
+	 pInput_.inputStdevs_ = new double[nInputs];
+         if(pInput_.inputAuxs_ != NULL)
+         {
+	    delete [] pInput_.inputAuxs_;
+	    pInput_.inputAuxs_ = NULL;
+	 }
+	 pInput_.inputAuxs_ = new double[nInputs];
          for (ii = 0; ii < nInputs; ii++)
          {
             pInput_.inputLBounds_[ii] = 0.0;
@@ -1049,15 +1523,19 @@ void PsuadeData::readInputSection(FILE *fp)
                printf("    in the variable definition.\n");
                printf("    lower bound defined  = %e\n", pInput_.inputMeans_[idata]);
                printf("    lower bound expected = %e\n", pInput_.inputLBounds_[idata]);
+               printf("Note: The default is uniform distribution with lower and\n");
+               printf("      upper bounds as defined in the variable definitions.\n");
                exit(1);
             }
-            if (pInput_.inputStdevs_[idata] != pInput_.inputLBounds_[idata])
+            if (pInput_.inputStdevs_[idata] != pInput_.inputUBounds_[idata])
             {
                printf("readInputSection ERROR: for uniform distributions, the\n");
                printf("    second data should be the same as the upper bound\n");
                printf("    in the variable definition.\n");
                printf("    upper bound defined  = %e\n", pInput_.inputStdevs_[idata]);
-               printf("    upper bound expected = %e\n", pInput_.inputLBounds_[idata]);
+               printf("    upper bound expected = %e\n", pInput_.inputUBounds_[idata]);
+               printf("Note: The default is uniform distribution with lower and\n");
+               printf("      upper bounds as defined in the variable definitions.\n");
                exit(1);
             }
          }
@@ -1118,6 +1596,14 @@ void PsuadeData::readInputSection(FILE *fp)
             pInput_.inputStdevs_[idata] = 0.0;
             pInput_.useInputPDFs_ = 1;
          }
+         else if ( !strcmp(winput2, "S")) 
+         {
+            pInput_.inputPDFs_[idata] = 8;
+            printf("readInputSection INFO: User distribution found for input %d.\n",
+                   idata+1);
+            printf("    You will be prompted to enter the sample file later.\n");
+            pInput_.useInputPDFs_ = 1;
+         }
          else
          {
             printf("readInputSection ERROR: input format (2).\n");
@@ -1161,7 +1647,71 @@ void PsuadeData::readInputSection(FILE *fp)
       {
          /* display name for the variable - not used by psuade */
       }
-      else if (strcmp(winput, keywords[5]) == 0) /* END */
+      else if (strcmp(winput, keywords[5]) == 0) /* num_fixed */
+      { 
+         sscanf(line,"%s %s", winput, winput2);
+         if (strcmp(winput2, "=") == 0 )
+            sscanf(line,"%s %s %d", winput, winput2, &idata);
+         else sscanf(line,"%s %d", winput, &idata);
+         if (idata <= 0)
+         {
+            printf("readInputSection ERROR: num_fixed <= 0.\n");
+            exit(1);
+         } 
+         if (pInput_.nFixed_ != 0 && pInput_.nFixed_ != idata)
+         {
+            printf("readInputSection ERROR: num_fixed mismatch.\n");
+            printf("        Check num_fixed in INPUT section.\n");
+            exit(1);
+         }
+         if(pInput_.fixedValues_ != NULL) delete [] pInput_.fixedValues_;
+	 pInput_.fixedValues_ = new double[idata];
+         if(pInput_.fixedNames_ != NULL)
+         {
+            for (ii = 0; ii < pInput_.nFixed_; ii++)
+	       delete [] pInput_.fixedNames_;
+	    delete [] pInput_.fixedNames_;
+	 }
+         pInput_.nFixed_ = idata;
+	 pInput_.fixedNames_ = new char*[idata];
+         for (ii = 0; ii < pInput_.nFixed_; ii++) pInput_.fixedNames_[ii] = NULL;
+      }
+      else if (strcmp(winput, keywords[6]) == 0) /* fixed */
+      {
+         if (pInput_.nFixed_ <= 0)
+         {
+            printf("readInputSection ERROR: num_fixed not set.\n");
+            exit(1);
+         } 
+         sscanf(line,"%s %d", winput, &idata);
+         idata--;
+         if (idata < 0 || idata >= pInput_.nFixed_)
+         {
+            printf("readInputSection ERROR- invalid fixed input number %d\n",
+                   idata+1);
+            printf("   input number should be between 1 and %d\n",pInput_.nFixed_);
+            exit(1);
+         }
+         sscanf(line,"%s %d %s", winput, &itmp, winput2);
+         if (pInput_.fixedNames_[idata] != NULL)
+         {
+            printf("readInputSection WARNING: \n");
+            printf("\t\tfixedinput number %d may have been re-defined.\n",idata+1);
+            delete [] pInput_.fixedNames_[idata];
+         }
+         pInput_.fixedNames_[idata] = new char[strlen(winput2)+10];
+         strncpy(pInput_.fixedNames_[idata], winput2, strlen(winput2)+1);
+         sscanf(line,"%s %d %s %s", winput, &itmp, winput2, winput3);
+         if (strcmp(winput3, "=") != 0 )
+         {
+            printf("readInputSection ERROR: fixed input format for input %d\n",itmp);
+            printf("        syntax: fixed 1 X1 = 0.0\n");
+            exit(1);
+         }
+         sscanf(line,"%s %d %s %s %lg", winput, &itmp, winput2,
+                winput3, &(pInput_.fixedValues_[idata]));
+      }
+      else if (strcmp(winput, keywords[7]) == 0) /* END */
       {
          break;
       }
@@ -1199,6 +1749,13 @@ void PsuadeData::readInputSection(FILE *fp)
 // ************************************************************************
 // A function for reading PSUADE parameters from an input file.
 // ------------------------------------------------------------------------ 
+//  OUTPUT
+//     dimension 3
+//     variable  1  Y1name 
+//     variable  2  Y2name
+//     variable  3  Y3name
+//  END
+// ------------------------------------------------------------------------ 
 void PsuadeData::readOutputSection(FILE *fp) 
 {
    int  ii, idata, itmp, lineLeng=200, nOutputs;
@@ -1232,6 +1789,12 @@ void PsuadeData::readOutputSection(FILE *fp)
             exit(1);
          } 
          pOutput_.nOutputs_ = nOutputs;
+         if(pOutput_.outputNames_ != NULL){
+	   
+	   delete [] pOutput_.outputNames_;
+	   pOutput_.outputNames_ = NULL;
+
+         }
          pOutput_.outputNames_ = new char*[pOutput_.nOutputs_];
          for (ii = 0; ii < pOutput_.nOutputs_; ii++)
             pOutput_.outputNames_[ii] = NULL;
@@ -1301,6 +1864,19 @@ void PsuadeData::readOutputSection(FILE *fp)
 // ************************************************************************
 // A function for reading PSUADE parameters from an input file.
 // ------------------------------------------------------------------------ 
+//  METHOD
+//     sampling <MC,FACT,LH,OA,OALH,MOAT,SOBOL,LPTAU,
+//               METIS,FAST,BBD,PBD,FF4,FF5,CCI4,CCI5,CCIF,CCF4,
+//               CCF5,CCFF,CCC4,CCC5,CCCF,SFAST,UMETIS,GMOAT,SG,RFF4,RFF5>
+//     randomize 
+//     randomize_more (truly randomize for replicated Latin hypercube) 
+//     num_samples 100
+//     num_replications 3
+//     num_refinements 3
+//     reference_num_refinements (for purposes of analysis)
+//     input_settings ID NUM DATA...
+//  END
+// ------------------------------------------------------------------------ 
 void PsuadeData::readMethodSection(FILE *fp) 
 {
    int  methodID, ii, idata, idata2, lineLeng=200, nSamples;
@@ -1310,12 +1886,13 @@ void PsuadeData::readMethodSection(FILE *fp)
                              "num_refinements", "reference_num_refinements",
                              "refinement_type", "input_settings",
                              "random_seed", "refinement_size", "END"}; 
-   int  nMethods=30;
+   int  nMethods=32;
    const char *methods[] = {"MC","FACT","LH","OA","OALH","MOAT","SOBOL",
                             "LPTAU", "METIS","FAST","BBD","PBD","FF4","FF5",
                             "CCI4","CCI5", "CCIF","CCF4","CCF5","CCFF",
                             "CCC4","CCC5","CCCF", "SFAST","UMETIS","GMOAT",
-                            "GMETIS","SPARSEGRID","DISCRETE", "LSA"};
+                            "GMETIS","SPARSEGRID","DISCRETE", "LSA", "RFF4",
+                            "RFF5"};
 
    if (fp == NULL)
    {
@@ -1454,8 +2031,8 @@ void PsuadeData::readMethodSection(FILE *fp)
       {
          sscanf(line,"%s %s", winput, winput2);
          if (strcmp(winput2, "=") == 0 )
-            sscanf(line,"%s %s %d", winput, winput2, &psRandomSeed_);
-         else sscanf(line,"%s %d", winput, &psRandomSeed_);
+            sscanf(line,"%s %s %ld", winput, winput2, &psRandomSeed_);
+         else sscanf(line,"%s %ld", winput, &psRandomSeed_);
          if (psRandomSeed_ <= 0) psRandomSeed_ = -1; 
       }
       else if (strcmp(winput, keywords[10]) == 0) /* refine size */
@@ -1508,6 +2085,29 @@ void PsuadeData::readMethodSection(FILE *fp)
 
 // ************************************************************************
 // A function for reading PSUADE parameters from an input file.
+// ------------------------------------------------------------------------ 
+//  APPLICATION
+//     driver = </home/user/apps/runfile, rsModel>
+//     opt_driver = </home/user/apps/runfile, rsModel>
+//     aux_opt_driver = (for multilevel optimization)
+//     input_template = /home/user/apps/input_template
+//     output_template = out_template
+//     max_parallel_jobs = <d>
+//     max_job_wait_time = <d>
+//     min_job_wait_time = <d>
+//     nondeterministic
+//     launch_only
+//     limited_launch_only
+//     launch_interval = <d>
+//     save_frequency = <d>
+//     function = <s>
+//     use_function
+//     module = <s>
+//     launch_function = <s>
+//     use_launch_script
+//     rs_driver = rsModel
+//     use_rs
+//  END
 // ------------------------------------------------------------------------ 
 void PsuadeData::readApplicationSection(FILE *fp) 
 {
@@ -1600,33 +2200,11 @@ void PsuadeData::readApplicationSection(FILE *fp)
       }   
       else if (strcmp(winput, keywords[3]) == 0) /* output template */
       {
-         sscanf(line,"%s %s", winput, winput2);
-         if (strcmp(winput2, "=") == 0 )
-            sscanf(line,"%s %s %s", winput, winput2, winput3);
-         else sscanf(line,"%s %s", winput, winput3);
-         strncpy(pApplication_.outputTemplate_, winput3, strlen(winput3)+1); 
+         printf("ERROR: output template feature is no longer supported.\n");
       }
       else if (strcmp(winput, keywords[4]) == 0) /* input template */
       {
-         sscanf(line,"%s %s", winput, winput2);
-         if (strcmp(winput2, "=") == 0 )
-            sscanf(line,"%s %s %s", winput, winput2, winput3);
-         else sscanf(line,"%s %s", winput, winput3);
-         strncpy(pApplication_.inputTemplate_, winput3, strlen(winput3)+1); 
-         if (strcmp(pApplication_.inputTemplate_, "NONE"))
-         {
-            if (outputLevel_ > 1)
-            {
-               fp2 = fopen(pApplication_.inputTemplate_, "r");
-               if (fp2 == NULL)
-               {
-                  printf("readApplicationSection WARNING: ");
-                  printf("input template %s not found.\n",
-                         pApplication_.inputTemplate_);
-               }
-               else fclose(fp2);
-            }
-         }
+         printf("ERROR: input template feature is no longer supported.\n");
       }
       else if (strcmp(winput, keywords[5]) == 0) /* max parallel jobs */
       {
@@ -1763,6 +2341,8 @@ void PsuadeData::readApplicationSection(FILE *fp)
       }
    }
 
+   // useFunction_: 0- driver, 1- python-generated function driver,
+   // 2- python launch script, 3- response surface from psuadeBase file
    if ( pApplication_.useFunction_ == 1 )
       strcpy( pApplication_.appDriver_, "psuadeFunctionDriver" );
    else if ( pApplication_.useFunction_ == 2 )
@@ -1790,6 +2370,41 @@ void PsuadeData::readApplicationSection(FILE *fp)
 // ************************************************************************
 // A function for reading PSUADE analysis parameters from an input file.
 // ------------------------------------------------------------------------ 
+//  ANALYSIS
+//     analyzer method = <Moment,MainEffect,TwoParamEffect,ANOVA,GLSA,..>
+//     analyzer outputID = <d>
+//     analyzer threshold = <f>
+//     optimization method = <crude,txmath,appspack,minpack,cobyla,sm,mm> 
+//     optimization num_local_minima = <d> 
+//     optimization use_response_surface
+//     optimization fmin = <f>
+//     optimization num_fmin = <d>
+//     optimization cutoff = <f>
+//     optimization output_level = <d>
+//     optimization output_id = <d>
+//     graphics 
+//     sample_graphics 
+//     file_write matlab
+//     diagnostics X
+//  END
+// ------------------------------------------------------------------------ 
+//  optimizeIntOptions[0] = turn on/off optimization
+//  optimizeIntOptions[1] = choose optimization method
+//  optimizeIntOptions[2] = store num_local_minima
+//  optimizeIntOptions[3] = use response surface for optimization
+//  optimizeIntOptions[4] = output level
+//  optimizeIntOptions[5] = num of fmin to calculate
+//  optimizeIntOptions[6] = optimization output ID
+//  optimizeDbleOptions[0] = fmin
+//  optimizeDbleOptions[1] = cutoff point for optimization
+//  optimizeDbleOptions[2] = tolerance for optimization
+//  analysisIntOptions[0] = analysis method
+//  analysisIntOptions[1] = output ID
+//  analysisIntOptions[2] = rstype
+//  analysisIntOptions[3] = diagnostics
+//  analysisIntOptions[4] = graphics
+//  analysisDbleOptions[0] = threshold
+// ------------------------------------------------------------------------ 
 void PsuadeData::readAnalysisSection(FILE *fp) 
 {
    int    lineLeng=200, outputID, rstype, transform, ii;
@@ -1798,9 +2413,9 @@ void PsuadeData::readAnalysisSection(FILE *fp)
    char   winput5[200];
    const char *keywords[] = {
               "analyzer", "optimization", "graphics", "sample_graphics",
-              "file_write", "diagnostics", "config_file", "interactive", 
+              "file_write", "diagnostics", "use_config_file", "interactive", 
               "ana_expert", "rs_expert", "opt_expert", "sam_expert", 
-              "expert", "io_expert", "rs_max_pts", "scilab", "use_input_pdfs",
+              "io_expert", "rs_max_pts", "scilab", "use_input_pdfs",
               "constraint_op_and", "END"};
    const char *analysisOptions[] = {
               "method", "threshold", "output_id", "rstype", "transform", 
@@ -1819,7 +2434,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
               "MARS","linear","quadratic","cubic", "quartic", "ANN", 
               "selective_regression", "GP1", "GP2", "SVM", "PWL", "TGP",
               "MARSBag", "EARTH", "sum_of_trees", "Legendre", "user_regression",
-              "sparse_grid_regression"};
+              "sparse_grid_regression", "Kriging"};
    const char *transformTypes[] = {"logx","logy"};
    const char *optimizeOptions[] = {
               "method", "fmin", "num_local_minima", "use_response_surface", 
@@ -1948,7 +2563,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             else if (!strcmp(winput4,resSurfTypes[3])) rstype = PSUADE_RS_REGR3;
             else if (!strcmp(winput4,resSurfTypes[4])) rstype = PSUADE_RS_REGR4;
             else if (!strcmp(winput4,resSurfTypes[5])) rstype = PSUADE_RS_ANN;
-            else if (!strcmp(winput4,resSurfTypes[6])) rstype = PSUADE_RS_REGRU;
+            else if (!strcmp(winput4,resSurfTypes[6])) rstype = PSUADE_RS_REGRS;
             else if (!strcmp(winput4,resSurfTypes[7])) rstype = PSUADE_RS_GP1;
             else if (!strcmp(winput4,resSurfTypes[8])) rstype = PSUADE_RS_GP2;
             else if (!strcmp(winput4,resSurfTypes[9])) rstype = PSUADE_RS_SVM;
@@ -1960,6 +2575,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             else if (!strcmp(winput4,resSurfTypes[15])) rstype = PSUADE_RS_REGRL;
             else if (!strcmp(winput4,resSurfTypes[16])) rstype = PSUADE_RS_REGRU;
             else if (!strcmp(winput4,resSurfTypes[17])) rstype = PSUADE_RS_REGSG;
+            else if (!strcmp(winput4,resSurfTypes[18])) rstype = PSUADE_RS_KR;
             else
             {
                printf("readAnalysisSection ERROR: invalid RS type %s\n",
@@ -2234,7 +2850,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
             pAnalysis_.analysisIntOptions_[3] = 5;
          outputLevel_ = pAnalysis_.analysisIntOptions_[3];
       }
-      else if (!strcmp(winput, keywords[6])) /* configure file */
+      else if (!strcmp(winput, keywords[6])) /* use configure file */
       {
          sscanf(line,"%s %s %s", winput, winput2, winput3); 
          if (strcmp(winput3, "NONE"))
@@ -2251,6 +2867,7 @@ void PsuadeData::readAnalysisSection(FILE *fp)
                if (psConfigFileName_ == NULL) 
                   psConfigFileName_ = new char[500];
                strcpy(psConfigFileName_, winput3);
+               if (psConfig_ != NULL) delete psConfig_;
                psConfig_ = new PsuadeConfig(winput3,1);
             }
          }
@@ -2275,43 +2892,35 @@ void PsuadeData::readAnalysisSection(FILE *fp)
       {
          psSamExpertMode_ = 1;
       }
-      else if (strcmp(winput, keywords[12]) == 0)/* expert mode*/
-      {
-         psExpertMode_ = 1;
-      }
-      else if (strcmp(winput, keywords[13]) == 0)/* IO expert mode*/
+      else if (strcmp(winput, keywords[12]) == 0)/* IO expert mode*/
       {
          psIOExpertMode_ = 1;
       }
-      else if (strcmp(winput, keywords[14]) == 0 ||
+      else if (strcmp(winput, keywords[13]) == 0 ||
                strcmp(winput, deprecateOptions[3]) == 0) /* RS max points */
       {
          sscanf(line,"%s %s %d", winput, winput2, &psFAMaxDataPts_); 
-         if (psFAMaxDataPts_ <= 1 || psFAMaxDataPts_ > 10000)
-            psFAMaxDataPts_ = 4000;
+         if (psFAMaxDataPts_ <= 1) psFAMaxDataPts_ = 4000;
          printf("Max number of data points for response surface is set to %d\n",
                 psFAMaxDataPts_);
       }
-      else if (strcmp(winput, keywords[15]) == 0) /* scilab mode */
+      else if (strcmp(winput, keywords[14]) == 0) /* scilab mode */
       {
          psPlotTool_ = 1;
-         break;
       }
-      else if (strcmp(winput, keywords[16]) == 0) /* use_input_pdfs */
+      else if (strcmp(winput, keywords[15]) == 0) /* use_input_pdfs */
       {
          pAnalysis_.useInputPDFs_ = 1;
          printf("The use_input_pdfs option has been disabled.\n");
          printf("Instead, whenever PDFs are specified in the INPUT section,\n");
          printf("they will be used in analysis if relevant. To not use PDFs\n");
          printf("in analysis, you will have to comment out the PDF definitions.\n");
-         break;
       }
-      else if (strcmp(winput, keywords[17]) == 0) /* constraint_op_and */
+      else if (strcmp(winput, keywords[16]) == 0) /* constraint_op_and */
       {
          psConstraintSetOp_ = 1;
-         break;
       }
-      else if (strcmp(winput, keywords[18]) == 0) /* END */
+      else if (strcmp(winput, keywords[17]) == 0) /* END */
       {
          break;
       }
@@ -2342,30 +2951,42 @@ void PsuadeData::readAnalysisSection(FILE *fp)
 // ------------------------------------------------------------------------ 
 void PsuadeData::writePsuadeIO(FILE *fOut, int flag) 
 {
-   int ss, ii;
+   int  ss, ii;
+   char cString[1000], lineIn[1000];
 
    if (pMethod_.nSamples_ > 100000 && psIOExpertMode_ == 0)
    {
       printf("INFO: Data too large to be written (%d).\n", pMethod_.nSamples_);
-      printf("      To enforce writing the large data set, use io_expert.\n");
-      return;
+      printf("Write to file anyway ? (y or n) \n");
+      scanf("%s", cString);
+      printf("\n");
+      fgets(lineIn,500,stdin);
+      printf("To enforce file write without asking, set io_expert mode.\n");
+      if (cString[0] != 'y') return;
    }
-   fprintf(fOut,"PSUADE_IO (Note : inputs not true inputs if pdf ~=U)\n");
-   fprintf(fOut,"%d %d %d\n", pInput_.nInputs_, pOutput_.nOutputs_, 
-           pMethod_.nSamples_);
-   for (ss = 0; ss < pMethod_.nSamples_; ss++)
+
+   //Only actually write PSUADE_IO if we have all the data to do so.
+   //We do make files without generating the sampling somtimes.
+   if (pInput_.sampleInputs_ != NULL && pOutput_.sampleOutputs_ != NULL &&  
+       pOutput_.sampleStates_ != NULL) 
    {
-      if (flag == 0)
-           fprintf(fOut,"%d %d\n", ss+1, pOutput_.sampleStates_[ss]);
-      else fprintf(fOut,"%d 0\n", ss+1);
-      for (ii = 0; ii < pInput_.nInputs_; ii++)
-         fprintf(fOut,"%24.16e\n", 
-              pInput_.sampleInputs_[ss*pInput_.nInputs_+ii]);
-      for (ii = 0; ii < pOutput_.nOutputs_; ii++)
-         fprintf(fOut,"%24.16e\n",
-              pOutput_.sampleOutputs_[ss*pOutput_.nOutputs_+ii]);
+      fprintf(fOut,"PSUADE_IO (Note : inputs not true inputs if pdf ~=U)\n");
+      fprintf(fOut,"%d %d %d\n", pInput_.nInputs_, pOutput_.nOutputs_, 
+              pMethod_.nSamples_);
+      for (ss = 0; ss < pMethod_.nSamples_; ss++)
+      {
+         if (flag == 0)
+              fprintf(fOut,"%d %d\n", ss+1, pOutput_.sampleStates_[ss]);
+         else fprintf(fOut,"%d 0\n", ss+1);
+         for (ii = 0; ii < pInput_.nInputs_; ii++)
+            fprintf(fOut,"%24.16e\n", 
+                    pInput_.sampleInputs_[ss*pInput_.nInputs_+ii]);
+         for (ii = 0; ii < pOutput_.nOutputs_; ii++)
+            fprintf(fOut,"%24.16e\n",
+                    pOutput_.sampleOutputs_[ss*pOutput_.nOutputs_+ii]);
+      }
+      fprintf(fOut,"PSUADE_IO\n");
    }
-   fprintf(fOut,"PSUADE_IO\n");
 }
 
 // ************************************************************************
@@ -2373,7 +2994,7 @@ void PsuadeData::writePsuadeIO(FILE *fOut, int flag)
 // ------------------------------------------------------------------------ 
 void PsuadeData::writeInputSection(FILE *fOut) 
 {
-   int    ii, jj, testFlag;
+   int    ii, jj;
    double ddata;
 
    fprintf(fOut,"INPUT\n");
@@ -2385,51 +3006,43 @@ void PsuadeData::writeInputSection(FILE *fOut)
       fprintf(fOut," = %24.16e %24.16e\n",pInput_.inputLBounds_[ii],
               pInput_.inputUBounds_[ii]);
    }
-   testFlag = 1;
    for (ii = 0; ii < pInput_.nInputs_; ii++)
    {
       if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 1)
       {
          fprintf(fOut,"   PDF %d N %12.5e %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
-         testFlag = 0;
       }
       else if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 2)
       {
          fprintf(fOut,"   PDF %d L %12.5e %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
-         testFlag = 0;
       }
       else if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 3)
       {
          fprintf(fOut,"   PDF %d T %12.5e %12.5e %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii],
                  pInput_.inputAuxs_[ii]);
-         testFlag = 0;
       }
       else if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 4)
       {
          fprintf(fOut,"   PDF %d B %12.5e %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
-         testFlag = 0;
       }
       else if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 5)
       {
          fprintf(fOut,"   PDF %d W %12.5e %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
-         testFlag = 0;
       }
       else if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 6)
       {
          fprintf(fOut,"   PDF %d G %12.5e %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii], pInput_.inputStdevs_[ii]);
-         testFlag = 0;
       }
       else if (pInput_.inputPDFs_ != NULL && pInput_.inputPDFs_[ii] == 7)
       {
          fprintf(fOut,"   PDF %d E %12.5e\n", ii+1,
                  pInput_.inputMeans_[ii]);
-         testFlag = 0;
       }
       else
       {
@@ -2442,6 +3055,15 @@ void PsuadeData::writeInputSection(FILE *fOut)
          ddata = pInput_.corMatrix_.getEntry(ii, jj);
          if (ddata != 0.0)
             fprintf(fOut,"   COR %d %d %12.5e\n", ii+1, jj+1, ddata);
+      }
+   }
+   if (pInput_.nFixed_ > 0)
+   {
+      fprintf(fOut,"   num_fixed = %d\n",pInput_.nFixed_); 
+      for (ii = 0; ii < pInput_.nFixed_; ii++)
+      {
+         fprintf(fOut,"   fixed %d %s = %e\n",ii+1, 
+              pInput_.fixedNames_[ii],pInput_.fixedValues_[ii]);
       }
    }
    fprintf(fOut,"END\n");
@@ -2556,6 +3178,12 @@ void PsuadeData::writeMethodSection(FILE *fOut)
    if (pMethod_.samplingMethod_ == PSUADE_SAMP_LSA)
         fprintf(fOut,"   sampling = LSA\n");
    else fprintf(fOut,"#  sampling = LSA\n");
+   if (pMethod_.samplingMethod_ == PSUADE_SAMP_RFF4)
+        fprintf(fOut,"   sampling = RFF4\n");
+   else fprintf(fOut,"#  sampling = RFF4\n");
+   if (pMethod_.samplingMethod_ == PSUADE_SAMP_RFF5)
+        fprintf(fOut,"   sampling = RFF5\n");
+   else fprintf(fOut,"#  sampling = RFF5\n");
    fprintf(fOut,"   num_samples = %d\n", pMethod_.nSamples_);
    fprintf(fOut,"   num_replications = %d\n", pMethod_.nReplications_);
 
@@ -2603,7 +3231,7 @@ void PsuadeData::writeMethodSection(FILE *fOut)
       }
    }
    if (psRandomSeed_ != -1)
-        fprintf(fOut,"   random_seed = %d\n", psRandomSeed_);
+        fprintf(fOut,"   random_seed = %ld\n", psRandomSeed_);
    else fprintf(fOut,"#  random_seed = 2147483647\n");
    fprintf(fOut,"END\n");
 }
@@ -2623,12 +3251,6 @@ void PsuadeData::writeApplicationSection(FILE *fOut)
    if (strcmp(pApplication_.auxOptDriver_, "NONE"))
         fprintf(fOut,"   aux_opt_driver = %s\n",pApplication_.auxOptDriver_);
    else fprintf(fOut,"   aux_opt_driver = NONE\n");
-   if (strcmp(pApplication_.inputTemplate_, "NONE"))
-        fprintf(fOut,"   input_template = %s\n",pApplication_.inputTemplate_);
-   else fprintf(fOut,"#  input_template = NONE\n");
-   if (strcmp(pApplication_.outputTemplate_, "NONE"))
-        fprintf(fOut,"   output_template = %s\n",pApplication_.outputTemplate_);
-   else fprintf(fOut,"#  output_template = NONE\n");
    if (pApplication_.maxParallelJobs_ != 1)
         fprintf(fOut,"   max_parallel_jobs = %d\n",pApplication_.maxParallelJobs_);
    else fprintf(fOut,"#  max_parallel_jobs = 1\n");
@@ -2808,6 +3430,9 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_REGSG)
         fprintf(fOut,"   analyzer rstype = sparse_grid_regression\n");
    else fprintf(fOut,"#  analyzer rstype = sparse_grid_regression\n");
+   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_KR)
+        fprintf(fOut,"   analyzer rstype = Kriging\n");
+   else fprintf(fOut,"#  analyzer rstype = Kriging\n");
    if (pAnalysis_.legendreOrder_ > 0)
         fprintf(fOut,"   analyzer rs_legendre_order = %d\n", pAnalysis_.legendreOrder_);
    else fprintf(fOut,"#  analyzer rs_legendre_order = -1\n");
@@ -2825,7 +3450,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    fprintf(fOut,"   analyzer threshold = %e\n", 
            pAnalysis_.analysisDbleOptions_[0]);
    if (psFAMaxDataPts_ != 4000)
-      fprintf(fOut,"   rs_max_pts = %d\n", psFAMaxDataPts_);
+        fprintf(fOut,"   rs_max_pts = %d\n", psFAMaxDataPts_);
+   else fprintf(fOut,"#  rs_max_pts = 4000\n");
 
    if (pAnalysis_.numRSFilters_ > 0)
    {
@@ -2977,8 +3603,8 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
         fprintf(fOut,"   file_write matlab\n");
    else fprintf(fOut,"#  file_write matlab\n");
    if (psConfig_ != NULL)
-        fprintf(fOut,"   config_file = %s\n",psConfigFileName_);
-   else fprintf(fOut,"#  config_file = NONE\n");
+        fprintf(fOut,"   use_config_file = %s\n",psConfigFileName_);
+   else fprintf(fOut,"#  use_config_file = NONE\n");
    if (pAnalysis_.useInputPDFs_ == 1)
         fprintf(fOut,"   use_input_pdfs\n");
    else fprintf(fOut,"#  use_input_pdfs\n");
@@ -2988,8 +3614,6 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
    if (psAnalysisInteractive_ == 1)
         fprintf(fOut,"   interactive\n");
    else fprintf(fOut,"#  interactive\n");
-   if (psExpertMode_ == 1)
-      fprintf(fOut,"   expert\n");
    if (psIOExpertMode_ == 1)
       fprintf(fOut,"   io_expert\n");
    if (psRSExpertMode_ == 1)
@@ -3050,7 +3674,8 @@ double PsuadeData::getSampleOutput(int outputNumber, int sampleid)
 // ************************************************************************
 // functions for psuadeInputSection
 // ------------------------------------------------------------------------ 
-psuadeInputSection::psuadeInputSection(): nInputs_(0), inputLBounds_(NULL), 
+psuadeInputSection::psuadeInputSection(): nFixed_(0), fixedValues_(NULL),
+                    fixedNames_(NULL), nInputs_(0), inputLBounds_(NULL), 
                     inputUBounds_(NULL),     inputNames_(NULL),
                     inputPDFs_(NULL),        inputMeans_(NULL), 
                     inputStdevs_(NULL),      inputAuxs_(NULL),
@@ -3281,5 +3906,15 @@ void psuadeAnalysisSection::reset()
          if (MOATFilters_[kk] != NULL) delete MOATFilters_[kk];
       }
    }
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+PsuadeData& PsuadeData::operator=(const PsuadeData &)
+{
+   printf("PsuadeData operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

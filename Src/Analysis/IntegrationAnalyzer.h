@@ -28,7 +28,7 @@
 #ifndef __INTEGERANALYZERH__
 #define __INTEGERANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~IntegrationAnalyzer();
 
    double analyze(aData &adata);
+
+   IntegrationAnalyzer& operator=(const IntegrationAnalyzer &analyzer);
 };
 
 #endif // __INTEGRATIONANALYZERH__

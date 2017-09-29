@@ -28,7 +28,7 @@
 #ifndef __FASTANALYZERH__
 #define __FASTANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -43,6 +43,8 @@ public:
    ~FASTAnalyzer();
 
    double analyze(aData &adata);
+
+   FASTAnalyzer& operator=(const FASTAnalyzer &analyzer);
 
    int calculateOmegas(int nInputs, int nSamples, int *omegas);
 

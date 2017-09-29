@@ -30,9 +30,9 @@
 #include <math.h>
 
 #include "SumOfTrees.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Psuade.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -82,49 +82,24 @@ SumOfTrees::~SumOfTrees()
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int SumOfTrees::genNDGridData(double *X, double *Y, int *N, double **X2, 
+int SumOfTrees::genNDGridData(double *X, double *Y, int *N2, double **X2, 
                               double **Y2)
 {
-   int    ii, ss, totPts;
-   double *XX, *YY, *XL, *HX;
+   int totPts;
 
    initTrees();
 
    buildTrees(X, Y);
 
-   if ((*N) == -999) return 0;
+   if ((*N2) == -999) return 0;
   
-   totPts = nPtsPerDim_;
-   for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++) 
-      HX[ii] = (upperBounds_[ii]-lowerBounds_[ii]) / (double) (nPtsPerDim_-1); 
- 
-   (*X2) = new double[totPts*nInputs_];
-   XX = (*X2);
-   (*Y2) = new double[totPts];
-   YY = (*Y2);
-   XL = new double[nInputs_];
-   (*N) = totPts;
- 
-   for (ii = 0; ii < nInputs_; ii++) XL[ii] = lowerBounds_[ii];
- 
-   for (ss = 0; ss < totPts; ss++)
-   {
-      for (ii = 0; ii < nInputs_; ii++ ) XX[ss*nInputs_+ii] = XL[ii];
-      for (ii = 0; ii < nInputs_; ii++ ) 
-      {
-         XL[ii] += HX[ii];
-         if (XL[ii] < upperBounds_[ii] || 
-              PABS(XL[ii] - upperBounds_[ii]) < 1.0E-7) break;
-         else XL[ii] = lowerBounds_[ii];
-      }
-   }
- 
-   evaluatePoint(totPts, XX, YY);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   delete [] XL;
-   delete [] HX;
+   (*Y2) = new double[totPts];
+   evaluatePoint(totPts, *X2, *Y2);
+
    return 0;
 }
 
@@ -390,13 +365,21 @@ int SumOfTrees::initTrees()
 {
    int    ii;
 
+   printf("SumOfTrees: initializing trees.\n");
    if (treePtrs_ != NULL)
    {
-      for (ii = 0; ii < numTrees_; ii++)
+      for (ii = 0; ii < numTrees_; ii++) 
+      {
          if (treePtrs_[ii] != NULL) delete treePtrs_[ii];
+         treePtrs_[ii] = new TreeNode();
+      }
    }
-   for (ii = 0; ii < numTrees_; ii++)
-      treePtrs_[ii] = new TreeNode();
+   else
+   {
+      treePtrs_ = new TreeNode*[numTrees_];
+      for (ii = 0; ii < numTrees_; ii++)
+         treePtrs_[ii] = new TreeNode();
+   }
    return 0;
 }   
 
@@ -419,8 +402,10 @@ int SumOfTrees::buildTrees(double *X, double *Y)
    for (jj = 0; jj < nSamples_; jj++) YY[jj] = Y[jj];
 
    mult = shrinkFactor_;
+   printf("SumOfTrees: building %d trees.\n", numTrees_);
    for (mm = 0; mm < numTrees_; mm++)
    {
+      if (outputLevel_ > 0) printf("   building tree #%d\n",mm+1);
       if (mode_ == 0)
       {
          for (ss = 0; ss < nSamples_; ss++)
@@ -693,7 +678,8 @@ double SumOfTrees::setParams(int targc, char **targv)
             inputScores[ii] = inputScores[ii] / mmax * 100;
       }
 
-      fp = fopen("matlabsot.m", "w");
+      if (psPlotTool_ == 1) fp = fopen("scilabsot.sci", "w");
+      else                  fp = fopen("matlabsot.m", "w");
       fwritePlotCLF(fp);
       fprintf(fp, "A = [\n");
       for (ii = 0; ii < nInputs_; ii++)
@@ -705,7 +691,9 @@ double SumOfTrees::setParams(int targc, char **targv)
       fwritePlotXLabel(fp, "Input parameters");
       fwritePlotYLabel(fp, "Sum-of-trees Metric (normalized)");
       fclose(fp);
-      printf("Sum-of-trees ranking is now in matlabsot.m.\n");
+      if (psPlotTool_ == 1)
+           printf("Sum-of-trees ranking is now in scilabsot.sci.\n");
+      else printf("Sum-of-trees ranking is now in matlabsot.m.\n");
 
       iArray = new int[nInputs_];
       for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;

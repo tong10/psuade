@@ -24,14 +24,13 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "SobolAnalyzer.h"
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -55,8 +54,8 @@ SobolAnalyzer::~SobolAnalyzer()
 // ------------------------------------------------------------------------
 double SobolAnalyzer::analyze(aData &adata)
 {
-   int     nInputs, nOutputs, nSamples, outputID, count;
-   int     repID, iD, ii, nReps, ss, errCount;
+   int     nInputs, nOutputs, nSamples, outputID, count, errFlag;
+   int     repID, iD, ii, nReps, ss, errCount, *sIn;
    double  *Y, xtemp1, xtemp2, *means, *modifiedMeans, *stds;
    double  *S, *ST, *PE, tau, sMean, sVar, sMean2, sVar2;
    double  *xIn, *yIn, *xLower, *xUpper, dtemp;
@@ -68,13 +67,19 @@ double SobolAnalyzer::analyze(aData &adata)
    xUpper   = adata.iUpperB_;
    xIn      = adata.sampleInputs_;
    yIn      = adata.sampleOutputs_;
+   sIn      = adata.sampleStates_;
    outputID = adata.outputID_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("SobolAnalyzer INFO: some inputs have non-uniform PDFs.\n");
-      printf("          However, they will not be relevant in this analysis\n");
-      printf("          (since the sample should have been generated with\n");
-      printf("           the desired distributions.)\n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("SobolAnalyzer INFO: some inputs have non-uniform PDFs.\n");
+         printf("     However, they are not relevant in this analysis\n");
+         printf("     (since the sample should have been generated with\n");
+         printf("     the desired distributions.)\n");
+      }
    }
 
    if (nInputs <= 0 || nSamples <= 0 || nOutputs <= 0 || 
@@ -87,6 +92,20 @@ double SobolAnalyzer::analyze(aData &adata)
       printf("    outputID = %d\n", outputID+1);
       return PSUADE_UNDEFINED;
    } 
+
+   count = 0;
+   for (ss = 0; ss < nSamples; ss++)
+   {
+      errFlag = 0;
+      if (sIn[ss] != 1) errFlag = 1;
+      for (ii = 0; ii < nOutputs; ii++)
+         if (yIn[ss*nOutputs+ii] < 0.9*PSUADE_UNDEFINED) errFlag = 1;
+      if (errFlag == 0) count++;
+   }
+   printf("SobolAnalyzer INFO: there are a total of %d sample points.\n",
+          nSamples);
+   printf("SobolAnalyzer INFO: there are %d valid sample points.\n",
+          count);
 
    nReps = nSamples / (nInputs + 2);
    if ((nReps * (nInputs+2)) == nSamples)
@@ -132,7 +151,7 @@ double SobolAnalyzer::analyze(aData &adata)
    MOATAnalyze(nInputs,nSamples,xIn,Y,xLower,xUpper,means,
                modifiedMeans,stds);
 
-   printf("Sobol-MOAT Analysis : \n");
+   printf("Sobol-OAT Analysis : \n");
    for (ii = 0; ii < nInputs; ii++)
       printf("Input %3d (mod. mean & std) = %12.4e %12.4e\n",
              ii+1, modifiedMeans[ii], stds[ii]);
@@ -281,7 +300,7 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
          else
          {
             printf("SobolAnalyzer ERROR: divide by 0.\n");
-            printf("                 Check sample (Sobol?) \n");
+            printf("     Check sample (Is this Sobol?) \n");
             exit(1);
          }
       }
@@ -347,5 +366,15 @@ int SobolAnalyzer::MOATAnalyze(int nInputs, int nSamples, double *xIn,
    if (psPlotTool_ == 1) printf("scilab file ready: scilabsmp.sci");
    else                  printf("matlab file ready: matlabsmp.m\n");
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+SobolAnalyzer& SobolAnalyzer::operator=(const SobolAnalyzer &)
+{
+   printf("SobolAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

@@ -27,7 +27,7 @@
 
 #include <stdio.h>
 #include <math.h>
-#include "Util/PsuadeUtil.h"
+#include "PsuadeUtil.h"
 #include "PDFBeta.h"
 #define PABS(x) (((x) >= 0) ? x : -(x))
 

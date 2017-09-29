@@ -28,7 +28,7 @@
 #ifndef __ONESIGMAANALYZERH__
 #define __ONESIGMAANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -45,6 +45,8 @@ public:
    ~OneSigmaAnalyzer();
 
    double analyze(aData &adata);
+
+   OneSigmaAnalyzer& operator=(const OneSigmaAnalyzer &analyzer);
 
    int setParams(int nParams, char **params);
 };

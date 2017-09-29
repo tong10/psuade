@@ -1,6 +1,7 @@
 /*  Use numerical recipes in C styled memory management methods */
 
 /*#include <malloc.h>*/
+#include <stdlib.h>
 #include <stdio.h>
 
 int **imatrix(nrl,nrh,ncl,nch)

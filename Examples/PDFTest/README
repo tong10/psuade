@@ -28,7 +28,7 @@ Case 2: triangular distribution
 PDF 1 T 0.5 0.5
 
 mean = 0.5
-stdev = sqrt(1/24)
+stdev = sqrt(1/24) = 0.204
 
 **********************************************************
 Case 3: Normal distribution
@@ -79,5 +79,20 @@ stdev = 1/lambda = 0.5
 skewness = 2
 kurtosis = 9 
  
+**********************************************************
+Case 8: User distribution
+==========================================================
+PDF 1 S 
+
+To generate a sample distribution, run psuade8.in to give
+psuadeData. Rename psuadeData to psdata.
+
+- Now in the INPUT section of psdata, add new PDFs
+  (copy the commented out PDF from psuade8.in to psdata
+   and uncomment them)
+- launch psuade, load psdata, and do: pdfconvert
+- after that write the new sample into a file
+- optionally, load that sample into memory and do a
+  "rand_draw" to make it truly random
 
 

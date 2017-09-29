@@ -28,10 +28,11 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "DataIO/FunctionInterface.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "FunctionInterface.h"
 #include "UserMetisSampling.h"
 
 #define PABS(x) ((x) > 0 ? x : -(x))
@@ -60,6 +61,70 @@ UserMetisSampling::UserMetisSampling() : Sampling()
 }
 
 // ************************************************************************
+// copy constructor added by Bill Oliver 
+// ------------------------------------------------------------------------
+UserMetisSampling::UserMetisSampling(const UserMetisSampling & ums) : Sampling()
+{
+   int graphN = 1;
+   n1d_ = ums.n1d_;
+   nAggrs_ = ums.nAggrs_;
+  
+   if(nAggrs_ > 0) 
+   {
+      aggrCnts_ = new int[nAggrs_];
+      for( int i = 0; i < nAggrs_; i++) aggrCnts_[i] = ums.aggrCnts_[i];
+  
+      aggrLabels_ = new int*[nAggrs_];
+      for(int i = 0; i < nAggrs_; i++)
+      {
+         aggrLabels_[i] = new int[aggrCnts_[i]];
+         for(int j = 0; j < aggrCnts_[i]; j++)
+	    aggrLabels_[i][j] = ums.aggrLabels_[i][j];
+      }
+   } 
+   else 
+   {
+      initialize(0);
+   }
+   nInputs_ = ums.nInputs_;
+
+   for(int i = 0; i < nInputs_; i++) graphN *= n1d_;
+
+   cellsOccupied_ = new int[graphN];
+   for(int i = 0; i < graphN; i++)
+      cellsOccupied_[i] = ums.cellsOccupied_[i];
+  
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = ums.printLevel_;
+   samplingID_ = ums.samplingID_;
+   nSamples_ = ums.nSamples_;
+   nOutputs_ = ums.nOutputs_;
+   randomize_ = ums.randomize_;
+   nReplications_ = ums.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ums.lowerBounds_[i];
+      upperBounds_[i] = ums.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ums.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ums.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ums.sampleStates_[i];
+}
+
+// ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
 UserMetisSampling::~UserMetisSampling()
@@ -80,9 +145,9 @@ UserMetisSampling::~UserMetisSampling()
 int UserMetisSampling::initialize(int initLevel)
 {
    int    *incrs, inputID, ii, jj, kk, itmp, jtmp, nnz, sampleID, randFlag;
-   int    wgtflag=0, numflag=0, options[10], edgeCut=0, index, haveExec;
+   int    options[10], index, haveExec;
    int    nAppFiles=5, newGraphN, graphN, *graphI, *graphJ, *aggrMap;
-   double *ranges=NULL, dtmp, *tempSample, *tempOutput, *coeffs;
+   double *ranges=NULL, dtmp, *tempSample, *tempOutput, *coeffs = NULL; 
    double constraints[2], *lbounds, *ubounds;
    char   **inputNames, **outputNames, **driverNames, command[500];
    char   pString[500];
@@ -91,7 +156,7 @@ int UserMetisSampling::initialize(int initLevel)
                                                                                 
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
-      cerr << "UserMetisSampling::initialize ERROR - input not set up.\n";
+      printf("UserMetisSampling::initialize ERROR - input not set up.\n");
       exit(1);
    }
 
@@ -299,17 +364,24 @@ int UserMetisSampling::initialize(int initLevel)
    options[0] = 0;
    aggrMap = new int[newGraphN];
    if (printLevel_ > 1)
-      cout << "UserMetisSampling:: calling domain partitioner.\n";
+      printf("UserMetisSampling:: calling domain partitioner.\n");
 #ifdef HAVE_METIS
+   int wgtflag=0, numflag=0, edgeCut=0;
    METIS_PartGraphRecursive(&newGraphN, graphI, graphJ, NULL, NULL,
              &wgtflag,&numflag,&nSamples_,options,&edgeCut,aggrMap);
 #else
-      cout << "UserMetisSampling ERROR : METIS not installed.\n";
+   printf("UserMetisSampling ERROR : METIS not installed.\n");
 #endif
    if (printLevel_ > 1)
-      cout << "UserMetisSampling:: subdomains created.\n";
+      printf("UserMetisSampling:: subdomains created.\n");
 
    nAggrs_   = nSamples_;
+   // Bill Oliver added range check for nAggrs_ for defensive programming
+   if(nAggrs_ <= 0)
+   {
+      printf("nAggrs_ is <= 0 in file %s line %d\n", __FILE__, __LINE__);
+      exit(1);
+   }
    aggrCnts_ = new int[nAggrs_];
    for (ii = 0; ii < nAggrs_; ii++) aggrCnts_[ii] = 0;
    for (ii = 0; ii < graphN; ii++)
@@ -320,6 +392,7 @@ int UserMetisSampling::initialize(int initLevel)
          aggrCnts_[index]++;  
       }
    }
+   
    aggrLabels_ = new int*[nAggrs_];
    for (ii = 0; ii < nAggrs_; ii++)
    {
@@ -334,7 +407,14 @@ int UserMetisSampling::initialize(int initLevel)
          aggrLabels_[index][aggrCnts_[index]++] = ii;  
       }
    }
-   if (initLevel != 0) return 0;
+   if (initLevel != 0)
+   {
+      delete [] ubounds;
+      delete [] ranges;
+      delete [] lbounds;
+      delete [] aggrMap;
+      return 0;
+   }
 
    allocSampleData();
 
@@ -388,17 +468,10 @@ int UserMetisSampling::initialize(int initLevel)
 // ************************************************************************
 // refine the sample space
 // ------------------------------------------------------------------------
-int UserMetisSampling::refine(int refineRatio,int randomize,double thresh,
-                              int nSamples, double *sampleErrors)
+int UserMetisSampling::refine(int,int,double, int, double *)
 {
-   (void) refineRatio;
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
-
-   cout << "UserMetisSampling refine: not implemented yet." << endl;
-   exit(1);
+   printf("UserMetisSampling refine: not implemented yet.\n");
+   return -1;
 } 
 
 // ************************************************************************
@@ -416,9 +489,72 @@ int UserMetisSampling::setParam(string sparam)
       if (fp != NULL)
       {
          fclose(fp);
-         system("rm -f psuadeMetisInfo");
+         unlink("psuadeMetisInfo");
       }
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+UserMetisSampling& UserMetisSampling::operator=(const UserMetisSampling & ums)
+{
+   if(this == &ums) return *this;
+
+   int graphN = 1;
+   n1d_ = ums.n1d_;
+   nAggrs_ = ums.nAggrs_;
+   if(nAggrs_ > 0)
+   {
+      aggrCnts_ = new int[nAggrs_];
+      for( int i = 0; i < nAggrs_; i++)
+         aggrCnts_[i] = ums.aggrCnts_[i];
+  
+      aggrLabels_ = new int*[nAggrs_];
+      for(int i= 0; i < nAggrs_; i++)
+      {
+         aggrLabels_[i] = new int[aggrCnts_[i]];
+         for(int j = 0; j < aggrCnts_[i]; j++)
+            aggrLabels_[i][j] = ums.aggrLabels_[i][j];
+      }
+   }
+   nInputs_ = ums.nInputs_;
+   for(int i = 0; i < nInputs_; i++) graphN *= n1d_;
+
+   cellsOccupied_ = new int[graphN];
+   for(int i = 0; i < graphN; i++)
+      cellsOccupied_[i] = ums.cellsOccupied_[i];
+  
+   // MetisSampling inherits from Sampling so include the parent '
+   // class data members
+   printLevel_ = ums.printLevel_;
+   samplingID_ = ums.samplingID_;
+   nSamples_ = ums.nSamples_;
+   nOutputs_ = ums.nOutputs_;
+   randomize_ = ums.randomize_;
+   nReplications_ = ums.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ums.lowerBounds_[i];
+      upperBounds_[i] = ums.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ums.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ums.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ums.sampleStates_[i];
+
+   return (*this);
 }
 

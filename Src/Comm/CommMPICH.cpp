@@ -48,7 +48,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "CommMPICH.h"
-#include "Util/dtype.h"
+#include "dtype.h"
 
 // ************************************************************************
 // Constructor

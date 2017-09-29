@@ -28,7 +28,7 @@
 #ifndef __MOMENTANALYZERH__
 #define __MOMENTANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~MomentAnalyzer();
 
    double analyze(aData &adata);
+
+   MomentAnalyzer& operator=(const MomentAnalyzer &analyzer);
 
    int analyzeMore(int nInputs, int nOutputs, int nSamples, 
                    int nSubSamples, double *sampleOutputs, int outputID);

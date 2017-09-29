@@ -28,7 +28,7 @@
 #ifndef __SGRIDREGRESSIONH__
 #define __SGRIDREGRESSIONH__
 
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

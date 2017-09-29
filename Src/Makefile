@@ -61,6 +61,7 @@ OBJ_SAMP = Samplings/Sampling.o \
            Samplings/SparseGridSampling.o \
            Samplings/DiscreteSampling.o \
            Samplings/LSASampling.o \
+           Samplings/RFractFactSampling.o \
            Samplings/RSConstraints.o \
            Samplings/MOATConstraints.o \
            Samplings/GridNode.o
@@ -74,6 +75,7 @@ OBJ_PDF =  PDFLib/PDFBase.o \
            PDFLib/PDFMVLogNormal.o \
            PDFLib/PDFGamma.o \
            PDFLib/PDFExponential.o \
+           PDFLib/PDFSpecial.o \
            PDFLib/PDFManager.o \
            PDFLib/pdfData.o
 OBJ_UTIL = Util/PsuadeUtil.o Util/isaac_randport.o Util/cygwin_system.o \
@@ -130,6 +132,7 @@ OBJ_FACP = FuncApprox/Mars.o \
            FuncApprox/Regression.o \
            FuncApprox/SelectiveRegression.o \
            FuncApprox/LegendreRegression.o \
+           FuncApprox/GradLegendreRegression.o \
            FuncApprox/UserRegression.o \
            FuncApprox/SGRegression.o \
            FuncApprox/Ann.o \
@@ -141,6 +144,8 @@ OBJ_FACP = FuncApprox/Mars.o \
            FuncApprox/MarsBagg.o \
            FuncApprox/Earth.o \
            FuncApprox/SumOfTrees.o \
+           FuncApprox/Kriging.o \
+           FuncApprox/NPLearning.o \
            FuncApprox/TreeNode.o \
            FuncApprox/AnnFunctions.o
 OBJ_OPT  = Optimizers/TxMathOptimizer.o Optimizers/TxMathPSUADE.o \
@@ -148,7 +153,7 @@ OBJ_OPT  = Optimizers/TxMathOptimizer.o Optimizers/TxMathPSUADE.o \
            Optimizers/CobylaOptimizer.o Optimizers/SMOptimizer.o \
            Optimizers/MMOptimizer.o Optimizers/Optimizer.o \
            Optimizers/BobyqaOptimizer.o Optimizers/SCEOptimizer.o \
-           Optimizers/MultiObjectiveOptimizer.o
+           Optimizers/MultiObjectiveOptimizer.o Optimizers/oData.o
 OBJ_PYTH = PythonWrapper/psuade_wrap.o
 
 OBJ_ALL  = $(OBJ_BASE) $(OBJ_SAMP) $(OBJ_UTIL) $(OBJ_PSIO) $(OBJ_PLTC) \
@@ -359,6 +364,9 @@ PDFLib/PDFGamma.o : PDFLib/PDFGamma.cpp Util/PsuadeUtil.h \
 PDFLib/PDFExponential.o : PDFLib/PDFExponential.cpp \
                           PDFLib/PDFBase.h PDFLib/PDFExponential.h
 
+PDFLib/PDFSpecial.o : PDFLib/PDFSpecial.cpp \
+                      PDFLib/PDFBase.h PDFLib/PDFSpecial.h
+
 PDFLib/PDFMVNormal.o : PDFLib/PDFMVNormal.cpp Util/PsuadeUtil.h \
                        PDFLib/PDFMVNormal.h
 
@@ -568,6 +576,10 @@ FuncApprox/LegendreRegression.o : FuncApprox/LegendreRegression.cpp \
                                   FuncApprox/LegendreRegression.h \
                                   FuncApprox/FuncApprox.h
 
+FuncApprox/GradLegendreRegression.o : FuncApprox/GradLegendreRegression.cpp \
+                                      FuncApprox/GradLegendreRegression.h \
+                                      FuncApprox/FuncApprox.h
+
 FuncApprox/SGRegression.o : FuncApprox/SGRegression.cpp \
                             FuncApprox/SGRegression.h \
                             FuncApprox/FuncApprox.h
@@ -593,6 +605,10 @@ FuncApprox/SVM.o : FuncApprox/SVM.cpp FuncApprox/SVM.h FuncApprox/FuncApprox.h
 
 FuncApprox/PWLinear.o : FuncApprox/PWLinear.cpp FuncApprox/PWLinear.h \
                         FuncApprox/FuncApprox.h
+
+FuncApprox/Kriging.o : FuncApprox/Kriging.cpp FuncApprox/Kriging.h FuncApprox/FuncApprox.h
+
+FuncApprox/NPLearning.o : FuncApprox/NPLearning.cpp FuncApprox/NPLearning.h FuncApprox/FuncApprox.h
 
 Comm/BaseComm.o : Comm/BaseComm.cpp Comm/BaseComm.h
 
@@ -634,6 +650,8 @@ Optimizers/MultiObjectiveOptimizer.o : Optimizers/MultiObjectiveOptimizer.cpp \
 Optimizers/Optimizer.o : Optimizers/Optimizer.cpp Optimizers/Optimizer.h
 
 Optimizers/TxMathPSUADE.o : Optimizers/TxMathPSUADE.cpp
+
+Optimizers/oData.o : Optimizers/oData.cpp Optimizers/oData.h
 
 PythonWrapper/psuade_wrap.o : PythonWrapper/psuade_wrap.cxx
 	@echo "Making $@"

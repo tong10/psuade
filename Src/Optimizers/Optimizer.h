@@ -33,8 +33,8 @@ using    namespace std;
 
 #include "Optimizer.h"
 #include "oData.h"
-#include "DataIO/PsuadeData.h"
-#include "DataIO/FunctionInterface.h"
+#include "PsuadeData.h"
+#include "FunctionInterface.h"
 
 // ************************************************************************
 // class definition
@@ -43,10 +43,24 @@ class Optimizer
 {
 public:
 
+   /** constructor */
    Optimizer();
+
+   /** destructor */
    virtual ~Optimizer();
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
    virtual void optimize(oData *odata);
-   void         setParam(string sparam);
+
+   /** set internal parameters
+     @param sparam - string that contains the parameter information
+     */
+   void setParam(string sparam);
+
+   /** assign operator override */
+   Optimizer& operator=(const Optimizer &);
 };
 
 // ************************************************************************

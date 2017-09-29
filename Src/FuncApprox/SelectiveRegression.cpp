@@ -28,11 +28,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "SelectiveRegression.h"
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "PDFLib/PDFBase.h"
-#include "PDFLib/PDFNormal.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "PDFBase.h"
+#include "PDFNormal.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -66,10 +66,10 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
       printf("SelectiveRegression INFO: using selective_regression_file.\n");
    }
    fscanf(fp, "%s", inStr);
-   if (strcmp(inStr, "BEGIN"))
+   if (strcmp(inStr, "PSUADE_BEGIN"))
    {
       printf("SelectiveRegression: wrong format in selective_regression_file.\n");
-      printf("First  line: BEGIN\n");
+      printf("First  line: PSUADE_BEGIN\n");
       printf("Second line: the number of terms.\n");
       printf("Third  line: 1  number of inputs, input list (1-based).\n");
       printf("Fourth line: 2  number of inputs, input list (1-based).\n");
@@ -120,10 +120,10 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
    }
    fscanf(fp, "%s", inStr);
    fclose(fp);
-   if (strcmp(inStr, "END"))
+   if (strcmp(inStr, "PSUADE_END"))
    {
       printf("SelectiveRegression: wrong format in user regression file.\n");
-      printf("The file should end with END\n");
+      printf("The file should end with PSUADE_END\n");
       exit(1);
    }
 }
@@ -149,8 +149,7 @@ SelectiveRegression::~SelectiveRegression()
 int SelectiveRegression::genNDGridData(double *X, double *Y, int *N2,
                                        double **X2, double **Y2)
 {
-   int     totPts, sampleID, inputID, status;
-   double  *HX, *Xloc;
+   int totPts, ss, status;
 
    if (nInputs_ <= 0 || nSamples_ <= 0)
    {
@@ -172,67 +171,15 @@ int SelectiveRegression::genNDGridData(double *X, double *Y, int *N2,
    }
 
    if ((*N2) == -999) return 0;
-   if (nInputs_ > 21)
-   {
-      printf("SelectiveRegression::genNDGridData INFO - nInputs > 21.\n");
-      printf("                No lattice points generated.\n");
-      (*N2) = 0;
-      return -1;
-   }
 
-   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 18 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 17 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 16 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 15 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
-   totPts = nPtsPerDim_;
-   for (inputID = 1; inputID < nInputs_; inputID++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      HX[inputID] = (upperBounds_[inputID] - lowerBounds_[inputID]) /
-                    (double) (nPtsPerDim_ - 1);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
-   (*N2) = totPts;
-   Xloc  = new double[nInputs_];
+   for (ss = 0; ss < totPts; ss++)
+      (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
 
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      Xloc[inputID] = lowerBounds_[inputID];
-
-   for (sampleID = 0; sampleID < totPts; sampleID++)
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-         (*X2)[sampleID*nInputs_+inputID] = Xloc[inputID];
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-      {
-         Xloc[inputID] += HX[inputID];
-         if (Xloc[inputID] < upperBounds_[inputID] ||
-              PABS(Xloc[inputID] - upperBounds_[inputID]) < 1.0E-7) break;
-         else Xloc[inputID] = lowerBounds_[inputID];
-      }
-      (*Y2)[sampleID] = evaluatePoint(&((*X2)[sampleID*nInputs_]));
-   }
-
-   delete [] Xloc;
-   delete [] HX;
    return 0;
 }
 
@@ -462,9 +409,11 @@ double SelectiveRegression::evaluatePointFuzzy(double *X, double &std)
    {
       mean = regCoeffs_[mm];
       stds = regStdevs_[mm];
-      uppers[mm] = mean + 2.0 * std;
-      lowers[mm] = mean - 2.0 * std;
-      PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, std);
+      uppers[mm] = mean + 2.0 * stds;
+      lowers[mm] = mean - 2.0 * stds;
+      if (uppers[mm] > lowers[mm])
+           PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, std);
+      else PDFPtrs[mm] = NULL;
    }
    Ys = new double[nTimes];
 
@@ -472,8 +421,10 @@ double SelectiveRegression::evaluatePointFuzzy(double *X, double &std)
    for (cc = 0; cc < nTimes; cc++)
    {
       C1 = PSUADE_drand();
-      PDFPtrs[numTerms_]->invCDF(1, &C1, &C2, lowers[numTerms_], 
-                                  uppers[numTerms_]);
+      if (PDFPtrs[numTerms_] != NULL)
+           PDFPtrs[numTerms_]->invCDF(1, &C1, &C2, lowers[numTerms_], 
+                                      uppers[numTerms_]);
+      else C2 = regCoeffs_[numTerms_];
       dtmp = C2;
       for (mm = 0; mm < numTerms_; mm++)
       {
@@ -481,7 +432,9 @@ double SelectiveRegression::evaluatePointFuzzy(double *X, double &std)
          for (nn = 0; nn < coefTerms_[mm][0]; nn++)
             multiplier *= X[coefTerms_[mm][nn+1]]; 
          C1 = PSUADE_drand();
-         PDFPtrs[mm]->invCDF(1, &C1, &C2, lowers[mm], uppers[mm]);
+         if (PDFPtrs[mm] != NULL)
+              PDFPtrs[mm]->invCDF(1, &C1, &C2, lowers[mm], uppers[mm]);
+         else C2 = regCoeffs_[mm];
          dtmp += C2 * multiplier;
       }
       Ys[cc] = dtmp;
@@ -493,7 +446,8 @@ double SelectiveRegression::evaluatePointFuzzy(double *X, double &std)
       stds += (Ys[cc] - mean) * (Ys[cc] - mean);
    stds = sqrt(stds / (nTimes - 1));
 
-   for (mm = 0; mm <= numTerms_; mm++) delete [] PDFPtrs[mm];
+   for (mm = 0; mm <= numTerms_; mm++) 
+      if (PDFPtrs[mm] != NULL) delete [] PDFPtrs[mm];
    delete [] PDFPtrs;
    delete [] uppers;
    delete [] lowers;
@@ -612,13 +566,14 @@ int SelectiveRegression::analyze(double *X, double *Y)
    }
    else
    {
-      NRevised = N;
+      NRevised = 1;
       for (nn = 1; nn < N; nn++)
       {
          if (SS[nn-1] > 0.0 && SS[nn]/SS[nn-1] < 1.0e-8) SS[nn] = 0.0;
          else NRevised++;
       }
    }
+   if (NRevised < N) printf("Number of singular values deleted = %d\n",N-NRevised);
    for (mm = 0; mm < NRevised; mm++)
    {
       WW[mm] = 0.0;
@@ -640,6 +595,12 @@ int SelectiveRegression::analyze(double *X, double *Y)
    if (outputLevel_ > 5)
    {
       fp = fopen("selective_regression_error.m", "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n",
+                 __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "%% This file contains errors of each data point.\n");
    }
    else fp = NULL;
@@ -667,7 +628,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
    }
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
-   R2  = (SStotal - SSresid) / SStotal;
+   R2  = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
 
@@ -749,22 +710,23 @@ int SelectiveRegression::computeSS(int N, double *XX, double *Y,
                               double *B, double &SSresid, double &SStotal)
 {
    int    nn, mm;
-   double *R, ymean;
+   double ymean, SSreg, ddata, rdata;
                                                                                 
-   SSresid = SStotal = ymean = 0.0;
-   R = new double[nSamples_];
+   SSresid = SStotal = ymean = SSreg = 0.0;
+   for (mm = 0; mm < nSamples_; mm++) ymean += (sqrt(weights_[mm]) * Y[mm]);
+   ymean /= (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
    {
-      R[mm] = Y[mm];
-      for (nn = 0; nn < N; nn++) R[mm] -= (XX[mm+nn*nSamples_] * B[nn]);
-      SSresid += R[mm] * Y[mm] * weights_[mm];
-      ymean += (sqrt(weights_[mm]) * Y[mm]);
+      ddata = 0.0;
+      for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
+      rdata = Y[mm] - ddata;
+      SSresid += rdata * Y[mm] * weights_[mm];
+      SSreg += (ddata - ymean) * (ddata - ymean);
    }
-   ymean /= (double) nSamples_;
-   SStotal = - ymean * ymean * (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
-      SStotal += weights_[mm] * Y[mm] * Y[mm];
-   delete [] R;
+      SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+   printf("UserRegression: SStot, SSreg, SSres = %e %e %e\n",
+          SStotal, SSreg, SSresid);
    return 0;
 }
 
@@ -791,7 +753,7 @@ int SelectiveRegression::computeCoeffVariance(int N,double *XX,double var,
       dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
       if (info != 0)
          printf("SelectiveRegression WARNING: dgels returns error %d.\n",info);
-      if (B2[ii] < 0) B[ii] = -sqrt(-B2[ii]);
+      if (B2[ii] < 0) B[ii] = 0;
       else            B[ii] = sqrt(B2[ii]);
    }
    delete [] B2;
@@ -847,6 +809,12 @@ int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
    if (outputLevel_ >= 3)
    {
       fp = fopen(fname, "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n", 
+                __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "data number     data         standard error\n");
       for (ii = 0; ii < nSamples_; ii++)
       {

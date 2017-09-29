@@ -1,0 +1,6 @@
+load psdata
+rsmcmc
+mcmcFile
+4
+q
+

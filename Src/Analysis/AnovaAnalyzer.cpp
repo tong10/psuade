@@ -26,11 +26,10 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
-#include "FuncApprox/FuncApprox.h"
-#include "FuncApprox/Mars.h"
+#include "FuncApprox.h"
 #include "AnovaAnalyzer.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -74,15 +73,20 @@ double AnovaAnalyzer::analyze(aData &adata)
    outputID = adata.outputID_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("AnovaAnalyzer INFO: some inputs have non-uniform PDFs.\n");
-      printf("          However, they will not be relevant in this analysis\n");
-      printf("          (since the sample should have been generated with\n");
-      printf("           the desired distributions.)\n");
+      ncount = 0;
+      for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
+      if (ncount > 0)
+      {
+         printf("ANOVA INFO: some inputs have non-uniform PDFs.\n");
+         printf("      However, they are not relevant in this analysis\n");
+         printf("      (the sample should have been generated with\n");
+         printf("       the desired distributions.)\n");
+      }
    }
 
    if (nInputs <= 0 || nSamples <= 0)
    {
-      printf("AnovaAnalyzer ERROR: invalid arguments.\n");
+      printf("ANOVA ERROR: invalid arguments.\n");
       printf("    nInputs  = %d\n", nInputs);
       printf("    nOutputs = %d\n", nOutputs);
       printf("    nSamples = %d\n", nSamples);
@@ -92,8 +96,8 @@ double AnovaAnalyzer::analyze(aData &adata)
    {
       if (xLower[ii] >= xUpper[ii])
       {
-         printf("AnovaAnalyzer ERROR: invalid input bounds.\n");
-         printf("              Input %3d bounds = %e %e\n", ii+1,
+         printf("ANOVA ERROR: invalid input bounds.\n");
+         printf("             Input %3d bounds = %e %e\n", ii+1,
                 xLower[ii], xUpper[ii]);
          return PSUADE_UNDEFINED;
       }
@@ -112,7 +116,7 @@ double AnovaAnalyzer::analyze(aData &adata)
          if (dimPts > 1000000) break;
       }
    }
-   fa = new Mars(nInputs, nSamples);
+   fa = genFA(PSUADE_RS_MARS, nInputs, 1, nSamples);
    fa->setNPtsPerDim(nPtsPerDim);
    fa->setBounds(xLower, xUpper);
    fa->genNDGridData(X, YY, &length, NULL, NULL);
@@ -248,7 +252,7 @@ double AnovaAnalyzer::analyze(aData &adata)
             if (cind1 < 0 || cind2 < 0 || cind3 < 0 || cind1 >= tableLeng ||
                 cind2 >= tableLeng || cind3 >= tableLeng)
             {
-               printf("ERROR: unrecoverable error.\n");
+               printf("ANOVA ERROR: unrecoverable error.\n");
                delete [] dofs;
                delete [] sumSquares;
                delete [] meanSquares;
@@ -379,7 +383,7 @@ double AnovaAnalyzer::computeSumSquares1(int nSamples, int nInputs,
    }
    if (xcnt != nLevels) 
    {
-      printf("AnovaAnalyzer ERROR (1): %d\n",xcnt);
+      printf("ANOVA ERROR (1): %d\n",xcnt);
       exit(0);
    }
 
@@ -441,7 +445,7 @@ double AnovaAnalyzer::computeSumSquares2(int nSamples, int nInputs,
    }
    if (xcnt1 != nlevels1)
    {
-      printf("AnovaAnalyzer ERROR (2a): %d\n",nlevels1);
+      printf("ANOVA ERROR (2a): %d\n",nlevels1);
       exit(0);
    }
    for (ss = 0; ss < nSamples; ss++)
@@ -571,7 +575,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    }
    if (xcnt1 != nlevels1) 
    {
-      printf("AnovaAnalyzer ERROR (3a): %d\n",nlevels1);
+      printf("ANOVA ERROR (3a): %d\n",nlevels1);
       exit(0);
    }
    for (ss = 0; ss < nSamples; ss++)
@@ -589,7 +593,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    }
    if (xcnt2 != nlevels2) 
    {
-      printf("AnovaAnalyzer ERROR (3b): %d\n",nlevels2);
+      printf("ANOVA ERROR (3b): %d\n",nlevels2);
       exit(1);
    }
    for (ss = 0; ss < nSamples; ss++)
@@ -607,7 +611,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    }
    if (xcnt3 != nlevels3) 
    {
-      printf("AnovaAnalyzer ERROR (3c): %d\n",nlevels3);
+      printf("ANOVA ERROR (3c): %d\n",nlevels3);
       exit(0);
    }
 
@@ -641,7 +645,7 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
           }
           if (found == 1) break;
       }
-      if (kk < 0 || mm < 0) printf("ERROR in AnovaAnalyzer.\n");
+      if (kk < 0 || mm < 0) printf("ANOVA ERROR (4).\n");
       else
          gsum[jj*xcnt2*xcnt3+kk*xcnt3+mm] += Y[nOutputs*ss+output];
    }
@@ -662,5 +666,15 @@ double AnovaAnalyzer::computeSumSquares3(int nSamples, int nInputs,
    delete [] xvalues3;
 
    return sumT2;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+AnovaAnalyzer& AnovaAnalyzer::operator=(const AnovaAnalyzer &)
+{
+   printf("ANOVA operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

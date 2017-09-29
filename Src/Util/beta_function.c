@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// File: beta_function.c                                                      //
+// File: beta_function.c (from mymathlib)                                     //
 // Routine(s):                                                                //
 //    Beta_Function                                                           //
 //    xBeta_Function                                                          //

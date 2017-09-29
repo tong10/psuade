@@ -27,8 +27,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "OALHSampling.h"
 
 // ************************************************************************
@@ -769,5 +769,15 @@ int OALHSampling::setInputParams(int nInputs, int *counts,
       }
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+OALHSampling& OALHSampling::operator=(const OALHSampling &)
+{
+   printf("OALHSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

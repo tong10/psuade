@@ -25,7 +25,6 @@
 // DATE   : 2003
 // ************************************************************************
 // ************************************************************************
-
 #ifdef HAVE_TXMATH
 
 #include "txc_streams.h"
@@ -39,7 +38,6 @@
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-
 TxMathOptimizer::TxMathOptimizer()
 {
 }
@@ -47,7 +45,6 @@ TxMathOptimizer::TxMathOptimizer()
 // ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
-
 TxMathOptimizer::~TxMathOptimizer()
 {
 }
@@ -55,7 +52,6 @@ TxMathOptimizer::~TxMathOptimizer()
 // ************************************************************************
 // optimize
 // ------------------------------------------------------------------------
-
 void TxMathOptimizer::optimize(oData *odata)
 {
    int nInputs;
@@ -80,7 +76,17 @@ void TxMathOptimizer::optimize(oData *odata)
    TxMathPSUADECleanUp();
 }
 
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+TxMathOptimizer& TxMathOptimizer::operator=(const TxMathOptimizer &)
+{
+   printf("TxMathOptimizer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
+}
 #else
    int txmath_bogus;
 #endif
+
 

@@ -28,7 +28,7 @@
 #ifndef __BOOTSTRAPANALYZERH__
 #define __BOOTSTRAPANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -45,9 +45,13 @@ public:
 
    BootstrapAnalyzer();
 
+   BootstrapAnalyzer(const BootstrapAnalyzer &);
+
    ~BootstrapAnalyzer();
 
    double analyze(aData &adata);
+
+   BootstrapAnalyzer& operator=(const BootstrapAnalyzer &analyzer);
 
    int computeMeanVariance(int nSamples, int nOutputs, 
                            double *sampleOutputs, double *mean,

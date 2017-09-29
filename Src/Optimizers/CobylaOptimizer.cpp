@@ -32,11 +32,11 @@
 using namespace std;
 
 #include "CobylaOptimizer.h"
-#include "Main/Psuade.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "PsuadeUtil.h"
 
 #ifdef HAVE_COBYLA
-#include "../../External/COBYLA/cobyla.h"
+#include "cobyla.h"
 #endif
 #define psCobylaMaxSaved_ 10000
 int     psCobylaNSaved_=0;
@@ -229,7 +229,7 @@ CobylaOptimizer::~CobylaOptimizer()
 // ------------------------------------------------------------------------
 void CobylaOptimizer::optimize(oData *odata)
 {
-   int    nInputs, nConstraints, ii, kk, maxfun, tfevals;
+   int    nInputs, nConstraints, ii, maxfun;
    int    ntimes=3, printLevel=0, nOutputs, outputID, cmpFlag;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp;
    char   filename[500];
@@ -395,8 +395,8 @@ void CobylaOptimizer::optimize(oData *odata)
    printEquals(0);
 
 #ifdef HAVE_COBYLA
-   tfevals = 0;
-   for (kk = 0; kk < ntimes; kk++)
+   int tfevals = 0;
+   for (int kk = 0; kk < ntimes; kk++)
    {
       cobyla(nInputs, nConstraints, XValues, rhobeg, rhoend, 
              printLevel, &maxfun, evaluateFunction, 
@@ -427,5 +427,15 @@ void CobylaOptimizer::optimize(oData *odata)
    psOVars_ = NULL;
    psLVars_ = NULL;
    psNumOVars_ = psNumLVars_ = 0;
+}
+
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+CobylaOptimizer& CobylaOptimizer::operator=(const CobylaOptimizer &)
+{
+   printf("CobylaOptimizer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

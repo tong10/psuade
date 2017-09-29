@@ -28,7 +28,7 @@
 #ifndef __GOWERANALYZERH__
 #define __GOWERANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~GowerAnalyzer();
 
    double analyze(aData &adata);
+
+   GowerAnalyzer& operator=(const GowerAnalyzer &analyzer);
 };
 
 #endif // __GOWERANALYZERH__

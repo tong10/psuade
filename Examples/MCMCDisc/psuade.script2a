@@ -1,0 +1,16 @@
+load simdata
+ana_expert
+rsmcmc
+expdata
+n
+2
+20000
+20000
+15
+2
+0
+n
+y
+100
+q
+

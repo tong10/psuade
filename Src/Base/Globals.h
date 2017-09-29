@@ -28,22 +28,24 @@
 #ifndef __GLOBALSH__ // header guards
 #define __GLOBALSH__
 
-#include "Comm/CommManager.h"
-#include "DataIO/PsuadeConfig.h"
+#include "CommManager.h"
+#include "PsuadeConfig.h"
 
-extern int          psExpertMode_;
 extern int          psIOExpertMode_;
 extern int          psRSExpertMode_;
 extern int          psSamExpertMode_;
 extern int          psAnaExpertMode_;
 extern int          psOptExpertMode_;
+extern int          psGMMode_;
 extern int          psPlotTool_;
-extern int          psRandomSeed_;
+extern long         psRandomSeed_;
 extern int          psAnalysisInteractive_;
 extern int          psFAMaxDataPts_;
 extern int          psConstraintSetOp_;
 extern char         *psConfigFileName_;
 extern PsuadeConfig *psConfig_;
 extern CommManager  *psCommMgr_;
+extern const char   *psInputFilename_;
+extern const char   *psOutputFilename_;
 
 #endif

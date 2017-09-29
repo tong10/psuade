@@ -27,9 +27,9 @@
 #include <math.h>
 #include <stdio.h>
 #include <sstream>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/Vector.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Vector.h"
 #include "SparseGridSampling.h"
 
 #define HUQ_nLevels_ 8
@@ -76,6 +76,18 @@ SparseGridSampling::SparseGridSampling() : Sampling()
 }
 
 // ************************************************************************
+// copy constructor added by Bill Oliver
+// ------------------------------------------------------------------------
+SparseGridSampling::SparseGridSampling(const SparseGridSampling &gs) : Sampling()
+{
+   pOrder_ = gs.pOrder_;
+   nSamples_ = gs.nSamples_;
+   sampleWeights_ = new double[nSamples_];
+   for(int i = 0; i < nSamples_; i++)
+      sampleWeights_[i] = gs.sampleWeights_[i];
+}
+
+// ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
 SparseGridSampling::~SparseGridSampling()
@@ -88,7 +100,7 @@ SparseGridSampling::~SparseGridSampling()
 //*------------------------------------------------------------------------
 int SparseGridSampling::initialize(int initLevel)
 {
-   int    ii, jj, kk, ll, minQ, maxQ, bQ, index;
+   int    ii, jj, kk, ll, minQ, maxQ, bQ, index, size = 0;
    int    nPerms, **pcePerms, *counts, total, *midx, newLeng, nVecs, numNew;
    int    *keepFlags;
    double **newn, *neww, **ddata, val, *ranges;
@@ -151,7 +163,14 @@ int SparseGridSampling::initialize(int initLevel)
             index = pcePerms[jj][kk];
             midx[kk] = index;
          }
-         KronProd(nInputs_, midx, &newn, &neww);
+
+         size = KronProd(nInputs_, midx, &newn, &neww);
+         // Bill Oliver added check on value of size
+         if(size <= 0){
+	   printf("size variable is <= 0 in file %s line %d\n", __FILE__, __LINE__);
+           exit(1);
+
+         }
          for (ll = nVecs; ll < nVecs+counts[jj]; ll++)
          {
             for (kk = 0; kk < nInputs_; kk++)
@@ -159,6 +178,11 @@ int SparseGridSampling::initialize(int initLevel)
             Vweights[ll] = bQ * neww[ll-nVecs];
          } 
          nVecs += counts[jj];
+	 for(int i = 0; i < size; i++)
+	   delete newn[i];
+	 delete newn;
+	 delete neww;
+         
       }
       delete [] counts;
       for (jj = 0; jj < nPerms; jj++) delete [] pcePerms[jj];
@@ -275,21 +299,15 @@ int SparseGridSampling::initialize(int initLevel)
    printf("You need this file to build sparse grid response surfaces.\n");
 
    delete [] midx;
+   delete [] Vnodes;
    return 0;
 }
 
 // ************************************************************************
 // refine the sample space
 // ------------------------------------------------------------------------
-int SparseGridSampling::refine(int refineRatio, int randomize, 
-                     double thresh, int nSamples, double *sampleErrors)
+int SparseGridSampling::refine(int, int, double , int, double *)
 {
-   (void) refineRatio;
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
-
    printf("SparseGridSampling::refine ERROR - not available.\n");
    exit(1);
    return 0;
@@ -342,8 +360,9 @@ int SparseGridSampling::KronProd(int nn, int *midx, double ***newn2,
    }
    delete [] counts;
    (*newn2) = newn;    
-   (*neww2) = neww;    
-   return 0;
+   (*neww2) = neww;
+   // This function is used in a loop so we need to return total    
+   return total;
 }
 
 // ************************************************************************
@@ -361,7 +380,13 @@ int SparseGridSampling::GenSequence(int nn, int rsum, int ***perms)
    else                     
       nPerms = computeNumPCEPermutations(nn, idata) - 
                computeNumPCEPermutations(nn, idata-1);
-   
+   // Bill Oliver added defensive programming by checking the value of nPerms
+   if(nPerms <= 0)
+   {
+      printf("Problem in SparseGridSampling::GenSequence with calculation\n");
+      printf("of nPerms (%d).\n", nPerms);
+      exit(1);
+   }
    outPerms = new int*[nPerms];
    for (ii = 0; ii < nPerms; ii++) outPerms[ii] = new int[nn];
    for (ii = 0; ii < nn; ii++) outPerms[0][ii] = flags[ii];
@@ -387,6 +412,7 @@ int SparseGridSampling::GenSequence(int nn, int rsum, int ***perms)
       cnt++;
    }
    (*perms) = outPerms;
+   delete [] flags;
    return nPerms;
 }
 
@@ -421,5 +447,21 @@ int SparseGridSampling::setParam(string sparam)
       if (pOrder_ < 1) pOrder_ = 1;
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+SparseGridSampling& SparseGridSampling::operator=(const SparseGridSampling & gs)
+{
+   // Bill Oliver modified the operator= to work
+   if(this == &gs) return *this;
+   delete [] sampleWeights_;
+   pOrder_ = gs.pOrder_;
+   nSamples_ = gs.nSamples_;
+   sampleWeights_ = new double[nSamples_];
+   for(int i = 0; i < nSamples_; i++)
+      sampleWeights_[i] = gs.sampleWeights_[i];
+   return (*this);
 }
 

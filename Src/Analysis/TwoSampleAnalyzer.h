@@ -24,16 +24,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2007
 // ************************************************************************
-
 #ifndef __TWOSAMPLEANALYZERH__
 #define __TWOSAMPLEANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class TwoSampleAnalyzer : public Analyzer
 {
 
@@ -44,6 +42,8 @@ public:
    ~TwoSampleAnalyzer();
 
    double analyze(aData &adata);
+
+   TwoSampleAnalyzer& operator=(const TwoSampleAnalyzer &analyzer);
 
    double TAnalyze (int, double *, int, double *, int);
    double KSAnalyze(int, double *, int, double *, int);

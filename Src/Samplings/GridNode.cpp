@@ -27,7 +27,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "Util/Vector.h"
+#include "Vector.h"
 #include "GridNode.h"
 
 // ************************************************************************
@@ -156,5 +156,15 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
       } 
    } 
    return numNodes;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+GridNode& GridNode::operator=(const GridNode &)
+{
+   printf("GridNode operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

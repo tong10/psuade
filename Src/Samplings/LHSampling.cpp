@@ -29,9 +29,9 @@
 #include <math.h>
 using namespace std;
 
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "LHSampling.h"
 #define PABS(x) ((x) > 0 ? (x) : -(x))
 
@@ -734,5 +734,15 @@ int LHSampling::setInputParams(int nInputs, int *counts, double **settings,
       }
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+LHSampling& LHSampling::operator=(const LHSampling &)
+{
+   printf("LHSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

@@ -35,8 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "LPtauSampling.h"
 
 // ------------------------------------------------------------------------
@@ -513,6 +513,10 @@ int LPtauSampling::refine(int refineRatio, int randomize, double thresh,
    {
       printf("LPtauSampling::refine ERROR - nSamples too large.\n");
       exit(1);
+   } else if (nSamples_*nLevels <= 0){
+
+     printf("LPtauSampling::refine ERROR - nSamples_*nLevels <= 0. \n");
+     exit(1);
    }
 
    newSamples = new double*[nSamples_*nLevels];
@@ -618,5 +622,15 @@ int LPtauSampling::genLPtau(int sampleID, double *sampleInputs)
        }
     }
     return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+LPtauSampling& LPtauSampling::operator=(const LPtauSampling &)
+{
+   printf("LPtauSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

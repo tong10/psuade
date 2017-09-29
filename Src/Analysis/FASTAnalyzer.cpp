@@ -28,8 +28,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "FASTAnalyzer.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -76,7 +76,7 @@ FASTAnalyzer::~FASTAnalyzer()
 double FASTAnalyzer::analyze(aData &adata)
 {
    int    nInputs, nOutputs, nSamples, outputID, M, ii, N2, maxInd;
-   int    ss, printLevel;
+   int    ss, printLevel, count;
    double *fourierCoefs, *Y, *YY, *fourierCoefs2, retdata;
    double maxData, fsum;
 
@@ -88,17 +88,22 @@ double FASTAnalyzer::analyze(aData &adata)
    outputID   = adata.outputID_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("FASTAnalyzer INFO: some inputs have non-uniform PDFs, but\n");
-      printf("         they will not be relevant in this analysis.\n");
-      printf("         (To perform this analysis with desired distributions,\n");
-      printf("         first create a FAST sample, then prescribe PDFs and\n");
-      printf("         run the sample through 'pdfconvert' before running\n");
-      printf("         the simulations.\n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("FAST INFO: some inputs have non-uniform PDFs, but\n");
+         printf("     they are not relevant in this analysis.\n");
+         printf("     (To perform this analysis with desired distributions,\n");
+         printf("     first create a FAST sample, then prescribe PDFs and\n");
+         printf("     run the sample through 'pdfconvert' before running\n");
+         printf("     the simulations.\n");
+      }
    }
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("FASTAnalyzer ERROR: invalid arguments.\n");
+      printf("FAST ERROR: invalid arguments.\n");
       printf("    nInputs  = %d\n", nInputs);
       printf("    nOutputs = %d\n", nOutputs);
       printf("    nSamples = %d\n", nSamples);
@@ -106,7 +111,7 @@ double FASTAnalyzer::analyze(aData &adata)
    } 
    if (outputID < 0 || outputID >= nOutputs)
    {
-      printf("FASTAnalyzer ERROR: invalid outputID.\n");
+      printf("FAST ERROR: invalid outputID.\n");
       printf("    outputID = %d\n", outputID+1);
       return PSUADE_UNDEFINED;
    } 
@@ -117,7 +122,7 @@ double FASTAnalyzer::analyze(aData &adata)
                           printLevel);
    
    printEquals(0);
-   printf("* Fourier Amplitude Sampling Test coefficients\n");
+   printf("* Fourier Amplitude Sampling Test (FAST) coefficients\n");
    printDashes(0);
    printf("* M = %d\n", M);
    fsum = 0.0;
@@ -137,7 +142,7 @@ double FASTAnalyzer::analyze(aData &adata)
       if (printLevel >= 2)
       {
          printDashes(0);
-         printf("* Fourier Amplitude Sampling Test coarse coefficients\n");
+         printf("* Fourier Amplitude Sampling Test (FAST) coarse coefficients\n");
          printDashes(0);
          for (ii = 0; ii < nInputs; ii++)
             printf("* Input %4d = %14.6e\n", ii+1, fourierCoefs2[ii]);
@@ -197,7 +202,7 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
    M = (nSamples - 1) / (2 * omegas[nInputs-1]);
    if ((2 * M * omegas[nInputs-1] + 1) != nSamples)
    {
-      printf("FASTAnalyzer ERROR: not FAST samples ?\n");
+      printf("FAST ERROR: not FAST samples ?\n");
       delete [] omegas;
       exit(1);
    } 
@@ -307,5 +312,15 @@ int FASTAnalyzer::computeCoefficents(int nSamples, int nInputs, double *Y,
    delete [] fourierImag;
    delete [] omegas;
    return M;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+FASTAnalyzer& FASTAnalyzer::operator=(const FASTAnalyzer &)
+{
+   printf("FAST operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

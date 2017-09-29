@@ -31,8 +31,8 @@
 #include <math.h>
 
 #include "GP2.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -71,49 +71,24 @@ int GP2::genNDGridData(double *X, double *Y, int *N, double **X2,
                        double **Y2)
 {
 #ifdef HAVE_GPMC
-   int    totPts, ss, ii;
-   double *HX, *Xloc, *XX, *YY;
+   int    totPts;
+   double *XX, *YY;
 
    if (outputLevel_ >= 1) printf("GP2 training begins....\n");
    gpmcTrain(nInputs_, nSamples_, X, Y);
    if (outputLevel_ >= 1) printf("GP2 training completed.\n");
    if ((*N) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
-   totPts = nPtsPerDim_;
-   for (ii = 1; ii < nInputs_; ii++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++) 
-      HX[ii] = (upperBounds_[ii] - lowerBounds_[ii]) /
-               (double) (nPtsPerDim_ - 1); 
- 
-   XX = new double[totPts*nInputs_];
+   genNDGrid(N, &XX);
+   if ((*N) == 0) return 0;
+   totPts = (*N);
+
    YY = new double[totPts];
-   Xloc = new double[nInputs_];
- 
-   // generate the data points 
-   for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
- 
-   for (ss = 0; ss < totPts; ss++)
-   {
-      for (ii = 0; ii < nInputs_; ii++ ) XX[ss*nInputs_+ii] = Xloc[ii];
-      for (ii = 0; ii < nInputs_; ii++ ) 
-      {
-         Xloc[ii] += HX[ii];
-         if (Xloc[ii] < upperBounds_[ii] || 
-             PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-         else Xloc[ii] = lowerBounds_[ii];
-      }
-   }
- 
    if (outputLevel_ >= 1) printf("GP2 interpolation begins....\n");
    gpmcInterp(totPts, XX, YY, NULL);
    if (outputLevel_ >= 1) printf("GP2 interpolation completed.\n");
-   (*N) = totPts;
    (*X2) = XX;
    (*Y2) = YY;
-   delete [] Xloc;
-   delete [] HX;
 #else
    printf("PSUADE ERROR : GP2 not used.\n");
    return -1;
@@ -395,7 +370,7 @@ double GP2::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystd)
 // ------------------------------------------------------------------------
 double GP2::setParams(int targc, char **targv)
 {
-   int    ii, *iArray;
+   int    ii, *iArray = NULL;
    double *lengthScales, mmax, range;
                                                                                 
    if (targc > 0 && !strcmp(targv[0], "rank"))
@@ -403,9 +378,10 @@ double GP2::setParams(int targc, char **targv)
       lengthScales = new double[nInputs_];
 #ifdef HAVE_GPMC
       gpmcGetLengthScales(nInputs_, lengthScales);
+   }
 #else
       printf("PSUADE ERROR : GP2 not used.\n");
-#endif
+      // *#endif
       mmax = 0.0;
       for (ii = 0; ii < nInputs_; ii++)
       {
@@ -428,6 +404,9 @@ double GP2::setParams(int targc, char **targv)
       printAsterisks(0);
       delete [] lengthScales;
    }
+   if(iArray != NULL) delete [] iArray;
    return 0.0;
+#endif
+   return -1.0;
 }
 

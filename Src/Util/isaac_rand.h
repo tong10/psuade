@@ -10,12 +10,14 @@ MODIFIED:
   010626: note this is public domain
 ------------------------------------------------------------------------------
 */
+
+#ifndef __ISAAC_RAND_H__
+#define __ISAAC_RAND_H__
+
 #ifndef STANDARD
 #include "standard.h"
 #endif
 
-#ifndef RAND
-#define RAND
 #define RANDSIZL   (8)  /* I recommend 8 for crypto, 4 for simulations */
 #define RANDSIZ    (1<<RANDSIZL)
 
@@ -36,10 +38,7 @@ typedef  struct randctx  randctx;
  If (flag==TRUE), then use the contents of randrsl[0..RANDSIZ-1] as the seed.
 ------------------------------------------------------------------------------
 */
-#if 0
-void randinit(/*_ randctx *r, word flag _*/);
-void isaac(/*_ randctx *r _*/);
-#endif
+void randinitBySeed(randctx *r, ub4 seed);
 void randinit(randctx *r, word flag);
 void isaac(randctx *r);
 
@@ -50,11 +49,11 @@ void isaac(randctx *r);
  Call rand(/o_ randctx *r _o/) to retrieve a single 32-bit random value
 ------------------------------------------------------------------------------
 */
-#define rand(r) \
+#define ISAAC_RAND_RAND(r) \
    (!(r)->randcnt-- ? \
      (isaac(r), (r)->randcnt=RANDSIZ-1, (r)->randrsl[(r)->randcnt]) : \
      (r)->randrsl[(r)->randcnt])
 
-#endif  /* RAND */
+#endif  /* __ISAAC_RAND_H__ */
 
 

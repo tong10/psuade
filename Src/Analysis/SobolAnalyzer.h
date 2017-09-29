@@ -28,7 +28,7 @@
 #ifndef __SOBOLANALYZERH__
 #define __SOBOLANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~SobolAnalyzer();
 
    double analyze(aData &adata);
+
+   SobolAnalyzer& operator=(const SobolAnalyzer &analyzer);
 
 private:
    int MOATAnalyze(int, int, double *, double *, double *, double *, 

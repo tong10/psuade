@@ -28,7 +28,7 @@
 #ifndef __RSMSOBOLGANALYZERH__
 #define __RSMSOBOLGANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -52,6 +52,7 @@ public:
     */
    double analyze(aData &adata);
 
+   RSMSobolGAnalyzer& operator=(const RSMSobolGAnalyzer &analyzer);
 };
 
 #endif // __RSMSOBOLGANALYZERH__

@@ -24,7 +24,6 @@
 // AUTHOR : David Echeverria Ciaurri - Charles Tong
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __MMOPTIMIZER__
 #define __MMOPTIMIZER__
 
@@ -34,17 +33,30 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class MMOptimizer : public Optimizer
 {
    int adaptive_;
 
 public:
 
+   /** constructor */
    MMOptimizer();
+
+   /** destructor */
    ~MMOptimizer();
-   void optimize(oData *odata);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** set internal parameters
+     @param sparam - string that contains the parameter information
+     */
    void setParam(string sparam);
+
+   /** assign operator override */ 
+   MMOptimizer& operator=(const MMOptimizer &);
 
 private:
 

@@ -35,7 +35,7 @@
 #endif
 
 #include "BaseComm.h"
-#include "Util/dtype.h"
+#include "dtype.h"
 
 // *******************************************************************
 // Definition of the class CommMPICH 

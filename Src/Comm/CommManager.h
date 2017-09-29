@@ -29,8 +29,8 @@
 #define __COMMMANAGERH__
 
 #include <stdio.h>
-#include "Util/sysdef.h"
-#include "Comm/BaseComm.h"
+#include "sysdef.h"
+#include "BaseComm.h"
 
 class CommManager 
 {

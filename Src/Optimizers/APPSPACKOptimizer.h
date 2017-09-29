@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #ifndef __APPSPACKOPTIMIZERH__
 #define __APPSPACKOPTIMIZERH__
 
@@ -34,15 +33,25 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class APPSPACKOptimizer : public Optimizer
 {
    int outputLevel_;
 
 public:
+
+   /** constructor */
    APPSPACKOptimizer();
+
+   /** destructor */
    ~APPSPACKOptimizer();
-   void optimize(oData *);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   APPSPACKOptimizer& operator=(const APPSPACKOptimizer &);
 };
 
 #endif // __APPSPACKOPTIMIZER__

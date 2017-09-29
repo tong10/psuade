@@ -31,7 +31,7 @@
 #include <stdlib.h>
 
 #include "MinpackOptimizer.h"
-#include "Main/Psuade.h"
+#include "Psuade.h"
 
 #define PABS(x) (((x) >= 0) ? x : -(x))
 
@@ -477,7 +477,17 @@ void MinpackOptimizer::optimize(oData *odata)
    delete [] dws;
 }
 
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+MinpackOptimizer& MinpackOptimizer::operator=(const MinpackOptimizer &)
+{
+   printf("MinpackOptimzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
+}
 #else
    int minpack_bogus=0;
 #endif
+
 

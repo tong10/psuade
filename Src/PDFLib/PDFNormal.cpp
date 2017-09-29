@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
-#include "Util/PsuadeUtil.h"
+#include "PsuadeUtil.h"
 #include "PDFNormal.h"
 #define PABS(x) ((x >= 0) ? x : -(x))
 
@@ -95,6 +95,8 @@ int PDFNormal::invCDF(int length, double *inData, double *outData,
    if (upper <= lower)
    {
       printf("PDFNormal invCDF ERROR - lower bound >= upper bound.\n");
+      printf("                         lower bound = %e\n",lower);
+      printf("                         upper bound = %e\n",upper);
       exit(1);
    }
 
@@ -168,15 +170,17 @@ int PDFNormal::genSample(int length, double *outData, double lower,
       Z2 = R * sin(theta);
       outData[count] = mean_ + stdev_ * Z1;
       if (outData[count] >= lower && outData[count] <= upper)
-         count++;
-      total++;
-      if (count < length)
       {
-         outData[count] = mean_ + stdev_ * Z2;
-         if (outData[count] >= lower && outData[count] <= upper)
-            count++;
-         total++;
+         count++;
+         if (count < length)
+         {
+            outData[count] = mean_ + stdev_ * Z2;
+            if (outData[count] >= lower && outData[count] <= upper)
+               count++;
+            else count--;
+         }
       }
+      total += 2;
       if (total > length*1000)
       {
          printf("PDFNormal genSample ERROR - Cannot generate enough\n");
@@ -187,8 +191,11 @@ int PDFNormal::genSample(int length, double *outData, double lower,
          exit(1);
       }
    }
-   printf("PDFNormal INFO: %d points generated for Gaussian distribution.\n",total);
-   printf("                No. of points within the prescribed bounds = %d.\n",length);
+   if ((double) length / (double) total < 0.2)
+   {
+      printf("PDFNormal INFO: %d points generated for Gaussian distribution.\n",total);
+      printf("                No. of points within the prescribed bounds = %d.\n",length);
+   }
    return 0;
 }
 

@@ -27,10 +27,11 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Main/Psuade.h"
+#include <unistd.h>
+#include "Psuade.h"
 #include "UserRegression.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -94,6 +95,7 @@ UserRegression::UserRegression(int nInputs,int nSamples):
    for (ii = 0; ii < numTerms_; ii++) regCoeffs_[ii] = 0.0;
    regStdevs_ = new double[numTerms_];
    for (ii = 0; ii < numTerms_; ii++) regStdevs_[ii] = 0.0;
+   fclose(fp);
 }
 
 // ************************************************************************
@@ -111,8 +113,7 @@ UserRegression::~UserRegression()
 int UserRegression::genNDGridData(double *X, double *Y, int *N2,
                                  double **X2, double **Y2)
 {
-   int     totPts, sampleID, inputID, status;
-   double  *HX, *Xloc;
+   int totPts, ss, status;
 
    if (nInputs_ <= 0 || nSamples_ <= 0)
    {
@@ -135,67 +136,15 @@ int UserRegression::genNDGridData(double *X, double *Y, int *N2,
    }
 
    if ((*N2) == -999) return 0;
-   if (nInputs_ > 21)
-   {
-      printf("UserRegression::genNDGridData INFO - nInputs > 21.\n");
-      printf("                No lattice points generated.\n");
-      (*N2) = 0;
-      return 0;
-   }
 
-   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 18 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 17 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 16 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 15 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
-   totPts = nPtsPerDim_;
-   for (inputID = 1; inputID < nInputs_; inputID++)
-      totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      HX[inputID] = (upperBounds_[inputID] - lowerBounds_[inputID]) /
-                    (double) (nPtsPerDim_ - 1);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
-   (*N2) = totPts;
-   Xloc  = new double[nInputs_];
+   for (ss = 0; ss < totPts; ss++)
+      (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
 
-   for (inputID = 0; inputID < nInputs_; inputID++)
-      Xloc[inputID] = lowerBounds_[inputID];
-
-   for (sampleID = 0; sampleID < totPts; sampleID++)
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-         (*X2)[sampleID*nInputs_+inputID] = Xloc[inputID];
-      for (inputID = 0; inputID < nInputs_; inputID++ )
-      {
-         Xloc[inputID] += HX[inputID];
-         if (Xloc[inputID] < upperBounds_[inputID] ||
-              PABS(Xloc[inputID] - upperBounds_[inputID]) < 1.0E-7) break;
-         else Xloc[inputID] = lowerBounds_[inputID];
-      }
-      (*Y2)[sampleID] = evaluatePoint(&((*X2)[sampleID*nInputs_]));
-   }
-
-   delete [] Xloc;
-   delete [] HX;
    return 0;
 }
 
@@ -393,17 +342,29 @@ double UserRegression::evaluatePoint(double *X)
    for (ii = 0; ii < numTerms_; ii++)
    {
       fp = fopen("input", "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n",
+                 __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "%d\n", ii+1);
       for (kk = 0; kk < nInputs_; kk++) fprintf(fp, "%e\n", X[kk]);
       fclose(fp);
       system(sysCmd);
       fp = fopen("output", "r");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n",
+                __FILE__, __LINE__);
+         exit(1);
+      }
       fscanf(fp, "%lg", &ddata);
       fclose(fp);
       Y += regCoeffs_[ii] * ddata;
    }
-   strcpy(sysCmd, "rm -f input output");
-   system(sysCmd);
+   unlink("input");
+   unlink("output");
    return Y;
 }
 
@@ -488,6 +449,12 @@ int UserRegression::analyze(double *X, double *Y)
    if (psRSExpertMode_ == 1)
    {
       fp = fopen("User_regression_matrix.m", "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n",
+                __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "%% the sample matrix where svd is computed\n");
       fprintf(fp, "%% the last column is the right hand side\n");
       fprintf(fp, "AA = [\n");
@@ -585,6 +552,12 @@ int UserRegression::analyze(double *X, double *Y)
    if (outputLevel_ >= 5)
    {
       fp = fopen("user_regression_error.m", "w");
+      if(fp == NULL)
+      {
+	 printf("fopen returned NULL in file %s line %d, exiting\n",
+                __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "%% This file contains errors of each data point.\n");
    }
    else fp = NULL;
@@ -612,7 +585,7 @@ int UserRegression::analyze(double *X, double *Y)
    }
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
-   R2  = (SStotal - SSresid) / SStotal;
+   R2  = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
 
@@ -656,12 +629,24 @@ int UserRegression::loadXMatrix(double *X, double **XXOut)
       for (n = 0; n < N; n++)
       {
          fp = fopen("input", "w");
+	 if(fp == NULL)
+         {
+            printf("fopen returned NULL in file %s line %d, exiting\n",
+                   __FILE__, __LINE__);
+            exit(1);
+         }
          fprintf(fp, "%d\n", n+1);
          for (k = 0; k < nInputs_; k++)
             fprintf(fp, "%e\n", X[m*nInputs_+k]);
          fclose(fp);
          system(sysCmd);
          fp = fopen("output", "r");
+	 if(fp == NULL)
+         {
+            printf("fopen returned NULL in file %s line %d, exiting\n", 
+                   __FILE__, __LINE__);
+            exit(1);
+	 }
          fscanf(fp, "%lg", &XX[M*n+m]);
          fclose(fp);
       }
@@ -702,22 +687,24 @@ int UserRegression::computeSS(int N, double *XX, double *Y,
                               double *B, double &SSresid, double &SStotal)
 {
    int    nn, mm;
-   double *R, ymean;
+   double rdata, ymean, SSreg, ddata;
                                                                                 
-   SSresid = SStotal = ymean = 0.0;
-   R = new double[nSamples_];
+   SSresid = SStotal = SSreg = ymean = 0.0;
+   for (mm = 0; mm < nSamples_; mm++)
+      ymean += (sqrt(weights_[mm]) * Y[mm]);
+   ymean /= (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
    {
-      R[mm] = Y[mm];
-      for (nn = 0; nn < N; nn++) R[mm] -= (XX[mm+nn*nSamples_] * B[nn]);
-      SSresid += R[mm] * Y[mm] * weights_[mm];
-      ymean += (sqrt(weights_[mm]) * Y[mm]);
+      ddata = 0.0;
+      for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
+      rdata = Y[mm] - ddata;
+      SSresid += rdata * rdata * weights_[mm];
+      SSreg += (ddata - ymean) * (ddata - ymean);
    }
-   ymean /= (double) nSamples_;
-   SStotal = - ymean * ymean * (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
-      SStotal += weights_[mm] * Y[mm] * Y[mm];
-   delete [] R;
+      SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+   printf("UserRegression: SStot, SSreg, SSres = %e %e %e\n",
+          SStotal, SSreg, SSresid);
    return 0;
 }
 
@@ -744,7 +731,7 @@ int UserRegression::computeCoeffVariance(int N,double *XX,double var,
       dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
       if (info != 0)
          printf("UserRegression WARNING: dgels returns error %d.\n",info);
-      if (B2[i] < 0) B[i] = -sqrt(-B2[i]);
+      if (B2[i] < 0) B[i] = 0;
       else           B[i] = sqrt(B2[i]);
    }
    delete [] B2;

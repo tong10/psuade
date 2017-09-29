@@ -26,8 +26,8 @@
 // ************************************************************************
 #include <stdio.h>
 #include <assert.h>
-#include "DataIO/pData.h"
-#include "Util/sysdef.h"
+#include "pData.h"
+#include "sysdef.h"
 #include "AnalysisManager.h"
 #include "AnovaAnalyzer.h"
 #include "GradStatAnalyzer.h"
@@ -68,6 +68,8 @@ AnalysisManager::AnalysisManager()
    sampler_ = NULL;
    analysisSampleErrors_ = NULL;
    logXsformFlags_ = NULL;
+   // Bill Oliver initializing new data member
+   sizelogX = 0;
 
 #ifdef HAVE_PYTHON
    AnalysisDataList = PyList_New(0);
@@ -232,6 +234,8 @@ int AnalysisManager::loadLogXsformFlags(int n, int *flags)
       printf("AnalysisManager::loadLogXsformFlags ERROR: n <= 0.\n");
       exit(1);
    }
+   // Bill Oliver setting new data member
+   sizelogX = n;
    if (logXsformFlags_ != NULL) delete [] logXsformFlags_;
    logXsformFlags_ = new int[n];
    for (int ii = 0; ii < n; ii++) logXsformFlags_[ii] = flags[ii]; 
@@ -945,5 +949,15 @@ int AnalysisManager::specialRequest(int anaMethod, int narg, char **argv)
    if (((anaMethod & PSUADE_ANA_LSA) != 0) && (analyzers_[26] != NULL))
       analyzers_[26]->setParams(narg, argv);
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+AnalysisManager& AnalysisManager::operator=(const AnalysisManager &)
+{
+   printf("AnalysisManager operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

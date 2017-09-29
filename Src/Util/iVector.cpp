@@ -28,7 +28,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Util/iVector.h"
+#include "iVector.h"
 
 //#define PS_DEBUG
 
@@ -45,6 +45,36 @@ iVector::iVector()
 #ifdef PS_DEBUG
    printf("iVector constructor ends\n");
 #endif
+}
+
+// ************************************************************************
+// Copy Constructor by Bill Oliver
+// ------------------------------------------------------------------------
+iVector::iVector(const iVector & v){
+
+  length_ = v.length_;
+  Vec_ = new int[length_];
+  for(int i = 0; i < length_; i++){
+
+    Vec_[i] = v.Vec_[i];
+  }
+
+}
+
+// ************************************************************************
+// overload operator= by Bill Oliver
+// ------------------------------------------------------------------------
+iVector & iVector::operator=(const iVector & v){
+
+  if(this == &v)  return *this;
+  length_ = v.length_;
+  delete [] Vec_;
+  Vec_ = new int[length_];
+  for(int i = 0; i < length_; i++)
+    Vec_[i] = v.Vec_[i];
+
+  return *this;
+
 }
 
 // ************************************************************************

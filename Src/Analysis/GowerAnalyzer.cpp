@@ -30,11 +30,11 @@
 #include <stdlib.h>
 #include "GowerAnalyzer.h"
 #include "MainEffectAnalyzer.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
-#include "Main/Psuade.h"
-#include "FuncApprox/FuncApprox.h"
-#include "Samplings/Sampling.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
+#include "Psuade.h"
+#include "FuncApprox.h"
+#include "Sampling.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -60,7 +60,7 @@ double GowerAnalyzer::analyze(aData &adata)
 {
    int     nInputs, nSamples, nInputs2, nSamples2, ss, ss2, printLevel;
    int     ii, status, nOutputs, outputID, iZero=0, nLHSample=100000;
-   int     nLHSSub=500, length, *S2;
+   int     nLHSSub=500, length, *S2, iOne=1;
    double  *X, *X2, *ranges, gower, dmax, dmin, *dmeans, *dvars, ddata;
    double  *Y, *Y2, *vvm, *mvv, *vvv, *vce, *lowerB, *upperB, vsum;
    char    dataFile[500], lineIn[500];
@@ -84,7 +84,7 @@ double GowerAnalyzer::analyze(aData &adata)
    Y2 = new double[nSamples];
    for (ii = 0; ii < nSamples; ii++) Y2[ii] = Y[ii*nOutputs+outputID];
 
-   faPtr = genFA(PSUADE_RS_MARS, nInputs, nSamples);
+   faPtr = genFA(PSUADE_RS_MARS, nInputs, iOne, nSamples);
    length = -999;
    status = faPtr->genNDGridData(X, Y2, &length, NULL, NULL);
    delete [] Y2;
@@ -159,6 +159,8 @@ double GowerAnalyzer::analyze(aData &adata)
    {
       printf("GowerAnalyzer ERROR: different input dimensions %d %d\n",
              nInputs, nInputs2);
+      delete [] vvm;
+      delete pIO;
       return PSUADE_UNDEFINED;
    }
    ranges = new double[nInputs];
@@ -177,6 +179,8 @@ double GowerAnalyzer::analyze(aData &adata)
          printf("GowerAnalyzer ERROR: some input range = 0 (%d).\n",
                 ii+1);
          delete [] ranges;
+         delete [] vvm;
+         delete pIO;
          return PSUADE_UNDEFINED;
       }
    }
@@ -194,6 +198,9 @@ double GowerAnalyzer::analyze(aData &adata)
    if (fp == NULL)
    {
       printf("GowerAnalyzer ERROR: cannot write to file psuade_gower_data.m\n");
+      delete [] vvm;
+      delete [] ranges;
+      delete pIO; 
       return 1.0;
    }
 
@@ -215,7 +222,7 @@ double GowerAnalyzer::analyze(aData &adata)
    fprintf(fp,"for ii = 1 : %d\n", nSamples2);
    fprintf(fp,"   X = G(:,ii);\n");
    if (psPlotTool_ == 1)
-      fprintf(fp,"   X = gsort(X,'i');\n");
+      fprintf(fp,"   X = gsort(X,'g','i');\n");
    else
       fprintf(fp,"   X = sort(X);\n");
    fprintf(fp,"   Y = [1:%d]' / %d;\n", nSamples, nSamples);
@@ -261,7 +268,7 @@ double GowerAnalyzer::analyze(aData &adata)
    fprintf(fp,"for ii = 1 : %d\n", nSamples2);
    fprintf(fp,"   X = G2(:,ii);\n");
    if (psPlotTool_ == 1)
-      fprintf(fp,"   X = gsort(X,'i');\n");
+      fprintf(fp,"   X = gsort(X,'g','i');\n");
    else
       fprintf(fp,"   X = sort(X);\n");
    fprintf(fp,"   Y = [1:%d]' / %d;\n", nSamples, nSamples);
@@ -336,7 +343,19 @@ double GowerAnalyzer::analyze(aData &adata)
 
    delete [] ranges; 
    delete [] vvm;
+   delete [] dmeans;
+   delete [] dvars;
    delete pIO;
    return 0.0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+GowerAnalyzer& GowerAnalyzer::operator=(const GowerAnalyzer &)
+{
+   printf("GowerAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

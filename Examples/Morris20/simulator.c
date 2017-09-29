@@ -29,11 +29,11 @@ main(int argc, char **argv)
    W[6] = 2.0 * (1.1 * X[6]/(X[6] + 0.1) - 0.5);
    Y = 1.0;
    for (i = 0; i < 10; i++) Y += 20.0 * W[i];
-   for (i = 10; i < 20; i++) Y += drand48() * W[i];
+   for (i = 10; i < 20; i++) Y += (((double)rand())/((double)RAND_MAX)) * W[i];
    for (i = 0; i < 20; i++)
       for (j = i+1; j < 20; j++) 
          if (j < 6) Y -= 15.0 * W[i] * W[j];
-         else       Y += drand48() * W[i] * W[j];
+         else       Y += (((double)rand())/((double)RAND_MAX)) * W[i] * W[j];
    for (i = 0; i < 20; i++)
       for (j = i+1; j < 20; j++)
          for (k = j+1; k < 20; k++)

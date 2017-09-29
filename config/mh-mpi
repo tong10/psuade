@@ -1,9 +1,0 @@
-
-# The following system parameters are for MPI build
-
-CC     = mpicc 
-CXX    = mpiCC 
-F77    = f77
-AR     = ar
-RANLIB = true
-

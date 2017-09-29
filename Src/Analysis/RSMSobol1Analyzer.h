@@ -25,16 +25,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2006
 // ************************************************************************
-
 #ifndef __RSMSOBOL1ANALYZERH__
 #define __RSMSOBOL1ANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class RSMSobol1Analyzer : public Analyzer
 {
 
@@ -47,6 +45,10 @@ public:
    double analyze(aData &adata);
 
    double analyze2(aData &adata);
+
+   double analyze3(aData &adata);
+
+   RSMSobol1Analyzer& operator=(const RSMSobol1Analyzer &analyzer);
 };
 
 #endif // __RSMSOBOL1ANALYZERH__

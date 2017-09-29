@@ -27,12 +27,13 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sstream>
+#include <unistd.h>
 
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "FuncApprox/FuncApprox.h"
-#include "FuncApprox/Mars.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "FuncApprox.h"
+#include "Mars.h"
 #include "MetisSampling.h"
 
 #define PABS(x) ((x) > 0 ? x : -(x))
@@ -67,6 +68,76 @@ MetisSampling::MetisSampling() : Sampling()
 }
 
 // ************************************************************************
+// copy constructor added by Bill Oliver
+// ------------------------------------------------------------------------
+MetisSampling::MetisSampling(const MetisSampling & ms) : Sampling()
+{
+   int graphN = 1;
+   refineType_ = ms.refineType_;
+   refineSize_ = ms.refineSize_;
+   n1d_ = ms.n1d_;
+   nAggrs_ = ms.nAggrs_;
+   graphN_ = ms.graphN_;
+ 
+   aggrLabels_ = new int*[nAggrs_]; 
+   aggrCnts_ = new int[nAggrs_];
+   for(int i = 0; i < nAggrs_; i++)
+   {
+      aggrCnts_[i] = ms.aggrCnts_[i];
+      for(int j = 0; j < aggrCnts_[j]; j++)
+      {
+         aggrLabels_[j] = new int[aggrCnts_[i]];
+         aggrLabels_[i][j] = ms.aggrLabels_[i][j];
+      }
+   }
+   
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = ms.printLevel_;
+   samplingID_ = ms.samplingID_;
+   nSamples_ = ms.nSamples_;
+   nInputs_ = ms.nInputs_;
+   nOutputs_ = ms.nOutputs_;
+   randomize_ = ms.randomize_;
+   nReplications_ = ms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ms.lowerBounds_[i];
+      upperBounds_[i] = ms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ms.sampleStates_[i];
+
+   graphI_ = new int[graphN_+1];
+   for(int i = 0; i <= graphN_; i++)
+      graphI_[i] = ms.graphI_[i];
+
+   graphJ_ = new int[graphN_*nInputs_*2 + 1];
+   for(int i = 0; i <= graphN_*nInputs_*2; i++)
+      graphJ_[i] = ms.graphJ_[i];
+
+   for(int i = 0; i < nInputs_; i++)
+   graphN *= n1d_;
+
+   cellsOccupied_ = new int[graphN];
+   for(int i = 0; i < graphN; i++)
+      cellsOccupied_[i] = ms.cellsOccupied_[i];
+}
+
+// ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
 MetisSampling::~MetisSampling()
@@ -96,7 +167,11 @@ int MetisSampling::initialize(int initLevel)
    double *ranges=NULL, dtmp, *lbounds, *ubounds, expand;
    char   response[500], pString[500];
    FILE   *fp;
-
+   if( nSamples_ <= 0)
+   {
+      printf("nSamples_ in file %s line %d is <= 0\n", __FILE__, __LINE__);
+      exit(1);
+   }
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
       printf("MetisSampling::initialize ERROR - input not set up.\n");
@@ -216,7 +291,9 @@ int MetisSampling::initialize(int initLevel)
             for (ii = 0; ii < count; ii++)
             {
                fscanf(fp, "%d %d", &jj, &kk);
-               cellsOccupied_[jj] = - kk - 1;
+               // Bill Oliver make sure jj is less than the size of the array
+	       if(jj < graphN_) 
+		 cellsOccupied_[jj] = - kk - 1;
             }
             fclose(fp);
          }
@@ -233,7 +310,7 @@ int MetisSampling::initialize(int initLevel)
          }
          else response[0] = 'y';
 
-         if (response[0] == 'y') system("rm -f psuadeMetisInfo");
+         if (response[0] == 'y') unlink("psuadeMetisInfo");
       }
    }
 
@@ -255,7 +332,12 @@ int MetisSampling::initialize(int initLevel)
       nAggrs_   = nSamples_;
       aggrCnts_ = new int[nAggrs_];
       for (ii = 0; ii < nAggrs_; ii++) aggrCnts_[ii] = 0;
-      for (ii = 0; ii < graphN_; ii++) aggrCnts_[cellsOccupied_[ii]]++;  
+      for (ii = 0; ii < graphN_; ii++)
+      {
+	 // Bill Oliver added check to prevent buffer overflow
+         if(cellsOccupied_[ii] < nSamples_)
+	    aggrCnts_[cellsOccupied_[ii]]++;
+      }  
       aggrLabels_ = new int*[nAggrs_];
       for (ii = 0; ii < nAggrs_; ii++)
       {
@@ -309,7 +391,7 @@ int MetisSampling::initialize(int initLevel)
       expand = -0.1;
       while (expand < 0.0) expand = getDouble(pString);
    }
-   if (psConfig_ != NULL)
+   else if (psConfig_ != NULL)
    {
       inStr = psConfig_->getParameter("METIS_expand_ratio");
       if (inStr != NULL)
@@ -395,7 +477,7 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
 {
    int    inputID, ii, jj, count, itmp, jtmp, localN, *localIA, *localJA;
    int    maxN, rowInd, colInd, localNNZ, *subLabels, index, count0, kk;
-   int    options[10], count1;
+   int    options[10], count1, iOne=1;
 #ifdef HAVE_METIS
    int    wgtflag=0, numflag=0, edgeCut=0, itwo=2;
 #endif
@@ -860,9 +942,9 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
                   printf("Metis refine aggr %d (%d): sample size = %d\n",
                          ss+1,nAggrs_,marsCnt);
                if (mode == 3)
-                  faPtr = genFA(0, nInputs_, marsCnt);
+                  faPtr = genFA(0, nInputs_, iOne, marsCnt);
                else
-                  faPtr = genFA(2, nInputs_, marsCnt);
+                  faPtr = genFA(2, nInputs_, iOne, marsCnt);
                faPtr->setBounds(lbounds, ubounds);
                faPtr->setOutputLevel(1);
                status = -999;
@@ -893,12 +975,16 @@ int MetisSampling::refine(int nLevels, int randFlag, double threshold,
             printf("Maximum discrepancy between aggregates = %e\n",ddmax);
             printf("Minimum discrepancy between aggregates = %e\n",ddmin);
             fp = fopen("arsmPDF.m","w");
-            fprintf(fp,"A = [\n");
-            for (ii = 0; ii < nAggrs_; ii++)
-               fprintf(fp,"%e\n",diffArray[ii]);
-            fprintf(fp,"];\n");
-            fprintf(fp,"hist(A,10)\n");
-            fclose(fp);
+            // add check for NULL by Bill Oliver
+            if(fp != NULL)
+            {
+               fprintf(fp,"A = [\n");
+               for (ii = 0; ii < nAggrs_; ii++)
+                  fprintf(fp,"%e\n",diffArray[ii]);
+               fprintf(fp,"];\n");
+               fprintf(fp,"hist(A,10)\n");
+               fclose(fp);
+            }
             printf("A PDF for error has been given to you in arsmPDF.m.\n");
             printf("Default threshold for pruning = 0.\n");
             sprintf(pString,"Enter thresh to prune refinement candidates : ");
@@ -1191,7 +1277,7 @@ int MetisSampling::setParam(string sparam)
       if (fp != NULL)
       {
          fclose(fp);
-         system("rm -f psuadeMetisInfo");
+         unlink("psuadeMetisInfo");
       }
    }
 
@@ -1252,18 +1338,92 @@ int MetisSampling::setParam(string sparam)
          }
       }
       fp = fopen("metisMeshPlot.m", "w");
-      fprintf(fp, "meshA = [ \n");
-      for (sID = 0; sID < n1d_; sID++)
+      // add check for NULL by Bill Oliver
+      if(fp != NULL)
       {
-         for (sID2 = 0; sID2 < n1d_; sID2++)
-            fprintf(fp, "%d ", fGridFlags[sID*n1d_+sID2]);
-         fprintf(fp, "\n");
+         fprintf(fp, "meshA = [ \n");
+         for (sID = 0; sID < n1d_; sID++)
+         {
+            for (sID2 = 0; sID2 < n1d_; sID2++)
+               fprintf(fp, "%d ", fGridFlags[sID*n1d_+sID2]);
+            fprintf(fp, "\n");
+         }
+         fprintf(fp, "];\n");
+         fprintf(fp, "contour(meshA)\n");
+         fclose(fp);
       }
-      fprintf(fp, "];\n");
-      fprintf(fp, "contour(meshA)\n");
-      fclose(fp);
+      // Cleanup by Bill Oliver
+      delete [] fGridFlags;
       return 0;
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+MetisSampling& MetisSampling::operator=(const MetisSampling & ms)
+{
+   if(this == &ms) return *this;
+   refineType_ = ms.refineType_;
+   refineSize_ = ms.refineSize_;
+   n1d_ = ms.n1d_;
+   nAggrs_ = ms.nAggrs_;
+   graphN_ = ms.graphN_;
+ 
+   aggrLabels_ = new int*[nAggrs_]; 
+   aggrCnts_ = new int[nAggrs_];
+   for(int i = 0; i < nAggrs_; i++)
+   {
+      aggrCnts_[i] = ms.aggrCnts_[i];
+      for(int j = 0; j < aggrCnts_[j]; j++)
+      {
+         aggrLabels_[j] = new int[aggrCnts_[i]];
+         aggrLabels_[i][j] = ms.aggrLabels_[i][j];
+      }
+   }
+   
+   // MetisSampling inherits from Sampling so include the parent 
+   // class data members
+   printLevel_ = ms.printLevel_;
+   samplingID_ = ms.samplingID_;
+   nSamples_ = ms.nSamples_;
+   nInputs_ = ms.nInputs_;
+   nOutputs_ = ms.nOutputs_;
+   randomize_ = ms.randomize_;
+   nReplications_ = ms.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ms.lowerBounds_[i];
+      upperBounds_[i] = ms.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ms.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ms.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ms.sampleStates_[i];
+
+   graphI_ = new int[graphN_+1];
+   for(int i = 0; i <= graphN_; i++)
+      graphI_[i] = ms.graphI_[i];
+
+   graphJ_ = new int[graphN_*nInputs_*2 + 1];
+   for(int i = 0; i <= graphN_*nInputs_*2; i++)
+      graphJ_[i] = ms.graphJ_[i];
+
+   cellsOccupied_ = new int[graphN_];
+   for(int i = 0; i < graphN_; i++)
+      cellsOccupied_[i] = ms.cellsOccupied_[i];
+   return (*this);
 }
 

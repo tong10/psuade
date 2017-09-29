@@ -34,13 +34,15 @@
 #include <math.h>
 #include <stdio.h>
 #include "PsuadeBase.h"
-#include "Comm/CommManager.h"
-#include "DataIO/PsuadeConfig.h"
-#include "DataIO/PsuadeData.h"
+#include "CommManager.h"
+#include "PsuadeCmakeConfig.h"
+#include "PsuadeData.h"
 #include "dtype.h"
-#include "Util/Exceptions.h"
-#include "Util/PsuadeUtil.h"
-#include "Base/Globals.h"
+#include "Exceptions.h"
+#include "PsuadeUtil.h"
+#include "PrintingTS.h"
+#include "Globals.h"
+#include "PsuadeConfig.h"
 
 // should be changed if fixed
 #ifdef SUN4
@@ -49,8 +51,8 @@
   }
 #endif
 extern "C" {
-int RunParallel(char *);
-int RunParallelLocal(char *);
+int RunParallel(const char *);
+int RunParallelLocal(const char *);
 }
 
 #ifdef  HAVE_MPICH
@@ -67,115 +69,341 @@ int UserFunction(MPI_Comm mpiComm, int index, char *workdir)
 #endif
 #endif
 
+
+//----------------------------------------------------------------------------
+//  Options
+//
+//! \brief A data structure that encapsulates all command line options.
+//!
+//! The options object takes care of parsing the command line options.  It 
+//! assumes default values, does basic error checking and prints a usage 
+//! message if anything weird is found.  Lifted from the Coop project. -Jim 
+//----------------------------------------------------------------------------
+struct Options
+{
+public:
+
+  //! \brief Turn on verbose output [1].
+  //------------------------------------
+  int doVerbose;
+
+  //! \brief parallel Mode (MPI)
+  //----------------------------------------------
+  int parallelMode;
+
+  //! \brief local parallel Mode (MPI)
+  //----------------------------------------------
+  int localParallelMode;
+
+  //! \brief Input file name (positional argument)
+  //----------------------------------------------
+  string inputFilename;
+
+  //! \brief Output file name (-o)
+  //----------------------------------------------
+  string outputFilename;
+
+  //! \brief AKA argv[0]; path to the psuade executable.
+  //-------------------------------------------------------
+  string programName;
+
+  //--------------------------------------------------------------------------
+  //  Options
+  //
+  //! \brief Default constructor; set everything to reasonable defaults.
+  //--------------------------------------------------------------------------
+  Options(void) : doVerbose(0), parallelMode(0), localParallelMode(0), inputFilename(""), outputFilename("psuadeData"), programName("psuade")
+  { }
+
+  //--------------------------------------------------------------------------
+  //  Options
+  //
+  //! \brief This constructor loads defaults & command line options.
+  //!
+  //! \param[in] argc : Number of arguments.
+  //! \param[in] argv : The actual arguments.
+  //--------------------------------------------------------------------------
+  Options(int argc, char** argv) : doVerbose(0), parallelMode(0), localParallelMode(0), inputFilename(""), outputFilename("psuadeData"), programName("psuade")
+  {
+
+    programName = string(argv[0]);
+    bool userSetOutputName = false;
+    bool userSetInputName = false;
+
+
+    const string HELP        = "--help";
+    const string HELP_S      = "-h";
+    const string VERBOSE     = "--verbose";
+    const string VERBOSE_S   = "-v";
+    const string INFO        = "--info";
+    const string INFO_S      = "-i";
+    const string PARALLEL    = "--parallel";
+    const string PARALLEL_S  = "-mp";
+    const string L_PARALLEL  = "--local_parallel";
+    const string L_PARALLEL_S= "-mpp";
+    const string OUTPUTFILE  = "--output_file=";
+    const string OUTPUTFILE_S= "-o";
+
+
+    int argp = 1;
+    int argn = argc;
+
+    for (int ii = 1; ii < argc; ++ii)
+    {
+      argp = ii;
+      argn = argc - ii;
+      if (argv[argp][0] != '-') { break; }  // Stop on first non-option. (Hopefully the filename)
+
+      if (argv[argp] == HELP || argv[argp] == HELP_S)
+      {
+        usage();
+        exit(0);
+      }
+      else if (argv[argp] == INFO || argv[argp] == INFO_S)
+      {
+        info();
+        exit(0);
+      }
+      else if (argv[argp] == VERBOSE || argv[argp] == VERBOSE_S)
+      {
+        doVerbose = 1;
+      }
+      else if (argv[argp] == PARALLEL || argv[argp] == PARALLEL_S)
+      {
+#ifdef HAVE_PARALLEL
+        parallelMode = 1;
+#else
+        printf("WARNING: PARALLEL run requested with %s, but psuade was not built\n", argv[argp]);
+        printf("         with PARALLEL_BUILD. Option ignored.\n");
+#endif /*HAVE_PARALLEL*/
+      }
+      else if (argv[argp] == L_PARALLEL || argv[argp] == L_PARALLEL_S)
+      {
+#ifdef HAVE_PARALLEL
+        localParallelMode = 1;
+#else
+        printf("WARNING: LOCAL PARALLEL run requested with %s, but psuade was not built\n", argv[argp]);
+        printf("         with PARALLEL_BUILD. Option ignored.\n");
+#endif /*HAVE_PARALLEL*/
+      }
+      else if (OUTPUTFILE.find(argv[argp], 0, OUTPUTFILE.size()) == 0)
+      {
+        outputFilename = argv[argp] + OUTPUTFILE.size();
+        psOutputFilename_ = strdup(outputFilename.c_str());  //The output filename is actually stored as a global...
+        userSetOutputName = true;
+      }
+      else if (OUTPUTFILE_S.find(argv[argp], 0, OUTPUTFILE_S.size()) == 0)
+      {
+        outputFilename = argv[argp] + OUTPUTFILE_S.size();
+        psOutputFilename_ = strdup(outputFilename.c_str()); //The output filename is actually stored as a global...
+        userSetOutputName = true;
+      }
+            else
+      {
+       cerr << "Unknown option: " << argv[argp] << endl;
+       usage();
+       exit(1);
+      }
+    }
+
+    //-----------------------------
+    // Sanity checks
+    //-----------------------------
+
+    if(parallelMode && localParallelMode) {
+      cerr << "ERROR: Both Parallel Mode and Local Parallel Mode were requested." << endl;
+      usage();
+      exit(1);
+    }
+    
+    //--------------------------------------------------------------------
+    // Check for a inputfile to run.  If the options check consumed all of
+    // the arguments, there are none left to run as a inputfile.
+    //--------------------------------------------------------------------
+
+    if (argp < argc)
+    {
+      inputFilename = argv[argp];
+      psInputFilename_ = strdup(inputFilename.c_str()); //The global inputfile name is just used for sanity checking
+      userSetInputName = true;
+      argp++;
+    }
+
+    if (argp < argc)  //If we have too many positional command line args, barf and error out.
+    {
+      cerr << "ERROR: Too many positional command line arguments!" << endl;
+      cerr << "       PSUADE only takes one unnamed argument, an input file given as: " << psInputFilename_ << endl;
+      cerr << "       The following arguments are either unknown or need to be moved " << endl;
+      cerr << "       in front of the input filename: " << endl;
+      for(;argp < argc; argp++) {
+        cerr << "   " << argv[argp] << endl;
+      }
+      cerr << endl;
+      usage();
+      exit(1);
+    }
+
+  }  // End Options(argc, argv).
+
+  //--------------------------------------------------------------------------
+  //  usage
+  //
+  //! \brief Basic usage and die routine.
+  //!
+  //! \return void
+  //--------------------------------------------------------------------------
+  void
+  usage(void)
+  {
+    cerr << endl <<
+    "Usage: " << endl <<
+    "  " << programName << " [OPTIONS]... [INPUT FILE] \n" <<
+    "  OPTIONS DESCRIPTION\n" 
+    "  --help, -h         : Prints this message\n "
+    "  --info, -i         : Prints information on this build of psuade\n"
+    "  --verbose, -v      : Turn on verbose mode (support is spotty)\n"   
+    "  --parallel, -mp    : Run PSUADE in parallel mode (with mpi)\n"
+    "  --local_parallel, -mpp : Run PSUADE in local parallel mode\n"
+    "  --output_file=, -o : Output file to write to, defaults to psuadeData\n"
+    "\n"
+    "  Normally PSUADE is run in the following ways: \n"  
+    "  Normal      mode: psuade <--output_file=...> inputFile \n"
+    "  Interactive mode: psuade\n"
+    "  MP          mode: mpirun/psub/srun -mp <--output_file=...> inputFile \n"
+    "  MPP         mode: psub/srun -mpp <--output_file=...> inputFile \n" <<
+
+    endl;
+  }
+
+  //--------------------------------------------------------------------------
+  //  info
+  //
+  //! \brief Prints out information about this build of PSUADE.  
+  //!        Version number and which modules are installed
+  //!
+  //! \return void
+  //--------------------------------------------------------------------------
+  void
+  info(void)
+  {
+    printf("PSUADE version %d.%d.%d\n", psuade_VERSION_MAJOR, 
+           psuade_VERSION_MINOR, psuade_VERSION_PATCH);
+
+#ifdef HAVE_MARS
+    printf("MARS     installed... true\n");
+#endif
+#ifdef HAVE_TPROS
+    printf("TPROS    installed... true\n");
+#endif
+#ifdef HAVE_GPMC
+    printf("GPMC     installed... true\n");
+#endif
+#ifdef HAVE_SVM
+    printf("SVM      installed... true\n");
+#endif
+#ifdef HAVE_TGP
+    printf("TGP      installed... true\n");
+#endif
+#ifdef HAVE_SNNS
+    printf("SNNS     installed... true\n");
+#endif
+#ifdef HAVE_EARTH
+    printf("EARTH    installed... true\n");
+#endif
+#ifdef HAVE_METIS
+    printf("METIS    installed... true\n");
+#endif
+#ifdef HAVE_BOBYQA
+    printf("BOBYQA   installed... true\n");
+#endif
+#ifdef HAVE_COBYLA
+    printf("COBYLA   installed... true\n");
+#endif
+#ifdef HAVE_MINPACK
+    printf("MINPACK  installed... true\n");
+#endif
+#ifdef HAVE_APPSPACK
+    printf("APPSPACK installed... true\n");
+#endif
+#ifdef HAVE_TXMATH
+    printf("TXMATH   installed... true\n");
+#endif
+#ifdef HAVE_PARALLEL
+    printf("Parallel version\n");
+#endif
+#ifdef HAVE_MPICH
+    printf("Use MPICH\n");
+#endif
+  }
+
+
+}
+;  // End struct Options.
+
+
 // ************************************************************************
 // Main driver
 // ------------------------------------------------------------------------
-main(int argc, char** argv)
+int main(int argc, char** argv)
 {
    int        ind, status=0, mypid=0, nprocs=1, continueFlag=1, mode=0;
    int        one=1, root=0;
-   char       *inputString, psuadeFile[200], *inputFileName;
+   char       *inputString;
    PsuadeBase *psuade;
    FILE       *fp;
 
+   // --------------------------------------------------------------
+   // if made for parallel processing, get machine parameters
+   //-------------------------------------------------------------- 
    psCommMgr_ = new CommManager(argc, (void **) argv);
    mypid      = psCommMgr_->getPID();
    nprocs     = psCommMgr_->getNumProcs();
 
-   for (ind = 0; ind < argc; ind++)
-   {
-      inputString = (char *) argv[ind]; 
-      if (!strcmp(inputString, "-help"))
-      {
-         printf("How to run psuade:\n");
-         printf("    Normal      mode: psuade <file>\n");
-         printf("    Interactive mode: psuade\n");
-         printf("    MP          mode: mpirun/psub/srun ... -mp \n");
-         printf("    MPP         mode: psub/srun psfile\n");
-         continueFlag = 0;
-         break;
-      }
-   }
+   initializePrintingTS(2, NULL, mypid);
 
-   if (nprocs > 1 && argc >= 2)
-   {
-      if (mypid == 0)
-      {
-         for (ind = 0; ind < argc; ind++)
-         {
-            inputString = (char *) argv[ind]; 
-            if (!strcmp(inputString, "-mp"))
-            {
-               break;
-            }
-            else if (!strcmp(inputString, "-mpp"))
-            {
-               break;
-            }
-         }
-      }
-      if (mypid == 0 && mode == 1 && argc > (ind+1))
-      {
-         inputFileName = (char *) argv[ind+1];
-         mode = 2;
-      }
-      if (mypid == 0 && mode == 3 && argc > (ind+1))
-      {
-         inputFileName = (char *) argv[ind+1];
-         mode = 4;
-      }
-      psCommMgr_->bcast((void *) &mode, one, INT, root);
-      if (mode == 2)
-      {
-         RunParallel(inputFileName);
-         continueFlag = 0;
-      }
-      else if (mode == 4)
-      {
-         RunParallelLocal(inputFileName);
-         continueFlag = 0;
-      }
-      else if (mode == 1)
-      {
-         if (mypid == 0)
-            printf("PSUADE syntax: %s -mp <psuadeInFile>\n", (char *) argv[0]);
-         continueFlag = 0;
-      }
-   }
+   Options opts(argc, argv);
 
-   if (continueFlag == 1 && mypid == 0)
+   // --------------------------------------------------------------
+   // if in parallel mode (if -mp is specified), run parallel jobs
+   // -------------------------------------------------------------- 
+   if (opts.parallelMode)
    {
-      strcpy(psuadeFile, "NOFILE");
+     if(opts.inputFilename == "") {
+       cerr << "ERROR: parallel mode requires and input file" << endl;
+       opts.usage();
+       exit(1);
+     }
+     RunParallel(opts.inputFilename.c_str());
+   } else if(opts.localParallelMode) {
+     if(opts.inputFilename == "") {
+       cerr << "ERROR: local parallel mode requires and input file" << endl;
+       opts.usage();
+       exit(1);
+     }
+     RunParallelLocal(opts.inputFilename.c_str());
+     continueFlag = 0;
+
+   } else { //Normal serial Run
       printAsterisks(0);
-      printf("*      Welcome to PSUADE (version 1.4e)\n");
+      printf("*      Welcome to PSUADE (version %d.%d.%d)\n", 
+             psuade_VERSION_MAJOR, psuade_VERSION_MINOR, psuade_VERSION_PATCH);
+
       printAsterisks(0);
-      fflush(stdout);
-
-      if      (argc == 1) inputFileName = NULL;
-      else if (argc == 2) inputFileName = (char *) argv[1]; 
-      else
-      {
-         printf("PSUADE syntax : %s <psuadeInFile>\n", (char *) argv[0]);
-         exit(1);
-      }
-      if (inputFileName != NULL) strcpy(psuadeFile, inputFileName);
-
 
       psuade = new PsuadeBase();
-      if (strcmp(psuadeFile, "NOFILE"))
-      {
-         status = psuade->getInputFromFile(psuadeFile);
-         if (status != 0) exit(1);
-      }
-
-      try 
-      {
-         if (inputFileName == NULL) psuade->analyzeInteractive();
-         else                       psuade->run();
+      try{
+        if (opts.inputFilename != "")
+        {
+          status = psuade->getInputFromFile(opts.inputFilename.c_str());
+          if (status != 0) exit(status);
+          psuade->run();
+        } else {
+          psuade->analyzeInteractive();
+        }
       }
       catch ( Psuade_Stop_Exception ) 
       {
-         exit(1);
+        exit(1);
       }
 
       delete psuade;
@@ -189,15 +417,17 @@ main(int argc, char** argv)
 // ************************************************************************
 // run jobs in MPI parallel mode
 // ------------------------------------------------------------------------
-int RunParallel(char *inFileName)
+int RunParallel(const char *inFileName)
 {
    int  mypid=0, nprocs=1, root=0, one=1, sampleID, lineLeng=200;
    int  nSamples=0, strLeng, *statusArray=NULL, nActive, index;
-   char *keywords[] = {"workdir", "executable", "num_samples",
-                       "PSUADE_PARALLEL"}; 
-   char lineIn[501], inString[500], inString2[500];
-   char workdir[500], executable[500], runLine[500];
-   FILE *inFile;
+   int  procStep=1, hasArg=0, hasAux=0, hasExec=0, start=1;
+   const char *keywords[]={"workdir", "executable", "aux_exec", 
+                           "num_samples", "proc_step", "argument", 
+                           "PSUADE_PARALLEL","num_parallel","sample_start"}; 
+   char lineIn[501], inString[500], inString2[500], auxExecutable[500];
+   char workdir[500], executable[500], runLine[500], execArg[500];
+   FILE *inFile, *argFile, *fp;
                                                                                 
    mypid  = psCommMgr_->getPID();
    nprocs = psCommMgr_->getNumProcs();
@@ -235,8 +465,40 @@ int RunParallel(char *inFileName)
             if (strcmp(inString2, "=") == 0 )
                sscanf(lineIn, "%s %s %s", inString, inString2, executable);
             else sscanf(lineIn, "%s %s", inString, executable);
+            fp = fopen(executable, "r");
+            if (fp == NULL)
+            {
+               printf("RunParallel ERROR: executable %s not found.\n",
+                      executable);
+               strcpy(executable, "true");
+            }
+            else
+            {
+               fclose(fp);
+               hasExec = 1;
+            }
          }
-         else if (strcmp(inString, keywords[2]) == 0) // nSamples 
+         else if (strcmp(inString, keywords[2]) == 0) // aux executable 
+         {
+            sscanf(lineIn, "%s %s", inString, inString2);
+            if (strcmp(inString2, "=") == 0)
+               sscanf(lineIn, "%s %s %s", inString, inString2, auxExecutable);
+            else sscanf(lineIn, "%s %s", inString, auxExecutable);
+            fp = fopen(auxExecutable, "r");
+            if (fp == NULL)
+            {
+               printf("RunParallel ERROR: auxiliary executable %s not found.\n",
+                      auxExecutable);
+               strcpy(auxExecutable, "true");
+            }
+            else
+            {
+               fclose(fp);
+               hasAux = 1;
+            }
+         }
+         else if (strcmp(inString, keywords[3]) == 0 || 
+                  strcmp(inString, keywords[7]) == 0) // deg of parallelism 
          {
             sscanf(lineIn, "%s %s", inString, inString2);
             if (strcmp(inString2, "=") == 0 )
@@ -249,9 +511,53 @@ int RunParallel(char *inFileName)
                exit(1);
             }
          }
-         else if (strcmp(inString, keywords[3]) == 0) // end 
+         else if (strcmp(inString, keywords[4]) == 0) // processor step 
+         {
+            sscanf(lineIn, "%s %s", inString, inString2);
+            if (strcmp(inString2, "=") == 0 )
+               sscanf(lineIn, "%s %s %d", inString, inString2, &procStep);
+            else sscanf(lineIn, "%s %d", inString, &procStep);
+            if (procStep <= 0)
+            {
+               printf("RunParallel ERROR - procStep %d <= 0.\n",
+                      procStep);
+               exit(1);
+            }
+         }
+         else if (strcmp(inString, keywords[5]) == 0) // executable argument
+         {
+            sscanf(lineIn, "%s %s", inString, inString2);
+            if (strcmp(inString2, "=") == 0 )
+               sscanf(lineIn, "%s %s %s", inString, inString2, execArg);
+            else sscanf(lineIn, "%s %s", inString, execArg);
+            fp = fopen(execArg, "r");
+            if (fp == NULL)
+            {
+               printf("RunParallel ERROR: argument file %s not found.\n",
+                      execArg);
+               exit(1);
+            }
+            else
+            {
+               fclose(fp);
+               hasArg = 1;
+            }
+         }
+         else if (strcmp(inString, keywords[6]) == 0) // end 
          {
             break;
+         }
+         else if (strcmp(inString, keywords[8]) == 0) // start sample
+         {
+            sscanf(lineIn, "%s %s", inString, inString2);
+            if (strcmp(inString2, "=") == 0 )
+               sscanf(lineIn, "%s %s %d", inString, inString2, &start);
+            else sscanf(lineIn, "%s %d", inString, &start);
+            if (start <= 0)
+            {
+               printf("RunParallel ERROR: invalid start sample <= 0.\n");
+               exit(1);
+            }
          }
          else if (inString[0] == '#') /* comments */
          {
@@ -259,7 +565,17 @@ int RunParallel(char *inFileName)
          }
          else
          {
-            printf("RunParallel ERROR - unrecognized line - %s\n",lineIn);
+            printf("RunParallel ERROR: unrecognized line - %s\n",lineIn);
+            printf("Correct format: \n");
+            printf("PSUADE_PARALLEL\n");
+            printf("workdir = <your designated work directory prefix>\n");
+            printf("executable = <name of executable (absolute path)>\n");
+            printf("argument = <name of argument (absolute path)>\n");
+            printf("aux_exec = <name of second executable (absolute path)>\n");
+            printf("num_parallel = <number of simulations to be run in parallel>\n");
+            printf("proc_step = <which processors to run>\n");
+            printf("start_sample = <which sample point to start>\n");
+            printf("PSUADE_PARALLEL\n");
             exit(1);
          }
       }
@@ -272,7 +588,7 @@ int RunParallel(char *inFileName)
       for (sampleID = 0; sampleID < nSamples; sampleID++)
          statusArray[sampleID] = -1;
       nActive = 0;
-      for (sampleID = 0; sampleID < nSamples; sampleID++)
+      for (sampleID = start-1; sampleID < nSamples; sampleID++)
       {
          sprintf(runLine, "%s.%d", workdir, sampleID+1);
          inFile = fopen(runLine, "r");
@@ -285,8 +601,15 @@ int RunParallel(char *inFileName)
          sprintf(runLine, "%s.%d/completed", workdir, sampleID+1);
          inFile = fopen(runLine, "r");
          if (inFile == NULL) statusArray[nActive++] = sampleID;
-         if (inFile != NULL) fclose(inFile);
+         else
+         {
+            printf("RunParallel: file 'completed' found in %s.%d.\n",
+                   workdir, sampleID+1);
+            fclose(inFile);
+         }
       }
+      printf("RunParallel INFO: number of jobs to be run = %d.\n",
+             nActive);
    }
 
    if (mypid == 0) strLeng = strlen(workdir) + 1;
@@ -296,9 +619,28 @@ int RunParallel(char *inFileName)
    psCommMgr_->bcast((void *) workdir, strLeng, CHAR, root);
    if (mypid == 0) strLeng = strlen(executable) + 1;
    else            strLeng = 10;
-   workdir[strLeng] = '\0';
+   executable[strLeng] = '\0';
    psCommMgr_->bcast((void *) &strLeng, one, INT, root);
    psCommMgr_->bcast((void *) executable, strLeng, CHAR, root);
+   psCommMgr_->bcast((void *) &hasExec, one, INT, root);
+   psCommMgr_->bcast((void *) &hasArg, one, INT, root);
+   if (hasArg == 1)
+   {
+      if (mypid == 0) strLeng = strlen(execArg) + 1;
+      else            strLeng = 10;
+      execArg[strLeng] = '\0';
+      psCommMgr_->bcast((void *) &strLeng, one, INT, root);
+      psCommMgr_->bcast((void *) execArg, strLeng, CHAR, root);
+   }
+   psCommMgr_->bcast((void *) &hasAux, one, INT, root);
+   if (hasAux == 1)
+   {
+      if (mypid == 0) strLeng = strlen(auxExecutable) + 1;
+      else            strLeng = 10;
+      auxExecutable[strLeng] = '\0';
+      psCommMgr_->bcast((void *) &strLeng, one, INT, root);
+      psCommMgr_->bcast((void *) auxExecutable, strLeng, CHAR, root);
+   }
    psCommMgr_->bcast((void *) &nActive, one, INT, root);
    if (nActive > 0 && mypid != 0) statusArray = new int[nActive]; 
    psCommMgr_->bcast((void *) statusArray, nActive, INT, root);
@@ -306,11 +648,28 @@ int RunParallel(char *inFileName)
    for (sampleID = 0; sampleID < nActive; sampleID++)
    {
       index = statusArray[sampleID];
-      if (sampleID % nprocs == mypid)
+      if (sampleID % (nprocs/procStep) == (mypid/procStep))
       {
-         printf("Processor %d running job %d\n", mypid, index+1);
-         sprintf(runLine, "(cd %s.%d; %s)", workdir, index+1, executable);
+         if (hasExec == 1)
+         {
+            printf("Processor %d running job %d\n", mypid, index+1);
+            if (hasArg == 1)
+               sprintf(runLine, "(cd %s.%d; %s %s)", workdir, index+1, 
+                       executable, execArg);
+            else
+               sprintf(runLine, "(cd %s.%d; %s %d)", workdir, index+1, 
+                       executable, index+1);
+         }
+         printf("%s\n", runLine);
+         system("echo 'Run directory = '; pwd");
          system(runLine);
+         if (hasAux == 1)
+         {
+            sprintf(runLine, "(cd %s.%d; %s)", workdir, index+1, 
+                    auxExecutable);
+            printf("%s\n", runLine);
+            system(runLine);
+         }
       }
    }
    if (statusArray != NULL) delete [] statusArray;
@@ -320,12 +679,12 @@ int RunParallel(char *inFileName)
 // ************************************************************************
 // run jobs in MPI parallel mode
 // ------------------------------------------------------------------------
-int RunParallelLocal(char *inFileName)
+int RunParallelLocal(const char *inFileName)
 {
    int  mypid=0, nprocs=1, root=0, one=1, sampleID, ip, ii, lineLeng=200;
    int  nSamples=0, strLeng, *statusArray, nActive, index, npPerJob=0;
-   char *keywords[] = {"workdir", "num_samples", "nprocs_per_job", 
-                       "PSAUDE_PARALLEL"}; 
+   const char *keywords[] = {"workdir", "num_samples", "nprocs_per_job", 
+                             "PSUADE_PARALLEL"}; 
    char lineIn[501], inString[500], inString2[500], outString[500];
    char workdir[500];
    FILE *inFile;

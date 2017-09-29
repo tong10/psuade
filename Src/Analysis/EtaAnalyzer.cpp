@@ -29,9 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "EtaAnalyzer.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
@@ -59,7 +59,7 @@ double EtaAnalyzer::analyze(aData &adata)
 {
    int    printLevel, nSamples, nInputs, nOutputs, outputID, ss, ss2, ii2;
    int    *inputBins, ii, jj, kk, ii3, info, *indices, ind, nNeighs=3, imax;
-   int    ***minDistIndices, *inputViolations;
+   int    ***minDistIndices, *inputViolations, count;
    double *X, *Y, dist, *iLowerB, *iUpperB, *rangesInv2, *dRanks, dmax;
    double ***minDistMap, mean, stdev, dtemp, *minNeighs, *means, *dOrder;
    double ddata;
@@ -78,19 +78,24 @@ double EtaAnalyzer::analyze(aData &adata)
    iUpperB    = adata.iUpperB_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("EtaAnalyzer INFO: some inputs have non-uniform PDFs, but\n");
-      printf("                  they will not be relevant in this analysis.\n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("EtaTest INFO: some inputs have non-uniform PDFs, but\n");
+         printf("              they are not relevant in this analysis.\n");
+      }
    }
 
    if (nSamples <= 1)
    {
-      printf("Eta Test INFO: not meaningful to do this");
+      printf("EtaTest INFO: not meaningful to do this");
       printf("                    test when nSamples < 2.\n");
       return PSUADE_UNDEFINED;
    }
    if (X == NULL || Y == NULL)
    {
-      printf("Eta Test ERROR: no data.\n");
+      printf("EtaTest ERROR: no data.\n");
       return PSUADE_UNDEFINED;
    }
    info = 0;
@@ -98,7 +103,7 @@ double EtaAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*ii+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printf("Eta Test : Some outputs are undefined.\n");
+      printf("EtaTest: Some outputs are undefined.\n");
       printf("             Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    }
@@ -110,18 +115,18 @@ double EtaAnalyzer::analyze(aData &adata)
                                 (iUpperB[ii] - iLowerB[ii]);
       else
       {
-         printf("Eta Test ERROR: problem with input range.\n");
+         printf("EtaTest ERROR: problem with input range.\n");
          delete [] rangesInv2;
          return PSUADE_UNDEFINED;
       }
    }
 
    printAsterisks(0);
-   printf("Eta Test for variable selection\n");
+   printf("EtaTest for variable selection\n");
    printDashes(0);
    if (psAnaExpertMode_ == 1)
    {
-      printf("EtaAnalyzer Option: to use k > 1 neighbors.\n");
+      printf("EtaTest Option: to use k > 1 neighbors.\n");
       printf("The larger k is, the larger the distinguishing power is.\n");
       sprintf(pString, "k neighbors analysis. What is k (>= 1, <= 20)? ");
       nNeighs = getInt(1, 20, pString);
@@ -129,10 +134,10 @@ double EtaAnalyzer::analyze(aData &adata)
    if (nNeighs > nSamples/2)
    {
       nNeighs = nSamples / 2; 
-      printf("EtaAnalyzer INFO: number of neighbors reset to be %d.\n",
+      printf("EtaTest INFO: number of neighbors reset to be %d.\n",
              nNeighs);
    }  
-   printf("EtaAnalyzer INFO: number of neighbors = %d.\n", nNeighs);
+   printf("EtaTest INFO: number of neighbors = %d.\n", nNeighs);
    printEquals(0);
 
    inputBins = new int[nInputs];
@@ -219,7 +224,7 @@ double EtaAnalyzer::analyze(aData &adata)
          for (jj = 0; jj < nNeighs; jj++) if (indices[jj] == -1) break;
          if (jj != nNeighs)
          {
-            printf("Eta Test ERROR: cannot find neighbor.\n");
+            printf("EtaTest ERROR: cannot find neighbor.\n");
             printf("    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
             exit(1);
          }
@@ -249,7 +254,7 @@ double EtaAnalyzer::analyze(aData &adata)
             if (ddata < 1) inputViolations[ii3]++;
             if (printLevel > 3)
             {
-               printf("Eta: sample %5d, input %3d (%3d), dist = %e\n",
+               printf("EtaTest: sample %5d, input %3d (%3d), dist = %e\n",
                       ss+1, ii3+1, ii+1, ddata);
             }
          }
@@ -362,7 +367,7 @@ double EtaAnalyzer::analyze(aData &adata)
                for (jj = 0; jj < nNeighs; jj++) if (indices[jj] == -1) break;
                if (jj != nNeighs)
                {
-                  printf("Eta Test ERROR: cannot find neighbor.\n");
+                  printf("EtaTest ERROR: cannot find neighbor.\n");
                   printf("    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
                   exit(1);
                }
@@ -479,7 +484,7 @@ double EtaAnalyzer::analyze(aData &adata)
                   for (jj = 0; jj < nNeighs; jj++) if (indices[jj] == -1) break;
                   if (jj != nNeighs)
                   {
-                     printf("Eta Test ERROR: cannot find neighbor.\n");
+                     printf("EtaTest ERROR: cannot find neighbor.\n");
                      printf("   Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
                      exit(1);
                   }
@@ -597,5 +602,15 @@ double EtaAnalyzer::analyze(aData &adata)
    delete [] dOrder;
    delete [] inputViolations;
    return 0.0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+EtaAnalyzer& EtaAnalyzer::operator=(const EtaAnalyzer &)
+{
+   printf("EtaTest operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

@@ -27,10 +27,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "DataIO/PsuadeData.h"
-#include "Samplings/RSConstraints.h"
-#include "Util/PsuadeUtil.h"
-#include "Base/Globals.h"
+#include "PsuadeData.h"
+#include "RSConstraints.h"
+#include "PsuadeUtil.h"
+#include "Globals.h"
 
 // ************************************************************************
 // Constructor 
@@ -265,5 +265,15 @@ double RSConstraints::evaluate(double *sampleInputs, double sampleOutput,
    if (psConstraintSetOp_ == 0 && numFailed > 0) flag = 0;
    if (psConstraintSetOp_ == 1 && numFailed == nConstraints_) flag = 0;
    return dtemp;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+RSConstraints& RSConstraints::operator=(const RSConstraints &)
+{
+   printf("RSConstraints operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

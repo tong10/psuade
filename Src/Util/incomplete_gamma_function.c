@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// File: incomplete_gamma_function.c                                          //
+// File: incomplete_gamma_function.c (from mymathlib)                         //
 // Routine(s):                                                                //
 //    Incomplete_Gamma_Function                                               //
 //    xIncomplete_Gamma_Function                                              //

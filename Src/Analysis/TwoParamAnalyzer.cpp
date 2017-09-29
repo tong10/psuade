@@ -28,13 +28,13 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "TwoParamAnalyzer.h"
-#include "Main/Psuade.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
-#include "Util/Matrix.h"
-#include "DataIO/PsuadeData.h"
-#include "DataIO/pData.h"
-#include "Samplings/RSConstraints.h"
+#include "Psuade.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
+#include "Matrix.h"
+#include "PsuadeData.h"
+#include "pData.h"
+#include "RSConstraints.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -90,7 +90,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("TwoParamAnalyzer ERROR: invalid arguments.\n");
+      printf("Two-way Effect ERROR: invalid arguments.\n");
       printf("    nInputs  = %d\n", nInputs);
       printf("    nOutputs = %d\n", nOutputs);
       printf("    nSamples = %d\n", nSamples);
@@ -98,7 +98,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    } 
    if (nSamples/nSubSamples*nSubSamples != nSamples)
    {
-      printf("TwoParamAnalyzer ERROR: nSamples != k*nSubSamples.\n");
+      printf("Two-way Effect ERROR: nSamples != k*nSubSamples.\n");
       printf("    nSamples    = %d\n", nSamples);
       printf("    nSubSamples = %d\n", nSubSamples);
       return PSUADE_UNDEFINED;
@@ -106,7 +106,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    whichOutput = outputID;
    if (whichOutput >= nOutputs || whichOutput < 0)
    {
-      printf("TwoParamAnalyzer ERROR: invalid outputID.\n");
+      printf("Two-way Effect ERROR: invalid outputID.\n");
       printf("    nOutputs = %d\n", nOutputs);
       printf("    outputID = %d\n", whichOutput+1);
       printf("    outputID reset to 1\n");
@@ -114,7 +114,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    }
    if (ioPtr == NULL)
    {
-      printf("TwoParamAnalyzer ERROR: no data (PsuadeData).\n");
+      printf("Two-way Effect ERROR: no data (PsuadeData).\n");
       return PSUADE_UNDEFINED;
    }
    ioPtr->getParameter("input_cor_matrix", pCorMat);
@@ -125,31 +125,40 @@ double TwoParamAnalyzer::analyze(aData &adata)
       {
          if (corMatp->getEntry(ii,jj) != 0.0)
          {
-            printf("TwoParamAnalyzer INFO: this method should not be used\n");
-            printf("                 if inputs are correlated with joint\n");
-            printf("                 PDFs. Use group variance-based method.\n");
+            printf("* Two-way Effect INFO: this method should not be used\n");
+            printf("*                  if inputs are correlated with joint\n");
+            printf("*                  PDFs. Use group variance-based method.\n");
             return PSUADE_UNDEFINED;
          }     
       }
    }
+   status = 0;
+   for (ss = 0; ss < nSamples; ss++)
+      if (YIn[nOutputs*ss+whichOutput] > 0.9*PSUADE_UNDEFINED) status = 1;
+   if (status == 1)
+   {
+      printf("Two-way Effect ERROR: Some outputs are undefined. Prune\n");
+      printf("                           the undefined sample points first.\n");
+      return PSUADE_UNDEFINED;
+   }
+
    for (ii = 0; ii < nInputs; ii++)
    {
       if (pdfFlags != NULL && pdfFlags[ii] != PSUADE_PDF_UNIFORM)
       {
-         printf("TwoParamAnalyzer INFO: some inputs have non-uniform PDFs.\n");
-         printf("          However, they will not be relevant in this analysis\n");
-         printf("          (since the sample should have been generated with\n");
-         printf("           the desired distributions.)\n");
+         printf("* Two-way Effect INFO: some inputs have non-uniform PDFs.\n");
+         printf("*           However, they will not be relevant in this analysis\n");
+         printf("*           (since the sample should have been generated with\n");
+         printf("*            the desired distributions.)\n");
          break;
       }
    }
-   
+
    if (ioPtr != NULL)
    {
       constrPtr = new RSConstraints();
       constrPtr->genConstraints(ioPtr);
    }
-
    X = XIn;
    Y = new double[nSamples];
    ncount = 0;
@@ -162,7 +171,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    }
    if (ncount == 0)
    {
-      printf("TwoParamAnalyzer ERROR: no valid sample point.\n");
+      printf("Two-way Effect ERROR: no valid sample point.\n");
       printf("    nSamples before filtering = %d\n", nSamples);
       printf("    nSamples after  filtering = %d\n", ncount);
       printf("    INFO: check your data file for undefined's (1e35)\n");
@@ -170,17 +179,17 @@ double TwoParamAnalyzer::analyze(aData &adata)
    }
    if (ncount != nSamples)
    {
-      printf("TwoParamAnalyzer: nSamples before filtering = %d\n", nSamples);
-      printf("TwoParamAnalyzer: nSamples after filtering  = %d\n", ncount);
+      printf("* Two-way Effect: nSamples before filtering = %d\n", nSamples);
+      printf("* Two-way Effect: nSamples after filtering  = %d\n", ncount);
    }
 
    computeMeanVariance(nInputs,1,nSamples,Y,&aMean,&aVariance,0);
-   printf("=====> TwoParamAnalyzer: mean     = %12.4e\n", aMean);
-   printf("=====> TwoParamAnalyzer: variance = %12.4e (sd =%12.4e)\n", 
+   printf("* =====> Two-way Effect: mean     = %12.4e\n", aMean);
+   printf("* =====> Two-way Effect: variance = %12.4e (sd =%12.4e)\n", 
           aVariance, sqrt(aVariance));
    if (PABS(aVariance) < 1.0e-15)
    {
-      printf("TwoParamAnalyzer INFO: std dev too small ==> terminate.\n");
+      printf("Two-way Effect INFO: std dev too small ==> terminate.\n");
       return PSUADE_UNDEFINED;
    }
    if (psAnaExpertMode_ == 1 && printLevel > 4)
@@ -190,8 +199,17 @@ double TwoParamAnalyzer::analyze(aData &adata)
       if (pString[0] == 'y')
       {
          vce = new double[nInputs*nInputs];
-         computeVCECrude(nInputs, nSamples, X, Y, aVariance,
-                         xLower, xUpper, vce);
+         status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
+                                  xLower, xUpper, vce);
+         if (status == 0)
+         {
+            pData *pPtr = ioPtr->getAuxData();
+            pPtr->nDbles_ = nInputs * nInputs;
+            pPtr->dbleArray_ = new double[nInputs * nInputs];
+            for (ii = 0; ii < nInputs*nInputs; ii++)
+               pPtr->dbleArray_[ii] = vce[ii];
+            pPtr->dbleData_ = aVariance;
+         }
          delete [] Y;
          delete [] vce;
          return 1.0;
@@ -212,7 +230,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    printf("\n");
    printAsterisks(0);
    printAsterisks(0);
-   printf("*  Second order Sensitivities\n");
+   printf("* Second order Sensitivities\n");
    printf("* Note: This method can only be accurate for large sample size.\n");
    printf("* Note: For random samples, a crude analysis will be performed.\n");
    printf("*       (use analysis expert mode to set number of bins).\n");
@@ -227,8 +245,8 @@ double TwoParamAnalyzer::analyze(aData &adata)
    tyArray  = new double[nSamples];
    if (tyArray == NULL)
    {
-      printf("TwoParamAnalyzer ERROR:: memory allocation problem.\n");
-      printf("                         Consult PSUADE developers.\n");
+      printf("Two-way Effect ERROR:: memory allocation problem.\n");
+      printf("                       Consult PSUADE developers.\n");
    }
 
    for (ii = 0; ii < nInputs; ii++)
@@ -236,7 +254,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
       for (ii2 = ii+1; ii2 < nInputs; ii2++)
       {
          if (printLevel > 4 || nSamples > 100000)
-            printf("TwoParamAnalyzer:: input pairs = %d %d\n", ii+1, ii2+1);
+            printf("Two-way Effect:: input pairs = %d %d\n", ii+1, ii2+1);
          for (ss = 0; ss < nSamples; ss++)
          {
             txArray[ss] = X[nInputs*ss+ii];
@@ -252,12 +270,20 @@ double TwoParamAnalyzer::analyze(aData &adata)
          nReps1 = ss;
          if (nReps1 <= 1)
          {
-            printf("TwoParamAnalyzer WARNING(1): nReps < 1 for input %d.\n",ii+1);
-            printf("    Are you using replicated orthogonal array or Factorial?\n");
-            printf("    If so, you need to use > 1 replications.\n");
-            printf("A Crude 2-way interaction analysis will be done instead.\n");
-            computeVCECrude(nInputs, nSamples, X, Y, aVariance,
-                            xLower, xUpper, vce);
+            printf("Two-way Effect INFO: nReps < 1 for input %d.\n",ii+1);
+            printf("        ==> not replicated orthogonal array nor Factorial\n");
+            printf("        ==> crude 2-way interaction analysis.\n");
+            status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
+                                     xLower, xUpper, vce);
+            if (status == 0)
+            {
+               pData *pPtr = ioPtr->getAuxData();
+               pPtr->nDbles_ = nInputs * nInputs;
+               pPtr->dbleArray_ = new double[nInputs * nInputs];
+               for (ii = 0; ii < nInputs*nInputs; ii++) 
+                  pPtr->dbleArray_[ii] = vce[ii];
+               pPtr->dbleData_ = aVariance;
+            }
             delete [] vce;
             delete [] vceMean;
             delete [] vceVariance;
@@ -285,12 +311,21 @@ double TwoParamAnalyzer::analyze(aData &adata)
          }
          if (errflag != 0)
          {
-            printf("TwoParamAnalyzer WARNING(2): replications not satisified.\n");
+            printf("Two-way Effect WARNING(2): replications not satisified.\n");
             printf("    Are you using replicated orthogonal array or Factorial?\n");
-            printf("    If so, you need to use > 1 replications.\n");
-            printf("A Crude 2-way interaction analysis will be done instead.\n");
-            computeVCECrude(nInputs, nSamples, X, Y, aVariance,
-                            xLower, xUpper, vce);
+            printf("    If so, you need to use > 1 replications. A crude\n");
+            printf("    2-way interaction analysis will be done instead.\n");
+            status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
+                                     xLower, xUpper, vce);
+            if (status == 0)
+            {
+               pData *pPtr = ioPtr->getAuxData();
+               pPtr->nDbles_ = nInputs * nInputs;
+               pPtr->dbleArray_ = new double[nInputs * nInputs];
+               for (ii = 0; ii < nInputs*nInputs; ii++) 
+                  pPtr->dbleArray_[ii] = vce[ii];
+               pPtr->dbleData_ = aVariance;
+            }
             delete [] vce;
             delete [] vceMean;
             delete [] vceVariance;
@@ -316,12 +351,21 @@ double TwoParamAnalyzer::analyze(aData &adata)
          nReps = ss;
          if (nReps <= 1 || (nReps1/nReps*nReps != nReps1))
          {
-            printf("TwoParamAnalyzer WARNING(3): replications not satisified.\n");
+            printf("Two-way Effect WARNING(3): replications not satisified.\n");
             printf("    Are you using replicated orthogonal array or Factorial?\n");
             printf("    If so, you need to use > 1 replications.\n");
             printf("A Crude 2-way interaction analysis will be done instead.\n");
-            computeVCECrude(nInputs, nSamples, X, Y, aVariance,
-                            xLower, xUpper, vce);
+            status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
+                                     xLower, xUpper, vce);
+            if (status == 0)
+            {
+               pData *pPtr = ioPtr->getAuxData();
+               pPtr->nDbles_ = nInputs * nInputs;
+               pPtr->dbleArray_ = new double[nInputs * nInputs];
+               for (ii = 0; ii < nInputs*nInputs; ii++)   
+                  pPtr->dbleArray_[ii] = vce[ii];
+               pPtr->dbleData_ = aVariance;
+            }
             delete [] vce;
             delete [] vceMean;
             delete [] vceVariance;
@@ -351,7 +395,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
                }
                if (ncount != nReps)
                {
-                  printf("TwoParamAnalyzer WARNING(3): sample not rOA/FACT.\n");
+                  printf("Two-way Effect WARNING(3): sample not rOA/FACT.\n");
                   errflag = 1;
                }
             }
@@ -359,12 +403,21 @@ double TwoParamAnalyzer::analyze(aData &adata)
          }
          if (errflag != 0)
          {
-            printf("TwoParamAnalyzer WARNING(4): replications not satisified.\n");
+            printf("Two-way Effect WARNING(4): replications not satisified.\n");
             printf("    Are you using replicated orthogonal array or Factorial?\n");
             printf("    If so, you need to use > 1 replications.\n");
             printf("A Crude 2-way interaction analysis will be done instead.\n");
-            computeVCECrude(nInputs, nSamples, X, Y, aVariance,
-                            xLower, xUpper, vce);
+            status = computeVCECrude(nInputs, nSamples, X, Y, aVariance,
+                                     xLower, xUpper, vce);
+            if (status == 0)
+            {
+               pData *pPtr = ioPtr->getAuxData();
+               pPtr->nDbles_ = nInputs * nInputs;
+               pPtr->dbleArray_ = new double[nInputs * nInputs];
+               for (ii = 0; ii < nInputs*nInputs; ii++)
+                  pPtr->dbleArray_[ii] = vce[ii];
+               pPtr->dbleData_ = aVariance;
+            }
             delete [] vce;
             delete [] vceMean;
             delete [] vceVariance;
@@ -401,7 +454,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
                }
                else
                {
-                  printf("TwoParamAnalyzer ERROR: consult developers.\n");
+                  printf("Two-way Effect ERROR: consult developers.\n");
                   exit(1);
                }
             }
@@ -475,6 +528,12 @@ double TwoParamAnalyzer::analyze(aData &adata)
              mainEffects[ii]/aVariance);
    }
 
+   pData *pPtr = ioPtr->getAuxData();
+   pPtr->nDbles_ = nInputs * nInputs;
+   pPtr->dbleArray_ = new double[nInputs * nInputs];
+   for (ii = 0; ii < nInputs*nInputs; ii++) pPtr->dbleArray_[ii] = vce[ii];
+   pPtr->dbleData_ = aVariance;
+
 #if 0
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -492,7 +551,7 @@ double TwoParamAnalyzer::analyze(aData &adata)
    if (errflag == 0)
    {
       printEquals(0);
-      printf("* first order sensitivity indices\n");
+      printf("* First order sensitivity indices\n");
       printDashes(0);
       printf("* The first number is a measure of variances due to\n");
       printf("* varying the corresponding input alone.\n");
@@ -691,16 +750,26 @@ double TwoParamAnalyzer::analyze(aData &adata)
          if (fp1 != NULL) fclose(fp1);
          if (psPlotTool_ == 0)
          {
-            printf("Enter name of matlab file to store bootstrap info: ");
-            scanf("%s", winput);
+            printf("Enter name of matlab/scilab file to store bootstrap info: ");
+            // winput is a char array of size 501 so just for defensive programming 
+            // Bill Oliver added a width specifier
+            scanf("%500s", winput);
             fgets(pString,500,stdin);
             fp = fopen(winput, "w");
          }
          else fp = NULL;
          if (fp != NULL)
          {
-            fprintf(fp, "%%bootstrap sample of interaction effects\n");
-            fprintf(fp, "%%VCE((i-1)*n+j,k) = VCE(i,j), bs sample k\n");
+            if (psPlotTool_ == 1)
+            {
+               fprintf(fp, "//bootstrap sample of interaction effects\n");
+               fprintf(fp, "//VCE((i-1)*n+j,k) = VCE(i,j), bs sample k\n");
+            }
+            else
+            {
+               fprintf(fp, "%%bootstrap sample of interaction effects\n");
+               fprintf(fp, "%%VCE((i-1)*n+j,k) = VCE(i,j), bs sample k\n");
+            }
             fprintf(fp, "VCE = zeros(%d,%d);\n",nInputs*nInputs,ncount);
             for (ss = 0; ss < ncount; ss++)
             {
@@ -709,7 +778,11 @@ double TwoParamAnalyzer::analyze(aData &adata)
                   for (ii2 = ii+1; ii2 < nInputs; ii2++)
                   {
                      if (ss == 0)
-                        fprintf(fp, "%%Interaction(%d,%d) \n", ii+1, ii2+1);
+                     {
+                        if (psPlotTool_ == 1)
+                             fprintf(fp,"//Interaction(%d,%d) \n",ii+1,ii2+1);
+                        else fprintf(fp,"%%Interaction(%d,%d) \n",ii+1,ii2+1);
+                     }
                      fprintf(fp, "VCE(%d,%d) = %e;\n",ii*nInputs+ii2+1,ss+1,
                              bsVCEs[ss][ii*nInputs+ii2]);
                   }
@@ -769,7 +842,7 @@ int TwoParamAnalyzer::computeMeanVariance(int nInputs, int nOutputs,
    }
    if (count <= 0)
    {
-      printf("TwoParamAnalyzer ERROR: no valid data.\n");
+      printf("Two-way Effect ERROR: no valid data.\n");
       exit(1);
    }
    mean /= (double) count;
@@ -855,7 +928,7 @@ double TwoParamAnalyzer::analyze1D(int nInputs, int nOutputs, int nSamples,
    }
    if (ncount != nSamples)
    {
-      printf("TwoParamAnalyzer ERROR: sample not valid, input %d\n",
+      printf("Two-way Effect ERROR: sample not valid, input %d\n",
              inputID);
       printf("       error data = %d (%d)\n",ncount, nSamples);
       //for (ss = 0; ss < nSamples; ss++)
@@ -1018,61 +1091,78 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
                              double *iLowerB, double *iUpperB, double *vce)
 {
    int    ii, ii2, ss, nSize, nIntervals, ind1, ind2, ind;
-   int    totalCnt, *bins, *tags;
+   int    totalCnt, *bins, *tags, nIntervals1, nSize1;
    double *vceMean, *vceVariance, ddata, hstep1, hstep2, aMean, *vce1;
    char   pString[500];
-   FILE   *fp;
 
    nSize = 10;
    ddata = 1.0 * nSamples / nSize;
    ddata = pow(ddata, 0.5);
    nIntervals = (int) ddata;
-   if (nIntervals < 3)
+   nIntervals1 = nIntervals * nIntervals;
+   if (nIntervals < 4)
    {
       printf("ERROR: sample size too small.\n");
-      printf("       Need larger sample size to give meaningufl results.\n");
+      printf("       Need sample size >= 160 to give meaningful results.\n");
       return -1;
    }
    printAsterisks(0);
    printf("           Crude 2-way Interaction Effect\n");
    printEquals(0);
-   printf("TwoParamAnalyzer: number of intervals  = %d\n", nIntervals);
-   printf("TwoParamAnalyzer: sample size/interval = %d\n", nSize);
-   printf("These may need to be adjusted for higher accuracy.\n");
-   printf("You would want the sample size/interval to be no\n");
-   printf("less than a few to ensure sufficiency accuracy.\n");
-   printf("Turn on analysis expert mode to change them.\n");
+   printf("Two-way Effect: default number of levels in each input  = %d\n", 
+          nIntervals);
+   printf("Two-way Effect: default number of level for main effect = %d\n", 
+          nIntervals1);
+   printf("Two-way Effect: sample size for each 2-dimensional box  = %d\n",
+          nSize);
+   printDashes(0);
+   printf("* These may need to be adjusted for higher accuracy.\n");
+   printf("* Recommend sample size per 2D box to be at least 10 to\n");
+   printf("* ensure sufficiency accuracy.\n");
+   printf("* Turn on analysis expert mode to try different number of levels.\n");
    if (psAnaExpertMode_ == 1)
    {
       printEquals(0);
-      sprintf(pString,"Number of levels (>3, default = %d): ",nIntervals);
+      sprintf(pString,"Number of levels for 2-way analysis (>= 4, default = %d): ",
+              nIntervals);
       nIntervals = getInt(4, nSamples, pString);
       nSize = nSamples / nIntervals / nIntervals;
-      if (nSize < 5)
+      if (nSize < 10)
       {
-         printf("Number of levels = %d too large\n", nIntervals);
+         printf("* Using number of levels = %d for 2-way effect will give\n", 
+                nIntervals);
+         printf("  each 2D box less than 10 sample points. That is too small.\n");
          nSize = 10;
          ddata = 1.0 * nSamples / nSize;
          ddata = pow(ddata, 0.5);
          nIntervals = (int) ddata;
-         printf("Use default = %d\n", nIntervals);
+         printf("* Number of levels for 2-way analysis defaulted to %d\n", nIntervals);
+      } 
+      sprintf(pString,"Number of levels for main effect (>= %d): ",nIntervals);
+      nIntervals1 = getInt(nIntervals, nSamples, pString);
+      nSize1 = nSamples / nIntervals1;
+      if (nSize1 < 10)
+      {
+         printf("Sample size per level for main effect %d too small (should be >= 10).\n",
+                nSize1);
+         nSize1 = 10;
+         nIntervals1 = nSamples / nSize1;
+         printf("Default number of levels for main effect to %d\n", nIntervals1);
       } 
    }
    printEquals(0);
-   vceMean     = new double[nIntervals*nIntervals];
-   vceVariance = new double[nIntervals*nIntervals];
-   bins        = new int[nIntervals*nIntervals];
+   nSize = nIntervals * nIntervals;
+   if (nSize < nIntervals1) nSize = nIntervals1;
+   vceMean     = new double[nSize];
+   vceVariance = new double[nSize];
+   bins        = new int[nSize];
    tags        = new int[nSamples];
    vce1        = new double[nInputs];
-   fp = fopen("matlab2Param.m", "w");
-   fprintf(fp, "%% Turn on/off indSet to select which inputs to show\n");
-   fprintf(fp, "indSet = 1:%d;\n", nInputs);
-   fprintf(fp, "V2 = zeros(%d);\n", nInputs);
 
    for (ii = 0; ii < nInputs; ii++)
    {
-      hstep1 = (iUpperB[ii] - iLowerB[ii]) / nIntervals;
-      for (ss = 0; ss < nIntervals; ss++)
+      hstep1 = (iUpperB[ii] - iLowerB[ii]) / nIntervals1;
+      for (ss = 0; ss < nIntervals1; ss++)
       {
          vceMean[ss] = 0.0;
          vceVariance[ss] = 0.0;
@@ -1082,18 +1172,17 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
       for (ss = 0; ss < nSamples; ss++)
       {
          ddata = (X[nInputs*ss+ii] - iLowerB[ii]) / hstep1;
-         ind = (int) ddata;
-         if (ind1 >= nIntervals) ind1 = nIntervals - 1;
-         tags[ind] = -1;
+         ind1 = (int) ddata;
+         if (ind1 >= nIntervals1) ind1 = nIntervals1 - 1;
+         tags[ind1] = -1;
          if (Y[ss] < 0.9*PSUADE_UNDEFINED)
          {
-            vceMean[ind] += Y[ss];
-            bins[ind]++;
-            tags[ss] = ind;
+            vceMean[ind1] += Y[ss];
+            bins[ind1]++;
+            tags[ss] = ind1;
          }
       }
-
-      for (ss = 0; ss < nIntervals; ss++)
+      for (ss = 0; ss < nIntervals1; ss++)
          if (bins[ss] > 0) vceMean[ss] /= (double) bins[ss];
 
       for (ss = 0; ss < nSamples; ss++)
@@ -1105,7 +1194,7 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
                                  (Y[ss]-vceMean[ind]));
          }
       }
-      for (ss = 0; ss < nIntervals; ss++)
+      for (ss = 0; ss < nIntervals1; ss++)
       {
          if (bins[ss] > 0)
             vceVariance[ss] /= (double) bins[ss];
@@ -1113,15 +1202,15 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
       }
 
       totalCnt = 0;
-      for (ss = 0; ss < nIntervals; ss++) totalCnt += bins[ss];
+      for (ss = 0; ss < nIntervals1; ss++) totalCnt += bins[ss];
       aMean = 0.0;
-      for (ss = 0; ss < nIntervals; ss++)
+      for (ss = 0; ss < nIntervals1; ss++)
       {
          if (vceVariance[ss] != PSUADE_UNDEFINED)
             aMean += (vceMean[ss] / totalCnt * bins[ss]);
       }
       vce1[ii] = 0.0;
-      for (ss = 0; ss < nIntervals; ss++)
+      for (ss = 0; ss < nIntervals1; ss++)
       {
          if (vceVariance[ss] != PSUADE_UNDEFINED)
          {
@@ -1129,8 +1218,9 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
                          (vceMean[ss] - aMean) * bins[ss]/totalCnt);
          }
       }
-      printf("*   SENSITIVITY INDEX  ( Inputs %2d ) = %12.4e\n",
-                   ii+1,vce1[ii]/aVariance);
+      printf("*   SENSITIVITY INDEX  ( Inputs %2d ) = %12.4e",
+             ii+1,vce1[ii]/aVariance);
+      printf(" (unnormalized = %12.4e)\n",vce1[ii]);
    }
    for (ii = 0; ii < nInputs; ii++)
    {
@@ -1200,25 +1290,13 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
                              (vceMean[ss] - aMean) * bins[ss]/totalCnt);
             }
          }
-         vce[ii*nInputs+ii2] -= vce1[ii];
-         vce[ii*nInputs+ii2] -= vce1[ii2];
          if ( vce[ii*nInputs+ii2] < 0.0) vce[ii*nInputs+ii2] = 0.0;
-         printf("*   SENSITIVITY INDEX  ( Inputs %2d %2d ) = %12.4e\n",
-                   ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance);
-         fprintf(fp, "V2(%d,%d) = %e;\n",ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance);
+         printf("*   SENSITIVITY INDEX  (Inputs %2d %2d) = %12.4e",
+                ii+1,ii2+1,vce[ii*nInputs+ii2]/aVariance);
+         printf(" (unnormalized = %12.4e) : 1st + 2nd order\n",
+                vce[ii*nInputs+ii2]);
       }
    }
-   fprintf(fp, "V2a = V2(indSet, indSet);\n");
-   fprintf(fp, "bar3(V2a)\n");
-   strcpy(pString, "Interaction Analysis");
-   fwritePlotTitle(fp, pString);
-   fwritePlotAxes(fp);
-   strcpy(pString, "Input Numbers");
-   fwritePlotXLabel(fp, pString);
-   strcpy(pString, "2-Input Joint Probability");
-   fwritePlotYLabel(fp, pString);
-   fclose(fp);
-   printf("matlab2Param.m is now ready for visualizing results.\n");
    printAsterisks(0);
    delete [] vceMean;
    delete [] vceVariance;
@@ -1226,5 +1304,15 @@ int TwoParamAnalyzer::computeVCECrude(int nInputs, int nSamples,
    delete [] tags;
    delete [] vce1;
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+TwoParamAnalyzer& TwoParamAnalyzer::operator=(const TwoParamAnalyzer &)
+{
+   printf("Two-way Effect operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

@@ -28,7 +28,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Util/Vector.h"
+#include "Vector.h"
 
 //#define PS_DEBUG
 
@@ -46,6 +46,35 @@ Vector::Vector()
    printf("Vector constructor ends\n");
 #endif
 }
+
+// ************************************************************************
+// Copy Constructor by Bill Oliver
+// ------------------------------------------------------------------------
+Vector::Vector(const Vector & v){
+
+  length_ = v.length_;
+  Vec_ = new double[length_];
+  for(int i = 0; i < length_; i++)
+    Vec_[i] = v.Vec_[i];
+
+}
+
+// ************************************************************************
+// overload operator= by Bill Oliver
+// ------------------------------------------------------------------------
+Vector & Vector::operator=(const Vector & v){
+
+  if(this == &v) return *this;
+  delete [] Vec_;
+  length_ = v.length_;
+  Vec_ = new double[length_];
+  for(int i = 0; i < length_; i++)
+    Vec_[i] = v.Vec_[i];
+
+  return * this;
+
+}
+
 
 // ************************************************************************
 // destructor

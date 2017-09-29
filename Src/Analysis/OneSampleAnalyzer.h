@@ -28,7 +28,7 @@
 #ifndef __ONESAMPLEANALYZERH__
 #define __ONESAMPLEANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -44,6 +44,8 @@ public:
    ~OneSampleAnalyzer();
 
    double analyze(aData &adata);
+
+   OneSampleAnalyzer& operator=(const OneSampleAnalyzer &analyzer);
 
    double CSAnalyze (int, double *, int);
    double DFAnalyze (int, double *, int);

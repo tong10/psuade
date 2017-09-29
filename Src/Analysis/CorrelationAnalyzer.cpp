@@ -28,9 +28,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "CorrelationAnalyzer.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "FuncApprox/FuncApprox.h"
+#include "sysdef.h"
+#include "Psuade.h"
+#include "PsuadeUtil.h"
+#include "FuncApprox.h"
+#include "PrintingTS.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -55,11 +57,15 @@ CorrelationAnalyzer::~CorrelationAnalyzer()
 double CorrelationAnalyzer::analyze(aData &adata)
 {
    int     nInputs, nOutputs, nSamples, outputID, ii, jj, ss, info, idata;
-   int     printLevel;
+   int     printLevel, count, iOne=1;
    double  xmean, xvar, *ymeans, *yvars, *Ylocal, *X, *XX, *Xvals, *Wlocal;
    double  ymean, yvar, *xmeans, *xvars, *Xlocal, *Y, *YY, *Yvals, ddata;
-   FuncApprox *faPtr;
+   FILE    *fp;
+   FuncApprox *faPtr=NULL;
+   PsuadeData *ioPtr=NULL;
+   pData   pData;
 
+   // extract data
    nInputs  = adata.nInputs_;
    nOutputs = adata.nOutputs_;
    nSamples = adata.nSamples_;
@@ -69,14 +75,22 @@ double CorrelationAnalyzer::analyze(aData &adata)
    printLevel = adata.printLevel_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("Correlation INFO: non-uniform probability distributions\n");
-      printf("           have been defined in the data file, but they\n");
-      printf("           will not be used in this analysis.\n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("Correlation INFO: non-uniform probability distributions\n");
+         printf("           have been defined in the data file, but they\n");
+         printf("           will not be used in this analysis.\n");
+      }
    }
+   ioPtr = adata.ioPtr_;
+   if (ioPtr != NULL) ioPtr->getParameter("input_names", pData);
 
+   // error checking
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("CorrelationAnalyzer ERROR: invalid arguments.\n");
+      printf("Correlation ERROR: invalid arguments.\n");
       printf("    nInputs  = %d\n", nInputs);
       printf("    nOutputs = %d\n", nOutputs);
       printf("    nSamples = %d\n", nSamples);
@@ -84,15 +98,14 @@ double CorrelationAnalyzer::analyze(aData &adata)
    } 
    if (outputID < 0 || outputID >= nOutputs)
    {
-      printf("CorrelationAnalyzer ERROR: invalid outputID.\n");
+      printf("Correlation ERROR: invalid outputID.\n");
       printf("    nOutputs = %d\n", nOutputs);
       printf("    outputID = %d\n", outputID+1);
       return PSUADE_UNDEFINED;
    } 
    if (nSamples == 1)
    {
-      printf("CorrelationAnalyzer INFO: not meaningful to ");
-      printf("do this when nSamples = 1.\n");
+      printf("Correlation INFO: analysis not meaningful for nSamples=1\n");
       return PSUADE_UNDEFINED;
    } 
    info = 0; 
@@ -100,11 +113,12 @@ double CorrelationAnalyzer::analyze(aData &adata)
       if (Y[nOutputs*ss+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printf("CorrelationAnalyzer ERROR: Some outputs are undefined.\n");
-      printf("                           Prune the undefined's first.\n");
+      printf("Correlation ERROR: Some outputs are undefined.\n");
+      printf("                   Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    } 
    
+   // first find the mean of the current set of samples
    printAsterisks(0);
    printf("*                   Correlation Analysis\n");
    printEquals(0);
@@ -114,6 +128,7 @@ double CorrelationAnalyzer::analyze(aData &adata)
    printDashes(0);
    computeMeanVariance(nSamples,nOutputs,Y,&ymean,&yvar,outputID,1);
 
+   // compute the Pearson product moment correlation coefficient (PEAR)
    printEquals(0);
    printf("*  Pearson correlation coefficients (PEAR) - linear -\n");
    printf("*  which gives a measure of relationship between X_i's & Y.\n");
@@ -130,6 +145,88 @@ double CorrelationAnalyzer::analyze(aData &adata)
       printf("* Pearson Correlation coeff.  (Input %3d) = %e\n", ii+1, 
              Xvals[ii]);
 
+   // now write these information to a plot file
+   if (psPlotTool_ == 1)
+   {
+      fp = fopen("scilabca.sci","w");
+      if (fp == NULL)
+         printOutTS(0, "CorrelationAnalysis: cannot write to scilab file.\n");
+      else
+         fprintf(fp,"// This file contains correlation coefficients.\n");
+   }
+   else
+   {
+      fp = fopen("matlabca.m","w");
+      if (fp == NULL)
+         printOutTS(0, "CorrelationAnalysis: cannot write to matlab file.\n");
+      else
+         fprintf(fp,"%% This file contains correlation coefficients.\n");
+   }
+   if (fp != NULL)
+   {
+      fprintf(fp, "sortFlag = 0;\n");
+      fprintf(fp, "nn = %d;\n", nInputs);
+      fprintf(fp, "PCC = [\n");
+      for (ii = 0; ii < nInputs; ii++) fprintf(fp,"%24.16e\n", Xvals[ii]);
+      fprintf(fp, "];\n");
+      if (pData.strArray_ != NULL)
+      {
+         fprintf(fp, "  Str = {");
+         for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
+         fprintf(fp,"'X%d'};\n",nInputs);
+      }
+      else
+      {
+         fprintf(fp, "  Str = {");
+         for (ii = 0; ii < nInputs-1; ii++)
+         {
+            if (pData.strArray_[ii] != NULL) fprintf(fp,"'%s',",pData.strArray_[ii]);
+            else                             fprintf(fp,"'X%d',",ii+1);
+         }
+         if (pData.strArray_[nInputs-1] != NULL) 
+              fprintf(fp,"'%s'};\n",pData.strArray_[nInputs-1]);
+         else fprintf(fp,"'X%d'};\n",nInputs);
+      }
+      fwritePlotCLF(fp);
+      fprintf(fp, "if (sortFlag == 1)\n");
+      if (psPlotTool_ == 1)
+           fprintf(fp, "  [PCC, II] = gsort(PCC,'g','d');\n");
+      else fprintf(fp, "  [PCC, II] = sort(PCC,'descend');\n");
+      fprintf(fp, "  II   = II(1:nn);\n");
+      fprintf(fp, "  PCC  = PCC(1:nn);\n");
+      fprintf(fp, "  Str1 = Str(II);\n");
+      fprintf(fp, "else\n");
+      fprintf(fp, "  Str1 = Str;\n");
+      fprintf(fp, "end\n");
+      fprintf(fp, "ymin = min(PCC);\n");
+      fprintf(fp, "ymax = max(PCC);\n");
+      fprintf(fp, "h2 = 0.05 * (ymax - ymin);\n");
+      fprintf(fp, "subplot(1,2,1)\n");
+      fprintf(fp, "bar(PCC,0.8);\n");
+      fwritePlotAxes(fp);
+      fwritePlotTitle(fp,"Pearson Correlation Coefficients");
+      fwritePlotYLabel(fp, "Correlation Coefficient");
+      if (psPlotTool_ == 1)
+      {
+         fprintf(fp, "a=gca();\n");
+         fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
+         fprintf(fp, "a.x_ticks(2) = [1:nn]';\n");
+         fprintf(fp, "a.x_ticks(3) = Str1';\n");
+         fprintf(fp, "a.x_label.font_size = 3;\n");
+         fprintf(fp, "a.x_label.font_style = 4;\n");
+      }
+      else
+      {
+         fprintf(fp, "axis([0 nn+1 ymin ymax])\n");
+         fprintf(fp, "set(gca,'XTickLabel',[]);\n");
+         fprintf(fp, "th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str1,");
+         fprintf(fp, "'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp, "set(th, 'fontsize', 12)\n");
+         fprintf(fp, "set(th, 'fontweight', 'bold')\n");
+      }
+   }
+
+   // compute write these information to a plot file
    ymeans = new double[nOutputs];
    yvars  = new double[nOutputs];
    Yvals  = new double[nOutputs];
@@ -151,7 +248,6 @@ double CorrelationAnalyzer::analyze(aData &adata)
    printEquals(0);
 
 
-   printEquals(0);
    printf("*  Spearman coefficients (SPEA) - nonlinear relationship -  *\n");
    printf("*  which gives a measure of relationship between X_i's & Y. *\n");
    printDashes(0);
@@ -174,6 +270,52 @@ double CorrelationAnalyzer::analyze(aData &adata)
                         ymean,yvar,0,&(Xvals[ii]));
       printf("* Spearman coefficient         (Input %3d ) = %e\n", ii+1, 
              Xvals[ii]);
+   }
+   if (fp != NULL)
+   {
+      fprintf(fp, "SPEA = [\n");
+      for (ii = 0; ii < nInputs; ii++) fprintf(fp,"%24.16e\n", Xvals[ii]);
+      fprintf(fp, "];\n");
+      fprintf(fp, "if (sortFlag == 1)\n");
+      if (psPlotTool_ == 1)
+           fprintf(fp, "  [SPEA, II] = gsort(SPEA,'g','d');\n");
+      else fprintf(fp, "  [SPEA, II] = sort(SPEA,'descend');\n");
+      fprintf(fp, "  II   = II(1:nn);\n");
+      fprintf(fp, "  SPEA = SPEA(1:nn);\n");
+      fprintf(fp, "  Str2 = Str(II);\n");
+      fprintf(fp, "else\n");
+      fprintf(fp, "  Str2 = Str;\n");
+      fprintf(fp, "end\n");
+      fprintf(fp, "ymin = min(SPEA);\n");
+      fprintf(fp, "ymax = max(SPEA);\n");
+      fprintf(fp, "h2 = 0.05 * (ymax - ymin);\n");
+      fprintf(fp, "subplot(1,2,2)\n");
+      fprintf(fp, "bar(SPEA,0.8);\n");
+      fwritePlotAxes(fp);
+      fwritePlotTitle(fp,"Spearman Correlation Coefficients");
+      fwritePlotYLabel(fp, "Correlation Coefficient");
+      if (psPlotTool_ == 1)
+      {
+         fprintf(fp, "a=gca();\n");
+         fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
+         fprintf(fp, "a.x_ticks(2) = [1:nn]';\n");
+         fprintf(fp, "a.x_ticks(3) = Str2';\n");
+         fprintf(fp, "a.x_label.font_size = 3;\n");
+         fprintf(fp, "a.x_label.font_style = 4;\n");
+         printOutTS(2, " Correlation analysis plot file = scilab.sci.\n");
+      }
+      else
+      {
+         fprintf(fp, "axis([0 nn+1 ymin ymax])\n");
+         fprintf(fp, "set(gca,'XTickLabel',[]);\n");
+         fprintf(fp, "th=text(1:nn, repmat(ymin-0.05*(ymax-ymin),nn,1),Str2,");
+         fprintf(fp, "'HorizontalAlignment','left','rotation',90);\n");
+         fprintf(fp, "set(th, 'fontsize', 12)\n");
+         fprintf(fp, "set(th, 'fontweight', 'bold')\n");
+         printOutTS(2, " Correlation analysis plot file = matlabca.m.\n");
+      }
+      fclose(fp);
+      fp = NULL;
    }
    printDashes(0);
    for (ii = 0; ii < nInputs; ii++) xmeans[ii] = (double) ii;
@@ -292,7 +434,7 @@ double CorrelationAnalyzer::analyze(aData &adata)
             XX[ii*nSamples+idata] = (double) (ss + 1);
          }
       }
-      faPtr = genFA(PSUADE_RS_REGR1, nInputs, nSamples);
+      faPtr = genFA(PSUADE_RS_REGR1, nInputs, iOne, nSamples);
       faPtr->setOutputLevel(0);
       info = -999;
       faPtr->genNDGridData(XX, YY, &info, NULL, NULL);
@@ -334,8 +476,8 @@ int CorrelationAnalyzer::computeMeanVariance(int nSamples, int xDim,
    (*xvar)  = variance;
    if (flag == 1)
    {
-      printf("CorrelationAnalyzer: mean     = %e\n", mean);
-      printf("CorrelationAnalyzer: variance = %e\n", variance);
+      printf("Correlation: mean     = %e\n", mean);
+      printf("Correlation: variance = %e\n", variance);
    }
    return 0;
 }
@@ -359,13 +501,22 @@ int CorrelationAnalyzer::computeCovariance(int nSamples,int nX,double *X,
       denom = sqrt(xvars[ii] * yvar);
       if (denom == 0.0)
       {
-         printf("CorrelationAnalyzer ERROR: denom=0 for input %d\n",
-               ii+1);
+         printf("Correlation ERROR: denom=0 for input %d\n", ii+1);
          printf("denom = xvar * yvar : xvar = %e, yvar = %e\n",xvars[ii],yvar);
          Rvalues[ii] = 0.0;
       }
       else Rvalues[ii] = numer / denom;
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+CorrelationAnalyzer& CorrelationAnalyzer::operator=(const CorrelationAnalyzer &)
+{
+   printf("Correlation operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

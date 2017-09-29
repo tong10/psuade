@@ -23,7 +23,7 @@ ANALYSIS
    analyzer method = ARSM1
    analyzer output_id  = 1
    analyzer threshold  = 1.0e-6
-   analyzer rstype  = MARS
+   analyzer rstype  = MARSBag
    diagnostics 1
 END
 END

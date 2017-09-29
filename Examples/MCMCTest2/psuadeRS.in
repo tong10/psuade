@@ -1,0 +1,25 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable   1 X1   = 0.0  2.0
+   variable   2 X2   = 0.0  2.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = FACT
+   num_samples = 289
+   random_seed = 1211319841
+END
+APPLICATION
+   driver = ./simulator
+   launch_interval = 0
+END
+ANALYSIS
+#  analyzer method = Moment
+   analyzer output_id  = 1
+   diagnostics
+END
+END

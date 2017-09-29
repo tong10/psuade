@@ -455,8 +455,7 @@ float snorm2(int, float *);
 float sdot(int n, float *, float *);
 void saxpy(int, float, float *, int, float *, int);
 void RandomPermute(int, idxtype *, int);
-double drand48();
-void srand48(long);
+/*Jim Leek 6/4/13 removed drand48 and srand48 prototypes here so it will build with MinGW on Windows */
 int ispow2(int);
 void InitRandom(int);
 int m_log2(int);

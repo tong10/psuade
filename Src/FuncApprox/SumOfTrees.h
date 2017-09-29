@@ -29,8 +29,8 @@
 #define __SOTSH__
 
 #include <stdio.h>
-#include "FuncApprox/FuncApprox.h"
-#include "FuncApprox/TreeNode.h"
+#include "FuncApprox.h"
+#include "TreeNode.h"
 
 // ************************************************************************
 // class definition

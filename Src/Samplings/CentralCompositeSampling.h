@@ -47,13 +47,32 @@ class CentralCompositeSampling : public Sampling
 
 public:
 
+   /** constructor */
    CentralCompositeSampling();
+
+   /** destructor */
    ~CentralCompositeSampling();
 
+   /** initialize
+       @param flag : to signal how far to initialze
+    */
    int initialize(int);
-   int refine(int, int, double, int, double *);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
    int setParam(string);
 
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   CentralCompositeSampling& operator=(const CentralCompositeSampling &);
 };
 
 #endif // __CENTRALCOMPOSITESAMPLINGH__

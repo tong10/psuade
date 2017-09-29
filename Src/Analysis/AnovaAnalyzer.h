@@ -28,7 +28,7 @@
 #ifndef __ANOVAANALYZERH__
 #define __ANOVAANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 class AnovaAnalyzer : public Analyzer 
 {
@@ -40,6 +40,8 @@ public:
    ~AnovaAnalyzer();
 
    double analyze(aData &adata);
+
+   AnovaAnalyzer& operator=(const AnovaAnalyzer &analyzer);
 
 private:
 

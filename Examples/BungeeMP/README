@@ -24,15 +24,17 @@ sig ~0.54
 ===============================================
 To run:
                                                                                 
-install_psuade (use MPI option)
-make to create psuade executable
-cc -o simulator simulator.c -lm
+1. cc -o simulator simulator.c -lm
 
-run: psuade psuade.in to create all input files
-mkdir 5 directories: workdir.[1-5]
-copy psuadeApps_ct.in.X to workdir.X/psuadeApps_ct.in 
-     (no trailing sample number)
+# done already
+# run: psuade psuade.in to create all input files
+# mkdir 5 directories: workdir.[1-5]
+# copy psuadeApps_ct.in.X to workdir.X/psuadeApps_ct.in 
+#      (no trailing sample number)
 
-mpirun -np X ../../bin/psuade -mp psfile
+2. modify the psfile to add your current directory
+
+3. mpirun -np 5 psuade -mp psfile
 
 Note: any directory that has a 'completed' file will not be run.
+

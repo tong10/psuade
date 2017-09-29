@@ -30,13 +30,13 @@
 #include <math.h>
 
 #include "Earth.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Psuade.h"
 
 #ifdef HAVE_EARTH
 #define STANDALONE 1
-#include "../External/EARTH/earth.h"
+#include "earth.h"
 #endif
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
@@ -110,7 +110,7 @@ int Earth::genNDGridData(double *X, double *Y, int *N, double **X2,
 {
 #ifdef HAVE_EARTH
    int    *LinPreds, ss, ii, jj, iOne=1, totPts;
-   double *Residuals, *BX, BestGcv, *XX, *HX, *Xloc;
+   double *Residuals, *BX, BestGcv, *XX;
 
    Residuals = new double[nSamples_];
    BX = new double[nSamples_ * maxTerms_];
@@ -142,30 +142,13 @@ int Earth::genNDGridData(double *X, double *Y, int *N, double **X2,
       printf("Returning from Earth, BestGcv = %e\n",BestGcv);
    if ((*N) == -999) return 0;
   
-   totPts = nPtsPerDim_;
-   for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++) 
-      HX[ii] = (upperBounds_[ii]-lowerBounds_[ii]) / (double) (nPtsPerDim_-1); 
- 
-   (*X2) = new double[totPts*nInputs_];
+   genNDGrid(N, X2);
+   if ((*N) == 0) return 0;
+   totPts = (*N);
+
    (*Y2) = new double[totPts];
-   Xloc  = new double[nInputs_];
- 
-   for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
- 
-   for (ss = 0; ss < totPts; ss++)
-   {
-      for (ii = 0; ii < nInputs_; ii++ ) (*X2)[ss*nInputs_+ii] = Xloc[ii];
-      for (ii = 0; ii < nInputs_; ii++ ) 
-      {
-         Xloc[ii] += HX[ii];
-         if (Xloc[ii] < upperBounds_[ii] || 
-              PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-         else Xloc[ii] = lowerBounds_[ii];
-      }
-   }
- 
+   (*N) = totPts;
+
    if (outputLevel_ >= 2) printf("Entering Earth prediction\n");
    if (outputLevel_ >= 1) 
       printf("If it crashes here, it is Earth prediction problem.\n");
@@ -174,9 +157,6 @@ int Earth::genNDGridData(double *X, double *Y, int *N, double **X2,
              dirs_, cuts_, betas_, nInputs_, iOne, numTerms_, maxTerms_);
 
    if (outputLevel_ >= 2) printf("Returning from Earth\n");
-   (*N) = totPts;
-   delete [] Xloc;
-   delete [] HX;
 #else
    printf("PSUADE ERROR : Earth not used.\n");
    return -1;
@@ -574,5 +554,15 @@ double Earth::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystd)
    printf("PSUADE ERROR : Earth not used.\n");
 #endif
    return 0.0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+Earth& Earth::operator=(const Earth &)
+{
+   printf("Earth operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

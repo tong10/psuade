@@ -32,9 +32,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "PsuadeBase.h"
-#include "Util/PsuadeUtil.h"
-#include "PDFLib/PDFBase.h"
-#include "DataIO/PsuadeData.h"
+#include "PsuadeUtil.h"
+#include "PDFBase.h"
+#include "PsuadeData.h"
 
 // ************************************************************************
 // interpret command from interactive session
@@ -163,13 +163,25 @@ int PsuadeBase::genDriver(int genFlag)
    if (dfp != NULL)
    {
       fclose(dfp);
-      if (genFlag == 1) dfp = fopen(driverName, "w");
+      if (genFlag == 1){
+          dfp = fopen(driverName, "w");
+          if(dfp == NULL){
+	    printf("ERRPR: Cannot open file %s. \n", driverName);
+	    return 1;
+	  }
+      }
       else
       {
          sprintf(pString, "File exists. Override ? (y or n) ");
          getString(pString, response);
          if (response[0] != 'y') return 1;
-         else                    dfp = fopen(driverName, "w");
+         else{
+	   dfp = fopen(driverName, "w");
+	   if (dfp == NULL) {
+	     printf("ERROR: Cannot open file %s. \n", driverName);
+	     return 1;
+	   }
+	 }
       }
    }
    else
@@ -697,7 +709,7 @@ int PsuadeBase::genDriver(int genFlag)
 int PsuadeBase::genSetup(int genFlag, char *filename)
 {
    int    nInputs, iInd, nOutputs, samplingMethod, nSamples, nReps, ii;
-   int    randomize, status=0, jj, oInd;
+   int    randomize = 0, jj, oInd;
    double *iLowerB, *iUpperB;
    char   dataFile[500], pString[500], **inputNames=NULL;
    char   **outputNames=NULL, winput[500];
@@ -882,7 +894,6 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
    {
       printf("ERROR : cannot open file %s\n",dataFile);
       printf("    Do you have write access in the current directory?\n");
-      status = 1;
    }
    else
    {

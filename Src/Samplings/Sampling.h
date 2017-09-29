@@ -30,6 +30,8 @@
 
 #include <string.h>
 #include <iostream>
+#include <PsuadeData.h>
+
 using    namespace std;
 
 /**
@@ -67,6 +69,14 @@ public:
    /** Constructor
     */
    Sampling();
+
+   /** Copy Constructor created by Bill Oliver
+    */
+   Sampling(const Sampling &);
+
+   /** Overload operator = function by Bill Oliver
+    */
+   Sampling & operator=(const Sampling &);
 
    /** Destructor
     */
@@ -150,8 +160,17 @@ public:
    int storeResult(int nOuptuts, int nSamples, double *sampleOutputs, 
                    int *sampleStates);
 
+
+   /** This function fully constructs a sampling from the psuadeIO_
+    *  input.  All the common functionality it done in the Sampleing
+    *  class, subclasses should overwrite this function.
+    *  @param psuadeIO_ : A Psuade Data file, should have Input/Output 
+    *  variables and Method defined.
+    **/
+   virtual int doSampling(PsuadeData* psuadeIO_);
+
    /** This function initializes the sample data.
-    *  @param initLevel : initialization level
+    *  @param initLevel : 0 if we need to generate samples, 1 if we will be loading external samples
     */
    virtual int initialize(int initLevel)=0;
 

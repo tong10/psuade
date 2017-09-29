@@ -27,7 +27,7 @@
 #ifndef __LSANALYZERH__
 #define __LSANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -42,6 +42,8 @@ public:
    ~LSAnalyzer();
 
    double analyze(aData &adata);
+
+   LSAnalyzer& operator=(const LSAnalyzer &analyzer);
 };
 
 #endif // __LSANALYZERH__

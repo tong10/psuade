@@ -24,16 +24,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-                                                                                             
 #include <stdio.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "PlackettBurmanSampling.h"
 
 // ************************************************************************
 // generating vectors for the Plackett Burman designs
 // ------------------------------------------------------------------------
-
 static int PSUADE_PB_GV12[12] = {1,1,0,1,1,1,0,0,0,1,0};
 static int PSUADE_PB_GV20[20] = {1,1,0,0,1,1,1,1,0,1,0,1,0,0,0,0,1,1,0};
 static int PSUADE_PB_GV24[24] = 
@@ -68,7 +66,6 @@ static int PSUADE_PB_GV28Z[9][9] =
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------
-
 PlackettBurmanSampling::PlackettBurmanSampling() : Sampling()
 {
    samplingID_ = PSUADE_SAMP_PBD;
@@ -77,7 +74,6 @@ PlackettBurmanSampling::PlackettBurmanSampling() : Sampling()
 // ************************************************************************
 // destructor
 // ------------------------------------------------------------------------
-
 PlackettBurmanSampling::~PlackettBurmanSampling()
 {
 }
@@ -85,12 +81,10 @@ PlackettBurmanSampling::~PlackettBurmanSampling()
 // ************************************************************************
 // initialize the sampler data
 // ------------------------------------------------------------------------
-
 int PlackettBurmanSampling::initialize(int initLevel)
 {
    int ii, jj, kk, ipower, whichPlan, checkN;
    int **patternMatrix, **tempMatrix, rowCnt, *genVec;
-
 
    if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
    {
@@ -115,7 +109,6 @@ int PlackettBurmanSampling::initialize(int initLevel)
    ii = nInputs_ / 4;
    nSamples_ = (ii + 1) * 4;
    allocSampleData();
-
 
    patternMatrix = new int*[nSamples_];
    for (ii = 0; ii < nSamples_; ii++)
@@ -274,17 +267,14 @@ int PlackettBurmanSampling::initialize(int initLevel)
             patternMatrix[ii][jj] = patternMatrix[ii][jj+1];
    }
       
-
    for (ii = 0; ii < nSamples_; ii++)
       for (jj = 0; jj < nInputs_; jj++)
          sampleMatrix_[ii][jj] = (upperBounds_[jj] - lowerBounds_[jj]) *
                0.5 * (patternMatrix[ii][jj] + 1.0) + lowerBounds_[jj];
 
-
    for (ii = 0; ii < nSamples_; ii++) delete [] patternMatrix[ii];
    delete [] patternMatrix;
 
-                                                                                
    if (printLevel_ > 4)
    {
       printf("PlackettBurmanSampling::initialize: nSamples = %d\n", nSamples_);
@@ -300,19 +290,21 @@ int PlackettBurmanSampling::initialize(int initLevel)
 // ************************************************************************
 // refine the sample space
 // ------------------------------------------------------------------------
-
-int PlackettBurmanSampling::refine(int refineRatio, int randomize, 
-                                   double threshold, int nSamples, 
-                                   double *sampleErrors)
+int PlackettBurmanSampling::refine(int, int, double, int, double *)
 {
-   (void) refineRatio;
-   (void) randomize;
-   (void) threshold;
-   (void) nSamples;
-   (void) sampleErrors;
-
    printf("PlackettBurmanSampling::refine ERROR - not supported.\n");
    exit(1);
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+PlackettBurmanSampling& PlackettBurmanSampling::operator=
+                                     (const PlackettBurmanSampling &)
+{
+   printf("PlackettBurmanSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

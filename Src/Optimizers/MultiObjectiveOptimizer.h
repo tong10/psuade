@@ -37,9 +37,19 @@ class MultiObjectiveOptimizer : public Optimizer
 {
 public:
 
+   /** constructor */
    MultiObjectiveOptimizer();
+
+   /** destructor */
    ~MultiObjectiveOptimizer();
-   void optimize(oData *odata);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */
+   MultiObjectiveOptimizer& operator=(const MultiObjectiveOptimizer &);
 
 private:
    int GenPermutations(int, int, int *, int ***);

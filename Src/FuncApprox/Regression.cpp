@@ -21,22 +21,24 @@
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
 // Functions for the class Regression
+// (Up to fourth order only. Maybe not be stable for higher order)
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Util/sysdef.h"
-#include "Main/Psuade.h"
+#include "sysdef.h"
+#include "Psuade.h"
 #include "Regression.h"
-#include "PDFLib/PDFBase.h"
-#include "PDFLib/PDFNormal.h"
-#include "Util/PsuadeUtil.h"
+#include "PDFBase.h"
+#include "PDFNormal.h"
+#include "PsuadeUtil.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
-extern "C" {
+extern "C"
+{
    void dgels_(char *, int *, int *, int *, double *A, int *LDA,
                double *B, int *LDB, double *WORK, int *LWORK, int *INFO);
    void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
@@ -76,8 +78,7 @@ Regression::~Regression()
 int Regression::genNDGridData(double *X, double *Y, int *N2, double **X2, 
                               double **Y2)
 {
-   int     totPts, mm, ii, status;
-   double  *HX, *Xloc;
+   int mm, totPts, status;
 
    if (nInputs_ <= 0 || nSamples_ <= 0)
    {
@@ -86,7 +87,7 @@ int Regression::genNDGridData(double *X, double *Y, int *N2, double **X2,
       printf("    nSamples = %6d (should be > 0).\n", nSamples_);
       return 0;
    } 
-   if (nSamples_ <= nInputs_)
+   if (nSamples_ <= 1)
    {
       printf("Regression ERROR: no regression, not enough points.\n");
       printf("   First order regression needs >= nInputs+1 sample points.\n");
@@ -102,63 +103,16 @@ int Regression::genNDGridData(double *X, double *Y, int *N2, double **X2,
    }
 
    if ((*N2) == -999) return 0;
-   if (nInputs_ > 21)
-   {
-      printf("Regression INFO: nInputs > 21 => no lattice point generated.\n");
-      (*N2) = 0;
-      return 0;
-   }
 
-   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 18 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 17 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 16 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 15 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
-   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-   if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-   if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-   if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-   if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-   if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-   if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-   if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-   if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-   if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-   if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
-   totPts = nPtsPerDim_;
-   for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-   HX = new double[nInputs_];
-   for (ii = 0; ii < nInputs_; ii++)
-      HX[ii] = (upperBounds_[ii] - lowerBounds_[ii]) /
-               (double) (nPtsPerDim_ - 1);
+   genNDGrid(N2, X2);
+   if ((*N2) == 0) return 0;
+   totPts = (*N2);
 
-   (*X2) = new double[nInputs_ * totPts];
    (*Y2) = new double[totPts];
    (*N2) = totPts;
-   Xloc  = new double[nInputs_];
-
-   for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
-
    for (mm = 0; mm < totPts; mm++)
-   {
-      for (ii = 0; ii < nInputs_; ii++ ) (*X2)[mm*nInputs_+ii] = Xloc[ii];
-      for (ii = 0; ii < nInputs_; ii++ )
-      {
-         Xloc[ii] += HX[ii];
-         if (Xloc[ii] < upperBounds_[ii] ||
-             PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-         else Xloc[ii] = lowerBounds_[ii];
-      }
       (*Y2)[mm] = evaluatePoint(&((*X2)[mm*nInputs_]));
-   }
 
-   delete [] Xloc;
-   delete [] HX;
    return 0;
 }
 
@@ -346,32 +300,66 @@ int Regression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
 double Regression::evaluatePoint(double *X)
 {
    int    mm, nn, pp, qq, offset;
-   double Y;
+   double Xdata, Xdata2, Xdata3, Xdata4, Y;
 
    if (regCoeffs_ == NULL) return 0.0;
    Y = regCoeffs_[0];
-   for (mm = 0; mm < nInputs_; mm++) Y += regCoeffs_[mm+1] * X[mm];
+   if (order_ >= 1)
+   {
+      for (mm = 0; mm < nInputs_; mm++)
+      {
+         Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+         Y += regCoeffs_[mm+1] * Xdata;
+      }
+   }
    if (order_ >= 2)
    {
       offset = nInputs_ + 1;
       for (mm = 0; mm < nInputs_; mm++)
+      {
+         Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
          for (nn = mm; nn < nInputs_; nn++)
-            Y += (regCoeffs_[offset++] * X[mm] * X[nn]);
+         {
+            Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
+            Y += (regCoeffs_[offset++] * Xdata * Xdata2);
+         }
+      }
    }
    if (order_ >= 3)
    {
       for (mm = 0; mm < nInputs_; mm++)
+      {
+         Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
          for (nn = mm; nn < nInputs_; nn++)
+         {
+            Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
             for (pp = nn; pp < nInputs_; pp++)
-               Y += regCoeffs_[offset++] * X[mm] * X[nn] * X[pp];
+            {
+               Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
+               Y += regCoeffs_[offset++] * Xdata * Xdata2 * Xdata3;
+            }
+         }
+      }
    }
    if (order_ >= 4)
    {
       for (mm = 0; mm < nInputs_; mm++)
+      {
+         Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
          for (nn = mm; nn < nInputs_; nn++)
+         {
+            Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
             for (pp = nn; pp < nInputs_; pp++)
+            {
+               Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
                for (qq = pp; qq < nInputs_; qq++)
-                  Y += regCoeffs_[offset++] * X[mm] * X[nn] * X[pp] * X[qq];
+               {
+                  Xdata4 = (X[qq] - XMeans_[qq]) / XStds_[qq]; 
+                  Y += regCoeffs_[offset++] * Xdata * Xdata2 * Xdata3 * Xdata4;
+               }
+            }
+         }
+      }
    }
    return Y;
 }
@@ -393,6 +381,7 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
 {
    int    mm, nn, pp, qq, cc, offset, nTimes=100;
    double dtmp, *Ys, C1, C2, mean, stds, *uppers, *lowers;
+   double Xdata, Xdata2, Xdata3, Xdata4;
    PDFBase **PDFPtrs;
 
    if (regCoeffs_ == NULL) return 0.0;
@@ -409,9 +398,11 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
       {
          mean = regCoeffs_[mm];
          stds = regStdevs_[mm];
-         uppers[mm] = mean + 2.0 * stds;
-         lowers[mm] = mean - 2.0 * stds;
-         PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, std);
+         uppers[mm] = mean + 3.0 * stds;
+         lowers[mm] = mean - 3.0 * stds;
+         if (uppers[mm] > lowers[mm])
+              PDFPtrs[mm] = (PDFBase *) new PDFNormal(mean, stds);
+         else PDFPtrs[mm] = NULL;
       }
       Ys = new double[nTimes];
 
@@ -419,27 +410,40 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
       for (cc = 0; cc < nTimes; cc++)
       {
          C1 = PSUADE_drand();
-         PDFPtrs[0]->invCDF(1, &C1, &C2, lowers[0], uppers[0]);
+         if (PDFPtrs[0] != NULL)
+             PDFPtrs[0]->invCDF(1, &C1, &C2, lowers[0], uppers[0]);
+         else C2 = regCoeffs_[0];
          dtmp = C2;
          fuzzyC_[0][cc] = C2;
 
-         for (mm = 0; mm < nInputs_; mm++)
+         if (order_ >= 1)
          {
-            C1 = PSUADE_drand();
-            PDFPtrs[mm+1]->invCDF(1, &C1, &C2, lowers[mm+1], uppers[mm+1]);
-            dtmp += C2 * X[mm];
-            fuzzyC_[mm+1][cc] = C2;
+            for (mm = 0; mm < nInputs_; mm++)
+            {
+               C1 = PSUADE_drand();
+               if (PDFPtrs[mm+1] != NULL)
+                    PDFPtrs[mm+1]->invCDF(1,&C1,&C2,lowers[mm+1],uppers[mm+1]);
+               else C2 = regCoeffs_[mm+1];
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+               dtmp += C2 * Xdata;
+               fuzzyC_[mm+1][cc] = C2;
+            }
          }
          if (order_ >= 2)
          {
             offset = nInputs_ + 1;
             for (mm = 0; mm < nInputs_; mm++)
             {
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
                for (nn = mm; nn < nInputs_; nn++)
                {
                   C1 = PSUADE_drand();
-                  PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],uppers[offset]);
-                  dtmp += (C2 * X[mm] * X[nn]);
+                  if (PDFPtrs[offset] != NULL)
+                        PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],
+                                                uppers[offset]);
+                  else C2 = regCoeffs_[offset];
+                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
+                  dtmp += (C2 * Xdata * Xdata2);
                   fuzzyC_[offset][cc] = C2;
                   offset++;
                }
@@ -449,14 +453,20 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
          {
             for (mm = 0; mm < nInputs_; mm++)
             {
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
                for (nn = mm; nn < nInputs_; nn++)
                {
+                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
                   for (pp = nn; pp < nInputs_; pp++)
                   {
                      C1 = PSUADE_drand();
-                     PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],uppers[offset]);
+                     if (PDFPtrs[offset] != NULL)
+                          PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],
+                                                  uppers[offset]);
+                     else C2 = regCoeffs_[offset];
                      fuzzyC_[offset][cc] = C2;
-                     dtmp += (C2 * X[mm] * X[nn] * X[pp]);
+                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
+                     dtmp += (C2 * Xdata * Xdata2 * Xdata3);
                      offset++;
                   }
                }
@@ -466,17 +476,23 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
          {
             for (mm = 0; mm < nInputs_; mm++)
             {
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
                for (nn = mm; nn < nInputs_; nn++)
                {
+                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
                   for (pp = nn; pp < nInputs_; pp++)
                   {
+                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
                      for (qq = pp; qq < nInputs_; qq++)
                      {
                         C1 = PSUADE_drand();
-                        PDFPtrs[offset]->invCDF(1, &C1, &C2, lowers[offset],
+                        if (PDFPtrs[offset] != NULL)
+                             PDFPtrs[offset]->invCDF(1,&C1,&C2,lowers[offset],
                                                  uppers[offset]);
+                        else C2 = regCoeffs_[offset];
                         fuzzyC_[offset][cc] = C2;
-                        dtmp += (C2 * X[mm] * X[nn] * X[pp] * X[qq]);
+                        Xdata4 = (X[qq] - XMeans_[qq]) / XStds_[qq]; 
+                        dtmp += (C2 * Xdata * Xdata2 * Xdata3 * Xdata4);
                         offset++;
                      }
                   }
@@ -492,7 +508,8 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
          stds += (Ys[cc] - mean) * (Ys[cc] - mean);
       stds = sqrt(stds / (nTimes - 1));
 
-      for (mm = 0; mm < numTerms_; mm++) delete PDFPtrs[mm];
+      for (mm = 0; mm < numTerms_; mm++) 
+         if (PDFPtrs[mm] != NULL) delete PDFPtrs[mm];
       delete [] PDFPtrs;
       delete [] uppers;
       delete [] lowers;
@@ -508,20 +525,26 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
          C2 = fuzzyC_[0][cc];
          dtmp = C2;
 
-         for (mm = 0; mm < nInputs_; mm++)
+         if (order_ >= 1)
          {
-            C2 = fuzzyC_[mm+1][cc];
-            dtmp += C2 * X[mm];
+            for (mm = 0; mm < nInputs_; mm++)
+            {
+               C2 = fuzzyC_[mm+1][cc];
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
+               dtmp += C2 * Xdata;
+            }
          }
          if (order_ >= 2)
          {
             offset = nInputs_ + 1;
             for (mm = 0; mm < nInputs_; mm++)
             {
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
                for (nn = mm; nn < nInputs_; nn++)
                {
                   C2 = fuzzyC_[offset][cc];
-                  dtmp += (C2 * X[mm] * X[nn]);
+                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
+                  dtmp += (C2 * Xdata * Xdata2);
                   offset++;
                }
             }
@@ -530,12 +553,15 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
          {
             for (mm = 0; mm < nInputs_; mm++)
             {
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
                for (nn = mm; nn < nInputs_; nn++)
                {
+                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
                   for (pp = nn; pp < nInputs_; pp++)
                   {
                      C2 = fuzzyC_[offset][cc];
-                     dtmp += (C2 * X[mm] * X[nn] * X[pp]);
+                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
+                     dtmp += (C2 * Xdata * Xdata2 * Xdata3);
                      offset++;
                   }
                }
@@ -545,14 +571,18 @@ double Regression::evaluatePointFuzzy(double *X, double &std)
          {
             for (mm = 0; mm < nInputs_; mm++)
             {
+               Xdata = (X[mm] - XMeans_[mm]) / XStds_[mm]; 
                for (nn = mm; nn < nInputs_; nn++)
                {
+                  Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
                   for (pp = nn; pp < nInputs_; pp++)
                   {
+                     Xdata3 = (X[pp] - XMeans_[pp]) / XStds_[pp]; 
                      for (qq = pp; qq < nInputs_; qq++)
                      {
                         C2 = fuzzyC_[offset][cc];
-                        dtmp += (C2 * X[mm] * X[nn] * X[pp] * X[qq]);
+                        Xdata4 = (X[qq] - XMeans_[qq]) / XStds_[qq]; 
+                        dtmp += (C2 * Xdata * Xdata2 * Xdata3 * Xdata4);
                         offset++;
                      }
                   }
@@ -590,9 +620,10 @@ double Regression::evaluatePointFuzzy(int npts, double *X, double *Y,
 double Regression::setParams(int targc, char **targv)
 {
    order_ = *(int *) targv[0];
-   if (order_ <= 0 || order_ > 4) order_ = 1;
+   if (order_ <= 0 || order_ > 4) order_ = 0;
    switch (order_)
    {
+      case 0: faID_ = 0;               break;
       case 1: faID_ = PSUADE_RS_REGR1; break;
       case 2: faID_ = PSUADE_RS_REGR2; break;
       case 3: faID_ = PSUADE_RS_REGR3; break;
@@ -604,13 +635,13 @@ double Regression::setParams(int targc, char **targv)
 // ************************************************************************
 // perform mean/variance analysis
 // ------------------------------------------------------------------------
-int Regression::analyze(double *X, double *Y)
+int Regression::analyze(double *Xin, double *Y)
 {
    int    M, N, ii, mm, nn, nn2, nn3, nn4, info, wlen, ind, last, NRevised;
-   double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bstd;
+   double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bstd, *X;
    double esum, ymax, *txArray, *AA, *SS, *UU, *VV, *WW;
    char   jobu  = 'A', jobvt = 'A';
-   char   pString[100];
+   char   pString[1000], response[1000];
    FILE   *fp;
 
    if (nInputs_ <= 0 || nSamples_ <= 0)
@@ -618,13 +649,12 @@ int Regression::analyze(double *X, double *Y)
       printf("Regression ERROR: consult PSUADE developers.\n");
       exit( 1 );
    } 
-   if (nSamples_ <= nInputs_) return 0;
    
    txArray = new double[nSamples_];
    for (ii = 0; ii < nInputs_; ii++)
    {
       for (mm = 0; mm < nSamples_; mm++)
-         txArray[mm] = X[mm*nInputs_+ii];
+         txArray[mm] = Xin[mm*nInputs_+ii];
       sortDbleList(nSamples_, txArray);
       last = 1;
       for (mm = 1; mm < nSamples_; mm++)
@@ -640,37 +670,16 @@ int Regression::analyze(double *X, double *Y)
          order_ = last - 1;
          printf("* Regression: order reduced to %d - not enough levels.\n",
                order_);
-         delete [] txArray;
-         return -1;
       }
    }
    delete [] txArray;
 
-   N = loadXMatrix(X, &XX); 
-   if (N == 0)
-   {
-      printf("* Regression ERROR: loadXMatrix returns NULL.\n");
-      return -1;
-   }
-   while (N > nSamples_ && order_ > 1)
-   {
-      if (XX != NULL) delete [] XX;
-      printf("* Regression ERROR: sample too small for order %d.\n",order_);
-      printf("                    Try lower order.\n");
-      return -1;
-   }
-   if (N > nSamples_)
-   {
-      printf("* Regression: sample size too small (%d > %d).\n", N, nSamples_);
-      if (XX != NULL) delete [] XX;
-      return -1;
-   }
-   M = nSamples_;
-
    if (outputLevel_ >= 0)
    {
       printAsterisks(0);
-      if (order_ == 1)
+      if (order_ == 0)
+        printf("*               Constant Regression Analysis\n");
+      else if (order_ == 1)
         printf("*               Linear Regression Analysis\n");
       else if (order_ == 2)
         printf("*             Quadratic Regression Analysis\n");
@@ -681,6 +690,7 @@ int Regression::analyze(double *X, double *Y)
       printf("* R-squared gives a measure of the goodness of the model.\n");
       printf("* R-squared should be close to 1 if it is a good model.\n");
       printf("* TURN ON rs_expert mode to output regression matrix.\n");
+      printf("* TURN ON rs_expert mode to output regression function.\n");
       printf("* TURN ON rs_expert mode to condition covariance matrix.\n");
       printf("* SET print level to 5 to output regression error splot.\n");
       printf("* SET print level to 4 to output data standard deviations.\n");
@@ -690,6 +700,31 @@ int Regression::analyze(double *X, double *Y)
       printf("*             command line mode.\n");
       printEquals(0);
    }
+
+   X = new double[nSamples_*nInputs_];
+   initInputScaling(Xin, X, 0);
+
+   N = loadXMatrix(X, &XX); 
+   if (N == 0)
+   {
+      printf("* Regression ERROR: loadXMatrix returns NULL.\n");
+      return -1;
+   }
+   if (N > nSamples_ && order_ >= 0)
+   {
+      if (XX != NULL) delete [] XX;
+      printf("* Regression ERROR: sample too small for order %d.\n",order_);
+      printf("                    Try lower order (%d > %d).\n",N,nSamples_);
+      return -1;
+   }
+   if (N > nSamples_)
+   {
+      if (XX != NULL) delete [] XX;
+      printf("* Regression: sample size too small (%d > %d).\n", N, nSamples_);
+      return -1;
+   }
+   M = nSamples_;
+
 
    wlen = 5 * M;
    AA = new double[M*N];
@@ -702,21 +737,26 @@ int Regression::analyze(double *X, double *Y)
          AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
    if (psRSExpertMode_ == 1)
    {
-      fp = fopen("regression_matrix.m", "w");
-      fprintf(fp, "%% the sample matrix where svd is computed\n");
-      fprintf(fp, "%% the last column is the right hand side\n");
-      fprintf(fp, "AA = [\n");
-      for (mm = 0; mm < M; mm++) 
+      sprintf(pString, "Store regression matrix (A = X^T X)? (y or n) ");
+      getString(pString, response);
+      if (response[0] == 'y')
       {
-         for (nn = 0; nn < N; nn++) 
-            fprintf(fp, "%16.6e ", AA[mm+nn*M]);
-         fprintf(fp, "%16.6e \n",Y[mm]);
+         fp = fopen("regression_matrix.m", "w");
+         fprintf(fp, "%% the sample matrix where svd is computed\n");
+         fprintf(fp, "%% the last column is the right hand side\n");
+         fprintf(fp, "AA = [\n");
+         for (mm = 0; mm < M; mm++) 
+         {
+            for (nn = 0; nn < N; nn++) 
+               fprintf(fp, "%16.6e ", AA[mm+nn*M]);
+            fprintf(fp, "%16.6e \n",Y[mm]);
+         }
+         fprintf(fp, "];\n");
+         fprintf(fp, "A = AA(:,1:%d);\n", N);
+         fprintf(fp, "B = AA(:,%d);\n", N+1);
+         fclose(fp);
+         printf("Regression: regression matrix (X^TX) now in regression_matrix.m\n");
       }
-      fprintf(fp, "];\n");
-      fprintf(fp, "A = AA(:,1:%d);\n", N);
-      fprintf(fp, "B = AA(:,%d);\n", N+1);
-      fclose(fp);
-      printf("Regression: regression matrix (X^TX) now in regression_matrix.m\n");
    }
    if (outputLevel_ > 3) printf("Running SVD ...\n"); 
    dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
@@ -830,7 +870,7 @@ int Regression::analyze(double *X, double *Y)
    esum /= (double) nSamples_;
    esum = sqrt(esum);
    if (outputLevel_ > 1)
-      printf("* Regression:: LS average error = %11.4e (Ymax=%9.2e)\n",
+      printf("* Regression: rms of interpolation error = %11.4e (Ymax=%9.2e)\n",
              esum, ymax); 
    if (fp != NULL) 
    {
@@ -848,7 +888,7 @@ int Regression::analyze(double *X, double *Y)
    }
 
    computeSS(N, XX, Y, B, SSresid, SStotal);
-   R2  = (SStotal - SSresid) / SStotal;
+   R2  = 1.0 - SSresid / SStotal;
    if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
    else               var = 0.0;
 
@@ -859,7 +899,8 @@ int Regression::analyze(double *X, double *Y)
    if (outputLevel_ >= 0)
    {
       printRC(N, B, Bstd, XX, Y);
-      printf("* Regression R-square = %12.4e\n", R2);
+      printf("* Regression R-square = %12.4e (SSresid,SStotal=%10.2e,%10.2e)\n",
+             R2, SSresid, SStotal);
       if ((M - N - 1) > 0)
          printf("* adjusted   R-square = %12.4e\n",
                 1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
@@ -869,8 +910,13 @@ int Regression::analyze(double *X, double *Y)
    {
       fp = fopen("regression_function.m", "w");
       fprintf(fp, "Y = %24.16e ", B[0]);
-      for (nn = 1; nn <= nInputs_; nn++)
-         fprintf(fp, "+ %24.16e * X(%d) ", B[nn], nn);
+      if (order_ >= 1)
+      {
+         for (nn = 1; nn <= nInputs_; nn++)
+            fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e ", B[nn], nn,
+                    XMeans_[nn-1], XStds_[nn-1]);
+
+      }
       if (order_ >= 2)
       {
          ind = nInputs_ + 1;
@@ -878,7 +924,10 @@ int Regression::analyze(double *X, double *Y)
          {
             for (nn2 = nn; nn2 < nInputs_; nn2++)
             {
-               fprintf(fp, "+ %24.16e * X(%d) * X(%d) ", B[ind], nn+1, nn2+1);
+               fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e * ", 
+                       B[ind], nn+1, XMeans_[nn], XStds_[nn]);
+               fprintf(fp, "(X(%d) - %e) / %e ", nn2+1, 
+                       XMeans_[nn2], XStds_[nn2]);
                ind++;
             }
          }
@@ -891,8 +940,12 @@ int Regression::analyze(double *X, double *Y)
             {
                for (nn3 = nn2; nn3 < nInputs_; nn3++)
                {
-                  fprintf(fp, "+ %24.16e * X(%d) * X(%d) * X(%d) ", B[ind], 
-                          nn+1, nn2+1, nn3+1);
+                  fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e * ", 
+                          B[ind], nn+1, XMeans_[nn], XStds_[nn]);
+                  fprintf(fp, "(X(%d) - %e) / %e * ", 
+                          nn2+1, XMeans_[nn2], XStds_[nn2]);
+                  fprintf(fp, "(X(%d) - %e) / %e ", 
+                          nn3+1, XMeans_[nn3], XStds_[nn3]);
                   ind++;
                }
             }
@@ -908,8 +961,14 @@ int Regression::analyze(double *X, double *Y)
                {
                   for (nn4 = nn3; nn4 < nInputs_; nn4++)
                   {
-                     fprintf(fp, "+ %24.16e * X(%d) * X(%d) * X(%d) *X(%d) ", 
-                             B[ind], nn+1, nn2+1, nn3+1, nn4+1);
+                     fprintf(fp, "+ %24.16e * (X(%d) - %e) / %e * ", 
+                             B[ind], nn+1, XMeans_[nn], XStds_[nn]);
+                     fprintf(fp, "(X(%d) - %e) / %e * ", 
+                             nn2+1, XMeans_[nn2], XStds_[nn2]);
+                     fprintf(fp, "(X(%d) - %e) / %e * ", 
+                             nn3+1, XMeans_[nn3], XStds_[nn3]);
+                     fprintf(fp, "(X(%d) - %e) / %e ", 
+                             nn4+1, XMeans_[nn4], XStds_[nn4]);
                      ind++;
                   }
                }
@@ -939,35 +998,77 @@ int Regression::analyze(double *X, double *Y)
 // -------------------------------------------------------------------------
 int Regression::loadXMatrix(double *X, double **XXOut)
 {
-   int    M, N=0, mm, nn, nn2, nn3, nn4, ind;
+   int    M, N=0, mm, nn, nn2, nn3, nn4, ind, N2;
    double *XX=NULL;
 
    (*XXOut) = NULL;
-   if (order_ <= 0 || order_ > 4) return 0;
+   if (order_ > 4) return 0;
 
    M = nSamples_;
-   N = nInputs_ + 1;
-   if (order_ >= 2) N += nInputs_ * (nInputs_ + 1) / 2;
+   if (order_ >= 0) N = 1;
+   if (order_ >= 1)
+   {
+      N2 = N;
+      N += nInputs_;
+      if (nSamples_ < N)
+      {
+         N = N2;
+         order_ = 0;
+         printf("Regression INFO: order reduced to 0.\n");
+      }
+   }
+   if (order_ >= 2)
+   {
+      N2 = N;
+      N += nInputs_ * (nInputs_ + 1) / 2;
+      if (nSamples_ < N)
+      {
+         N = N2;
+         order_ = 1;
+         printf("Regression INFO: order reduced to 1.\n");
+      }
+   }
    if (order_ >= 3)
    {
+      N2 = N;
       for (nn = 0; nn < nInputs_; nn++)
          for (nn2 = nn; nn2 < nInputs_; nn2++)
             for (nn3 = nn2; nn3 < nInputs_; nn3++) N++;
+      if (nSamples_ < N)
+      {
+         N = N2;
+         order_ = 2;
+         printf("Regression INFO: order reduced to 2.\n");
+      }
    }
    if (order_ >= 4)
    {
+      N2 = N;
       for (nn = 0; nn < nInputs_; nn++)
          for (nn2 = nn; nn2 < nInputs_; nn2++)
             for (nn3 = nn2; nn3 < nInputs_; nn3++)
                for (nn4 = nn3; nn4 < nInputs_; nn4++) N++;
+      if (nSamples_ < N)
+      {
+         N = N2;
+         order_ = 3;
+         printf("Regression INFO: order reduced to 3.\n");
+      }
    }
    if (N > M) return N;
    XX = new double[M*N];
-   for (mm = 0; mm < M; mm++)
+   if (order_ >= 0)
    {
-      XX[mm] = 1.0;
-      for (nn = 0; nn < nInputs_; nn++)
-         XX[M*(nn+1)+mm] = X[mm*nInputs_+nn];
+      for (mm = 0; mm < M; mm++) XX[mm] = 1.0;
+   }
+   if (order_ >= 1)
+   {
+      for (mm = 0; mm < M; mm++)
+      {
+         XX[mm] = 1.0;
+         for (nn = 0; nn < nInputs_; nn++)
+            XX[M*(nn+1)+mm] = X[mm*nInputs_+nn];
+      }
    }
    if (order_ >= 2)
    {
@@ -1051,22 +1152,24 @@ int Regression::computeSS(int N, double *XX, double *Y,
                           double *B, double &SSresid, double &SStotal)
 {
    int    nn, mm;
-   double *R, ymean;
+   double rdata, ymean, SSreg, ddata;
 
-   SSresid = SStotal = ymean = 0.0;
-   R = new double[nSamples_];
+   SSresid = SStotal = SSreg = ymean = 0.0;
+   for (mm = 0; mm < nSamples_; mm++) ymean += sqrt(weights_[mm]) * Y[mm];
+   ymean /= (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
    {
-      R[mm] = Y[mm];
-      for (nn = 0; nn < N; nn++) R[mm] -= (XX[mm+nn*nSamples_] * B[nn]);
-      SSresid += R[mm] * Y[mm] * weights_[mm];
-      ymean += (sqrt(weights_[mm]) * Y[mm]);
+      ddata = 0.0;
+      for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
+      rdata = Y[mm] - ddata;
+      SSresid += rdata * rdata * weights_[mm];
+      SSreg += (ddata - ymean) * (ddata - ymean);
    }
-   ymean /= (double) nSamples_;
-   SStotal = - ymean * ymean * (double) nSamples_;
    for (mm = 0; mm < nSamples_; mm++)
-      SStotal += weights_[mm] * Y[mm] * Y[mm];
-   delete [] R;
+      SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+   printf("Regression: SStot, SSreg, SSres = %e %e %e\n", 
+          SStotal, SSreg, SSresid);
+
    return 0;
 }
 
@@ -1092,7 +1195,7 @@ int Regression::computeCoeffVariance(int N,double *XX,double var,double *B)
       dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
       if (info != 0)
          printf("Regression WARNING: dgels returns error %d.\n",info);
-      if (B2[nn] < 0) B[nn] = -sqrt(-B2[nn]);
+      if (B2[nn] < 0) B[nn] = 0;
       else            B[nn] = sqrt(B2[nn]);
    }
 
@@ -1112,30 +1215,34 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    char   fname[200];
    FILE   *fp;
 
-   if (order_ <= 0 || order_ > 4) return 0;
-   printf("* ======== Note: entries with t-value < 1 suppressed ========\n");
+   if (order_ < 0 || order_ > 4) return 0;
+   printEquals(0);
+   printf("*** Note: these coefficients may not be true coefficients due\n");
+   printf("***       to sample matrix scaling (that is, they may be scaled).\n");
+   printDashes(0);
    printf("*            ");
    for (ii = 1; ii < order_; ii++) printf("    ");
    printf("  coefficient   std. error   t-value\n");
+   printDashes(0);
 
    if (PABS(Bvar[0]) < 1.0e-15) coef = 0.0;
    else                         coef = B[0] / Bvar[0]; 
-   if (PABS(coef) > 1.0)
+   printf("* Constant  ");
+   for (ii = 1; ii < order_; ii++) printf("    ");
+   printf("= %12.4e %12.4e %12.4e\n", B[0], Bvar[0], coef);
+   if (order_ >= 1)
    {
-      printf("* Constant  ");
-      for (ii = 1; ii < order_; ii++) printf("    ");
-      printf("= %12.4e %12.4e %12.4e\n", B[0], Bvar[0], coef);
-   }
-   for (nn = 1; nn <= nInputs_; nn++)
-   {
-      if (PABS(Bvar[nn]) < 1.0e-15) coef = 0.0;
-      else                          coef = B[nn] / Bvar[nn]; 
+      for (nn = 1; nn <= nInputs_; nn++)
       {
-         printf("* Input %3d ", nn);
-         for (ii = 1; ii < order_; ii++) printf("    ");
-         printf("= %12.4e %12.4e %12.4e\n", B[nn], Bvar[nn], coef);
+         if (PABS(Bvar[nn]) < 1.0e-15) coef = 0.0;
+         else                          coef = B[nn] / Bvar[nn]; 
+         {
+            printf("* Input %3d ", nn);
+            for (ii = 1; ii < order_; ii++) printf("    ");
+            printf("= %12.4e %12.4e %12.4e\n", B[nn], Bvar[nn], coef);
+         }
+         strcpy(fname, "dataVariance1");
       }
-      strcpy(fname, "dataVariance1");
    }
    if (order_ >= 2)
    {
@@ -1221,9 +1328,15 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
    }
    printDashes(0);
 
-   if (order_ >= 1 && order_ <= 4 && outputLevel_ > 3)
+   if (order_ >= 0 && order_ <= 4 && outputLevel_ > 3)
    {
       fp = fopen(fname, "w");
+      if(fp == NULL)
+      {
+         printf("fopen returned NULL in file %s line %d, exiting\n",
+                 __FILE__, __LINE__);
+         exit(1);
+      }
       fprintf(fp, "data number     data         standard error\n");
       for (mm = 0; mm < nSamples_; mm++)
       {
@@ -1246,7 +1359,7 @@ int Regression::printSRC(double *X, double *B, double SStotal)
    double denom, xmean, coef, Bmax, coef1, coef2, xmean1, xmean2;
    double xmean3, coef3, xmean4, coef4, *B2;
 
-   if (order_ <= 0 || order_ > 4) return 0;
+   if (order_ < 0 || order_ > 4) return 0;
 
    printAsterisks(0);
    printf("*       Standardized Regression Coefficients (SRC)\n");
@@ -1256,41 +1369,43 @@ int Regression::printSRC(double *X, double *B, double SStotal)
    printf("* based on nSamples = %d\n", nSamples_);
 
    B2 = new double[nSamples_];
-   denom = sqrt(SStotal / (double) (nSamples_ - 1));
-   Bmax = 0.0;
-   for (nn = 0; nn < nInputs_; nn++)
+   if (order_ >= 1)
    {
-      xmean = 0.0;
-      for (mm = 0; mm < nSamples_; mm++) 
-         xmean += X[mm*nInputs_+nn] * sqrt(weights_[mm]);
-      xmean /= (double) nSamples_;
-      coef = 0.0;
-      for (mm = 0; mm < nSamples_; mm++)
+      denom = sqrt(SStotal / (double) (nSamples_ - 1));
+      Bmax = 0.0;
+      for (nn = 0; nn < nInputs_; nn++)
       {
-         coef += (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean) * 
-                 (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean);
+         xmean = 0.0;
+         for (mm = 0; mm < nSamples_; mm++) 
+            xmean += X[mm*nInputs_+nn] * sqrt(weights_[mm]);
+         xmean /= (double) nSamples_;
+         coef = 0.0;
+         for (mm = 0; mm < nSamples_; mm++)
+         {
+            coef += (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean) * 
+                    (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean);
+         }
+         coef = sqrt(coef / (double) (nSamples_ - 1)) / denom;
+         printf("* Input %3d ", nn+1);
+         for (ii = 1; ii < order_; ii++) printf("    ");
+         if ((B[nn+1]*coef) > Bmax) Bmax = B[nn+1]*coef;
+         printf("= %12.4e\n", B[nn+1]*coef);
+         B2[nn] = PABS(B[nn+1] * coef);
       }
-      coef = sqrt(coef / (double) (nSamples_ - 1)) / denom;
-      printf("* Input %3d ", nn+1);
-      for (ii = 1; ii < order_; ii++) printf("    ");
-      if ((B[nn+1]*coef) > Bmax) Bmax = B[nn+1]*coef;
-      printf("= %12.4e\n", B[nn+1]*coef);
-      B2[nn] = PABS(B[nn+1] * coef);
+      printDashes(0);
+      printf("*    ordered list of SRCs\n");
+      printDashes(0);
+      iArray = new int[nInputs_];
+      for (nn = 0; nn < nInputs_; nn++) iArray[nn] = nn;
+      sortDbleList2a(nInputs_, B2, iArray); 
+      for (nn = nInputs_-1; nn >= 0; nn--)
+      {
+         printf("* Input %3d ", iArray[nn]+1);
+         for (ii = 1; ii < order_; ii++) printf("    ");
+         printf("= %12.4e\n", B2[nn]);
+      }
+      delete [] iArray; 
    }
-   printDashes(0);
-   printf("*    ordered list of SRCs\n");
-   printDashes(0);
-   iArray = new int[nInputs_];
-   for (nn = 0; nn < nInputs_; nn++) iArray[nn] = nn;
-   sortDbleList2a(nInputs_, B2, iArray); 
-   for (nn = nInputs_-1; nn >= 0; nn--)
-   {
-      printf("* Input %3d ", iArray[nn]+1);
-      for (ii = 1; ii < order_; ii++) printf("    ");
-      printf("= %12.4e\n", B2[nn]);
-   }
-   delete [] iArray; 
-
    if (order_ >= 2)
    {
       ind = nInputs_ + 1;

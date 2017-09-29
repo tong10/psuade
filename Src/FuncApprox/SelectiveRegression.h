@@ -28,7 +28,7 @@
 #ifndef __SELECTIVEREGRESSIONH__
 #define __SELECTIVEREGRESSIONH__
 
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

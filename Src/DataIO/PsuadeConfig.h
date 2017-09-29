@@ -42,14 +42,32 @@ class PsuadeConfig
 
 public:
 
+   // Constructor
+   // fname : configure file name
+   // printLevel : diagnostics print level
    PsuadeConfig(char *fname, int printLevel);
 
+   // Copy Contructor by Bill Oliver
+   PsuadeConfig(const PsuadeConfig & ps);
+
+   // Destructor
    ~PsuadeConfig();
 
+   // Get parameter 
    char *getParameter(const char *);
 
+   // write file
+   // fname : configure file name
    void writeToFile(char *fname);
 };
+
+// ************************************************************************
+// friend function
+// ------------------------------------------------------------------------
+extern "C"
+{
+   int genConfigFileTemplate(char *filename);
+}
 
 #endif // __PSUADECONFIGH__
 

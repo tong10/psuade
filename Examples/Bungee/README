@@ -1,6 +1,5 @@
 Bungee Problem:
 
-
 The function is
 
    hmin = H - 2Mg/ k sigma
@@ -25,18 +24,18 @@ sig ~0.54
 ===============================================
 To run:
                                                                                 
-install_psuade
-make to create psuade executable
 cd to this directory
 cc -o simulator simulator.c -lm
-../../bin/psuade psuade.in
+psuade psuade.in
 
 (1) to perform uncertainty analysis
 
     - rename psuadeData to psSave
     - psuade
       > load psSave
+      > ana_expert  <turn on expert mode for graphics>
       > ua (or ca)
+      
 
 (2) to perform main effect analysis
 

@@ -32,9 +32,9 @@
 #include <string>
 using namespace std;
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "DataIO/FunctionInterface.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "FunctionInterface.h"
 #include "DiscreteSampling.h"
 
 #define PABS(x) ((x) > 0 ? x : -(x))
@@ -44,9 +44,43 @@ using namespace std;
 DiscreteSampling::DiscreteSampling() : Sampling()
 {
    samplingID_   = PSUADE_SAMP_DISCRETE;
-   inputValCnts_ = NULL;
-   inputValues_  = NULL;
-   inputProbs_   = NULL;
+   //inputValCnts_ = NULL;
+   //inputValues_  = NULL;
+   //inputProbs_   = NULL;
+}
+
+// ************************************************************************
+// copy constructor by Bill Oliver
+// ------------------------------------------------------------------------
+DiscreteSampling::DiscreteSampling(const DiscreteSampling & ds) : Sampling()
+{
+   printLevel_ = ds.printLevel_;
+   samplingID_ = ds.samplingID_;
+   nSamples_ = ds.nSamples_;
+   nInputs_ = ds.nInputs_;
+   nOutputs_ = ds.nOutputs_;
+   randomize_ = ds.randomize_;
+   nReplications_ = ds.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ds.lowerBounds_[i];
+      upperBounds_[i] = ds.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ds.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ds.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ds.sampleStates_[i];
 }
 
 // ************************************************************************
@@ -54,7 +88,7 @@ DiscreteSampling::DiscreteSampling() : Sampling()
 // ------------------------------------------------------------------------
 DiscreteSampling::~DiscreteSampling()
 {
-   if (inputValues_ != NULL)
+  /*   if (inputValues_ != NULL)
    {
       for (int ii = 0; ii < nInputs_; ii++)
          if (inputValues_[ii] != NULL) delete [] inputValues_[ii];
@@ -66,7 +100,7 @@ DiscreteSampling::~DiscreteSampling()
       for (int ii = 0; ii < nInputs_; ii++)
          if (inputProbs_[ii] != NULL) delete [] inputProbs_[ii];
       delete [] inputProbs_;
-   } 
+      } */
 }
 
 // ************************************************************************
@@ -80,6 +114,9 @@ int DiscreteSampling::initialize(int initLevel)
    string sfname, iline;
    size_t compFlag;
    ifstream ifile;
+   int **inputValues_ = NULL;
+   int * inputValCnts_ = NULL;
+   double **inputProbs_ = NULL;
 
    deleteSampleData();
    if (inputValues_ != NULL)
@@ -103,7 +140,7 @@ int DiscreteSampling::initialize(int initLevel)
    printf("parameter file. The parameter file should be of the\n");
    printf("following format:\n");
    printf("PSUADE_BEGIN\n");
-   printf("<number of inputs> <number of sample points\n");
+   printf("<number of inputs> <number of sample points>\n");
    printf("1 numLevels(n) L1 P1 ... Ln Pn <for input 1>\n");
    printf("2 numLevels(n) L1 P1 ... Ln Pn <for input 2>\n");
    printf("...\n");
@@ -150,6 +187,7 @@ int DiscreteSampling::initialize(int initLevel)
       {
          printf("DiscreteSampling ERROR : nSamples <= 0.\n");
          ifile.close();
+	 
          return -1;
       }
       inputValCnts_ = new int[nInputs_];
@@ -169,6 +207,22 @@ int DiscreteSampling::initialize(int initLevel)
             printf("DiscreteSampling ERROR: invalid input index %d (!= %d).\n",
                    kk,ii+1);
             ifile.close();
+            if (inputValues_ != NULL)
+            {
+               for (int ii = 0; ii < nInputs_; ii++)
+                  if (inputValues_[ii] != NULL) delete [] inputValues_[ii];
+                     delete [] inputValues_;
+            }
+            if (inputProbs_ != NULL)
+            {
+               for (int ii = 0; ii < nInputs_; ii++)
+                  if (inputProbs_[ii] != NULL) delete [] inputProbs_[ii];
+                     delete [] inputProbs_;
+            }
+            if (inputValCnts_ != NULL) delete [] inputValCnts_;
+            inputValues_  = NULL;
+            inputValCnts_ = NULL;
+            inputProbs_   = NULL;
             return -1;
          }
          ifile >> num;
@@ -177,6 +231,16 @@ int DiscreteSampling::initialize(int initLevel)
             printf("DiscreteSampling ERROR: invalid numLevels %d (input %d).\n",
                    num,ii+1);
             ifile.close();
+            for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputValues_[ii];
+	    delete [] inputValues_;
+            for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputProbs_[ii];
+	    delete [] inputProbs_;
+	    delete [] inputValCnts_;
+	    inputValues_ = NULL;
+	    inputValCnts_ = NULL;
+	    inputProbs_ = NULL;
             return -1;
          }
          inputValCnts_[ii] = num;
@@ -192,6 +256,16 @@ int DiscreteSampling::initialize(int initLevel)
             {
                ifile.close();
                printf("DiscreteSampling ERROR: probability should be > 0.\n");
+	       for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputValues_[ii];
+	    delete [] inputValues_;
+            for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputProbs_[ii];
+	    delete [] inputProbs_;
+	    delete [] inputValCnts_;
+	    inputValues_ = NULL;
+	    inputValCnts_ = NULL;
+	    inputProbs_ = NULL;
                return -1;
             }
             if (printLevel_ > 1)
@@ -203,6 +277,16 @@ int DiscreteSampling::initialize(int initLevel)
          {
             ifile.close();
             printf("DiscreteSampling ERROR: sum of probability should be 1.\n");
+	    for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputValues_[ii];
+	    delete [] inputValues_;
+            for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputProbs_[ii];
+	    delete [] inputProbs_;
+	    delete [] inputValCnts_;
+	    inputValues_ = NULL;
+	    inputValCnts_ = NULL;
+	    inputProbs_ = NULL;
             return -1;
          }
       }
@@ -220,6 +304,16 @@ int DiscreteSampling::initialize(int initLevel)
    {
       printf("DiscreteSampling ERROR: PSUADE_END not found.\n");
       ifile.close();
+      for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputValues_[ii];
+	    delete [] inputValues_;
+            for(int ii = 0; ii < nInputs_; ii++)
+	      delete [] inputProbs_[ii];
+	    delete [] inputProbs_;
+	    delete [] inputValCnts_;
+	    inputValues_ = NULL;
+	    inputValCnts_ = NULL;
+	    inputProbs_ = NULL;
       return -1;
    }
    ifile.close();
@@ -256,6 +350,16 @@ int DiscreteSampling::initialize(int initLevel)
 
    for (ii = 0; ii < nInputs_; ii++) delete [] probArrays[ii];
    delete [] probArrays;
+   for(int ii = 0; ii < nInputs_; ii++)
+     delete [] inputValues_[ii];
+   delete [] inputValues_;
+   for(int ii = 0; ii < nInputs_; ii++)
+     delete [] inputProbs_[ii];
+   delete [] inputProbs_;
+   delete [] inputValCnts_;
+   inputValues_ = NULL;
+   inputValCnts_ = NULL;
+   inputProbs_ = NULL;
    return 0;
 }
 
@@ -273,4 +377,42 @@ int DiscreteSampling::refine(int refineRatio,int randomize,double thresh,
    printf("DiscreteSampling refine: not implemented yet.\n");
    return -1;
 } 
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+DiscreteSampling& DiscreteSampling::operator=(const DiscreteSampling & ds)
+{
+     if(this == & ds) return *this;
+
+   printLevel_ = ds.printLevel_;
+   samplingID_ = ds.samplingID_;
+   nSamples_ = ds.nSamples_;
+   nInputs_ = ds.nInputs_;
+   nOutputs_ = ds.nOutputs_;
+   randomize_ = ds.randomize_;
+   nReplications_ = ds.nReplications_;
+   lowerBounds_ = new double[nInputs_];
+   upperBounds_ = new double[nInputs_];
+   for (int i = 0; i < nInputs_; i++)
+   {
+      lowerBounds_[i] = ds.lowerBounds_[i];
+      upperBounds_[i] = ds.upperBounds_[i];
+   }
+   sampleMatrix_ = new double*[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+   {
+      sampleMatrix_[i] = new double[nInputs_];
+      for(int j = 0; j < nInputs_; j++)
+         sampleMatrix_[i][j] = ds.sampleMatrix_[i][j];
+   }
+   sampleOutput_ = new double[nSamples_*nOutputs_];
+   for (int i = 0; i < nSamples_*nOutputs_; i++)
+      sampleOutput_[i] = ds.sampleOutput_[i];
+   sampleStates_ = new int[nSamples_];
+   for (int i = 0; i < nSamples_; i++)
+      sampleStates_[i] = ds.sampleStates_[i];
+
+   return *this;
+}
 

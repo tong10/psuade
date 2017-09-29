@@ -28,7 +28,7 @@
 #ifndef __USERREGRESSIONH__
 #define __USERREGRESSIONH__
 
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

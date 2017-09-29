@@ -29,7 +29,7 @@
 #define __ANNH__
 
 #include <stdio.h>
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition
@@ -37,7 +37,14 @@
 class Ann : public FuncApprox
 {
 public:
-   Ann(int nInputs, int nSamples);	
+
+   /** constructor */
+   Ann(int nInputs, int nSamples);
+
+   /** Copy constructor prototype created by Bill Oliver */
+   Ann(const Ann &);	
+
+   /** destructor */
    ~Ann();
 
    int genNDGridData(double *, double *, int *, double **, double **);
@@ -55,6 +62,8 @@ public:
    double evaluatePointFuzzy(int, double *, double *, double *);
 
 private:
+
+   // added by Bill Oliver required by the Copy Constructor
    /* Topology Section */
    int nNet_;	
    int nHidden_;

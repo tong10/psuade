@@ -32,8 +32,8 @@
 using namespace std;
 
 #include "BobyqaOptimizer.h"
-#include "Main/Psuade.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "PsuadeUtil.h"
 
 extern "C" void bobyqa_(int *,int *, double *, double *, double *, double *,
                         double *, int *, int *, double*);
@@ -51,7 +51,6 @@ int     psBCurrDriver_ = -1;
 double  *psBOWghts_=NULL;
 double  *psBLWghts_=NULL;
 double  *psBLVals_=NULL;
-int     saveDataFlag_=0;
 #define PABS(x)  ((x) > 0 ? x : -(x))
 
 // ************************************************************************
@@ -67,15 +66,32 @@ extern "C"
    {
       int    ii, jj, kk, funcID, nInputs, nOutputs, outputID, found;
       double *localY, ddata;
+      char   pString[1000], lineIn[1000];
       oData  *odata;
       FILE   *infile;
 
       nInputs = (*nInps);
+#if 0
       if (psOptExpertMode_ != 0 && psBobyqaNSaved_ == 0)
       {
-         infile = fopen("psuade_bobyqa_data","r");
+         infile = fopen("psuade_bobyqa_history","r");
          if (infile != NULL)
          {
+            fscanf(infile, "%s", pString);
+            if (!strcmp(pString, "PSUADE_BEGIN"))
+            {
+               fscanf(infile, "%d", &kk);
+               if (kk != *nInps)
+               {
+                  printf("Bobyqa: history file found but with mismatched nInputs.\n");
+               }
+               else
+               {
+                  fgets(lineIn,500,stdin);
+                  sscanf(infile, "%s", pString);
+                  if (!strcmp(pString, "PSUADE_END"))
+
+             
             fscanf(infile, "%d %d", &psBobyqaNSaved_, &kk);
             if ((psBobyqaNSaved_ <= 0) ||
                 (psBobyqaNSaved_+1 > psBobyqaMaxSaved_*10/nInputs) ||
@@ -111,6 +127,7 @@ extern "C"
             }
          }
       }
+#endif
 
       odata    = (oData *) psBobyqaObj_;
       nOutputs = odata->nOutputs_;
@@ -125,6 +142,7 @@ extern "C"
          if (jj == nInputs)
          {
             found = 1;
+            printf("Bobyqa: simulation results reuse.\n");
             break;
          }
       }
@@ -159,7 +177,9 @@ extern "C"
          (*YValue) = localY[outputID];
       }
 
-      if (psOptExpertMode_ != 0 && saveDataFlag_ == 1 && found == 0)
+      if ((psOptExpertMode_ != 0 && found == 0 &&
+          (psBobyqaNSaved_+1)*nInputs < psBobyqaMaxSaved_*10) && 
+          psBobyqaNSaved_ < psBobyqaMaxSaved_)
       {
          for (jj = 0; jj < nInputs; jj++)
             psBobyqaSaveX_[psBobyqaNSaved_*nInputs+jj] = XValues[jj];
@@ -182,23 +202,6 @@ extern "C"
          }
       }
       free(localY);
-
-      if (psOptExpertMode_ != 0 && saveDataFlag_ == 1 && found == 0)
-      {
-         infile = fopen("psuade_bobyqa_data","w");
-         if (infile != NULL)
-         {
-            fprintf(infile, "%d %d\n", psBobyqaNSaved_, nInputs);
-            for (ii = 0; ii < psBobyqaNSaved_; ii++)
-            {
-               fprintf(infile, "%d ", ii+1);
-               for (jj = 0; jj < nInputs; jj++)
-                  fprintf(infile, "%24.16e ", psBobyqaSaveX_[ii*nInputs+jj]);
-               fprintf(infile, "%24.16e\n", psBobyqaSaveY_[ii]);
-            }
-            fclose(infile);
-         }
-      }
       return NULL;
    }
 #ifdef __cplusplus
@@ -224,10 +227,11 @@ BobyqaOptimizer::~BobyqaOptimizer()
 // ------------------------------------------------------------------------
 void BobyqaOptimizer::optimize(oData *odata)
 {
-   int    nInputs, printLevel=0, ii, maxfun, nPts=0;
-   int    nOutputs, outputID, cmpFlag;
+   int    nInputs, printLevel=0, ii, kk, maxfun, nPts=0;
+   int    nOutputs, outputID, cmpFlag, bobyqaFlag=7777;
    double *XValues, rhobeg=1.0, rhoend=1.0e-4, dtemp, *workArray;
    char   filename[500], cinput[500];;
+   FILE   *infile=NULL;
    string   iLine;
    ifstream iFile;
 
@@ -243,7 +247,7 @@ void BobyqaOptimizer::optimize(oData *odata)
       dtemp = odata->upperBounds_[ii] - odata->lowerBounds_[ii];
       if (dtemp < rhobeg) rhobeg = dtemp;
    }
-   rhobeg *= 0.05;
+   rhobeg *= 0.5;
    rhoend = rhobeg * odata->tolerance_;
    if (rhobeg < rhoend)
    {
@@ -256,7 +260,7 @@ void BobyqaOptimizer::optimize(oData *odata)
    if (nOutputs > 1)
    {
       printAsterisks(0);
-      if (saveDataFlag_ == 0)
+      if (psOptExpertMode_ == 1)
       {
          printf("* You have multiple outputs in your problem definition.\n");
          printf("* Minimization will be performed with respect to output %d.\n",
@@ -287,7 +291,7 @@ void BobyqaOptimizer::optimize(oData *odata)
          printf("\tPSUADE_END\n");
          printAsterisks(0);
       }
-      if (psOptExpertMode_ != 0)
+      if (psOptExpertMode_ == 1)
       {
          strcpy(filename, "psuadeBobyqaSpecial");
          iFile.open(filename);
@@ -374,13 +378,6 @@ void BobyqaOptimizer::optimize(oData *odata)
             }
          }
       }
-      if (saveDataFlag_ == 0)
-      {
-         printf("Save optimization history? (y or n) ");
-         scanf("%s", cinput); 
-         if (cinput[0] == 'y') saveDataFlag_ = 1;
-         else                  saveDataFlag_ = 2;
-      }
    }
 
    maxfun = odata->maxFEval_;
@@ -404,13 +401,56 @@ void BobyqaOptimizer::optimize(oData *odata)
    workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
 
 #ifdef HAVE_BOBYQA
+   if (psOptExpertMode_ != 0)
+   {
+      infile = fopen("psuade_bobyqa_history","r");
+      if (infile != NULL)
+      {
+         psBobyqaNSaved_ = 0;
+         while (feof(infile) == 0)
+         {
+            fscanf(infile, "%d %d", &ii, &kk);
+            if (ii != 999 || kk != nInputs)
+            {
+               break;
+            }
+            else
+            {
+               for (ii = 0; ii < nInputs; ii++) 
+                  fscanf(infile, "%lg",&psBobyqaSaveX_[psBobyqaNSaved_*nInputs+ii]);
+               fscanf(infile, "%lg",&psBobyqaSaveY_[psBobyqaNSaved_]);
+               psBobyqaNSaved_++;
+            }
+            if (((psBobyqaNSaved_+1)*nInputs > psBobyqaMaxSaved_*10) ||
+                psBobyqaNSaved_ > psBobyqaMaxSaved_) break;
+         } 
+         fclose(infile);
+      }
+   }
    for (ii = 0; ii < nInputs; ii++) 
       printf("Bobyqa initial X %3d = %e\n", ii+1, XValues[ii]);
    bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_,
-           odata->upperBounds_, &rhobeg, &rhoend, &printLevel, &maxfun, 
+           odata->upperBounds_, &rhobeg, &rhoend, &bobyqaFlag, &maxfun, 
            workArray);
    printf("Bobyqa optimizer: total number of evaluations = %d\n",
            odata->numFuncEvals_);
+
+   if (psOptExpertMode_ != 0 && psBobyqaNSaved_ > 0)
+   {
+      infile = fopen("psuade_bobyqa_history","w");
+      if (infile != NULL)
+      {
+         for (ii = 0; ii < psBobyqaNSaved_; ii++)
+         {
+            fprintf(infile, "999 %d ", nInputs);
+            for (kk = 0; kk < nInputs; kk++)
+               fprintf(infile, "%24.16e ", psBobyqaSaveX_[ii*nInputs+kk]);
+            fprintf(infile, "%24.16e\n", psBobyqaSaveY_[ii]);
+         }
+         fclose(infile);
+      }
+      printf("Bobyqa: history saved in psuade_bobyqa_history\n");
+   }
 #else
    printf("ERROR : Bobyqa optimizer not installed.\n");
    exit(1);
@@ -423,16 +463,26 @@ void BobyqaOptimizer::optimize(oData *odata)
    }
    delete [] XValues;
    delete [] workArray;
-   delete [] psBOVars_;
-   delete [] psBOWghts_;
-   delete [] psBLVars_;
-   delete [] psBLWghts_;
-   delete [] psBLVals_;
+   if (psBOVars_  != NULL) delete [] psBOVars_;
+   if (psBOWghts_ != NULL) delete [] psBOWghts_;
+   if (psBLVars_  != NULL) delete [] psBLVars_;
+   if (psBLWghts_ != NULL) delete [] psBLWghts_;
+   if (psBLVals_  != NULL) delete [] psBLVals_;
    psBLVals_ = NULL;
    psBLWghts_ = NULL;
    psBOWghts_ = NULL;
    psBOVars_ = NULL;
    psBLVars_ = NULL;
    psNumBOVars_ = psNumBLVars_ = 0;
+}
+
+// ************************************************************************
+// assign operator
+// ------------------------------------------------------------------------
+BobyqaOptimizer& BobyqaOptimizer::operator=(const BobyqaOptimizer &)
+{
+   printf("BobyqaOptimizer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

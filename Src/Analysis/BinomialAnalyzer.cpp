@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "BinomialAnalyzer.h"
-#include "Util/sysdef.h"
+#include "sysdef.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -142,5 +142,15 @@ double BinomialAnalyzer::factorial(int n)
    if (n == 0) return fact;
    for (ii = 2; ii <= n; ii++) fact *= (double) ii;
    return fact;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+BinomialAnalyzer& BinomialAnalyzer::operator=(const BinomialAnalyzer &)
+{
+   printf("BinomialAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

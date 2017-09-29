@@ -40,9 +40,32 @@ public:
    double   *myCoordinate_;
    int      leftOrRight_;
  
+   /** constructor */
    GridNode();
+
+   /** destructor */
    ~GridNode();
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   GridNode& operator=(const GridNode &);
+
+   /** This function cleans up the memory allocations
+    */
    void cleanUp();
+
+   /** This function creates a tree of grid nodes
+    */
    int  createTree(int, int *, int, double *, int, Vector &);
 };
 

@@ -27,8 +27,8 @@
 #include <stdio.h>
 using namespace std;
 
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "FactorialSampling.h"
 
 // ************************************************************************
@@ -382,5 +382,15 @@ int FactorialSampling::setInputParams(int nInputs, int *counts,
       }
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+FactorialSampling& FactorialSampling::operator=(const FactorialSampling &)
+{
+   printf("FactorialSampling operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

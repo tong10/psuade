@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "Util/PsuadeUtil.h"
+#include "PsuadeUtil.h"
 
 /* ************************************************************************
 // parse a line a return the tokens separated by spaces

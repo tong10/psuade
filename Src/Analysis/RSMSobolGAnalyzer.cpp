@@ -33,17 +33,17 @@
 #include <string>
 using namespace std;
 
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
-#include "Util/Vector.h"
-#include "Util/Matrix.h"
-#include "Main/Psuade.h"
-#include "FuncApprox/FuncApprox.h"
-#include "Samplings/RSConstraints.h"
-#include "Samplings/Sampling.h"
-#include "PDFLib/PDFManager.h"
-#include "DataIO/PsuadeData.h"
-#include "DataIO/pData.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
+#include "Vector.h"
+#include "Matrix.h"
+#include "Psuade.h"
+#include "FuncApprox.h"
+#include "RSConstraints.h"
+#include "Sampling.h"
+#include "PDFManager.h"
+#include "PsuadeData.h"
+#include "pData.h"
 #include "RSMSobolGAnalyzer.h"
 
 // ************************************************************************
@@ -78,7 +78,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    double     *inputMeansG, *inputMeansN, *inputStdevsG, *inputStdevsN;
    PsuadeData *ioPtr;
    ifstream   ifile;
-   char       cfname[255], pString[500];
+   char       cfname[255], pString[500], *cString, winput1[500], winput2[500];
    string     sfname, iline;
    RSConstraints *constrPtr;
    FuncApprox    *faPtr;
@@ -87,6 +87,17 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    Matrix        *corMatp, corMat;
    PDFManager    *pdfman, *pdfmanN, *pdfmanG;
    Sampling      *sampler;
+
+   printAsterisks(0);
+   printf("*          RS-based Group First Order Sobol' Indices \n");
+   printEquals(0);
+   printf("* TO GAIN ACCESS TO DIFFERENT OPTIONS: SET\n");
+   printf("*\n");
+   printf("* - ana_expert mode to finetune RSMSobolG parameters, \n");
+   printf("*   (e.g. sample size for integration can be adjusted).\n");
+   printf("* - rs_expert to mode finetune response surface for RSMSobolG,\n");
+   printf("* - printlevel to 1 or higher to display more information.\n");
+   printEquals(0);
 
    printLevel = adata.printLevel_;
    nInputs  = adata.nInputs_;
@@ -138,6 +149,15 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
       printf("RSMSobolG ERROR: no data.\n");
       return PSUADE_UNDEFINED;
    } 
+   status = 0;
+   for (ii = 0; ii < nSamples; ii++)
+      if (Y2[nOutputs*ii+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
+   if (status == 1)
+   {
+      printf("RSMSobolG ERROR: Some outputs are undefined. Prune the\n");
+      printf("                 undefined sample points first.\n");
+      return PSUADE_UNDEFINED;
+   }
    Y = new double[nSamples];
    for (ii = 0; ii < nSamples; ii++) Y[ii] = Y2[ii*nOutputs+outputID];
 
@@ -259,7 +279,7 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    printAsterisks(0);
    if (psAnaExpertMode_ == 1)
    {
-      printf("* RSMSobolGAnalyzer creates a sample of size M1 for each\n");
+      printf("* RSMSobolG creates a sample of size M1 for each\n");
       printf("* subgroup of inputs and M2 for the rest of the inputs. The\n");
       printf("* total sample size is thus:\n");
       printf("* N = M1 * M2 * nGroups.\n");
@@ -283,9 +303,43 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    {
       nSubSamplesG = 500;
       nSubSamplesN = 2000;
-      printf("RSMSobolG: default M1 = %d.\n", nSubSamplesG);
-      printf("RSMSobolG: default M2 = %d.\n", nSubSamplesN);
-      printf("To change these settings, turn on ana_expert mode and rerun.\n");
+      if (psConfig_ != NULL)
+      {
+         cString = psConfig_->getParameter("RSMSobolG_nsubsamples_ingroup");
+         if (cString != NULL)
+         {
+            sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamplesG);
+            if (nSubSamplesG < 100)
+            {
+               printf("RSMSobolG INFO: nSubSamplesG should be >= 100.\n");
+               nSubSamplesG = 500;
+            }
+            else
+            {
+               printf("RSMSobolG INFO: nSubSamplesG = %d (config).\n",nSubSamplesG);
+            }
+         }
+         cString = psConfig_->getParameter("RSMSobolG_nsubsamples_outgroup");
+         if (cString != NULL)
+         {
+            sscanf(cString, "%s %s %d", winput1, winput2, &nSubSamplesN);
+            if (nSubSamplesN < 1000)
+            {
+               printf("RSMSobolG INFO: nSubSamplesN should be >= 1000.\n");
+               nSubSamplesN = 2000;
+            }
+            else
+            {
+               printf("RSMSobolG INFO: nSubSamplesN = %d (config).\n",nSubSamplesN);
+            }
+         }
+      }
+      if (printLevel > 0)
+      {
+         printf("RSMSobolG: default M1 = %d.\n", nSubSamplesG);
+         printf("RSMSobolG: default M2 = %d.\n", nSubSamplesN);
+         printf("To change these settings, turn on ana_expert mode and rerun.\n");
+      }
    }
    printEquals(0);
 
@@ -678,5 +732,15 @@ double RSMSobolGAnalyzer::analyze(aData &adata)
    delete [] bins;
    delete [] iArray;
    return 0.0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+RSMSobolGAnalyzer& RSMSobolGAnalyzer::operator=(const RSMSobolGAnalyzer &)
+{
+   printf("RSMSobolG operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

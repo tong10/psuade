@@ -28,7 +28,7 @@
 #ifndef __FFANALYZERH__
 #define __FFANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
@@ -46,6 +46,8 @@ public:
    ~FFAnalyzer();
 
    double analyze(aData &adata);
+
+   FFAnalyzer& operator=(const FFAnalyzer& analyzer);
 };
 
 #endif // __FFANALYZERH__

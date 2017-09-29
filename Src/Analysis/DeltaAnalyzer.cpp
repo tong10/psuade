@@ -29,9 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
 #include "DeltaAnalyzer.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
@@ -60,7 +60,7 @@ double DeltaAnalyzer::analyze(aData &adata)
    int    printLevel, nSamples, nInputs, nOutputs, outputID, ss, ss2;
    int    *inputBins, *auxBins, nSelected=0, *minIndices, nIndex=3, info;
    int    ii, jj, kk, ll, **deltaBins, nBins=1000, *iPtr, converged=0;
-   int    place, count=1, uniqueFlag=0, reverseCnt=0, *ranks;
+   int    place, count, uniqueFlag=0, reverseCnt=0, *ranks;
    int    nConfig=20, iter=100, stagnate=100;
    double *X, *Y, distance, delta, minDist, *minDeltas, *iLowerB, *iUpperB;
    double dtemp, temperature=.0001, oldDelta=PSUADE_UNDEFINED, minDelta;
@@ -81,19 +81,23 @@ double DeltaAnalyzer::analyze(aData &adata)
    iUpperB    = adata.iUpperB_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("DeltaAnalyzer INFO: some inputs have non-uniform PDFs, but\n");
-      printf("                    they will not be relevant in this analysis.\n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("DeltaTest INFO: some inputs have non-uniform PDFs, but\n");
+         printf("          they are not relevant in this analysis.\n");
+      }
    }
 
    if (nSamples <= 1)
    {
-      printf("DeltaAnalyzer INFO: not meaningful to do this");
-      printf("                    test when nSamples <= 1.\n");
+      printf("DeltaTest INFO: test not meaningful for nSamples <= 1.\n");
       return PSUADE_UNDEFINED;
    }
    if (X == NULL || YY == NULL)
    {
-      printf("DeltaAnalyzer ERROR: no data.\n");
+      printf("DeltaTest ERROR: no data.\n");
       return PSUADE_UNDEFINED;
    }
    info = 0;
@@ -101,13 +105,13 @@ double DeltaAnalyzer::analyze(aData &adata)
       if (YY[nOutputs*ii+outputID] == PSUADE_UNDEFINED) info = 1;
    if (info == 1)
    {
-      printf("DeltaAnalyzer ERROR: Some outputs are undefined.\n");
-      printf("                     Prune the undefined's first.\n");
+      printf("DeltaTest ERROR: Some outputs are undefined.\n");
+      printf("                 Prune the undefined's first.\n");
       return PSUADE_UNDEFINED;
    }
 
    printAsterisks(0);
-   printf("DeltaAnalyzer for variable selection\n");
+   printf("DeltaTest for variable selection\n");
    printf("This test has the characteristics that the more important\n");
    printf("a parameter is relative to the others, the smaller the \n");
    printf("subset is at the end of the test (sharp zoom into the most\n");
@@ -126,7 +130,7 @@ double DeltaAnalyzer::analyze(aData &adata)
 
    if (psAnaExpertMode_ == 1)
    {
-      printf("DeltaAnalyzer Option: set the number of neighbors K.\n");
+      printf("DeltaTest Option: set the number of neighbors K.\n");
       printf("The larger K is, the larger the distinguishing power is.\n");
       sprintf(pString, "What is K (>= 1, <= 20, default=3)? ");
       nIndex = getInt(1, 20, pString);
@@ -153,7 +157,7 @@ double DeltaAnalyzer::analyze(aData &adata)
                                 (iUpperB[ii] - iLowerB[ii]);
       else
       {
-         printf("DeltaAnalyzer ERROR: problem with input range.\n");
+         printf("DeltaTest ERROR: problem with input range.\n");
          exit(1);
       }
    }
@@ -168,9 +172,8 @@ double DeltaAnalyzer::analyze(aData &adata)
    for (ii = 0; ii < nBins; ii++) minDeltas[ii] = PSUADE_UNDEFINED;
    minIndices = new int[nIndex];
 
-   srand(time(NULL));  
    if (nSelected == 0)
-      for (ii = 0; ii < nInputs;ii++) inputBins[ii]=random()%2;
+      for (ii = 0; ii < nInputs;ii++) inputBins[ii]=PSUADE_rand()%2;
    else
       for (ii = 0; ii < nInputs;ii++) inputBins[ii]=auxBins[ii];
 
@@ -229,7 +232,7 @@ double DeltaAnalyzer::analyze(aData &adata)
          }
          if (minIndices[jj] == -1)
          {
-            printf("DeltaAnalyzer ERROR (1).\n");
+            printf("DeltaTest ERROR (1).\n");
             exit(1);
          }
          ddata += pow(Y[ss] - Y[minIndices[jj]], 2.0);
@@ -253,7 +256,7 @@ double DeltaAnalyzer::analyze(aData &adata)
       if (reverseCnt >= 4*nInputs)
       {	
          temperature*=nInputs*nInputs;
-         for (ii = 0;ii <= nInputs/5;ii++) inputBins[random()%nInputs] ^=1;
+         for (ii = 0;ii <= nInputs/5;ii++) inputBins[PSUADE_rand()%nInputs] ^=1;
          for (ss = 1; ss < nSamples; ss++)
          {
             for (ss2 = 0; ss2 < ss; ss2++)
@@ -271,7 +274,7 @@ double DeltaAnalyzer::analyze(aData &adata)
             }
          }
          reverseCnt = 0;
-         place = random()%(nInputs);
+         place = PSUADE_rand()%(nInputs);
       }
       else 
       {
@@ -282,7 +285,7 @@ double DeltaAnalyzer::analyze(aData &adata)
          }
          else 
          {
-            place = random()%(nInputs);
+            place = PSUADE_rand()%(nInputs);
          }
       }
       temperature *= alpha;
@@ -339,7 +342,7 @@ double DeltaAnalyzer::analyze(aData &adata)
             }
             if (minIndices[jj] == -1)
             {
-               printf("DeltaAnalyzer ERROR (1).\n");
+               printf("DeltaTest ERROR (1).\n");
                exit(1);
             }
             ddata += pow(Y[ss] - Y[minIndices[jj]], 2.0);
@@ -392,14 +395,14 @@ double DeltaAnalyzer::analyze(aData &adata)
       }
       if (converged > stagnate*3*nInputs)
       {
-         printf("DeltaAnalyzer: stagnate for %d iterations, ", stagnate); 
+         printf("DeltaTest: stagnate for %d iterations, ", stagnate); 
          printf("considered converged.\n"); 
          break;
       }
 
       if (delta >= oldDelta) 
       {
-         r = random()%100000;
+         r = PSUADE_rand()%100000;
          r /= 100000;
 
          if (r>=exp(-.1*(delta-oldDelta)/(temperature)))
@@ -458,19 +461,30 @@ double DeltaAnalyzer::analyze(aData &adata)
       ranks[ii] = (int) (ddata / accum * 100);
    }
 
-   fp = fopen("matlabdelta.m", "w");
-   fwritePlotCLF(fp);
-   fprintf(fp, "A = [\n");
-   for (ii = 0; ii < nInputs; ii++)
-      fprintf(fp, "%e\n", 0.01 * ranks[ii]);
-   fprintf(fp, "];\n");
-   fprintf(fp, "bar(A, 0.8);\n");
-   fwritePlotAxes(fp);
-   fwritePlotTitle(fp, "Delta Test Rankings");
-   fwritePlotXLabel(fp, "Input parameters");
-   fwritePlotYLabel(fp, "Delta Metric (normalized)");
-   fclose(fp);
-   printf("Delta test ranking is now in matlabdelta.m.\n");
+   if (psPlotTool_ == 1) fp = fopen("scilabdelta.sci", "w");
+   else                  fp = fopen("matlabdelta.m", "w");
+   if (fp == NULL)
+   {
+      printf("Delta test ERROR: cannot open graphics files.\n");
+      printf("                  ==> graphics not generated.\n");
+   }
+   else
+   {
+      fwritePlotCLF(fp);
+      fprintf(fp, "A = [\n");
+      for (ii = 0; ii < nInputs; ii++)
+         fprintf(fp, "%e\n", 0.01 * ranks[ii]);
+      fprintf(fp, "];\n");
+      fprintf(fp, "bar(A, 0.8);\n");
+      fwritePlotAxes(fp);
+      fwritePlotTitle(fp, "Delta Test Rankings");
+      fwritePlotXLabel(fp, "Input parameters");
+      fwritePlotYLabel(fp, "Delta Metric (normalized)");
+      fclose(fp);
+      if (psPlotTool_ == 1) 
+           printf("Delta test ranking is now in scilabdelta.sci.\n");
+      else printf("Delta test ranking is now in matlabdelta.m.\n");
+   }
 
    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
    sortIntList2a(nInputs, ranks, dOrder);
@@ -645,5 +659,15 @@ int DeltaAnalyzer::setParams(int argc, char **argv)
    char *request = (char *) argv[0];
    if (!strcmp(request, "gdelta")) mode_ = 1;
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+DeltaAnalyzer& DeltaAnalyzer::operator=(const DeltaAnalyzer &)
+{
+   printf("DeltaTest operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

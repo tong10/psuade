@@ -29,7 +29,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Util/Matrix.h"
+#include "Matrix.h"
 
 //#define PS_DEBUG 1
 
@@ -49,6 +49,46 @@ Matrix::Matrix()
    printf("Matrix constructor ends\n");
 #endif
 }
+
+// ************************************************************************
+// Copy Constructor by Bill Oliver
+// ------------------------------------------------------------------------
+Matrix::Matrix(const Matrix & ma)
+{
+   nRows_ = ma.nRows_;
+   nCols_ = ma.nCols_;
+   status_ = ma.status_;
+   Mat_ = new double*[nRows_];
+   for (int i = 0; i < nRows_; i++)
+   {
+      Mat_[i] = new double[nCols_];
+      for(int j = 0; j < nCols_; j++)
+         Mat_[i][j] = ma.Mat_[i][j];
+   }
+}
+
+// ************************************************************************
+// operator=  by Bill Oliver
+// ------------------------------------------------------------------------
+Matrix & Matrix::operator=(const Matrix & ma)
+{
+   if (this == &ma) return *this;
+   nRows_ = ma.nRows_;
+   nCols_ = ma.nCols_;
+   status_ = ma.status_;
+
+   for(int i = 0; i < nRows_; i++) delete [] Mat_[i];
+   delete [] Mat_;
+
+   Mat_ = new double*[nRows_];
+   for(int i = 0; i < nRows_; i++)
+   {
+      Mat_[i] = new double[nCols_];
+      for(int j = 0; j < nCols_; j++) Mat_[i][j] = ma.Mat_[i][j];
+   }
+   return *this;
+}
+
 
 // ************************************************************************
 // destructor
@@ -211,7 +251,7 @@ int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
 #endif
    nrows = inMat.nrows();
    ncols = inMat.ncols();
-   if (nrows != nrows)
+   if (nrows != ncols)
    {
       printf("Matrix::submatrix ERROR : incoming matrix is rectangular.\n");
       exit(1);
@@ -263,7 +303,7 @@ int Matrix::submatrix(Matrix &inMat, const int num, const int *indices)
 // ************************************************************************
 // Cholesky decomposition (A = L L^T)
 // ------------------------------------------------------------------------
-void Matrix::CholDecompose()
+int Matrix::CholDecompose()
 {
    int     ii, jj, kk;
    double  ddata;
@@ -297,7 +337,7 @@ void Matrix::CholDecompose()
             {
                printf("CholDecompose : matrix not positive definite.\n");
                printf("dim = (%d,%d) : %e\n", nRows_, nCols_, ddata);
-               exit(1);
+               return -1;
             }
             Mat_[ii][ii] = sqrt(ddata);
          }
@@ -310,6 +350,7 @@ void Matrix::CholDecompose()
    for (ii = 0; ii < nRows_; ii++)
       for (jj = 0; jj < ii; jj++) Mat_[ii][jj] = Mat_[jj][ii];
    status_ = 1;
+   return 0;
 #ifdef PS_DEBUG
    printf("Matrix CholDecompose ends\n");
 #endif
@@ -360,6 +401,30 @@ void Matrix::CholSolve(Vector &vec)
    }
 #ifdef PS_DEBUG
    printf("Matrix CholSolve ends\n");
+#endif
+}
+
+// ************************************************************************
+// Cholesky LT-solve 
+// ------------------------------------------------------------------------
+void Matrix::CholTSolve(Vector &vec)
+{
+   int    ii, jj;
+   double ddata;
+
+#ifdef PS_DEBUG
+   printf("Matrix CholTSolve (transpose)\n");
+#endif
+   assert(vec.length() == nCols_);
+   if (status_ == 0) CholDecompose();
+   for (ii = nRows_-1; ii > 0; ii--)
+   {
+      ddata = vec[ii];
+      for (jj = ii+1; jj < nRows_; jj++) ddata -= Mat_[jj][ii] * vec[jj];
+      vec[ii] = ddata / Mat_[ii][ii];
+   }
+#ifdef PS_DEBUG
+   printf("Matrix CholTSolve ends\n");
 #endif
 }
 

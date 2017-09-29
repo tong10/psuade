@@ -24,16 +24,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2007
 // ************************************************************************
-
 #ifndef __MCMCANALYZERH__
 #define __MCMCANALYZERH__
 
-#include "Analysis/Analyzer.h"
+#include "Analyzer.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class MCMCAnalyzer : public Analyzer
 {
    int mode_;
@@ -45,6 +43,8 @@ public:
    ~MCMCAnalyzer();
 
    double analyze(aData &adata);
+
+   MCMCAnalyzer& operator=(const MCMCAnalyzer &analyzer);
 
    int setParams(int nParams, char **params);
 

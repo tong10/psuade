@@ -35,9 +35,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "FuncApprox/FuncApprox.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "FuncApprox.h"
 #include "OneSigmaAnalyzer.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
@@ -48,7 +48,7 @@
 OneSigmaAnalyzer::OneSigmaAnalyzer() : Analyzer()
 {
    setName("OneSigma");
-   rsType_ = PSUADE_RS_GP1; 
+   rsType_ = PSUADE_RS_MARSB; 
 }
 
 // ************************************************************************
@@ -65,7 +65,7 @@ double OneSigmaAnalyzer::analyze(aData &adata)
 {
    int        nInputs, nOutputs, nSamples, outputID, wgtID, ss, *S;
    int        nGood, ii, nPtsPerDim=64, length, status, count, nPts;
-   int        n1d, itmp, jtmp, printLevel;
+   int        n1d, itmp, jtmp, printLevel, iOne=1;
    double     *iLowerB, *iUpperB, *X, *Y, *XLocal, *YLocal, Ymax, step;
    double     stdev, maxStdev, *wgts, ddata, avgStdev;
    double     *dataPt;
@@ -84,13 +84,27 @@ double OneSigmaAnalyzer::analyze(aData &adata)
    wgtID     = adata.regWgtID_;
    if (adata.inputPDFs_ != NULL)
    {
-      printf("OneSigmaAnalyzer INFO: some inputs have non-uniform PDFs, but\n");
-      printf("                 they will not be relevant in this analysis.\n");
+      count = 0;
+      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+      if (count > 0)
+      {
+         printf("OneSigmaTest INFO: some inputs have non-uniform PDFs,\n");
+         printf("        but they are not relevant in this analysis.\n");
+      }
+   }
+   status = 0;
+   for (ss = 0; ss < nSamples; ss++)
+      if (Y[nOutputs*ss+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
+   if (status == 1)
+   {
+      printf("OneSigmaTest ERROR: Some outputs are undefined. Prune\n");
+      printf("                    the undefined sample points first.\n");
+      return PSUADE_UNDEFINED;
    }
 
    if (nInputs > 12)
    {
-      printf("OneSigmaAnalyzer ERROR: does not support nInputs > 12.\n");
+      printf("OneSigmaTest ERROR: does not support nInputs > 12.\n");
       return PSUADE_UNDEFINED;
    }
    if (nInputs == 1 ) n1d = nSamples;
@@ -107,7 +121,7 @@ double OneSigmaAnalyzer::analyze(aData &adata)
 
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
-      printf("OneSigmaAnalyzer ERROR: invalid arguments.\n");
+      printf("OneSigmaTest ERROR: invalid arguments.\n");
       printf("    nInputs  = %d\n", nInputs);
       printf("    nOutputs = %d\n", nOutputs);
       printf("    nSamples = %d\n", nSamples);
@@ -121,9 +135,10 @@ double OneSigmaAnalyzer::analyze(aData &adata)
       printf(" This analysis computes standard deviations when interpolated\n");
       printf(" at the sample points.\n");
       printEquals(0);
-      if (rsType_ == PSUADE_RS_ANN) printf("OneSigma: artificial neural network.\n");
-      if (rsType_ == PSUADE_RS_GP1) printf("OneSigma: Gaussian process model.\n");
-      if (rsType_ == PSUADE_RS_MARSB) printf("OneSigma: MARS with bagging.\n");
+      if (rsType_ == PSUADE_RS_ANN) printf("OneSigmaTest: artificial neural network.\n");
+      if (rsType_ == PSUADE_RS_GP1) printf("OneSigmaTest: Gaussian process model.\n");
+      if (rsType_ == PSUADE_RS_KR)  printf("OneSigmaTest: Kriging model.\n");
+      if (rsType_ == PSUADE_RS_MARSB) printf("OneSigmaTest: MARS with bagging.\n");
       printEquals(0);
    }
    
@@ -149,14 +164,14 @@ double OneSigmaAnalyzer::analyze(aData &adata)
    Ymax = 0.0;
    for (ss = 0; ss < nGood; ss++)
       if (PABS(YLocal[ss]) > Ymax) Ymax = PABS(YLocal[ss]);
-   printf("OneSigma: nSamples = %d, of which %d are valid.\n",
+   printf("OneSigmaTest: nSamples = %d, of which %d are valid.\n",
           nSamples, nGood);
-   printf("OneSigma: Output Maximum Norm = %e\n", Ymax);
+   printf("OneSigmaTest: Output Maximum Norm = %e\n", Ymax);
 
-   fa = genFA(rsType_, nInputs, nGood);
+   fa = genFA(rsType_, nInputs, iOne, nGood);
    if (fa == NULL)
    {
-      printf("OneSigma ERROR: failed to create function approximator.\n");
+      printf("OneSigmaTest ERROR: failed to create function approximator.\n");
       delete [] XLocal;
       delete [] YLocal;
       return 1.0e12;
@@ -184,8 +199,8 @@ double OneSigmaAnalyzer::analyze(aData &adata)
       return 1.0e12;
    }
 
-   printf("OneSigma: Step 1 - assess uncertainties of evaluations at\n");
-   printf("                   the original data set.\n");
+   printf("OneSigmaTest: Step 1 - assess uncertainties of evaluations at\n");
+   printf("                       the original data set.\n");
    adata.sampleErrors_ = new double[nSamples];
    for (ss = 0; ss < nSamples; ss++) adata.sampleErrors_[ss] = 0.0;
 
@@ -211,22 +226,21 @@ double OneSigmaAnalyzer::analyze(aData &adata)
          count++;
       }
    }
-   printf("OneSigmaAnalyzer: max std dev (%d) = %9.2e\n",
+   printf("OneSigmaTest: max std dev (%d) = %9.2e\n",
           count,maxStdev);
    if (count > 0)
    {
       avgStdev /= (double) count;
-      printf("OneSigmaAnalyzer: (1) data - avg std dev = %9.2e (%d points)\n",
+      printf("OneSigmaTest: (1) data - avg std dev = %9.2e (%d points)\n",
              avgStdev, count);
-      printf("OneSigmaAnalyzer: (1) data - max std dev = %9.2e\n",
-             maxStdev);
+      printf("OneSigmaTest: (1) data - max std dev = %9.2e\n", maxStdev);
    }
 
    // ----------------------------------------------------------------
    // check RS data against grid data
    // ----------------------------------------------------------------
-   printf("OneSigma: Step 2 - assess uncertainties of evaluations at\n");
-   printf("                   fixed lattice points in the parameter space.\n");
+   printf("OneSigmaTest: Step 2 - assess uncertainties of evaluations at\n");
+   printf("                       fixed lattice points in the parameter space.\n");
    nPts = 1;
    for (ii = 0; ii < nInputs; ii++) nPts *= n1d;
    maxStdev = avgStdev = 0.0;
@@ -236,7 +250,7 @@ double OneSigmaAnalyzer::analyze(aData &adata)
    {
       itmp = ss;
       if (ss % (nPts/10) == 0)
-         printf("OneSigmaAnalyzer: processing grid sample %d (out of %d)\n",
+         printf("OneSigmaTest: processing grid sample %d (out of %d)\n",
                 ss+1, nPts);
       for (ii = 0; ii < nInputs; ii++)
       {
@@ -253,9 +267,9 @@ double OneSigmaAnalyzer::analyze(aData &adata)
    if (count > 0)
    {
       avgStdev /= (double) count;
-      printf("OneSigmaAnalyzer: (2) grid - avg std dev = %9.2e (%d points)\n",
+      printf("OneSigmaTest: (2) grid - avg std dev = %9.2e (%d points)\n",
              avgStdev, count);
-      printf("OneSigmaAnalyzer: (2) grid - max std dev = %9.2e\n",
+      printf("OneSigmaTest: (2) grid - max std dev = %9.2e\n",
              maxStdev);
    }
    printAsterisks(0);
@@ -275,15 +289,25 @@ int OneSigmaAnalyzer::setParams(int argc, char **argv)
    char  *request = (char *) argv[0];
    if (!strcmp(request, "rstype"))
    {
-      if (argc != 2) printf("OneSigmaAnalyzer WARNING: setParams.\n");
+      if (argc != 2) printf("OneSigmaTest WARNING: setParams.\n");
       rsType_ = *(int *) argv[1];
       if (rsType_ != 5 && rsType_ != 7) rsType_ = 7;
    }
    else
    {
-      printf("OneSigmaAnalyzer ERROR: setParams - not valid.\n");
+      printf("OneSigmaTest ERROR: setParams - not valid.\n");
       exit(1);
    }
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+OneSigmaAnalyzer& OneSigmaAnalyzer::operator=(const OneSigmaAnalyzer &)
+{
+   printf("OneSigmaTest operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

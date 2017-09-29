@@ -30,12 +30,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "GradStatAnalyzer.h"
-#include "Samplings/MCSampling.h"
-#include "Samplings/LHSampling.h"
-#include "PDFLib/PDFBase.h"
-#include "PDFLib/PDFNormal.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
+#include "Sampling.h"
+#include "PDFBase.h"
+#include "PDFNormal.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
@@ -180,7 +179,7 @@ double GradStatAnalyzer::analyze(aData &adata)
    randomize = 1;
    nReps = 1;
    if (sampler_ != NULL) delete sampler_;
-   sampler_ = (Sampling *) new LHSampling();
+   sampler_ = SamplingCreateFromID(PSUADE_SAMP_LHS);
    sampler_->setInputBounds(nInputs, inputLBounds, inputUBounds);
    sampler_->setOutputParams(nOutputs);
    sampler_->setSamplingParams(nSamples, nReps, randomize);
@@ -304,5 +303,15 @@ int GradStatAnalyzer::computeMeanVariance(int nInputs, int nOutputs,
    printf("GradStatAnalyzer: mean     = %24.16e\n", mean);
    printf("GradStatAnalyzer: std dev  = %24.16e\n", (*stdDev));
    return 0;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+GradStatAnalyzer& GradStatAnalyzer::operator=(const GradStatAnalyzer &)
+{
+   printf("GradStatAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

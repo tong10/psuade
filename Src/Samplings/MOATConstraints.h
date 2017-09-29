@@ -24,12 +24,11 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2009
 // ************************************************************************
-                                                                                             
 #ifndef __MOATCONSTRAINTS__
 #define __MOATCONSTRAINTS__
 
-#include "FuncApprox/FuncApprox.h"
-#include "DataIO/PsuadeData.h"
+#include "FuncApprox.h"
+#include "PsuadeData.h"
 
 /**
  * @name Defining output constraints
@@ -39,7 +38,6 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-                                                                                
 class MOATConstraints
 {
 
@@ -49,17 +47,34 @@ class MOATConstraints
    double     **constraintInputValues_;
    int        nInputs_;
    double     *XLBounds_;
+   int        sizeXLBounds_;
    double     *XUBounds_;
+   int        sizeXUBounds_;
    FuncApprox **constraintFAs_;
    double     *YLBounds_;
    double           *YUBounds_;
 
 public:
 
+   /** constructor */
    MOATConstraints();
+
+   /** Copy constructor by Bill Oliver */
+   MOATConstraints( const MOATConstraints & mc);
+
+   /** destructor */
    ~MOATConstraints();
 
-   int    initialize(PsuadeData *psuadeIO);
+   /** initialization 
+       @param psuadeIO: contains all data for analysis
+    */
+   int initialize(PsuadeData *psuadeIO);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   MOATConstraints& operator=(const MOATConstraints &);
+
    double getScale(double *, int, int &);
 };
 

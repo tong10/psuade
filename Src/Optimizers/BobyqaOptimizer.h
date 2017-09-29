@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2009
 // ************************************************************************
-
 #ifndef __BOBYQAOPTIMIZER__
 #define __BOBYQAOPTIMIZER__
 
@@ -34,14 +33,23 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class BobyqaOptimizer : public Optimizer
 {
 public:
 
+   /** constructor */
    BobyqaOptimizer();
+
+   /** destructor */
    ~BobyqaOptimizer();
-   void optimize(oData *odata);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   BobyqaOptimizer& operator=(const BobyqaOptimizer &);
 };
 
 #endif // __BOBYQAOPTIMIZER__

@@ -24,7 +24,6 @@
 // AUTHOR : David Echeverria Ciaurri - Charles Tong
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __SMOPTIMIZER__
 #define __SMOPTIMIZER__
 
@@ -34,14 +33,23 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class SMOptimizer : public Optimizer
 {
 public:
 
+   /** constructor */
    SMOptimizer();
+
+   /** destructor */
    ~SMOptimizer();
-   void optimize(oData *odata);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   SMOptimizer& operator=(const SMOptimizer &);
 };
 
 #endif // __SMOPTIMIZER__

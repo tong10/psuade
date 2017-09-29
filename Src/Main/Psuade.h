@@ -25,23 +25,11 @@
 // DATE   : 2006
 // ************************************************************************
 
-#include "DataIO/PsuadeConfig.h"
-
 #ifndef __PSUADEH__
 #define __PSUADEH__
 
-extern int          psIOExpertMode_;
-extern int          psExpertMode_;
-extern int          psRSExpertMode_;
-extern int          psAnaExpertMode_;
-extern int          psSamExpertMode_;
-extern int          psOptExpertMode_;
-extern int          psRandomSeed_;
-extern int          psFAMaxDataPts_;
-extern int          psPlotTool_;
-extern int          psAnalysisInteractive_;
-extern char         *psConfigFileName_;
-extern PsuadeConfig *psConfig_;
+#include "Globals.h"
+#include "PsuadeCmakeConfig.h"
 
 #endif // __PSUADEH__
 

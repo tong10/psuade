@@ -28,13 +28,13 @@
 #include <stdlib.h>
 #include "OneSampleAnalyzer.h"
 #include "TwoSampleAnalyzer.h"
-#include "Main/Psuade.h"
-#include "Util/sysdef.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/Matrix.h"
-#include "Util/Vector.h"
-#include "Samplings/Sampling.h"
-#include "PDFLib/PDFManager.h"
+#include "Psuade.h"
+#include "sysdef.h"
+#include "PsuadeUtil.h"
+#include "Matrix.h"
+#include "Vector.h"
+#include "Sampling.h"
+#include "PDFManager.h"
 
 // ************************************************************************
 // chi-squqred test table
@@ -289,7 +289,8 @@ double OneSampleAnalyzer::analyze(aData &adata)
    }
 
    printf("Enter your data file (format: N Y1 Y2 .. YN) : ");
-   scanf("%s", filename);
+   // Bill Oliver added width specifier for defensive programming
+   scanf("%499s", filename);
    fgets(lineIn,500,stdin);
    file = fopen(filename, "r");
    if (file == NULL)
@@ -564,6 +565,8 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
    }
 
    delete tsPtr;
+   // releasing the file pointer Bill Oliver change
+   if(fp != NULL) fclose(fp);
    return 0.0;
 }
 
@@ -757,5 +760,15 @@ int OneSampleAnalyzer::iterate(double gamma, double delta, double gamma2,
       retdata = pow(delta, gamma) * exp(-delta) * sum / gamma2;
       return 0;
    }
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+OneSampleAnalyzer& OneSampleAnalyzer::operator=(const OneSampleAnalyzer &)
+{
+   printf("OneSampleAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 

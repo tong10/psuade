@@ -27,7 +27,7 @@
 #ifndef __LEGENDREREGRESSIONH__
 #define __LEGENDREREGRESSIONH__
 
-#include "FuncApprox/FuncApprox.h"
+#include "FuncApprox.h"
 
 // ************************************************************************
 // class definition

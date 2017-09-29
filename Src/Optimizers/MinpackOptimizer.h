@@ -24,7 +24,6 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
-
 #ifndef __MINPACKOPTIMIZER__
 #define __MINPACKOPTIMIZER__
 
@@ -34,15 +33,24 @@
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class MinpackOptimizer : public Optimizer
 {
 
 public:
 
+   /** constructor */
    MinpackOptimizer();
+
+   /** destructor */
    ~MinpackOptimizer();
-   void optimize(oData *);
+
+   /** run optimization 
+     @param odata - an object that contains all needed data
+     */
+   virtual void optimize(oData *odata);
+
+   /** assign operator override */ 
+   MinpackOptimizer& operator=(const MinpackOptimizer &);
 };
 
 #endif // __MINPACKOPTIMIZER__

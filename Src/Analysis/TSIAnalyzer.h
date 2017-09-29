@@ -32,6 +32,7 @@
 using    namespace std;
 #include "aData.h"
 #include "Analyzer.h"
+#include "PsuadeData.h"
 
 /**
  * @name TSIAnalyzer 
@@ -46,9 +47,14 @@ class TSIAnalyzer : public Analyzer
 public:
 
    TSIAnalyzer();
+
    ~TSIAnalyzer();
 
-   double analyze(aData &);
+   double analyze(aData &adata);
+
+   int printResults(int, double, double *, PsuadeData *);
+
+   TSIAnalyzer& operator=(const TSIAnalyzer &analyzer);
 };
 
 #endif // __TSIANALYZERH__

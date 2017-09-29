@@ -1,0 +1,15 @@
+This example shows multi-modal posteriors
+
+To use:
+- cc -c simulator simulator.c -lm
+- psuade psuadeRS.in
+- mv psuadeData psdata
+- psuade
+> load psdata
+> rsmcmc
+mcmcFile
+4
+> quit
+
+Use matlab to view matlabmcmc.m and matlabmcmc2.m
+

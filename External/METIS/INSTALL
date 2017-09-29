@@ -1,12 +1,3 @@
-============================================================================================
-Our policy regarding the distribution of METIS with third-party applications is as follows:
-Non-commercial applications
-    METIS can be freely distributed provided that:
-        A reference to the following paper is included: “A Fast and Highly Quality Multilevel 
-        Scheme for Partitioning Irregular Graphs”. George Karypis and Vipin Kumar. SIAM Journal 
-        on Scientific Computing, Vol. 20, No. 1, pp. 359—392, 1999.
-        The original documentation (PDF file of the manual) and copyright notice is included.
-============================================================================================
 
 Copyright 1998, Regents of the University of Minnesota.
 METIS was written by George Karypis (karypis@cs.umn.edu)

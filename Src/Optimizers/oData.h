@@ -24,16 +24,14 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2005
 // ************************************************************************
-
 #ifndef __ODATAH__
 #define __ODATAH__
 
-#include "../DataIO/FunctionInterface.h"
+#include "FunctionInterface.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-
 class oData 
 {
 public:
@@ -43,6 +41,7 @@ public:
    int    nOutputs_;
    int    outputID_;
    int    numFuncEvals_;
+   int    intData_;
    int    maxParallelJobs_;
    int    setOptDriver_; /* 0 - do nothing, 1 - set, 2 - reset, 3 - both */
    double *initialX_;
@@ -56,8 +55,14 @@ public:
    FunctionInterface *funcIO_;
    char targetFile_[200];
 
-   oData() {}
-   ~oData() {}
+   /** constructor */
+   oData();
+
+   /** destructor */
+   ~oData();
+
+   /** assign operator */
+   oData& operator=(const oData&);
 };
 
 #endif // __ODATAH__

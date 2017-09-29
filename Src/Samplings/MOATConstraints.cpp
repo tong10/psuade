@@ -26,9 +26,9 @@
 // ************************************************************************
 #include <stdio.h>
 #include <stdlib.h>
-#include "DataIO/PsuadeData.h"
-#include "Samplings/MOATConstraints.h"
-#include "Util/PsuadeUtil.h"
+#include "PsuadeData.h"
+#include "MOATConstraints.h"
+#include "PsuadeUtil.h"
 #define PABS(X) (((X) > 0)? X : -(X))
 
 // ************************************************************************
@@ -47,6 +47,44 @@ MOATConstraints::MOATConstraints()
    YLBounds_ = NULL;
    YUBounds_ = NULL;
 }
+
+// ************************************************************************
+// Copy Constructor by Bill Oliver
+// ------------------------------------------------------------------------
+MOATConstraints::MOATConstraints(const MOATConstraints & mc)
+{
+  nConstraints_ = mc.nConstraints_;
+  constraintFAs_ = new FuncApprox*[nConstraints_];
+  constraintNInputs_ = new int[nConstraints_];
+  constraintInputIndices_ = new int*[nConstraints_];
+  constraintInputValues_ = new double*[nConstraints_];
+  nInputs_ = mc.nInputs_;
+  sizeXLBounds_ = mc.sizeXLBounds_;
+  sizeXUBounds_ = mc.sizeXUBounds_;
+  XLBounds_ = new double[sizeXLBounds_];
+  XUBounds_ = new double[sizeXUBounds_];
+  YLBounds_ = new double[nConstraints_];
+  YUBounds_ = new double[nConstraints_];
+  for(int i = 0; i < nConstraints_; i++) {
+    constraintInputIndices_[i] = mc.constraintInputIndices_[i];
+    constraintInputValues_[i] = mc.constraintInputValues_[i];
+    constraintFAs_[i] = mc.constraintFAs_[i];
+    constraintNInputs_[i] = mc.constraintNInputs_[i];
+    XLBounds_[i] = mc.XLBounds_[i];
+    XUBounds_[i] = mc.XUBounds_[i];
+    for(int j = 0; j < constraintNInputs_[i]; j++) {
+      constraintFAs_[i][j] = mc.constraintFAs_[i][j];
+      constraintInputIndices_[i][j] = mc.constraintInputIndices_[i][j];
+      constraintInputValues_[i][j] = mc.constraintInputValues_[i][j];
+      
+    }
+  }
+  for(int i = 0; i < sizeXLBounds_; i++)
+    XLBounds_[i] = mc.XLBounds_[i];
+  for(int i = 0; i < sizeXUBounds_; i++)
+    XUBounds_[i] = mc.XUBounds_[i];
+
+} 
    
 // ************************************************************************
 // destructor 
@@ -98,9 +136,11 @@ int MOATConstraints::initialize(PsuadeData *psuadeIO)
    nInputs_ = pPtr.intData_;
    psuadeIO->getParameter("input_lbounds", iLPtr);
    XLBounds_ = iLPtr.dbleArray_;
+   sizeXLBounds_ = iLPtr.nDbles_;
    iLPtr.dbleArray_ = NULL;
    psuadeIO->getParameter("input_ubounds", iUPtr);
    XUBounds_ = iUPtr.dbleArray_;
+   sizeXUBounds_ = iUPtr.nDbles_;
    iUPtr.dbleArray_ = NULL;
    psuadeIO->getParameter("ana_diagnostics", pPtr);
    printLevel = pPtr.intData_;
@@ -381,5 +421,73 @@ double MOATConstraints::getScale(double *sampleInputs, int diffIndex,
    flag = 0;
    if (scale < 0.0) scale = 0.0;
    return scale;
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+MOATConstraints& MOATConstraints::operator=(const MOATConstraints &mc)
+{
+   int ii;
+   if(this == &mc) return (*this);
+
+   if (constraintFAs_ != NULL)
+   {
+      for (ii = 0; ii < nConstraints_; ii++)
+         if (constraintFAs_[ii] != NULL) delete constraintFAs_[ii];
+      delete [] constraintFAs_;
+   }
+   if (constraintNInputs_ != NULL) delete [] constraintNInputs_;
+   if (constraintInputIndices_ != NULL)
+   {
+      for (ii = 0; ii < nConstraints_; ii++)
+         if (constraintInputIndices_[ii] != NULL)
+            delete [] constraintInputIndices_[ii];
+      delete [] constraintInputIndices_;
+   }
+   if (constraintInputValues_ != NULL)
+   {
+      for (ii = 0; ii < nConstraints_; ii++)
+         if (constraintInputValues_[ii] != NULL)
+            delete [] constraintInputValues_[ii];
+      delete [] constraintInputValues_;
+   }
+   if (XLBounds_ != NULL) delete [] XLBounds_;
+   if (XUBounds_ != NULL) delete [] XUBounds_;
+   if (YLBounds_ != NULL) delete [] YLBounds_;
+   if (YUBounds_ != NULL) delete [] YUBounds_;
+
+   nConstraints_ = mc.nConstraints_;
+   constraintFAs_ = new FuncApprox*[nConstraints_];
+   constraintNInputs_ = new int[nConstraints_];
+   constraintInputIndices_ = new int*[nConstraints_];
+   constraintInputValues_ = new double*[nConstraints_];
+   nInputs_ = mc.nInputs_;
+   sizeXLBounds_ = mc.sizeXLBounds_;
+   sizeXUBounds_ = mc.sizeXUBounds_;
+   XLBounds_ = new double[sizeXLBounds_];
+   XUBounds_ = new double[sizeXUBounds_];
+   YLBounds_ = new double[nConstraints_];
+   YUBounds_ = new double[nConstraints_];
+   for(int i = 0; i < nConstraints_; i++) 
+   {
+      constraintInputIndices_[i] = mc.constraintInputIndices_[i];
+      constraintInputValues_[i] = mc.constraintInputValues_[i];
+      constraintFAs_[i] = mc.constraintFAs_[i];
+      constraintNInputs_[i] = mc.constraintNInputs_[i];
+      XLBounds_[i] = mc.XLBounds_[i];
+      XUBounds_[i] = mc.XUBounds_[i];
+      for(int j = 0; j < constraintNInputs_[i]; j++)
+      {
+         constraintFAs_[i][j] = mc.constraintFAs_[i][j];
+         constraintInputIndices_[i][j] = mc.constraintInputIndices_[i][j];
+         constraintInputValues_[i][j] = mc.constraintInputValues_[i][j];
+      }
+   }
+   for(int i = 0; i < sizeXLBounds_; i++)
+      XLBounds_[i] = mc.XLBounds_[i];
+   for(int i = 0; i < sizeXUBounds_; i++)
+      XUBounds_[i] = mc.XUBounds_[i];
+   return (*this);
 }
 

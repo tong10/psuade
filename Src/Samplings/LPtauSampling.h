@@ -44,11 +44,30 @@ class LPtauSampling: public Sampling
 {
 public:
 
+   /** constructor */
    LPtauSampling();
+
+   /** destructor */
    ~LPtauSampling();
 
-   int initialize(int);
-   int refine(int, int, double, int, double *);
+   /** initialization 
+       @param flag: flag to signal how far to initialize
+    */
+   int initialize(int flag);
+
+   /** This function refines an incoming sample
+       @param ratio: refinement ratio
+       @param randomize: generate randomized sample
+       @param thresh: threshold
+       @param nSamples: sample size
+       @param sampleErrs: errors for each sample point
+    */
+   int refine(int ratio,int randomize,double thresh,int nSamples,double *sampleErrs);
+
+   /** This function overloads the assignment operator
+       @param obj : Sampling object
+    */
+   LPtauSampling& operator=(const LPtauSampling &);
 
 private:
 

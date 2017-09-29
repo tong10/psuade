@@ -33,8 +33,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "BootstrapAnalyzer.h"
-#include "Util/PsuadeUtil.h"
-#include "Util/sysdef.h"
+#include "PsuadeUtil.h"
+#include "sysdef.h"
 
 // ************************************************************************
 // constructor
@@ -271,5 +271,15 @@ double BootstrapAnalyzer::normalCDFInv(double &value)
    if (value >= 1.0) return (10.0*stdev_); 
    index = binarySearchDble(value, storedValues_, nSteps_+1);
    return (mean_-10.0*stdev_+hstep*index);
+}
+
+// ************************************************************************
+// equal operator
+// ------------------------------------------------------------------------
+BootstrapAnalyzer& BootstrapAnalyzer::operator=(const BootstrapAnalyzer &)
+{
+   printf("BootstrapAnalyzer operator= ERROR: operation not allowed.\n");
+   exit(1);
+   return (*this);
 }
 
