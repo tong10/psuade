@@ -217,8 +217,9 @@ public:
 // These functions are used to create and destroy sampling objects.
 // ************************************************************************
 extern Sampling *SamplingCreateFromID(int);
-extern int      SamplingDestroy(Sampling *);
-extern int      SamplingQuality(int,int,double *,double *,double *,double *);
+extern int SamplingDestroy(Sampling *);
+extern int SamplingQuality(int,int,double *,double *,double *,double *);
+extern int getSamplingMethod(char *pString);
 
 #endif // __BASESAMPLINGH__
 

@@ -26,12 +26,14 @@
 // ************************************************************************
 #include <math.h>
 #include <stdio.h>
+#include <fstream>
 #include <iostream>
 using namespace std;
 #include "Psuade.h"
 #include "PsuadeUtil.h"
 #include "PrintingTS.h"
 #include "Globals.h"
+#include "Matrix.h"
 
 // ------------------------------------------------------------------------
 // external functions 
@@ -122,10 +124,10 @@ double PSUADE_drand()
 // ************************************************************************
 char* PSUADE_strdup(const char *s)
 {
-   size_t len = strlen (s) + 1;
-   char *result = (char*) malloc (len);
-   if (result == (char*) 0) return (char*) 0;
-   return (char*) memcpy (result, s, len);
+  size_t len = strlen (s) + 1;
+  char *result = (char*) malloc (len);
+  if (result == (char*) 0) return (char*) 0;
+  return (char*) memcpy (result, s, len);
 }
 
 // ************************************************************************
@@ -133,14 +135,14 @@ char* PSUADE_strdup(const char *s)
 // ************************************************************************
 char* PSUADE_strndup(const char *s, size_t n)
 {
-   char *result;
-   size_t len = strlen (s);
+  char *result;
+  size_t len = strlen (s);
 
-   if (n < len) len = n;
-   result = (char *) malloc (len + 1);
-   if (!result) return 0;
-   result[len] = '\0';
-   return (char *) memcpy (result, s, len);
+  if (n < len) len = n;
+  result = (char *) malloc (len + 1);
+  if (!result) return 0;
+  result[len] = '\0';
+  return (char *) memcpy (result, s, len);
 }
 
 // ************************************************************************
@@ -754,10 +756,10 @@ int binarySearchInt(int sKey, int *sData, int length)
 // ------------------------------------------------------------------------
 void printCharLine(int printLevel, int length, char printchar)
 {
-   if(length <= 0) length = 70;
-   for (int ii = 0; ii < length; ii++)
-      printOutTS(printLevel, "%c", printchar);
-   printOutTS(printLevel, "\n");
+  if (length <= 0) length = 70;
+  for (int ii = 0; ii < length; ii++)
+    printOutTS(printLevel, "%c", printchar);
+  printOutTS(printLevel, "\n");
 }
 
 // ************************************************************************
@@ -765,7 +767,7 @@ void printCharLine(int printLevel, int length, char printchar)
 // ------------------------------------------------------------------------
 void printAsterisks(int printLevel, int length)
 {
-   printCharLine(printLevel, length, '*');
+  printCharLine(printLevel, length, '*');
 }
 
 // ************************************************************************
@@ -773,7 +775,7 @@ void printAsterisks(int printLevel, int length)
 // ------------------------------------------------------------------------
 void printDashes(int printLevel, int length)
 {
-   printCharLine(printLevel, length, '-');
+  printCharLine(printLevel, length, '-');
 }
 
 // ************************************************************************
@@ -1401,6 +1403,154 @@ int checkSPDFFileFormat(char *fname, int printLevel)
    }
    fclose(fp);
    return 0;
+}
+
+// ************************************************************************
+// read standard file data 
+// ------------------------------------------------------------------------
+int readStdDataFile(char *fname, psMatrix &Amat)
+{
+  int      ii, idata, count, nSamp, nInps;
+  double   ddata;
+  ifstream infile;
+
+  infile.open(fname, ios::in);
+  if (!infile.is_open())
+  {
+    cout << "readStdDataFile ERROR: cannot read file " << fname << endl;
+    return 1;
+  }
+  infile >> nSamp;
+  if (nSamp <= 0)
+  {
+    cout << "readStdDataFile ERROR: wrong nSamples <= 0" << endl;
+    infile.close();
+    return 1;
+  }
+  infile >> nInps;
+  if (nInps <= 0)
+  {
+    cout << "readStdDataFile ERROR: nInps <= 0" << endl;
+    infile.close();
+    return 1;
+  }
+  
+  Amat.setDim(nSamp, nInps);
+  count = 1;
+  while (!infile.eof())
+  {
+    infile >> idata;
+    if (idata != count)
+    {
+      cout << "readStdDataFile ERROR: wrong format " << endl;
+      infile.close();
+      return 1;
+    }
+    for (ii = 0; ii < nInps; ii++)
+    {
+      infile >> ddata;
+      Amat.setEntry(count-1, ii, ddata);
+    }
+    count++;
+  }
+  infile.close();
+  if (count != (nSamp-1))
+  {
+    cout << "readStdDataFile ERROR: not enough data" << endl;
+    return 1;
+  }
+  return 0;
+}
+
+// ************************************************************************
+// read sample input data 
+// ------------------------------------------------------------------------
+int readSampleInputFile(const char *fname, psIVector &rsIndices,
+                        psMatrix &Amat)
+{
+  int      ii, jj, nn, nSamp, nInps;
+  double   ddata;
+  char     cString[10001], inChar;
+  string   line;
+  ifstream infile;
+  psIVector indices;
+
+  infile.open(fname, ios::in);
+  if (!infile.is_open())
+  {
+    cout << "readSampleFile ERROR: cannot read file " << fname << endl;
+    return -1;
+  }
+  infile >> cString;
+  if (strcmp(cString, "PSUADE_BEGIN"))
+  {
+    infile.close();
+    infile.open(fname, ios::in);
+  }
+  infile >> nSamp;
+  if (nSamp <= 0)
+  {
+    cout << "readSampleFile ERROR: wrong nSamples <= 0" << endl;
+    infile.close();
+    return -1;
+  }
+  infile >> nInps;
+  if (nInps <= 0)
+  {
+    cout << "readSampleFile ERROR: nInps <= 0" << endl;
+    infile.close();
+    return -1;
+  }
+  std::getline(infile, line);
+  while (!infile.eof())
+  {
+    inChar = infile.peek();
+    if (inChar != '#') break;
+    std::getline(infile, line);
+  }
+  if (infile.eof())
+  {
+    cout << "readSampleFile ERROR: EOF reached.\n";
+    infile.close();
+    return -1;
+  }
+  Amat.setDim(nSamp, nInps);
+  indices.setLength(nInps);
+  nn = 0;
+  for (ii = 0; ii < rsIndices.length(); ii++)
+  {
+    if (rsIndices[ii] >= 1000) indices[nn++] = rsIndices[ii] - 1000; 
+  }
+  for (ii = 0; ii < nSamp; ii++)
+  {
+    infile >> nn;
+    if (nn != (ii+1))
+    {
+      cout << "readSampleFile ERROR: invalid sample number.\n";
+      cout << "           Expected: " << ii+1 << endl;
+      cout << "           Read:     " << nn << endl;
+      cout << "Advice: check your data format at line " << ii+2 << endl;
+      cout << "Correct Format: \n";
+      cout << "line 1: (optional) PSUADE_BEGIN\n";
+      cout << "line 2: <number of sample points> <number of inputs>\n";
+      cout << "line 3: (optional) : '#' followed by input names\n";
+      cout << "line 4: 1 sample point 1 inputs \n";
+      cout << "line 5: 2 sample point 2 inputs \n";
+      cout << "line 6: 3 sample point 3 inputs \n";
+      cout << "...\n";
+      cout << "line n: (optional) PSUADE_END\n";
+      infile.close();
+      return -1;
+    }
+    for (jj = 0; jj < nInps; jj++)
+    {
+      infile >> ddata;
+      nn = indices[jj];
+      Amat.setEntry(ii,nn,ddata);
+    }
+  }
+  infile.close();
+  return 0;
 }
 
 // ************************************************************************

@@ -8,6 +8,8 @@
          CALL OUUEvalFunc(N, X, F);
       ELSE IF (NFMODE .EQ. 6666) THEN
          CALL KRIBOBYQAEvalFunc(N, X, F);
+      ELSE IF (NFMODE .EQ. 5555) THEN
+         CALL GP3NEWUOAEvalFunc(N, X, F);
       ENDIF
       RETURN
 C     DO 10 J=1,N

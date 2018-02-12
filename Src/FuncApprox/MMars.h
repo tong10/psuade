@@ -20,49 +20,58 @@
 // along with this program; if not, write to the Free Software Foundation,
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 // ************************************************************************
-// iVector functions
+// Definition for the class MRBF
 // AUTHOR : CHARLES TONG
-// DATE   : 2010
+// DATE   : 2017
 // ************************************************************************
+#ifndef __MMARSH__
+#define __MMARSH__
 
-#ifndef __IVECTORH__
-#define __IVECTORH__
-
-/**
- * @name iVector class
- *
- **/
-/*@{*/
+#include "FuncApprox.h"
+#include "Mars.h"
 
 // ************************************************************************
 // class definition
 // ************************************************************************
-
-class iVector
+class MMars_Box 
 {
-
-   int length_;
-   int *Vec_;
-
 public:
-
-   iVector();
-   // Copy Constructor by Bill Oliver
-   iVector(const iVector & v);
-
-   // Overload operator= by Bill Oliver
-   iVector & operator=(const iVector & v);
-
-   ~iVector();
-   int length();
-   int load(iVector &);
-   int setLength(int);
-   int load(int, int *);
-   int & operator[](int ind);
-   int *getIVector();
+   int    nInputs_;
+   int    nSamples_;
+   double *lBounds_;
+   double *uBounds_;
+   Mars   *marsPtr_;
 };
 
-/*@}*/
+// ************************************************************************
+// class definition
+// ************************************************************************
+class MMars : public FuncApprox 
+{
+   int    nPartitions_;
+   int    partSize_;
+   double *Xd_;
+   MMars_Box **boxes_;
+ 
+public:
+   MMars(int, int);
+   ~MMars();
 
-#endif /* __IVECTORH__ */
+   int    initialize(double*,double*);
+   int    genNDGridData(double*,double*,int*,double**,double**);
+   int    gen1DGridData(double*,double *,int,double*, 
+                        int *, double **, double **);
+   int    gen2DGridData(double*,double *,int,int,double*, 
+                        int *, double **, double **);
+   int    gen3DGridData(double*,double *,int,int,int,double*, 
+                        int *, double **, double **);
+   int    gen4DGridData(double*,double *,int,int,int,int,double*, 
+                        int *, double **, double **);
+   double evaluatePoint(double *);
+   double evaluatePoint(int, double *, double *);
+   double evaluatePointFuzzy(double *, double &);
+   double evaluatePointFuzzy(int, double *, double *, double *);
+};
+
+#endif // __MMARSH__
 

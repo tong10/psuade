@@ -1609,12 +1609,12 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
          return -1;
       }
       dmean = 0.0;
-      for (kk = 0; kk < count; kk++)
-         if (YY[ii] != PSUADE_UNDEFINED) dmean += YY[kk];
+      for (kk = 0; kk < nSamp; kk++)
+         if (YY[kk] != PSUADE_UNDEFINED) dmean += YY[kk];
       dmean /= (double) count;
       dstds = 0.0;
-      for (kk = 0; kk < count; kk++)
-         if (YY[ii] != PSUADE_UNDEFINED) dstds += pow(YY[kk]-dmean,2.0);
+      for (kk = 0; kk < nSamp; kk++)
+         if (YY[kk] != PSUADE_UNDEFINED) dstds += pow(YY[kk]-dmean,2.0);
       dstds /= (double) (count - 1);
       bsMeans[nn] = dmean;
       bsStds[nn]  = sqrt(dstds);
@@ -1854,7 +1854,8 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
                }
             }
          }
-         status = faPtr->initialize(bsX, bsY);
+         if (ii == 0 || ntimes > 1) 
+            status = faPtr->initialize(bsX, bsY);
          if (isScreenDumpModeOn() && printLevel > 3)
             printOutTS(PL_INFO,"RSMSobol1: function evaluations\n");
          faPtr->evaluatePoint(nSubSamples*nLevels,mSamplePts,YY);
@@ -1862,7 +1863,8 @@ double RSMSobol1Analyzer::analyze3(aData &adata)
          {
             for (kk = 0; kk < nLevels*nSubSamples; kk++)
             {
-               ddata = constrPtr->evaluate(&mSamplePts[kk],YY[kk],status);
+               ddata = constrPtr->evaluate(&mSamplePts[kk*nInputs],
+                                           YY[kk],status);
                if (status == 0) YY[kk] = PSUADE_UNDEFINED;
             }
          }

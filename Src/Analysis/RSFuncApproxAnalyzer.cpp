@@ -65,20 +65,20 @@ RSFuncApproxAnalyzer::~RSFuncApproxAnalyzer()
 double RSFuncApproxAnalyzer::analyze(aData &adata)
 {
   int        nInputs, nOutputs, nSamples, outputID, nLevels, *levelSeps;
-  int        ss, iL, nLast, nPtsPerDim=64, status, rsState;
-  int        count, ss2, iI, nSubSamples, wgtID, printLevel;
-  int        *iArray, *iArray2, testFlag, iOne=1;
-  double     ddata, ymax, ymin, *YLocal, *X, *Y, *X2, *Y2, retdata=0;
-  double     *lower, *upper, *eArray, *YT, *WW, *wgts, sdata, *XX, *YY;
+  int        ss, ss2, iI, iL, wgtID, nLast, nPtsPerDim=64, status, rsState;
+  int        count, nSubSamples, printLevel, testFlag, iOne=1, *arrayS;
+  double     ddata, ymax, ymin, retdata=0, sdata, ymean, yvar, ydiff, ssum;
   double     cvErr1, cvErr1s, cvErr2, cvErr2s,cvMax, cvMaxs, cvMaxBase;
-  double     cvMaxBases, CVMaxBases, maxBase, maxBases, *sArray, *sigmas;
+  double     cvMaxBases, CVMaxBases, maxBase, maxBases, sumErr11, sumErr11s;
   double     CVErr2, CVErr2s, CVErr1, CVErr1s, CVMax, CVMaxs, CVMaxBase;
   double     sumErr1, sumErr1s, sumErr2, sumErr2s, maxErr, maxErrs;
-  double     sumErr11, sumErr11s, ymean, yvar, ydiff, *S2, ssum;
-  char       *cString;
+  double     *lower, *upper, *arrayX, *arrayY, *arrayXX;
   char       winput1[500], winput2[500], dataFile[500], errFile[500];
-  char       pString[500];
+  char       pString[500], *targv[2], *cString;
   FILE       *fpData, *fpErr;
+  psVector   VecYLocal,VecYT,VecWgts,VecX2,VecY2,VecSigmas,VecS,VecE,VecW;
+  psVector   VecS2, VecXX, VecYY, VecD, VecDD, VecD2;
+  psIVector  IVec1, IVec2;
   FuncApprox *faPtr;
 
   printLevel = adata.printLevel_;
@@ -87,23 +87,24 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
   nSamples  = adata.nSamples_;
   lower     = adata.iLowerB_;
   upper     = adata.iUpperB_;
-  X         = adata.sampleInputs_;
-  Y         = adata.sampleOutputs_;
+  arrayX    = adata.sampleInputs_;
+  arrayY    = adata.sampleOutputs_;
+  arrayS    = adata.sampleStates_;
   outputID  = adata.outputID_;
   nLevels   = adata.currRefineLevel_;
   levelSeps = adata.refineSeparators_;
   wgtID     = adata.regWgtID_;
   if (adata.inputPDFs_ != NULL)
   {
-     count = 0;
-     for (iI = 0; iI < nInputs; iI++) count += adata.inputPDFs_[iI];
-     if (count > 0)
-     {
-        printOutTS(PL_INFO,
-             "RSAnalysis INFO: some inputs have non-uniform PDFs,\n");
-        printOutTS(PL_INFO,
-             "    but they are not relevant in this analysis.\n");
-     }
+    count = 0;
+    for (iI = 0; iI < nInputs; iI++) count += adata.inputPDFs_[iI];
+    if (count > 0)
+    {
+      printOutTS(PL_INFO,
+           "RSAnalysis INFO: some inputs have non-uniform PDFs,\n");
+      printOutTS(PL_INFO,
+           "    but they are not relevant in this analysis.\n");
+    }
   }
 
   if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
@@ -116,485 +117,540 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
   } 
   status = 0;
   for (ss = 0; ss < nSamples; ss++)
-     if (Y[nOutputs*ss+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
+     if (arrayY[nOutputs*ss+outputID] > 0.9*PSUADE_UNDEFINED) status = 1;
   if (status == 1)
   {
-     printOutTS(PL_ERROR,"RSAnalysis ERROR: Some outputs are undefined.\n");
-     printOutTS(PL_ERROR,"    Prune the undefined sample points first.\n");
-     return PSUADE_UNDEFINED;
+    printOutTS(PL_ERROR,"RSAnalysis ERROR: Some outputs are undefined.\n");
+    printOutTS(PL_ERROR,"    Prune the undefined sample points first.\n");
+    return PSUADE_UNDEFINED;
+  }
+  if (arrayS != NULL)
+  {
+    status = 0;
+    for (ss = 0; ss < nSamples; ss++)
+      if (arrayS[ss] != 1) status = 1;
+    if (status == 1)
+    {
+      printOutTS(PL_ERROR,
+         "RSAnalysis WARNING: Some sample statuses are not valid (=1).\n");
+      return PSUADE_UNDEFINED;
+    }
   }
   if (printLevel > 0)
   {
-     printAsterisks(PL_INFO, 0);
-     printThisFA(rsType_);
-     printEquals(PL_INFO, 0);
+    printAsterisks(PL_INFO, 0);
+    printThisFA(rsType_);
+    printEquals(PL_INFO, 0);
   }
   if (rsType_ == PSUADE_RS_REGRGL) nLevels = 1;
+  if (rsType_ == PSUADE_RS_REGRGL && nOutputs != nInputs+1) 
+  {
+    printOutTS(PL_ERROR,
+       "RSAnalysis ERROR: for gradient-based RS, nOutputs=nInputs+1\n");
+    printOutTS(PL_ERROR,
+       "  Your loaded sample has nInputs/nOutputs = %d/%d\n",nInputs,nOutputs);
+    exit(1);
+  }
+  if (rsType_ == PSUADE_RS_REGRGL && outputID != 0) 
+  {
+    printOutTS(PL_ERROR,
+       "RSAnalysis ERROR: for gradient-based RS, the output ID to be\n");
+    printOutTS(PL_ERROR,
+       "  analyzed must be 1. (You set it to %d)\n",outputID+1);
+    exit(1);
+  }
   
-  YLocal = new double[nSamples];
-  checkAllocate(YLocal, "YLocal in RSFuncApprox::analyze");
-  for (ss = 0; ss < nSamples; ss++) YLocal[ss] = Y[ss*nOutputs+outputID];
+  VecYLocal.setLength(nSamples);
+  for (ss = 0; ss < nSamples; ss++) 
+    VecYLocal[ss] = arrayY[ss*nOutputs+outputID];
   ymax = 0.0;
   ymin = PSUADE_UNDEFINED;
   for (ss = 0; ss < nSamples; ss++)
   {
-     if (YLocal[ss] > ymax) ymax = YLocal[ss];
-     if (YLocal[ss] < ymin) ymin = YLocal[ss];
+    if (VecYLocal[ss] > ymax) ymax = VecYLocal[ss];
+    if (VecYLocal[ss] < ymin) ymin = VecYLocal[ss];
   }
   printOutTS(PL_INFO,"RSA: Output ID = %d\n", outputID+1);
   printOutTS(PL_INFO,
-       "RSA: Output Maximum/Minimum = %14.6e %14.6e\n",ymax,ymin);
+     "RSA: Output Maximum/Minimum = %14.6e %14.6e\n",ymax,ymin);
   printOutTS(PL_INFO,
-       "INFO: Set printlevel higher (1-4) to display more information.\n");
+     "INFO: Set printlevel higher (1-4) to display more information.\n");
   printOutTS(PL_INFO,
-       "INFO: Set print level to 4 for interpolation error graphics file.\n");
+     "INFO: Set print level to 4 for interpolation error graphics file.\n");
   if (ymax == PSUADE_UNDEFINED)
   {
-     printOutTS(PL_ERROR,"RSAnalyzer ERROR: some outputs are undefined.\n");
-     printOutTS(PL_ERROR,"           Prune them first before analyze.\n");
-     delete [] YLocal;
-     return PSUADE_UNDEFINED;
+    printOutTS(PL_ERROR,"RSAnalyzer ERROR: some outputs are undefined.\n");
+    printOutTS(PL_ERROR,"           Prune them first before analyze.\n");
+    return PSUADE_UNDEFINED;
   }
 
-  YT = new double[nSamples];
-  checkAllocate(YT, "YT in RSFuncApprox::analyze");
+  VecYT.setLength(nSamples);
   for (iL = 0; iL < nLevels; iL++)
   {
-     nLast = nSamples;
-     if (levelSeps != NULL) nLast = levelSeps[iL];
+    nLast = nSamples;
+    if (levelSeps != NULL) nLast = levelSeps[iL];
 
-     faPtr = genFA(rsType_, nInputs, iOne, nLast);
-     if (faPtr == NULL)
-     {
-        printOutTS(PL_INFO,
-             "RSFAnalyzer INFO: cannot create response surface.\n");
-        delete [] YLocal;
-        delete faPtr;
-        delete [] YT;
-        return 1.0;
-     }
-     faPtr->setNPtsPerDim(nPtsPerDim);
-     faPtr->setBounds(lower, upper);
-     if (iL == nLevels-1) faPtr->setOutputLevel(printLevel);
-     if (wgtID >= 0 && wgtID < nOutputs)
-     {
-        wgts = new double[nLast];
-        checkAllocate(wgts, "wgts in RSFuncApprox::analyze");
-        for (ss = 0; ss < nLast; ss++) wgts[ss] = Y[ss*nOutputs+wgtID];
-        faPtr->loadWeights(nLast, wgts);
-        delete [] wgts;
-     }
-     if (iL == nLevels - 1 && psRSCodeGen_ == 2) psRSCodeGen_ = 1;
-     status = faPtr->initialize(X, YLocal);
-     if (psRSCodeGen_ == 1) psRSCodeGen_ = 2;
-     if (status != 0)
-     {
-        printOutTS(PL_ERROR,
-             "RSAnalysis ERROR: something wrong in FA initialize.\n");
-        delete [] YLocal;
-        delete faPtr;
-        delete [] YT;
-        return PSUADE_UNDEFINED;
-     }
+    faPtr = genFA(rsType_, nInputs, iOne, nLast);
+    if (faPtr == NULL)
+    {
+      printOutTS(PL_INFO,
+           "RSFAnalyzer INFO: cannot create response surface.\n");
+      delete faPtr;
+      return 1.0;
+    }
+    faPtr->setNPtsPerDim(nPtsPerDim);
+    faPtr->setBounds(lower, upper);
+    if (iL == nLevels-1) faPtr->setOutputLevel(printLevel);
+    if (wgtID >= 0 && wgtID < nOutputs)
+    {
+      VecWgts.setLength(nLast);
+      for (ss = 0; ss < nLast; ss++) 
+        VecWgts[ss] = arrayY[ss*nOutputs+wgtID];
+      faPtr->loadWeights(nLast, VecWgts.getDVector());
+    }
+    if (rsType_ == PSUADE_RS_REGRGL)
+    {
+      VecD.setLength(nSamples*nInputs);
+      for (ss = 0; ss < nSamples; ss++)
+        for (iI = 0; iI < nInputs; iI++)
+          VecD[ss*nInputs+iI] = arrayY[ss*nOutputs+iI+1];
+      strcpy(pString, "deriv_sample");
+      targv[0] = (char *) pString;
+      targv[1] = (char *) VecD.getDVector();
+      count = 2;
+      faPtr->setParams(count, targv);
+    }
+    if (iL == nLevels - 1 && psRSCodeGen_ == 2) psRSCodeGen_ = 1;
+    status = faPtr->initialize(arrayX, VecYLocal.getDVector());
+    if (psRSCodeGen_ == 1) psRSCodeGen_ = 2;
+    if (status != 0)
+    {
+      printOutTS(PL_ERROR,
+           "RSAnalysis ERROR: something wrong in FA initialize.\n");
+      delete faPtr;
+      return PSUADE_UNDEFINED;
+    }
 
-     sumErr1  = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
-     sumErr11 = sumErr11s = ydiff = 0.0;
-     maxBase = maxBases = ymean = yvar = 0.0;
-     faPtr->evaluatePoint(nLast, X, YT);
-     for (ss = 0; ss < nLast; ss++)
-     {
-        ddata = PABS(YT[ss] - YLocal[ss]);
-        if (YLocal[ss] != 0.0) sdata = ddata / PABS(YLocal[ss]);
-        else                   sdata = ddata;
-        sumErr1   += ddata;
-        sumErr1s  += sdata;
-        sumErr11  += (YT[ss] - YLocal[ss]);
-        if (YLocal[ss] != 0.0)
-           sumErr11s += (YT[ss] - YLocal[ss]) / PABS(YLocal[ss]);
-        else
-           sumErr11s += (YT[ss] - YLocal[ss]);
-        if (ddata > maxErr ) {maxErr = ddata;  maxBase = PABS(YLocal[ss]);}
-        if (sdata > maxErrs) {maxErrs = sdata; maxBases = PABS(YLocal[ss]);}
+    sumErr1  = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
+    sumErr11 = sumErr11s = ydiff = 0.0;
+    maxBase = maxBases = ymean = yvar = 0.0;
+    faPtr->evaluatePoint(nLast, arrayX, VecYT.getDVector());
+    for (ss = 0; ss < nLast; ss++)
+    {
+      ddata = PABS(VecYT[ss] - VecYLocal[ss]);
+      if (VecYLocal[ss] != 0.0) sdata = ddata / PABS(VecYLocal[ss]);
+      else                      sdata = ddata;
+      sumErr1   += ddata;
+      sumErr1s  += sdata;
+      sumErr11  += (VecYT[ss] - VecYLocal[ss]);
+      if (VecYLocal[ss] != 0.0)
+           sumErr11s += (VecYT[ss] - VecYLocal[ss])/PABS(VecYLocal[ss]);
+      else sumErr11s += (VecYT[ss] - VecYLocal[ss]);
+      if (ddata > maxErr ) 
+      {
+        maxErr = ddata;
+        maxBase = PABS(VecYLocal[ss]);
+      }
+      if (sdata > maxErrs)
+      {
+        maxErrs = sdata; 
+        maxBases = PABS(VecYLocal[ss]);
+      }
+      sumErr2  += (ddata * ddata);
+      sumErr2s += (sdata * sdata);
+      ymean += VecYLocal[ss]; 
+    }
+    ymean /= (double) nLast;
+    for (ss = 0; ss < nLast; ss++)
+      yvar += (VecYLocal[ss] - ymean) * (VecYLocal[ss] - ymean);
+    sumErr1   = sumErr1 / (double) nLast;
+    sumErr1s  = sumErr1s / (double) nLast;
+    sumErr11  = sumErr11 / (double) nLast;
+    sumErr11s = sumErr11s / (double) nLast;
+    sumErr2  = sqrt(sumErr2 / (double) nLast);
+    sumErr2s = sqrt(sumErr2s / (double) nLast);
+    if (printLevel > 2 || iL == nLevels-1)
+    {
+      printOutTS(PL_INFO,
+         "RSAnalysis: L %2d: interpolation error on training set \n", iL);
+      printOutTS(PL_INFO,
+         "             avg error far from 0 ==> systematic bias.\n");
+      printOutTS(PL_INFO,
+         "             rms error large      ==> average   error large.\n");
+      printOutTS(PL_INFO,
+         "             max error large      ==> pointwise error large.\n");
+      printOutTS(PL_INFO,
+         "             R-square may not always be a reliable measure.\n");
+      printOutTS(PL_INFO,"  avg error   = %11.3e (unscaled)\n", sumErr11);
+      printOutTS(PL_INFO,"  avg error   = %11.3e (scaled)\n", sumErr11s);
+      printOutTS(PL_INFO,"  rms error   = %11.3e (unscaled)\n", sumErr2);
+      printOutTS(PL_INFO,"  rms error   = %11.3e (scaled)\n", sumErr2s);
+      printOutTS(PL_INFO,"  max error   = %11.3e (unscaled, BASE=%9.3e)\n",
+             maxErr, maxBase);
+      printOutTS(PL_INFO,
+           "  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
+           maxErrs, maxBases);
+      printOutTS(PL_INFO,
+           "  R-square    = %16.8e\n",1.0-sumErr2*sumErr2*nLast/yvar);
+      printOutTS(PL_INFO,
+           "Based on %d training points (total=%d).\n",nLast,nSamples);
+    }
+
+    if (nLevels > 1 && iL < nLevels-1)
+    {
+      sumErr1 = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
+      sumErr11 = sumErr11s;
+      faPtr->evaluatePoint(nSamples, arrayX, VecYT.getDVector());
+      for (ss = nLast; ss < nSamples; ss++)
+      {
+        ddata = PABS(VecYT[ss] - VecYLocal[ss]);
+        if (VecYLocal[ss] != 0.0) sdata = ddata / PABS(VecYLocal[ss]);
+        else                      sdata = ddata;
+        sumErr1  += ddata;
+        sumErr1s += sdata;
+        sumErr11  += (VecYT[ss] - VecYLocal[ss]);
+        if (VecYLocal[ss] != 0.0)
+             sumErr11s += (VecYT[ss]-VecYLocal[ss])/PABS(VecYLocal[ss]);
+        else sumErr11s += (VecYT[ss]-VecYLocal[ss]);
+        if (ddata > maxErr )
+        {
+          maxErr  = ddata; 
+          maxBase = PABS(VecYLocal[ss]);
+        }
+        if (sdata > maxErrs) 
+        {
+          maxErrs = sdata; 
+          maxBases = PABS(VecYLocal[ss]);
+        }
         sumErr2  += (ddata * ddata);
         sumErr2s += (sdata * sdata);
-        ymean += YLocal[ss]; 
-     }
-     ymean /= (double) nLast;
-     for (ss = 0; ss < nLast; ss++)
-        yvar += (YLocal[ss] - ymean) * (YLocal[ss] - ymean);
-     sumErr1   = sumErr1 / (double) nLast;
-     sumErr1s  = sumErr1s / (double) nLast;
-     sumErr11  = sumErr11 / (double) nLast;
-     sumErr11s = sumErr11s / (double) nLast;
-     sumErr2  = sqrt(sumErr2 / (double) nLast);
-     sumErr2s = sqrt(sumErr2s / (double) nLast);
-     if (printLevel > 2 || iL == nLevels-1)
-     {
-        printOutTS(PL_INFO,
-           "RSAnalysis: L %2d: interpolation error on training set \n", iL);
-        printOutTS(PL_INFO,
-           "             avg error far from 0 ==> systematic bias.\n");
-        printOutTS(PL_INFO,
-           "             rms error large      ==> average   error large.\n");
-        printOutTS(PL_INFO,
-           "             max error large      ==> pointwise error large.\n");
-        printOutTS(PL_INFO,
-           "             R-square may not always be a reliable measure.\n");
-        printOutTS(PL_INFO,"  avg error   = %11.3e (unscaled)\n", sumErr11);
-        printOutTS(PL_INFO,"  avg error   = %11.3e (scaled)\n", sumErr11s);
-        printOutTS(PL_INFO,"  rms error   = %11.3e (unscaled)\n", sumErr2);
-        printOutTS(PL_INFO,"  rms error   = %11.3e (scaled)\n", sumErr2s);
-        printOutTS(PL_INFO,"  max error   = %11.3e (unscaled, BASE=%9.3e)\n",
-               maxErr, maxBase);
-        printOutTS(PL_INFO,
-             "  max error   = %11.3e (  scaled, BASE=%9.3e)\n",
-             maxErrs, maxBases);
-        printOutTS(PL_INFO,
-             "  R-square    = %16.8e\n",1.0-sumErr2*sumErr2*nLast/yvar);
-        printOutTS(PL_INFO,
-             "Based on %d training points (total=%d).\n",nLast,nSamples);
-     }
+      }
+      sumErr1   = sumErr1 / (double) (nSamples-nLast);
+      sumErr1s  = sumErr1s / (double) (nSamples-nLast);
+      sumErr11  = sumErr11 / (double) (nSamples-nLast);
+      sumErr11s = sumErr11s / (double) (nSamples-nLast);
+      sumErr2   = sqrt(sumErr2 / (double) (nSamples-nLast));
+      sumErr2s  = sqrt(sumErr2s / (double) (nSamples-nLast));
 
-     if (nLevels > 1 && iL < nLevels-1)
-     {
-        sumErr1 = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
-        sumErr11 = sumErr11s;
-        faPtr->evaluatePoint(nSamples, X, YT);
-        for (ss = nLast; ss < nSamples; ss++)
+      printOutTS(PL_INFO,
+         "RSAnalysis: L %2d: Prediction error on the remaining data:\n",iL);
+      printOutTS(PL_INFO,"  avg error = %11.3e (unscaled)\n", sumErr11);
+      printOutTS(PL_INFO,"  avg error = %11.3e (scaled)\n", sumErr11s);
+      printOutTS(PL_INFO,"  rms error = %11.3e (unscaled)\n", sumErr2);
+      printOutTS(PL_INFO,"  rms error = %11.3e (scaled)\n", sumErr2s);
+      printOutTS(PL_INFO,
+         "  max error = %11.3e (unscaled, BASE=%11.3e)\n",maxErr,maxBase);
+      printOutTS(PL_INFO,
+         "  max error = %11.3e (  scaled, BASE=%11.3e)\n",maxErrs,maxBases);
+      printOutTS(PL_INFO, 
+         "Based on %d training points (rest=%d).\n",nLast,nSamples-nLast);
+    }
+
+    if (psAnaExpertMode_ == 1 && iL == nLevels-1) 
+    {
+      if (psPlotTool_ == 1)
+      {
+        fpErr = fopen("RSFA_training_err.sci", "w");
+        if (fpErr == NULL)
+          printOutTS(PL_INFO,
+               "INFO: cannot open file RSFA_training_err.sci.\n");
+      }
+      else
+      {
+        fpErr = fopen("RSFA_training_err.m", "w");
+        if (fpErr == NULL)
+          printOutTS(PL_INFO,
+               "INFO: cannot open file RSFA_training_err.m.\n");
+      }
+      if (fpErr != NULL)
+      {
+        strcpy(pString, "Surface Fitting Error Histogram");
+        fwriteComment(fpErr, pString);
+        strcpy(pString, "Interpolation errors on all points");
+        fwriteComment(fpErr, pString);
+        strcpy(pString, "col 1: interpolated data");
+        fwriteComment(fpErr, pString);
+        strcpy(pString, "col 2: training data");
+        fwriteComment(fpErr, pString);
+        strcpy(pString, "col 3: col 1 - col2");
+        fwriteComment(fpErr, pString);
+        strcpy(pString, "col 4 on: input data");
+        fwriteComment(fpErr, pString);
+        fprintf(fpErr, "E = [\n");
+      }
+      sumErr1 = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
+      maxBase = sumErr11 = sumErr11s = 0.0;
+      faPtr->evaluatePoint(nSamples, arrayX, VecYT.getDVector());
+      for (ss = 0; ss < nSamples; ss++)
+      {
+        ddata = VecYT[ss];
+        if (fpErr != NULL)
         {
-           ddata = PABS(YT[ss] - YLocal[ss]);
-           if (YLocal[ss] != 0.0) sdata = ddata / PABS(YLocal[ss]);
-           else                   sdata = ddata;
-           sumErr1  += ddata;
-           sumErr1s += sdata;
-           sumErr11  += (YT[ss] - YLocal[ss]);
-           if (YLocal[ss] != 0.0)
-              sumErr11s += (YT[ss] - YLocal[ss]) / PABS(YLocal[ss]);
-           else
-              sumErr11s += (YT[ss] - YLocal[ss]);
-           if (ddata > maxErr ) {maxErr  = ddata; maxBase = PABS(YLocal[ss]);}
-           if (sdata > maxErrs) {maxErrs = sdata; maxBases = PABS(YLocal[ss]);}
-           sumErr2  += (ddata * ddata);
-           sumErr2s += (sdata * sdata);
+          fprintf(fpErr, "%24.16e %24.16e %24.16e ", ddata, 
+                  VecYLocal[ss], ddata-VecYLocal[ss]);
+          for (iI = 0; iI < nInputs; iI++)
+            fprintf(fpErr, "%24.16e ", arrayX[ss*nInputs+iI]); 
+          fprintf(fpErr, "\n");
         }
-        sumErr1   = sumErr1 / (double) (nSamples-nLast);
-        sumErr1s  = sumErr1s / (double) (nSamples-nLast);
-        sumErr11  = sumErr11 / (double) (nSamples-nLast);
-        sumErr11s = sumErr11s / (double) (nSamples-nLast);
-        sumErr2   = sqrt(sumErr2 / (double) (nSamples-nLast));
-        sumErr2s  = sqrt(sumErr2s / (double) (nSamples-nLast));
-
-        printOutTS(PL_INFO,
-             "RSAnalysis: L %2d: Prediction error on the remaining data:\n",
-             iL);
-        printOutTS(PL_INFO,"  avg error = %11.3e (unscaled)\n", sumErr11);
-        printOutTS(PL_INFO,"  avg error = %11.3e (scaled)\n", sumErr11s);
-        printOutTS(PL_INFO,"  rms error = %11.3e (unscaled)\n", sumErr2);
-        printOutTS(PL_INFO,"  rms error = %11.3e (scaled)\n", sumErr2s);
-        printOutTS(PL_INFO,
-             "  max error = %11.3e (unscaled, BASE=%11.3e)\n",maxErr,
-             maxBase);
-        printOutTS(PL_INFO,
-             "  max error = %11.3e (  scaled, BASE=%11.3e)\n",maxErrs,
-             maxBases);
-        printOutTS(PL_INFO, 
-             "Based on %d training points (rest=%d).\n",nLast,
-             nSamples-nLast);
-     }
-
-     if (psAnaExpertMode_ == 1 && iL == nLevels-1) 
-     {
+        ddata = ddata - VecYLocal[ss];
+        sumErr11 += ddata;
+        if (VecYLocal[ss] != 0) sumErr11s += ddata/PABS(VecYLocal[ss]);
+        else                    sumErr11s += ddata;
+        ddata = PABS(ddata);
+        if (VecYLocal[ss] != 0) sdata = ddata / PABS(VecYLocal[ss]);
+        else                    sdata = ddata;
+        sumErr1  += ddata;
+        sumErr1s += sdata;
+        if (ddata > maxErr )
+        {
+          maxErr  = ddata; 
+          maxBase = PABS(VecYLocal[ss]);
+        }
+        if (sdata > maxErrs)
+        {
+          maxErrs = sdata; 
+          maxBases = PABS(VecYLocal[ss]);
+        }
+        sumErr2  += (ddata * ddata);
+        sumErr2s += (sdata * sdata);
+      }
+      if (fpErr != NULL)
+      {
+        fprintf(fpErr, "];\n");
+        fwritePlotCLF(fpErr);
+        fwritePlotFigure(fpErr, 1);
+        fprintf(fpErr, "subplot(1,2,1)\n");
+        fprintf(fpErr, "plot(E(:,3),'x')\n");
+        fwritePlotAxes(fpErr);
+        fwritePlotTitle(fpErr, "Interpolation Error Plot");
+        fwritePlotXLabel(fpErr, "Sample Number");
+        fwritePlotYLabel(fpErr, "Interpolation Error");
+        fprintf(fpErr, "subplot(1,2,2)\n");
+        fprintf(fpErr, "xmax = max(E(:,2));\n");
+        fprintf(fpErr, "xmin = min(E(:,2));\n");
+        fprintf(fpErr, "ymax = max(E(:,1));\n");
+        fprintf(fpErr, "ymin = min(E(:,1));\n");
+        fprintf(fpErr, "xmin = min(xmin, ymin);\n");
+        fprintf(fpErr, "xmax = max(xmax, ymax);\n");
+        fprintf(fpErr, "XX   = xmin : xmax-xmin : xmax;\n");
+        fprintf(fpErr, "plot(E(:,2), E(:,1),'x', XX, XX)\n");
         if (psPlotTool_ == 1)
         {
-           fpErr = fopen("RSFA_training_err.sci", "w");
-           if (fpErr == NULL)
-              printOutTS(PL_INFO,
-                   "INFO: cannot open file RSFA_training_err.sci.\n");
+          fprintf(fpErr, "a = get(\"current_axes\");\n");
+          fprintf(fpErr, "a.data_bounds=[xmin,xmin;xmax,xmax];\n");
         }
         else
         {
-           fpErr = fopen("RSFA_training_err.m", "w");
-           if (fpErr == NULL)
-              printOutTS(PL_INFO,
-                   "INFO: cannot open file RSFA_training_err.m.\n");
+          fprintf(fpErr, "axis([xmin xmax xmin xmax])\n");
         }
-        if (fpErr != NULL)
-        {
-           strcpy(pString, "Surface Fitting Error Histogram");
-           fwriteComment(fpErr, pString);
-           strcpy(pString, "Interpolation errors on all points");
-           fwriteComment(fpErr, pString);
-           strcpy(pString, "col 1: interpolated data");
-           fwriteComment(fpErr, pString);
-           strcpy(pString, "col 2: training data");
-           fwriteComment(fpErr, pString);
-           strcpy(pString, "col 3: col 1 - col2");
-           fwriteComment(fpErr, pString);
-           strcpy(pString, "col 4 on: input data");
-           fwriteComment(fpErr, pString);
-           fprintf(fpErr, "E = [\n");
-        }
-        sumErr1 = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
-        maxBase = sumErr11 = sumErr11s = 0.0;
-        faPtr->evaluatePoint(nSamples, X, YT);
-        for (ss = 0; ss < nSamples; ss++)
-        {
-           ddata = YT[ss];
-           if (fpErr != NULL)
-           {
-              fprintf(fpErr, "%24.16e %24.16e %24.16e ", ddata, 
-                      YLocal[ss], ddata-YLocal[ss]);
-              for (iI = 0; iI < nInputs; iI++)
-                 fprintf(fpErr, "%24.16e ", X[ss*nInputs+iI]); 
-              fprintf(fpErr, "\n");
-           }
-           ddata = ddata - YLocal[ss];
-           sumErr11 += ddata;
-           if (YLocal[ss] != 0.0) sumErr11s += ddata / PABS(YLocal[ss]);
-           else                   sumErr11s += ddata;
-           ddata = PABS(ddata);
-           if (YLocal[ss] != 0.0) sdata = ddata / PABS(YLocal[ss]);
-           else                   sdata = ddata;
-           sumErr1  += ddata;
-           sumErr1s += sdata;
-           if (ddata > maxErr ) {maxErr  = ddata; maxBase = PABS(YLocal[ss]);}
-           if (sdata > maxErrs) {maxErrs = sdata; maxBases = PABS(YLocal[ss]);}
-           sumErr2  += (ddata * ddata);
-           sumErr2s += (sdata * sdata);
-        }
-        if (fpErr != NULL)
-        {
-           fprintf(fpErr, "];\n");
-           fwritePlotCLF(fpErr);
-           fwritePlotFigure(fpErr, 1);
-           fprintf(fpErr, "subplot(1,2,1)\n");
-           fprintf(fpErr, "plot(E(:,3),'x')\n");
-           fwritePlotAxes(fpErr);
-           fwritePlotTitle(fpErr, "Interpolation Error Plot");
-           fwritePlotXLabel(fpErr, "Sample Number");
-           fwritePlotYLabel(fpErr, "Interpolation Error");
-           fprintf(fpErr, "subplot(1,2,2)\n");
-           fprintf(fpErr, "xmax = max(E(:,2));\n");
-           fprintf(fpErr, "xmin = min(E(:,2));\n");
-           fprintf(fpErr, "ymax = max(E(:,1));\n");
-           fprintf(fpErr, "ymin = min(E(:,1));\n");
-           fprintf(fpErr, "xmin = min(xmin, ymin);\n");
-           fprintf(fpErr, "xmax = max(xmax, ymax);\n");
-           fprintf(fpErr, "XX   = xmin : xmax-xmin : xmax;\n");
-           fprintf(fpErr, "plot(E(:,2), E(:,1),'x', XX, XX)\n");
-           if (psPlotTool_ == 1)
-           {
-              fprintf(fpErr, "a = get(\"current_axes\");\n");
-              fprintf(fpErr, "a.data_bounds=[xmin,xmin;xmax,xmax];\n");
-           }
-           else
-           {
-              fprintf(fpErr, "axis([xmin xmax xmin xmax])\n");
-           }
-           fwritePlotAxes(fpErr);
-           fwritePlotTitle(fpErr, "Interpolated vs actual data");
-           fwritePlotXLabel(fpErr, "Actual data");
-           fwritePlotYLabel(fpErr, "Interpolated data");
+        fwritePlotAxes(fpErr);
+        fwritePlotTitle(fpErr, "Interpolated vs actual data");
+        fwritePlotXLabel(fpErr, "Actual data");
+        fwritePlotYLabel(fpErr, "Interpolated data");
 
-           fwritePlotFigure(fpErr, 2);
-           fwritePlotCLF(fpErr);
-           fprintf(fpErr, "subplot(1,2,1)\n");
-           if (psPlotTool_ == 1)
-           {
-              fprintf(fpErr, "ymin = min(E(:,3));\n");
-              fprintf(fpErr, "ymax = max(E(:,3));\n");
-              fprintf(fpErr, "ywid = 0.1 * (ymax - ymin);\n");
-              fprintf(fpErr, "if (ywid < 1.0e-12)\n");
-              fprintf(fpErr, "   disp('range too small.')\n");
-              fprintf(fpErr, "   halt\n");
-              fprintf(fpErr, "end;\n");
-              fprintf(fpErr, "histplot(10, E(:,3), style=2);\n");
-              fprintf(fpErr, "a = gce();\n");
-              fprintf(fpErr, "a.children.fill_mode = \"on\";\n");
-              fprintf(fpErr, "a.children.thickness = 2;\n");
-              fprintf(fpErr, "a.children.foreground = 0;\n");
-              fprintf(fpErr, "a.children.background = 2;\n");
-           }
-           else
-           {
-              fprintf(fpErr, "[nk,xk]=hist(E(:,3),10);\n");
-              fprintf(fpErr, "bar(xk,nk/%d,1.0)\n",nSamples);
-           }
-           fwritePlotAxes(fpErr);
-           fwritePlotTitle(fpErr, "Interpolation Errors Histogram");
-           fwritePlotXLabel(fpErr, "Error");
-           fwritePlotYLabel(fpErr, "Probabilities");
-           fprintf(fpErr, "subplot(1,2,2)\n");
-           if (psPlotTool_ == 1)
-           {
-              fprintf(fpErr, "ymin = min(E(:,3)/E(:,2));\n");
-              fprintf(fpErr, "ymax = max(E(:,3)/E(:,2));\n");
-              fprintf(fpErr, "ywid = 0.1 * (ymax - ymin);\n");
-              fprintf(fpErr, "if (ywid < 1.0e-12)\n");
-              fprintf(fpErr, "   disp('range too small.')\n");
-              fprintf(fpErr, "   halt\n");
-              fprintf(fpErr, "end;\n");
-              fprintf(fpErr, "histplot(10, E(:,3)/E(:,2), style=2);\n");
-              fprintf(fpErr, "a = gce();\n");
-              fprintf(fpErr, "a.children.fill_mode = \"on\";\n");
-              fprintf(fpErr, "a.children.thickness = 2;\n");
-              fprintf(fpErr, "a.children.foreground = 0;\n");
-              fprintf(fpErr, "a.children.background = 2;\n");
-           }
-           else
-           {
-              fprintf(fpErr, "[nk,xk]=hist(E(:,3)./E(:,2),10);\n");
-              fprintf(fpErr, "bar(xk,nk/%d,1.0)\n",nSamples);
-           }
-           fwritePlotAxes(fpErr);
-           fwritePlotTitle(fpErr, 
-                 "Interpolation Errors Histogram (normalized)");
-           fwritePlotXLabel(fpErr, "Error");
-           fwritePlotYLabel(fpErr, "Probabilities");
-
-           fwritePlotFigure(fpErr, 3);
-           fprintf(fpErr, "nn = %d;\n", nInputs);
-           iL = (int) pow(1.0*nInputs, 0.5);
-           if (iL*iL < nInputs) iL++;
-           if (psPlotTool_ == 1) fprintf(fpErr, "drawlater\n");
-           fprintf(fpErr, "for ii = 1 : nn\n");
-           fprintf(fpErr, "   subplot(%d,%d,ii)\n", iL, iL);
-           fprintf(fpErr, "   plot(E(:,ii+3),E(:,3),'x')\n");
-           fwritePlotAxes(fpErr);
-           if (psPlotTool_ == 1)
-           {
-              fwritePlotTitle(fpErr,"Error Plot for Input");
-              sprintf(winput1, 
-                   "a.title.text = \"Error Plot for Input\" + string(ii);\n");
-              fprintf(fpErr, "%s", winput1);
-              fwritePlotXLabel(fpErr, "Input Values");
-           }
-           else
-           {
-              fprintf(fpErr, "title(['Error Plot for Input ',int2str(ii)])\n");
-              fwritePlotXLabel(fpErr, "Input Values");
-           }
-           fwritePlotYLabel(fpErr, "Interpolation Error");
-           if (psPlotTool_ == 1) fprintf(fpErr, "drawnow\n");
-           fprintf(fpErr, "end\n");
-
-           if (nInputs > 2)
-           {
-              fwritePlotFigure(fpErr, 4);
-              if (psPlotTool_ == 1)
-              {
-                 fprintf(fpErr, "f = gcf();\n");
-                 fprintf(fpErr, "f.color_map = jetcolormap(3);\n");
-                 fprintf(fpErr, "drawlater\n");
-                 fprintf(fpErr, "param3d1([E(:,4)' ; E(:,4)'],");
-                 fprintf(fpErr, "[E(:,5)' ; E(:,5)'],[E(:,3)' ; E(:,3)'])\n");
-                 fprintf(fpErr, "e = gce();\n");
-                 fprintf(fpErr, "e.children.mark_mode = \"on\";\n");
-                 fprintf(fpErr, "e.children.mark_size_unit = \"point\";\n");
-                 fprintf(fpErr, "e.children.mark_style = 10;\n");
-                 fprintf(fpErr, "e.children.mark_size = 6;\n");
-                 fprintf(fpErr, "for i = 1:length(e.children)\n");
-                 fprintf(fpErr, "   e.children(i).mark_foreground = 1;\n");
-                 fprintf(fpErr, "end\n");
-                 fprintf(fpErr, "set(gca(),\"auto_clear\",\"off\")\n");
-                 fprintf(fpErr, "drawnow\n");
-              }
-              else
-              {
-                 fprintf(fpErr, "   plot3(E(:,4),E(:,5),E(:,3),'bp')\n");
-              }
-              fwritePlotXLabel(fpErr, "Input 1");
-              fwritePlotYLabel(fpErr, "Input 2");
-              fwritePlotTitle(fpErr, "Output Error Scatter Plot");
-              fwritePlotAxes(fpErr);
-           }
-           fclose(fpErr);
-           if (psPlotTool_ == 1)
-              printOutTS(PL_INFO,
-                   "Interpolation error info are in RSFA_training_err.sci\n");
-           else
-              printOutTS(PL_INFO,
-                   "Interpolation error info are in RSFA_training_err.m\n");
+        fwritePlotFigure(fpErr, 2);
+        fwritePlotCLF(fpErr);
+        fprintf(fpErr, "subplot(1,2,1)\n");
+        if (psPlotTool_ == 1)
+        {
+          fprintf(fpErr, "ymin = min(E(:,3));\n");
+          fprintf(fpErr, "ymax = max(E(:,3));\n");
+          fprintf(fpErr, "ywid = 0.1 * (ymax - ymin);\n");
+          fprintf(fpErr, "if (ywid < 1.0e-12)\n");
+          fprintf(fpErr, "   disp('range too small.')\n");
+          fprintf(fpErr, "   halt\n");
+          fprintf(fpErr, "end;\n");
+          fprintf(fpErr, "histplot(10, E(:,3), style=2);\n");
+          fprintf(fpErr, "a = gce();\n");
+          fprintf(fpErr, "a.children.fill_mode = \"on\";\n");
+          fprintf(fpErr, "a.children.thickness = 2;\n");
+          fprintf(fpErr, "a.children.foreground = 0;\n");
+          fprintf(fpErr, "a.children.background = 2;\n");
         }
-        sumErr1   = sumErr1 / (double) nSamples;
-        sumErr1s  = sumErr1s / (double) nSamples;
-        sumErr11  = sumErr11 / (double) nSamples;
-        sumErr11s = sumErr11s / (double) nSamples;
-        sumErr2   = sqrt(sumErr2);
-        sumErr2s  = sqrt(sumErr2s);
-        retdata = sumErr1 / ymax;
-     }
-     delete faPtr;
+        else
+        {
+          fprintf(fpErr, "[nk,xk]=hist(E(:,3),10);\n");
+          fprintf(fpErr, "bar(xk,nk/%d,1.0)\n",nSamples);
+        }
+        fwritePlotAxes(fpErr);
+        fwritePlotTitle(fpErr, "Interpolation Errors Histogram");
+        fwritePlotXLabel(fpErr, "Error");
+        fwritePlotYLabel(fpErr, "Probabilities");
+        fprintf(fpErr, "subplot(1,2,2)\n");
+        if (psPlotTool_ == 1)
+        {
+          fprintf(fpErr, "ymin = min(E(:,3)/E(:,2));\n");
+          fprintf(fpErr, "ymax = max(E(:,3)/E(:,2));\n");
+          fprintf(fpErr, "ywid = 0.1 * (ymax - ymin);\n");
+          fprintf(fpErr, "if (ywid < 1.0e-12)\n");
+          fprintf(fpErr, "   disp('range too small.')\n");
+          fprintf(fpErr, "   halt\n");
+          fprintf(fpErr, "end;\n");
+          fprintf(fpErr, "histplot(10, E(:,3)/E(:,2), style=2);\n");
+          fprintf(fpErr, "a = gce();\n");
+          fprintf(fpErr, "a.children.fill_mode = \"on\";\n");
+          fprintf(fpErr, "a.children.thickness = 2;\n");
+          fprintf(fpErr, "a.children.foreground = 0;\n");
+          fprintf(fpErr, "a.children.background = 2;\n");
+        }
+        else
+        {
+          fprintf(fpErr, "[nk,xk]=hist(E(:,3)./E(:,2),10);\n");
+          fprintf(fpErr, "bar(xk,nk/%d,1.0)\n",nSamples);
+        }
+        fwritePlotAxes(fpErr);
+        fwritePlotTitle(fpErr, 
+              "Interpolation Errors Histogram (normalized)");
+        fwritePlotXLabel(fpErr, "Error");
+        fwritePlotYLabel(fpErr, "Probabilities");
+
+        fwritePlotFigure(fpErr, 3);
+        fprintf(fpErr, "nn = %d;\n", nInputs);
+        iL = (int) pow(1.0*nInputs, 0.5);
+        if (iL*iL < nInputs) iL++;
+        if (psPlotTool_ == 1) fprintf(fpErr, "drawlater\n");
+        fprintf(fpErr, "for ii = 1 : nn\n");
+        fprintf(fpErr, "   subplot(%d,%d,ii)\n", iL, iL);
+        fprintf(fpErr, "   plot(E(:,ii+3),E(:,3),'x')\n");
+        fwritePlotAxes(fpErr);
+        if (psPlotTool_ == 1)
+        {
+          fwritePlotTitle(fpErr,"Error Plot for Input");
+          sprintf(winput1, 
+               "a.title.text = \"Error Plot for Input\" + string(ii);\n");
+          fprintf(fpErr, "%s", winput1);
+          fwritePlotXLabel(fpErr, "Input Values");
+        }
+        else
+        {
+          fprintf(fpErr, "title(['Error Plot for Input ',int2str(ii)])\n");
+          fwritePlotXLabel(fpErr, "Input Values");
+        }
+        fwritePlotYLabel(fpErr, "Interpolation Error");
+        if (psPlotTool_ == 1) fprintf(fpErr, "drawnow\n");
+        fprintf(fpErr, "end\n");
+
+        if (nInputs > 2)
+        {
+          fwritePlotFigure(fpErr, 4);
+          if (psPlotTool_ == 1)
+          {
+            fprintf(fpErr, "f = gcf();\n");
+            fprintf(fpErr, "f.color_map = jetcolormap(3);\n");
+            fprintf(fpErr, "drawlater\n");
+            fprintf(fpErr, "param3d1([E(:,4)' ; E(:,4)'],");
+            fprintf(fpErr, "[E(:,5)' ; E(:,5)'],[E(:,3)' ; E(:,3)'])\n");
+            fprintf(fpErr, "e = gce();\n");
+            fprintf(fpErr, "e.children.mark_mode = \"on\";\n");
+            fprintf(fpErr, "e.children.mark_size_unit = \"point\";\n");
+            fprintf(fpErr, "e.children.mark_style = 10;\n");
+            fprintf(fpErr, "e.children.mark_size = 6;\n");
+            fprintf(fpErr, "for i = 1:length(e.children)\n");
+            fprintf(fpErr, "   e.children(i).mark_foreground = 1;\n");
+            fprintf(fpErr, "end\n");
+            fprintf(fpErr, "set(gca(),\"auto_clear\",\"off\")\n");
+            fprintf(fpErr, "drawnow\n");
+          }
+          else
+          {
+            fprintf(fpErr, "   plot3(E(:,4),E(:,5),E(:,3),'bp')\n");
+          }
+          fwritePlotXLabel(fpErr, "Input 1");
+          fwritePlotYLabel(fpErr, "Input 2");
+          fwritePlotTitle(fpErr, "Output Error Scatter Plot");
+          fwritePlotAxes(fpErr);
+        }
+        fclose(fpErr);
+        if (psPlotTool_ == 1)
+           printOutTS(PL_INFO,
+                "Interpolation error info are in RSFA_training_err.sci\n");
+        else
+           printOutTS(PL_INFO,
+                "Interpolation error info are in RSFA_training_err.m\n");
+      }
+      sumErr1   = sumErr1 / (double) nSamples;
+      sumErr1s  = sumErr1s / (double) nSamples;
+      sumErr11  = sumErr11 / (double) nSamples;
+      sumErr11s = sumErr11s / (double) nSamples;
+      sumErr2   = sqrt(sumErr2);
+      sumErr2s  = sqrt(sumErr2s);
+      retdata = sumErr1 / ymax;
+    }
+    delete faPtr;
   }
-  delete [] YT;
 
   nSubSamples = nSamples / numCVGroups_;
 #if 0
-   if (psConfig_ != NULL)
+  if (psConfig_ != NULL)
   {
-     cString = psConfig_->getParameter("RSFA_cross_validation");
-     if (cString != NULL)
-     {
-        useCV_ = 1;
-        printOutTS(PL_INFO, 
-             "RSFA: turn on cross validation (from config file)\n");
-     }
-     cString = psConfig_->getParameter("RSFA_cv_ngroups");
-     if (cString != NULL)
-     {
-        sscanf(cString, "%s %s %d",winput1,winput2,&ss);
-        if (ss > 0)
-        {
-           printOutTS(PL_INFO, "RSFA: number of CV groups = %d\n",ss);
-           numCVGroups_ = ss;
-           nSubSamples = nSamples / numCVGroups_;
-        }
-        else
-        {
-           printOutTS(PL_INFO, "RSFA: invalid number of CV groups = %d\n",ss);
-           useCV_ = 0;
-        }
-     }
-  }
-  else
-#endif
-  if (rsType_ != PSUADE_RS_REGSG) 
-  {
-     printAsterisks(PL_INFO, 0);
-     printOutTS(PL_INFO,
-        "Next you will be asked whether to do cross validation or not.\n");
-     printOutTS(PL_INFO,
-        "Since cross validation iterates as many times as the number\n");
-     printOutTS(PL_INFO,
-        "of groups. The rs_expert mode will be turned off. To change\n");
-     printOutTS(PL_INFO,
-        "the default parameters for different response surface, you\n");
-     printOutTS(PL_INFO,
-        "will need to exit, create a config file (use genconfigfile\n");
-     printOutTS(PL_INFO,
-        "in command line mode), and set config option in your data file.\n");
-     printDashes(PL_INFO,0);
-     sprintf(pString, "Perform cross validation ? (y or n) ");
-     getString(pString, winput1);
-     if (winput1[0] == 'y')
-     {
-        useCV_ = 1;
-        sprintf(pString, "Enter the number of groups to validate : (2 - %d) ",
-                nSamples);
-        ss = getInt(1, nSamples, pString);
+    cString = psConfig_->getParameter("RSFA_cross_validation");
+    if (cString != NULL)
+    {
+      useCV_ = 1;
+      printOutTS(PL_INFO, 
+           "RSFA: turn on cross validation (from config file)\n");
+    }
+    cString = psConfig_->getParameter("RSFA_cv_ngroups");
+    if (cString != NULL)
+    {
+      sscanf(cString, "%s %s %d",winput1,winput2,&ss);
+      if (ss > 0)
+      {
         printOutTS(PL_INFO, "RSFA: number of CV groups = %d\n",ss);
         numCVGroups_ = ss;
         nSubSamples = nSamples / numCVGroups_;
-        if (nSubSamples * numCVGroups_ < nSamples)
-        {
-           nSubSamples++;
-           //numCVGroups_++;
-           //printOutTS(PL_INFO,"INFO: number of CV groups adjusted to %d.\n",
-           //           numCVGroups_);
-           printOutTS(PL_INFO,"      Each CV group has <= %d sample points\n",
-                      nSubSamples);
-        }
-     }
+      }
+      else
+      {
+        printOutTS(PL_INFO, "RSFA: invalid number of CV groups = %d\n",ss);
+        useCV_ = 0;
+      }
+    }
+  }
+  else
+#endif
+  if (rsType_ == PSUADE_RS_SPLINES || rsType_ == PSUADE_RS_REGSG)
+  {
+    printOutTS(PL_INFO,"Cross validation (CV) cannot be performed on\n");
+    printOutTS(PL_INFO,"    splines and sparse grid response surface.\n");
+  }
+  else
+  {
+    printAsterisks(PL_INFO, 0);
+    printOutTS(PL_INFO,
+       "Next you will be asked whether to do cross validation or not.\n");
+    printOutTS(PL_INFO,
+       "Since cross validation iterates as many times as the number\n");
+    printOutTS(PL_INFO,
+       "of groups. The rs_expert mode will be turned off. To change\n");
+    printOutTS(PL_INFO,
+       "the default parameters for different response surface, you\n");
+    printOutTS(PL_INFO,
+       "will need to exit, create a config file (use genconfigfile\n");
+    printOutTS(PL_INFO,
+       "in command line mode), and set config option in your data file.\n");
+    printDashes(PL_INFO,0);
+    sprintf(pString, "Perform cross validation ? (y or n) ");
+    getString(pString, winput1);
+    if (winput1[0] == 'y')
+    {
+      useCV_ = 1;
+      sprintf(pString, "Enter the number of groups to validate : (2 - %d) ",
+               nSamples);
+      ss = getInt(1, nSamples, pString);
+      printOutTS(PL_INFO, "RSFA: number of CV groups = %d\n",ss);
+      numCVGroups_ = ss;
+      nSubSamples = nSamples / numCVGroups_;
+      if (nSubSamples * numCVGroups_ < nSamples)
+      {
+         nSubSamples++;
+         //numCVGroups_++;
+         //printOutTS(PL_INFO,"INFO: number of CV groups adjusted to %d.\n",
+         //           numCVGroups_);
+         printOutTS(PL_INFO,"      Each CV group has <= %d sample points\n",
+                    nSubSamples);
+      }
+    }
   }
 
   if (useCV_ == 1)
@@ -619,44 +675,52 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
     rsState = psRSExpertMode_;
     psRSExpertMode_ = 0;
 
-    XX = new double[nSamples*nInputs];
-    YY = new double[nSamples];
-    YT = new double[nSamples];
-    S2 = new double[nSamples];
-    WW = new double[nSamples];
-    iArray  = new int[nSamples];
-    iArray2 = new int[nSamples];
-    eArray  = new double[nSamples];
-    sArray  = new double[nSamples];
-    sigmas  = new double[nSamples];
-    checkAllocate(sigmas, "sigmas in RSFuncApprox::analyze");
+    VecXX.setLength(nSamples*nInputs);
+    arrayXX = VecXX.getDVector();
+    VecYY.setLength(nSamples);
+    IVec1.setLength(nSamples);
+    IVec2.setLength(nSamples);
+    VecS2.setLength(nSamples);
+    VecW.setLength(nSamples);
+    VecE.setLength(nSamples);
+    VecS.setLength(nSamples);
+    VecSigmas.setLength(nSamples);
+    if (rsType_ == PSUADE_RS_REGRGL) VecDD.setLength(nSamples*nInputs);
     sprintf(pString, "Random selection of leave-out groups ? (y or n) ");
     getString(pString, winput1);
     if (winput1[0] == 'y')
     {
-      generateRandomIvector(nSamples, iArray);
+      generateRandomIvector(nSamples, IVec1.getIVector());
     }
     else
     {
-      for (ss = 0; ss < nSamples; ss++) iArray[ss] = ss;
+      for (ss = 0; ss < nSamples; ss++) IVec1[ss] = ss;
     }
     for (iI = 0; iI < nInputs; iI++)
     {
       for (ss = 0; ss < nSamples; ss++)
-        XX[iArray[ss]*nInputs+iI] = X[ss*nInputs+iI];
+        arrayXX[IVec1[ss]*nInputs+iI] = arrayX[ss*nInputs+iI];
     }
-    for (ss = 0; ss < nSamples; ss++) YY[iArray[ss]] = YLocal[ss];
-    for (ss = 0; ss < nSamples; ss++) iArray2[iArray[ss]] = ss;
+    for (ss = 0; ss < nSamples; ss++) 
+      VecYY[IVec1[ss]] = arrayY[ss*nOutputs+outputID];
+    if (rsType_ == PSUADE_RS_REGRGL)
+    {
+      VecDD.setLength(nSamples*nInputs);
+      for (ss = 0; ss < nSamples; ss++) 
+        for (iI = 0; iI < nInputs; iI++) 
+          VecDD[IVec1[ss]*nInputs+iI] = arrayY[ss*nOutputs+iI+1];
+    }
     if (wgtID >= 0 && wgtID < nOutputs)
     {
       for (ss = 0; ss < nSamples; ss++)
-        WW[iArray[ss]] = Y[ss*nOutputs+wgtID];
+        VecW[IVec1[ss]] = arrayY[ss*nOutputs+wgtID];
     }
+    for (ss = 0; ss < nSamples; ss++) IVec2[IVec1[ss]] = ss;
 
-    X2 = new double[nSamples*nInputs];
-    Y2 = new double[nSamples];
-    wgts = new double[nSamples];
-    checkAllocate(wgts, "wgts(2) in RSFuncApprox::analyze");
+    VecX2.setLength(nSamples*nInputs);
+    VecY2.setLength(nSamples);
+    VecD2.setLength(nSamples*nInputs);
+    VecWgts.setLength(nSamples);
     CVErr1 = CVErr1s = CVErr2 = CVErr2s = CVMax = CVMaxs = 0.0;
     cvMaxBase = cvMaxBases = 0.0;
     for (ss = 0; ss < nSamples; ss+=nSubSamples)
@@ -671,49 +735,64 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
         if (ss2 < ss || ss2 >= (ss+nSubSamples))
         {
           for (iI = 0; iI < nInputs; iI++)
-            X2[count*nInputs+iI] = XX[ss2*nInputs+iI];
+            VecX2[count*nInputs+iI] = VecXX[ss2*nInputs+iI];
           if (wgtID >= 0 && wgtID < nOutputs)
-            wgts[count] = WW[ss2*nOutputs+wgtID];
-          Y2[count++] = YY[ss2];
+            VecWgts[count] = VecW[ss2*nOutputs+wgtID];
+          VecY2[count] = VecYY[ss2];
+          if (rsType_ == PSUADE_RS_REGRGL)
+          {
+            for (iI = 0; iI < nInputs; iI++)
+              VecD2[count*nInputs+iI] = VecDD[ss2*nInputs+iI];
+          }
+          count++;
         }
       }
       if (wgtID >= 0 && wgtID < nOutputs)
-        faPtr->loadWeights(nSamples-nSubSamples, wgts);
-
-      status = faPtr->initialize(X2, Y2);
+        faPtr->loadWeights(nSamples-nSubSamples, VecWgts.getDVector());
+      if (rsType_ == PSUADE_RS_REGRGL)
+      {
+        strcpy(pString, "deriv_sample");
+        targv[0] = (char *) pString;
+        targv[1] = (char *) VecD2.getDVector();
+        count = 2;
+        faPtr->setParams(count, targv);
+      }
+      status = faPtr->initialize(VecX2.getDVector(), VecY2.getDVector());
       if (status == -1) break;
       count = nSubSamples;
       if ((ss + nSubSamples) > nSamples) count = nSamples - ss;
-      faPtr->evaluatePointFuzzy(count, &(XX[ss*nInputs]), YT, S2);
-      //faPtr->evaluatePoint(count, &(XX[ss*nInputs]), YT);
+      faPtr->evaluatePointFuzzy(count, &(arrayXX[ss*nInputs]), 
+                                VecYT.getDVector(), VecS2.getDVector());
+      //faPtr->evaluatePoint(count, &(arrayXX[ss*nInputs]),
+      //VecYT.getDVector());
 
       cvErr1 = cvErr2 = cvErr1s = cvErr2s = cvMax = cvMaxs = 0.0;
       for (ss2 = 0; ss2 < count; ss2++)
       {
-        ddata = YT[ss2] - YY[ss+ss2];
-        eArray[iArray2[ss+ss2]] = ddata;
-        sArray[iArray2[ss+ss2]] = YT[ss2];
-        sigmas[iArray2[ss+ss2]] = S2[ss2];
+        ddata = VecYT[ss2] - VecYY[ss+ss2];
+        VecE[IVec2[ss+ss2]] = ddata;
+        VecS[IVec2[ss+ss2]] = VecYT[ss2];
+        VecSigmas[IVec2[ss+ss2]] = VecS2[ss2];
         cvErr1  += ddata;
         cvErr2  += (ddata * ddata);
         if (PABS(ddata) > cvMax)
         {
           cvMax  = PABS(ddata);
-          cvMaxBase = PABS(YY[ss+ss2]);
+          cvMaxBase = PABS(VecYY[ss+ss2]);
         }
-        if (YY[ss+ss2] != 0.0) sdata = ddata / PABS(YY[ss+ss2]);
+        if (VecYY[ss+ss2] != 0.0) sdata = ddata / PABS(VecYY[ss+ss2]);
         else                   sdata = ddata;
         cvErr1s += sdata;
         cvErr2s += (sdata * sdata);
         if (PABS(sdata) > cvMaxs)
         {
           cvMaxs = PABS(sdata);
-          cvMaxBases = PABS(YY[ss+ss2]);
+          cvMaxBases = PABS(VecYY[ss+ss2]);
         }
         if (printLevel > 4) 
           printOutTS(PL_INFO, 
                "Sample %6d: predicted =  %e, actual =  %e\n",
-               iArray2[iArray[ss+ss2]], YT[ss2], YY[ss+ss2]);
+               IVec2[IVec1[ss+ss2]], VecYT[ss2], VecYY[ss+ss2]);
       }
       adata.sampleErrors_[ss/nSubSamples] = cvErr2s;
       CVErr1  += cvErr1;
@@ -728,7 +807,7 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
       if (cvMaxs > CVMaxs ) {CVMaxs = cvMaxs; CVMaxBases = cvMaxBases;}
 
       printOutTS(PL_INFO,"RSA: first member of sample group %5d = %d (%d)\n",
-             ss/nSubSamples+1, iArray[ss]+1, nSamples-nSubSamples);
+             ss/nSubSamples+1, IVec1[ss]+1, nSamples-nSubSamples);
       printOutTS(PL_INFO,
            "RSA: CV error for sample group %5d = %11.3e (avg unscaled)\n",
            ss/nSubSamples+1, cvErr1);
@@ -803,9 +882,9 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
         fprintf(fpData, "A = [\n");
         for (ss = 0; ss < nSamples; ss++)
         {
-          fprintf(fpData, "  %e %e %e %e\n", eArray[ss], YLocal[ss],
-                  sArray[ss], sigmas[ss]);
-          ssum += PABS(sigmas[ss]);
+          fprintf(fpData, "  %e %e %e %e\n", VecE[ss], VecYLocal[ss],
+                  VecS[ss], VecSigmas[ss]);
+          ssum += PABS(VecSigmas[ss]);
         }
         fprintf(fpData, "];\n");
         fwriteHold(fpData, 0);
@@ -975,52 +1054,52 @@ double RSFuncApproxAnalyzer::analyze(aData &adata)
         fprintf(fpData, "B = [\n");
         for (ss = 0; ss < nSamples; ss++)
         {
-          if (YLocal[ss] == 0) fprintf(fpData, " %e 0 ",YLocal[ss]);
-          else fprintf(fpData," %e %e ",YLocal[ss],eArray[ss]/YLocal[ss]);
-          fprintf(fpData," %e ", sArray[ss]);
+          if (VecYLocal[ss] == 0) 
+            fprintf(fpData, " %e 0 ",VecYLocal[ss]);
+          else 
+            fprintf(fpData," %e %e ",VecYLocal[ss],VecE[ss]/VecYLocal[ss]);
+          fprintf(fpData," %e ", VecS[ss]);
           for (ss2 = 0; ss2 < nInputs; ss2++)
-            fprintf(fpData," %e ",XX[ss*nInputs+ss2]);
+            fprintf(fpData," %e ",arrayXX[ss*nInputs+ss2]);
           fprintf(fpData,"\n");
         }
-        fprintf(fpData, "];\n");
-        fprintf(fpData, "AA = B(:,1);\n");
-        fprintf(fpData, "BB = B(:,2);\n");
-        fprintf(fpData, "CC = B(:,3);\n");
-        fprintf(fpData, "plot(AA, BB, '*','markerSize',12);\n");
+        fprintf(fpData,"];\n");
+        fprintf(fpData,"AA = B(:,1);\n");
+        fprintf(fpData,"BB = B(:,2);\n");
+        fprintf(fpData,"CC = B(:,3);\n");
+        fprintf(fpData,
+                "subplot(1,2,1),plot(AA, BB, '*','markerSize',12);\n");
         fwritePlotAxes(fpData);
-        fwritePlotTitle(fpData, "Normalized Resdual Analysis");
+        fwritePlotTitle(fpData, "Normalized Error Analysis");
         fwritePlotXLabel(fpData, "Actual Data");
         fwritePlotYLabel(fpData, "Normalized Error");
-        strcpy(pString,"plot(AA-CC, '*','markerSize',12);");
-        fwriteComment(fpData, pString);
-        strcpy(pString,"xlabel('Sample Number');");
-        fwriteComment(fpData, pString);
-        strcpy(pString,"ylabel('Error (true-predicted)');");
-        fwriteComment(fpData, pString);
+        fprintf(fpData,
+                "subplot(1,2,2),plot(AA,BB.*AA, '*','markerSize',12);\n");
+        fwritePlotAxes(fpData);
+        fwritePlotTitle(fpData, "Unnormalized Error Analysis");
+        fwritePlotXLabel(fpData, "Actual Data");
+        fwritePlotYLabel(fpData, "Error");
+        fprintf(fpData,"figure(3)\n");
+        fprintf(fpData,"for ii = 1 : %d\n", nInputs);
+        fprintf(fpData,"  XX = B(:,3+ii);\n");
+        fprintf(fpData,"  plot(XX, BB.*AA, '*','markerSize',12);\n");
+        fprintf(fpData,"  disp(['Error vs Input ' int2str(ii)])\n");
+        fprintf(fpData,"  disp('Press enter to continue')\n");
+        fwritePlotAxes(fpData);
+        fprintf(fpData,"  xlabel(['Input ' int2str(ii)])\n");
+        fwritePlotYLabel(fpData,"Error");
+        fprintf(fpData,"  pause\n");
+        fprintf(fpData,"end;\n");
         fprintf(fpData,"end;\n");
         fclose(fpData);
         if (psPlotTool_ == 1)
-          printOutTS(PL_INFO, "CV error file is RSFA_CV_err.sci\n");
+             printOutTS(PL_INFO, "CV error file is RSFA_CV_err.sci\n");
         else printOutTS(PL_INFO, "CV error file is RSFA_CV_err.m\n");
       }
     }
     psRSExpertMode_ = rsState;
     delete faPtr;
-    delete [] XX;
-    delete [] YY;
-    delete [] YT;
-    delete [] WW;
-    delete [] X2;
-    delete [] Y2;
-    delete [] S2;
-    delete [] wgts;
-    delete [] iArray;
-    delete [] iArray2;
-    delete [] eArray;
-    delete [] sArray;
-    delete [] sigmas;
   }
-  delete [] YLocal;
 
   testFlag = 0;
   if (psConfig_ != NULL)
@@ -1115,13 +1194,14 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
 {
   int        nInputs, nOutputs, outputID, wgtID, ii, iOne=1,fatype;
   int        nSamples, status, nTestOut, nTestIn, nPtsPerDim=64, nTestSam;
-  double     *X, *Y, *lower, *upper, *XX, *YY, *YLocal, *wgts, *stdevs;
   double     sumErr1, sumErr2, maxErr, sumErr1s, sumErr2s, maxErrs;
-  double     dataMax, dataMin, *YT, maxBase, maxBases, sdata, ddata, ssum;
+  double     dataMax, dataMin, maxBase, maxBases, sdata, ddata, ssum;
+  double     *arrayX, *arrayY, *lower, *upper, *arrayXX, *arrayYY;
   char       pString[501];
   pData      pPtr, pInputs, pOutputs;
   PsuadeData *ioPtr;
   FuncApprox *fa;
+  psVector   VecYLocal, VecWgts, VecYT, VecStd;
   FILE       *fpErr;
 
   printOutTS(PL_INFO, "RSAnalysis: validating against a test set ...\n");
@@ -1131,13 +1211,14 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
   nSamples  = adata.nSamples_;
   lower     = adata.iLowerB_;
   upper     = adata.iUpperB_;
-  X         = adata.sampleInputs_;
-  Y         = adata.sampleOutputs_;
+  arrayX    = adata.sampleInputs_;
+  arrayY    = adata.sampleOutputs_;
   outputID  = adata.outputID_;
   wgtID     = adata.regWgtID_;
   fatype    = adata.faType_;
-  YLocal    = new double[nSamples];
-  for (ii = 0; ii < nSamples; ii++) YLocal[ii] = Y[ii*nOutputs+outputID];
+  VecYLocal.setLength(nSamples);
+  for (ii = 0; ii < nSamples; ii++) 
+    VecYLocal[ii] = arrayY[ii*nOutputs+outputID];
 
   ioPtr = new PsuadeData();
   status = ioPtr->readPsuadeFile(dataFile);
@@ -1156,7 +1237,6 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
   {
     printOutTS(PL_WARN, "RSAnalysis: file %s has no data.\n", dataFile);
     delete ioPtr;
-    delete [] YLocal;
     return 1.0e12;
   }
   if (nTestIn != nInputs)
@@ -1167,20 +1247,18 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
     printOutTS(PL_WARN,
          "            than that of the sample (%d)\n", nInputs);
     delete ioPtr;
-    delete [] YLocal;
     return 1.0e12;
   }
   ioPtr->getParameter("input_sample",pInputs);
-  XX = pInputs.dbleArray_;
+  arrayXX = pInputs.dbleArray_;
   ioPtr->getParameter("output_sample",pOutputs);
-  YY = pOutputs.dbleArray_;
+  arrayYY = pOutputs.dbleArray_;
 
   fa = genFA(fatype, nInputs, iOne, nSamples);
   if (fa == NULL)
   {
     printOutTS(PL_INFO, 
          "RSAnalysis INFO: cannot create function approximator.\n");
-    delete [] YLocal;
     delete ioPtr;
     return 1.0e12;
   }
@@ -1189,13 +1267,12 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
   fa->setOutputLevel(adata.printLevel_);
   if (wgtID >= 0 && wgtID < nOutputs)
   {
-    wgts = new double[nSamples];
-    checkAllocate(wgts, "wgts in RSFuncApprox::validate");
-    for (ii = 0; ii < nSamples; ii++) wgts[ii] = Y[ii*nOutputs+wgtID];
-    fa->loadWeights(nSamples, wgts);
-    delete [] wgts;
+    VecWgts.setLength(nSamples);
+    for (ii = 0; ii < nSamples; ii++) 
+      VecWgts[ii] = arrayY[ii*nOutputs+wgtID];
+    fa->loadWeights(nSamples, VecWgts.getDVector());
   }
-  status = fa->initialize(X, YLocal);
+  status = fa->initialize(arrayX, VecYLocal.getDVector());
 
   if (errFile != NULL) 
   {
@@ -1225,34 +1302,31 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
   dataMin = PSUADE_UNDEFINED;
   for (ii = 0; ii < nTestSam; ii++)
   {
-    ddata = PABS(YY[ii*nTestOut+outputID]);
+    ddata = PABS(arrayYY[ii*nTestOut+outputID]);
     if (ddata > dataMax) dataMax = ddata;
     if (ddata < dataMin) dataMin = ddata;
   }
-  YT = new double[nTestSam];
-  stdevs = new double[nTestSam];
-  checkAllocate(stdevs, "stdevs in RSFuncApprox::validate");
-  fa->evaluatePointFuzzy(nTestSam, XX, YT, stdevs);
+  VecYT.setLength(nTestSam);
+  VecStd.setLength(nTestSam);
+  fa->evaluatePointFuzzy(nTestSam,arrayXX,VecYT.getDVector(),
+                         VecStd.getDVector());
   sumErr1 = sumErr1s = sumErr2 = sumErr2s = maxErr = maxErrs = 0.0;
   for (ii = 0; ii < nTestSam; ii++)
   {
-    ddata = YT[ii];
+    ddata = VecYT[ii];
+    sdata = arrayYY[ii*nTestOut+outputID];
     if (fpErr != NULL) 
     {
-      if (YY[ii*nTestOut+outputID] != 0)
+      if (sdata != 0)
         fprintf(fpErr, "%16.8e %16.8e %16.8e %16.8e %16.8e\n", ddata, 
-           YY[ii*nTestOut+outputID],ddata-YY[ii*nTestOut+outputID],
-           PABS((ddata-YY[ii*nTestOut+outputID])/YY[ii*nTestOut+outputID]),
-           stdevs[ii]);
+           sdata, ddata-sdata, PABS((ddata-sdata)/sdata), VecStd[ii]);
       else
         fprintf(fpErr, "%16.8e %16.8e %16.8e %16.8e %16.8e\n", ddata, 
-           YY[ii*nTestOut+outputID],ddata-YY[ii*nTestOut+outputID],
-           PABS((ddata-YY[ii*nTestOut+outputID])), stdevs[ii]);
+           sdata, ddata-sdata, PABS(ddata-sdata), VecStd[ii]);
     }
-    ddata = ddata - YY[ii*nTestOut+outputID];
-    if (YY[ii*nTestOut+outputID] != 0.0)
-         sdata = ddata / PABS(YY[ii*nTestOut+outputID]);
-    else sdata = ddata;
+    ddata = ddata - sdata;
+    if (sdata != 0.0) sdata = ddata / PABS(sdata);
+    else              sdata = ddata;
     sumErr1  += ddata;
     sumErr1s += sdata;
     sumErr2  += (ddata * ddata);
@@ -1262,15 +1336,14 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
     if (ddata > maxErr ) 
     {
       maxErr = ddata;
-      maxBase = PABS(YY[ii*nTestOut+outputID]);
+      maxBase = PABS(arrayYY[ii*nTestOut+outputID]);
     }
     if (sdata > maxErrs)
     {
       maxErrs  = sdata;
-      maxBases = PABS(YY[ii*nTestOut+outputID]);
+      maxBases = PABS(arrayYY[ii*nTestOut+outputID]);
     }
   }
-  delete [] YT;
 
   sumErr1  = sumErr1 / (double) nTestSam;
   sumErr1s = sumErr1s / (double) nTestSam;
@@ -1293,7 +1366,7 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
   printOutTS(PL_INFO, 
        "RSA: Prediction errors = %11.3e (avg   scaled)\n",sumErr1s);
   ssum = 0.0;
-  for (ii = 0; ii < nTestSam; ii++) ssum += stdevs[ii];
+  for (ii = 0; ii < nTestSam; ii++) ssum += VecStd[ii];
   if (ssum != 0)
     printOutTS(PL_INFO, 
          "RSA: Average std. dev. = %11.3e (sum of all points)\n",
@@ -1429,8 +1502,6 @@ double RSFuncApproxAnalyzer::validate(aData &adata, char *dataFile,
          errFile);
   }
 
-  delete [] YLocal;
-  delete [] stdevs;
   delete fa;
   delete ioPtr;
   return sumErr1;

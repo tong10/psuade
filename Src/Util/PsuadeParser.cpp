@@ -264,28 +264,28 @@ double getDouble(char *inString)
 // ------------------------------------------------------------------------
 int getString(char *inString, char *cstr)
 {
-   int    nTokens, iOne=1, status=-1, count;
-   char   **tokens, winput[501];
+  int    nTokens, iOne=1, status=-1, count;
+  char   **tokens, winput[501];
 
-   count = 0;
-   while (status < 0)
-   {
-      printf("%s", inString);
-      fgets(winput, 500, stdin);
-      status = getTokens(winput, &nTokens, &tokens, iOne);
-      if (status >= 0)
-      {
-         strcpy(cstr, tokens[0]);
-         cstr[strlen(cstr)] = '\0';
-         delete [] tokens;
-      }
-      count++;
-      if (count > 10)
-      {
-         printf("getString ERROR: bad data entered more than 10 times - abort.\n");
-         exit(1);
-      }
-   }
-   return 0;
+  count = 0;
+  while (status < 0)
+  {
+    printf("%s", inString);
+    fgets(winput, 500, stdin);
+    status = getTokens(winput, &nTokens, &tokens, iOne);
+    if (status >= 0)
+    {
+      strcpy(cstr, tokens[0]);
+      cstr[strlen(cstr)] = '\0';
+      delete [] tokens;
+    }
+    count++;
+    if (count > 10)
+    {
+      printf("getString ERROR: bad data entered more than 10 times: abort\n");
+      exit(1);
+    }
+  }
+  return 0;
 }
 

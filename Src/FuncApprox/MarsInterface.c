@@ -114,7 +114,7 @@ void mars_fmod(int tot_npts, int ninputs, double **x, double *y,
 
    if (tot_npts <= 0)
    {
-      printf("mars_fmod ERROR: invalid parameters.\n");
+      printf("mars_fmod ERROR: invalid parameters (nPts=%d).\n",tot_npts);
       exit(1);
    }
    sp = (float*) malloc(tot_npts * 4 * sizeof(float));

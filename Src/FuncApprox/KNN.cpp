@@ -52,7 +52,7 @@ KNN::KNN(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 
    k_     = 0;
    kmax_  = (nSamples < 10) ? nSamples : 10;
-   kfold_ = (nSamples < 20) ? nSamples : 20;
+   kfold_ = (nSamples < 100) ? nSamples : 100;
    Distances_ = new double[kmax_];
    YStored_ = new double[kmax_];
    checkAllocate(YStored_, "YStored_ in KNN::constructor");

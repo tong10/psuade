@@ -27,6 +27,11 @@
 #ifndef __VECTORH__
 #define __VECTORH__
 
+#ifdef WINDOWS
+#undef min
+#undef max
+#endif
+
 /**
  * @name psVector class
  *
@@ -63,6 +68,27 @@ public:
    void    scale(double);
    void    sort();
    double  *getDVector();
+};
+
+// ************************************************************************
+class psIVector
+{
+   int length_;
+   int *Vec_;
+
+public:
+
+   psIVector();
+   psIVector(const psIVector & v);
+   psIVector & operator=(const psIVector & v);
+
+   ~psIVector();
+   int length();
+   int load(psIVector &);
+   int setLength(int);
+   int load(int, int *);
+   int & operator[](int ind);
+   int *getIVector();
 };
 
 /*@}*/

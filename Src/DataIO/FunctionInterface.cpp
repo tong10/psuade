@@ -784,7 +784,7 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
   int    ii, outputCount, length, nfixed;
   double value, *myInputs, stdev;
   char   lineIn[500], command[500], winput1[500], winput2[500];
-  char   outfile[500], infile[500], *cString;
+  char   outfile[500], infile[500], *cString, equal[100];
   FILE   *fp, *fIn, *fOut;
 
   if (nInputs_ != nInputs || nOutputs_ != nOutputs)
@@ -851,11 +851,11 @@ int FunctionInterface::evaluate(int sampleID,int nInputs,double *inputs,
           while (ii < nfixed)
           {
             ii++;
-            sprintf(winput1, "fixed-%d=",ii);
+            sprintf(winput1, "fixed-%d",ii);
             cString = psConfig_->getParameter(winput1);
             if (cString != NULL)
             {
-              sscanf(cString, "%s %s %lg", winput1, winput2, &value);
+              sscanf(cString, "%s %s %s %lg",winput1,winput2,equal,&value);
               fprintf(fOut,"fixed %d %s = %24.16e\n",ii,winput2,value);
             }
           }

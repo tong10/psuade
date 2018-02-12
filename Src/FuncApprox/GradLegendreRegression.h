@@ -42,6 +42,7 @@ class GradLegendreRegression: public FuncApprox
    int  **pcePerms_;
    int  normalizeFlag_;
    char gradFile_[1000];
+   double   *derivSample_;
    psVector regCoeffs_;
    psMatrix invCovMat_;
 
@@ -68,10 +69,11 @@ public:
 private:
    int    GenPermutations();
    int    analyze(double *, double *);
-   int    loadXMatrix(double *, double **);
-   int    computeSS(int, double *, double *, double *, double &, double &);
+   int    analyze(psVector, psVector);
+   int    loadXMatrix(psVector, psMatrix &);
+   int    computeSS(psMatrix, psVector, psVector, double &, double &);
    int    computeCoeffVariance(psMatrix &, psVector &, double);
-   int    printRC(int, double *, double *, double *, double *);
+   int    printRC(psVector, psVector, psMatrix, psVector);
    int    EvalLegendrePolynomials(double, double *);
    int    EvalLegendrePolynomialsDerivative(double, double *);
 };

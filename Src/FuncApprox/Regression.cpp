@@ -35,12 +35,6 @@
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
-extern "C"
-{
-  void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
-              double *, int *, double *, int *, double *, int *, int *);
-}
-
 // ************************************************************************
 // Constructor 
 // ------------------------------------------------------------------------
@@ -109,8 +103,9 @@ int Regression::gen1DGridData(double *X, double *Y, int ind1,
                               double *settings, int *NN, 
                               double **XX, double **YY)
 {
-  int    totPts, mm, nn;
-  double HX, *Xloc;
+  int      totPts, mm, nn;
+  double   HX;
+  psVector VecXLocal;
 
   if (initialize(X,Y) != 0)
   {
@@ -125,18 +120,16 @@ int Regression::gen1DGridData(double *X, double *Y, int ind1,
   (*NN) = totPts;
   (*XX) = new double[totPts];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in Regression::gen1DGrid");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in Regression::gen1DGrid");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
    
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
-    Xloc[ind1] = HX * mm + lowerBounds_[ind1];
-    (*XX)[mm] = Xloc[ind1];
-    (*YY)[mm] = evaluatePoint(Xloc);
+    VecXLocal[ind1] = HX * mm + lowerBounds_[ind1];
+    (*XX)[mm] = VecXLocal[ind1];
+    (*YY)[mm] = evaluatePoint(VecXLocal.getDVector());
   }
-
-  delete [] Xloc;
   return 0;
 }
 
@@ -147,8 +140,8 @@ int Regression::gen2DGridData(double *X, double *Y, int ind1,
                               int ind2, double *settings, int *NN, 
                               double **XX, double **YY)
 {
-  int    totPts, mm, nn, ind;
-  double *HX, *Xloc;
+  int      totPts, mm, nn, ind;
+  psVector VecHX, VecXLocal;
 
   if (initialize(X,Y) != 0)
   {
@@ -158,32 +151,29 @@ int Regression::gen2DGridData(double *X, double *Y, int ind1,
   }
 
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(2);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
 
   (*NN) = totPts;
   (*XX) = new double[totPts * 2];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in Regression::gen2DGrid");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in Regression::gen2DGrid");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
    
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
     for (nn = 0; nn < nPtsPerDim_; nn++)
     {
       ind = mm * nPtsPerDim_ + nn;
-      Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-      Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-      (*XX)[ind*2]   = Xloc[ind1];
-      (*XX)[ind*2+1] = Xloc[ind2];
-      (*YY)[ind] = evaluatePoint(Xloc);
+      VecXLocal[ind1] = VecHX[0] * mm + lowerBounds_[ind1];
+      VecXLocal[ind2] = VecHX[1] * nn + lowerBounds_[ind2];
+      (*XX)[ind*2]   = VecXLocal[ind1];
+      (*XX)[ind*2+1] = VecXLocal[ind2];
+      (*YY)[ind] = evaluatePoint(VecXLocal.getDVector());
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -194,8 +184,8 @@ int Regression::gen3DGridData(double *X, double *Y, int ind1,
                               int ind2, int ind3, double *settings, 
                               int *NN, double **XX, double **YY)
 {
-  int    totPts, mm, nn, pp, ind;
-  double *HX, *Xloc;
+  int      totPts, mm, nn, pp, ind;
+  psVector VecHX, VecXLocal;
 
   if (initialize(X,Y) != 0)
   {
@@ -205,17 +195,17 @@ int Regression::gen3DGridData(double *X, double *Y, int ind1,
   }
 
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(3);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
 
   (*NN) = totPts;
   (*XX) = new double[totPts * 3];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in Regression::gen3DGrid");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in Regression::gen3DGrid");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -224,19 +214,16 @@ int Regression::gen3DGridData(double *X, double *Y, int ind1,
       for (pp = 0; pp < nPtsPerDim_; pp++)
       {
         ind = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
-        Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-        Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-        Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-        (*XX)[ind*3]   = Xloc[ind1];
-        (*XX)[ind*3+1] = Xloc[ind2];
-        (*XX)[ind*3+2] = Xloc[ind3];
-        (*YY)[ind] = evaluatePoint(Xloc);
+        VecXLocal[ind1] = VecHX[0] * mm + lowerBounds_[ind1];
+        VecXLocal[ind2] = VecHX[1] * nn + lowerBounds_[ind2];
+        VecXLocal[ind3] = VecHX[2] * pp + lowerBounds_[ind3];
+        (*XX)[ind*3]   = VecXLocal[ind1];
+        (*XX)[ind*3+1] = VecXLocal[ind2];
+        (*XX)[ind*3+2] = VecXLocal[ind3];
+        (*YY)[ind] = evaluatePoint(VecXLocal.getDVector());
       }
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -247,8 +234,8 @@ int Regression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
                               int ind3, int ind4, double *settings, 
                               int *NN, double **XX, double **YY)
 {
-  int    totPts, mm, nn, pp, qq, ind;
-  double *HX, *Xloc;
+  int      totPts, mm, nn, pp, qq, ind;
+  psVector VecHX, VecXLocal;
 
   if (initialize(X,Y) != 0)
   {
@@ -258,18 +245,18 @@ int Regression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
   }
  
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(4);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
 
   (*NN) = totPts;
   (*XX) = new double[totPts * 4];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in Regression::gen4DGrid");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in Regression::gen4DGrid");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -281,22 +268,19 @@ int Regression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
         {
           ind = mm*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
                 nn*nPtsPerDim_*nPtsPerDim_ + pp*nPtsPerDim_ + qq;
-          Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-          Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-          Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-          Xloc[ind4] = HX[3] * qq + lowerBounds_[ind4];
-          (*XX)[ind*4]   = Xloc[ind1];
-          (*XX)[ind*4+1] = Xloc[ind2];
-          (*XX)[ind*4+2] = Xloc[ind3];
-          (*XX)[ind*4+3] = Xloc[ind4];
-          (*YY)[ind] = evaluatePoint(Xloc);
+          VecXLocal[ind1] = VecHX[0] * mm + lowerBounds_[ind1];
+          VecXLocal[ind2] = VecHX[1] * nn + lowerBounds_[ind2];
+          VecXLocal[ind3] = VecHX[2] * pp + lowerBounds_[ind3];
+          VecXLocal[ind4] = VecHX[3] * qq + lowerBounds_[ind4];
+          (*XX)[ind*4]   = VecXLocal[ind1];
+          (*XX)[ind*4+1] = VecXLocal[ind2];
+          (*XX)[ind*4+2] = VecXLocal[ind3];
+          (*XX)[ind*4+3] = VecXLocal[ind4];
+          (*YY)[ind] = evaluatePoint(VecXLocal.getDVector());
         }
       }
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -519,18 +503,28 @@ double Regression::setParams(int targc, char **targv)
 }
 
 // ************************************************************************
-// perform mean/variance analysis
+// perform regression analysis
 // ------------------------------------------------------------------------
 int Regression::analyze(double *Xin, double *Y)
 {
-  int    M, N, ii, mm, nn, nn2, nn3, nn4, info, wlen, ind, last, NRevised;
-  double *B, *XX, SSresid, SStotal, R2, var, *Bstd, *X;
-  double esum, ymax, *txArray, *AA, *SS, *UU, *VV, *WW;
-  char   jobu  = 'S', jobvt = 'A';
+  psVector VecX, VecY;
+  VecX.load(nSamples_*nInputs_, Xin);
+  VecY.load(nSamples_, Y);
+  return analyze(VecX, VecY);
+}
+
+// ************************************************************************
+// perform regression analysis
+// ------------------------------------------------------------------------
+int Regression::analyze(psVector VecXin, psVector VecY)
+{
+  int    M, N, ii, mm, nn, nn2, nn3, nn4, info, ind, last, NRevised;
+  double SSresid, SStotal, R2, var, *arrayX;
+  double esum, ymax, *tmpArray, *UU, *VV, *arrayXX;
   char   pString[1000], response[1000];
   FILE   *fp;
-  psMatrix eigMatT;
-  psVector eigVals;
+  psMatrix eigMatT, MatXX, MatA;
+  psVector eigVals, tmpVec;
 
   if (nInputs_ <= 0 || nSamples_ <= 0)
   {
@@ -538,18 +532,19 @@ int Regression::analyze(double *Xin, double *Y)
     exit( 1 );
   } 
    
-  txArray = new double[nSamples_];
+  tmpVec.setLength(nSamples_);
+  tmpArray = tmpVec.getDVector();
   for (ii = 0; ii < nInputs_; ii++)
   {
     for (mm = 0; mm < nSamples_; mm++)
-      txArray[mm] = Xin[mm*nInputs_+ii];
-    sortDbleList(nSamples_, txArray);
+      tmpArray[mm] = VecXin[mm*nInputs_+ii];
+    sortDbleList(nSamples_, tmpArray);
     last = 1;
     for (mm = 1; mm < nSamples_; mm++)
     {
-      if (txArray[mm] != txArray[last-1])
+      if (tmpArray[mm] != tmpArray[last-1])
       {
-        txArray[last] = txArray[mm];
+        tmpArray[last] = tmpArray[mm];
         last++;
       }
     }
@@ -560,7 +555,6 @@ int Regression::analyze(double *Xin, double *Y)
              order_);
     }
   }
-  delete [] txArray;
 
   if (outputLevel_ >= 0)
   {
@@ -587,47 +581,44 @@ int Regression::analyze(double *Xin, double *Y)
     printEquals(PL_INFO, 0);
   }
 
-  X = new double[nSamples_*nInputs_];
-  checkAllocate(X, "X in Regression::analyze");
+  psVector VecX;
+  VecX.setLength(nSamples_ * nInputs_);
   if (psMasterMode_ == 1) 
   {
     printf("* Regression INFO: scaling turned off.\n");
-    printf("*            To turn on scaling, use rs_expert mode.\n");
-    initInputScaling(Xin, X, 0);
+    printf("*                  To turn scaling on in master mode,\n");
+    printf("*                  have rs_expert mode on also.\n");
+    initInputScaling(VecXin.getDVector(), VecX.getDVector(), 0);
   }
-  else initInputScaling(Xin, X, 1);
+  else initInputScaling(VecXin.getDVector(), VecX.getDVector(), 1);
 
-  N = loadXMatrix(X, &XX); 
+  N = loadXMatrix(VecX, MatXX); 
   if (N == 0) return -1;
   if (N > nSamples_ && order_ >= 0)
   {
-    if (XX != NULL) delete [] XX;
     printf("* Regression ERROR: sample too small for order %d.\n",order_);
     printf("                    Try lower order or larger sample.\n");
     return -1;
   }
   if (N > nSamples_)
   {
-    if (XX != NULL) delete [] XX;
     printf("* Regression: sample size too small (%d > %d).\n",N,nSamples_);
     return -1;
   }
   M = nSamples_;
 
-  wlen = 5 * M;
-  AA = new double[M*N];
-  UU = new double[M*N];
-  SS = new double[N];
-  VV = new double[N*N];
-  WW = new double[wlen];
-  checkAllocate(WW, "WW in Regression::analyze");
-
+  psVector VecA;
+  VecA.setLength(M*N);
+  arrayXX = MatXX.getMatrix1D();
   for (mm = 0; mm < M; mm++) 
     for (nn = 0; nn < N; nn++) 
-      AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
+      VecA[mm+nn*M] = sqrt(weights_[mm]) * arrayXX[mm+nn*M];
+  MatA.load(M, N, VecA.getDVector());
 
   if (psMasterMode_ == 1)
   {
+    printf("You have the option to store the regression matrix (that\n");
+    printf("is, the matrix A in Ax=b) in a matlab file for inspection.\n"); 
     sprintf(pString, "Store regression matrix? (y or n) ");
     getString(pString, response);
     if (response[0] == 'y')
@@ -646,8 +637,8 @@ int Regression::analyze(double *Xin, double *Y)
       for (mm = 0; mm < M; mm++) 
       {
         for (nn = 0; nn < N; nn++) 
-          fprintf(fp, "%16.6e ", AA[mm+nn*M]);
-        fprintf(fp, "%16.6e \n",Y[mm]);
+          fprintf(fp, "%16.6e ", VecA[mm+nn*M]);
+        fprintf(fp, "%16.6e \n",VecY[mm]);
       }
       fprintf(fp, "];\n");
       fprintf(fp, "A = AA(:,1:%d);\n", N);
@@ -658,9 +649,10 @@ int Regression::analyze(double *Xin, double *Y)
     }
   }
 
+  psMatrix MatU, MatV;
+  psVector VecS;
   if (outputLevel_ > 3) printf("Running SVD ...\n"); 
-  dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
-          &wlen, &info);
+  info = MatA.computeSVD(MatU, VecS, MatV);
   if (outputLevel_ > 3) 
     printf("SVD completed: status = %d (should be 0).\n",info); 
 
@@ -669,29 +661,23 @@ int Regression::analyze(double *Xin, double *Y)
     printf("* Regression ERROR: dgesvd returns a nonzero (%d).\n",info);
     printf("* Regression terminates further processing.\n");
     printf("* To diagnose problem, re-run with rs_expert on.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
     return -1;
   }
 
   mm = 0;
-  for (nn = 0; nn < N; nn++) if (SS[nn] < 0) mm++;
+  for (nn = 0; nn < N; nn++) if (VecS[nn] < 0) mm++;
   if (mm > 0)
   {
     printf("* Regression WARNING: some of the singular values\n");
     printf("*            are < 0. May spell trouble but will.\n");
     printf("*            proceed anyway (%d).\n",mm);
   }
-  if (SS[0] == 0.0) NRevised = 0;
+  if (VecS[0] == 0.0) NRevised = 0;
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++) 
-      if (SS[nn-1] > 0 && SS[nn]/SS[nn-1] < 1.0e-8) NRevised--;
+      if (VecS[nn-1] > 0 && VecS[nn]/VecS[nn-1] < 1.0e-8) NRevised--;
   }
   if (NRevised < N)
   {
@@ -706,20 +692,20 @@ int Regression::analyze(double *Xin, double *Y)
     printf("but not keeping them may ruin the approximation power.\n");
     printf("So, select them judiciously.\n");
     for (nn = 0; nn < N; nn++) 
-      printf("Singular value %5d = %e\n", nn+1, SS[nn]);
+      printf("Singular value %5d = %e\n", nn+1, VecS[nn]);
     sprintf(pString, "How many to keep (1 - %d, 0 - all) ? ", N); 
     NRevised = getInt(0,N,pString);
     if (NRevised == 0) NRevised = N;
-    for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
+    for (nn = NRevised; nn < N; nn++) VecS[nn] = 0.0;
   }
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++) 
     {
-      if (SS[nn-1] > 0 && SS[nn]/SS[nn-1] < 1.0e-8)
+      if (VecS[nn-1] > 0 && VecS[nn]/VecS[nn-1] < 1.0e-8)
       {
-        SS[nn] = 0.0;
+        VecS[nn] = 0.0;
         NRevised--;
       }
     }
@@ -728,29 +714,28 @@ int Regression::analyze(double *Xin, double *Y)
              N-NRevised);
   }
 
-  for (mm = 0; mm < N; mm++) 
+  psVector VecW, VecB;
+  VecW.setLength(M+N);
+  UU = MatU.getMatrix1D();
+  for (mm = 0; mm < NRevised; mm++) 
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < M; nn++) 
-      WW[mm] += UU[mm*M+nn] * sqrt(weights_[nn]) * Y[nn]; 
+      VecW[mm] += UU[nn+mm*M] * sqrt(weights_[nn]) * VecY[nn]; 
   }
-  for (nn = 0; nn < NRevised; nn++) WW[nn] /= SS[nn];
-  for (nn = NRevised; nn < N; nn++) WW[nn] = 0.0;
-  B = new double[N];
-  checkAllocate(WW, "B in Regression::analyze");
+  for (nn = 0; nn < NRevised; nn++) VecW[nn] /= VecS[nn];
+  for (nn = NRevised; nn < N; nn++) VecW[nn] = 0.0;
+  VecB.setLength(N);
+  VV = MatV.getMatrix1D();
   for (mm = 0; mm < N; mm++) 
   {
-    B[mm] = 0.0;
-    for (nn = 0; nn < N; nn++) B[mm] += VV[mm*N+nn] * WW[nn]; 
+    VecB[mm] = 0.0;
+    for (nn = 0; nn < N; nn++) VecB[mm] += VV[nn+mm*N] * VecW[nn]; 
   }
 
   eigMatT.load(N, N, VV);
-  eigVals.load(N, SS);
+  eigVals.load(N, VecS.getDVector());
   for (nn = 0; nn < N; nn++) eigVals[nn] = pow(eigVals[nn], 2.0);
-  delete [] AA;
-  delete [] SS;
-  delete [] UU;
-  delete [] VV;
 
   fp = NULL;
   if (psMasterMode_ == 1)
@@ -769,7 +754,7 @@ int Regression::analyze(double *Xin, double *Y)
     for (mm = 0; mm < nSamples_; mm++)
     {
       for (nn = 0; nn < nInputs_; nn++) 
-        fprintf(fp,"%16.8e ", X[mm*nInputs_+nn]);
+        fprintf(fp,"%16.8e ", VecX[mm*nInputs_+nn]);
       fprintf(fp,"\n");
     }
     fprintf(fp,"];\n");
@@ -779,13 +764,13 @@ int Regression::analyze(double *Xin, double *Y)
   esum = ymax = 0.0;
   for (mm = 0; mm < M; mm++)
   {
-    WW[mm] = 0.0;
-    for (nn = 0; nn < N; nn++) WW[mm] += XX[mm+nn*nSamples_] * B[nn];
-    WW[mm] -= Y[mm];
-    esum = esum + WW[mm] * WW[mm] * weights_[mm];
+    VecW[mm] = 0.0;
+    for (nn = 0; nn < N; nn++) VecW[mm] += arrayXX[mm+nn*M] * VecB[nn];
+    VecW[mm] -= VecY[mm];
+    esum = esum + VecW[mm] * VecW[mm] * weights_[mm];
     if (fp != NULL) 
-      fprintf(fp, "%6d %24.16e\n", mm+1, WW[mm]*sqrt(weights_[mm]));
-    if (PABS(Y[mm]) > ymax) ymax = PABS(Y[mm]);
+      fprintf(fp, "%6d %24.16e\n", mm+1, VecW[mm]*sqrt(weights_[mm]));
+    if (PABS(VecY[mm]) > ymax) ymax = PABS(VecY[mm]);
   }
   esum /= (double) nSamples_;
   esum = sqrt(esum);
@@ -807,7 +792,7 @@ int Regression::analyze(double *Xin, double *Y)
     printf("     (resubstitution test) with respect to each input.\n");
   }
 
-  computeSS(N, XX, Y, B, SSresid, SStotal);
+  computeSS(MatXX, VecY, VecB, SSresid, SStotal);
   R2 = 1.0;
   if (SStotal != 0.0) R2  = 1.0 - SSresid / SStotal;
   if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
@@ -822,23 +807,25 @@ int Regression::analyze(double *Xin, double *Y)
     }
     else var = 0;
   }
-  regCoeffs_.load(N, B);
+  regCoeffs_.load(VecB);
 
   computeCoeffVariance(eigMatT, eigVals, var);
-  Bstd = new double[N];
+  psVector VecBstd;
+  VecBstd.setLength(N);
   for (ii = 0; ii < N; ii++)
-    Bstd[ii] = sqrt(invCovMat_.getEntry(ii,ii));
+    VecBstd[ii] = sqrt(invCovMat_.getEntry(ii,ii));
 
   if (outputLevel_ >= 0)
   {
-    printRC(N, B, Bstd, XX, Y);
+    printRC(VecB, VecBstd, MatXX, VecY);
     printf("* Regression R-square = %12.4e (SSresid,SStotal=%10.2e,%10.2e)\n",
            R2, SSresid, SStotal);
     if ((M - N - 1) > 0)
       printf("* adjusted   R-square = %12.4e\n",
              1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
-    if (outputLevel_ > 1) printSRC(X, B, SStotal);
+    if (outputLevel_ > 1) printSRC(VecX, VecB, SStotal);
   }
+
   fp = NULL;
   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "w");
   if (fp != NULL)
@@ -1127,23 +1114,17 @@ int Regression::analyze(double *Xin, double *Y)
     printf("     functional form.\n");
     fclose(fp);
   }
-
-  delete [] XX;
-  delete [] WW;
-  delete [] B;
-  delete [] Bstd;
   return 0;
 }
 
 // *************************************************************************
 // load the X matrix
 // -------------------------------------------------------------------------
-int Regression::loadXMatrix(double *X, double **XXOut)
+int Regression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
-  int    M, N=0, mm, nn, nn2, nn3, nn4, ind, N2;
-  double *XX=NULL;
+  int      M, N=0, mm, nn, nn2, nn3, nn4, ind, N2;
+  psVector VecXX;
 
-  (*XXOut) = NULL;
   if (order_ > 4) return 0;
 
   M = nSamples_;
@@ -1198,19 +1179,18 @@ int Regression::loadXMatrix(double *X, double **XXOut)
     }
   }
   if (N > M) return N;
-  XX = new double[M*N];
-  checkAllocate(XX, " Regression XX");
+  VecXX.setLength(M*N);
   if (order_ >= 0)
   {
-    for (mm = 0; mm < M; mm++) XX[mm] = 1.0;
+    for (mm = 0; mm < M; mm++) VecXX[mm] = 1.0;
   }
   if (order_ >= 1)
   {
     for (mm = 0; mm < M; mm++)
     {
-      XX[mm] = 1.0;
+      VecXX[mm] = 1.0;
       for (nn = 0; nn < nInputs_; nn++)
-        XX[M*(nn+1)+mm] = X[mm*nInputs_+nn];
+        VecXX[M*(nn+1)+mm] = VecX[mm*nInputs_+nn];
     }
   }
   if (order_ >= 2)
@@ -1221,7 +1201,7 @@ int Regression::loadXMatrix(double *X, double **XXOut)
       for (nn2 = nn; nn2 < nInputs_; nn2++)
       {
         for (mm = 0; mm < M; mm++)
-          XX[M*ind+mm] = X[mm*nInputs_+nn] * X[mm*nInputs_+nn2];
+          VecXX[M*ind+mm] = VecX[mm*nInputs_+nn] * VecX[mm*nInputs_+nn2];
         ind++;
       }
     }
@@ -1235,8 +1215,8 @@ int Regression::loadXMatrix(double *X, double **XXOut)
         for (nn3 = nn2; nn3 < nInputs_; nn3++)
         {
           for (mm = 0; mm < M; mm++)
-            XX[M*ind+mm] = X[mm*nInputs_+nn] * X[mm*nInputs_+nn2] * 
-                           X[mm*nInputs_+nn3];
+            VecXX[M*ind+mm] = VecX[mm*nInputs_+nn] * VecX[mm*nInputs_+nn2] * 
+                              VecX[mm*nInputs_+nn3];
           ind++;
         }
       }
@@ -1253,41 +1233,44 @@ int Regression::loadXMatrix(double *X, double **XXOut)
           for (nn4 = nn3; nn4 < nInputs_; nn4++)
           {
              for (mm = 0; mm < M; mm++)
-                XX[M*ind+mm] = X[mm*nInputs_+nn] * X[mm*nInputs_+nn2] * 
-                               X[mm*nInputs_+nn3] * X[mm*nInputs_+nn4];
+                VecXX[M*ind+mm] = VecX[mm*nInputs_+nn]*VecX[mm*nInputs_+nn2]* 
+                               VecX[mm*nInputs_+nn3] * VecX[mm*nInputs_+nn4];
              ind++;
           }
         }
       }
     }
   }
-  (*XXOut) = XX;
+  MatXX.setFormat(PS_MAT1D);
+  MatXX.load(M, N, VecXX.getDVector()); 
   return N;
 }
 
 // *************************************************************************
 // compute SS (sum of squares) statistics
 // -------------------------------------------------------------------------
-int Regression::computeSS(int N, double *XX, double *Y,
-                          double *B, double &SSresid, double &SStotal)
+int Regression::computeSS(psMatrix MatXX, psVector VecY,
+                          psVector VecB, double &SSresid, double &SStotal)
 {
-  int    nn, mm;
-  double rdata, ymean, SSreg, ddata, SSresidCheck;
+  int    nn, mm, N;
+  double rdata, ymean, SSreg, ddata, SSresidCheck, *arrayXX;
 
+  N = VecB.length();
+  arrayXX = MatXX.getMatrix1D();
   SSresid = SSresidCheck = SStotal = SSreg = ymean = 0.0;
-  for (mm = 0; mm < nSamples_; mm++) ymean += sqrt(weights_[mm]) * Y[mm];
+  for (mm = 0; mm < nSamples_; mm++) ymean += sqrt(weights_[mm]) * VecY[mm];
   ymean /= (double) nSamples_;
   for (mm = 0; mm < nSamples_; mm++)
   {
     ddata = 0.0;
-    for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
-    rdata = Y[mm] - ddata;
+    for (nn = 0; nn < N; nn++) ddata += (arrayXX[mm+nn*nSamples_]*VecB[nn]);
+    rdata = VecY[mm] - ddata;
     SSresidCheck += rdata * rdata * weights_[mm];
-    SSresid += rdata * Y[mm] * weights_[mm];
+    SSresid += rdata * VecY[mm] * weights_[mm];
     SSreg += (ddata - ymean) * (ddata - ymean);
   }
   for (mm = 0; mm < nSamples_; mm++)
-    SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+    SStotal += weights_[mm] * (VecY[mm] - ymean) * (VecY[mm] - ymean);
   if (outputLevel_ > 0)
   {
     printf("* Regression: SStot  = %24.16e\n", SStotal);
@@ -1335,10 +1318,11 @@ int Regression::computeCoeffVariance(psMatrix &eigMatT, psVector &eigVals,
 // *************************************************************************
 // print statistics
 // -------------------------------------------------------------------------
-int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
+int Regression::printRC(psVector VecB, psVector VecBstd, psMatrix MatXX,
+                        psVector VecY)
 {
-  int    nn1, ii, ind, nn2, nn3, nn4;
-  double coef, Bmax;
+  int    nn1, ii, ind, nn2, nn3, nn4, N;
+  double coef, Bmax, *arrayXX;
   char   fname[200];
   FILE   *fp;
 
@@ -1351,21 +1335,23 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
   for (ii = 1; ii < order_; ii++) printf("    ");
   printf("  coefficient   std. error   t-value\n");
   printDashes(PL_INFO, 0);
-  if (PABS(Bvar[0]) < 1.0e-15) coef = 0.0;
-  else                         coef = B[0] / Bvar[0]; 
+  arrayXX = MatXX.getMatrix1D();
+  N = VecB.length();
+  if (PABS(VecBstd[0]) < 1.0e-15) coef = 0.0;
+  else                            coef = VecB[0] / VecBstd[0]; 
   printf("* Constant  ");
   for (ii = 1; ii < order_; ii++) printf("    ");
-  printf("= %12.4e %12.4e %12.4e\n", B[0], Bvar[0], coef);
+  printf("= %12.4e %12.4e %12.4e\n", VecB[0], VecBstd[0], coef);
   if (order_ >= 1)
   {
     for (nn1 = 1; nn1 <= nInputs_; nn1++)
     {
-      if (PABS(Bvar[nn1]) < 1.0e-15) coef = 0.0;
-      else                           coef = B[nn1] / Bvar[nn1]; 
+      if (PABS(VecBstd[nn1]) < 1.0e-15) coef = 0.0;
+      else                              coef = VecB[nn1] / VecBstd[nn1]; 
       {
         printf("* Input %3d ", nn1);
         for (ii = 1; ii < order_; ii++) printf("    ");
-        printf("= %12.4e %12.4e %12.4e\n", B[nn1], Bvar[nn1], coef);
+        printf("= %12.4e %12.4e %12.4e\n",VecB[nn1],VecBstd[nn1], coef);
       }
       strcpy(fname, "dataVariance1");
     }
@@ -1374,20 +1360,20 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
   {
     Bmax = 0.0;
     for (nn1 = nInputs_+1; nn1 < N; nn1++)
-      if (PABS(B[nn1]) > Bmax) Bmax = PABS(B[nn1]); 
+      if (PABS(VecB[nn1]) > Bmax) Bmax = PABS(VecB[nn1]); 
     ind = nInputs_ + 1;
     for (nn1 = 0; nn1 < nInputs_; nn1++)
     {
       for (nn2 = nn1; nn2 < nInputs_; nn2++)
       {
-        if (PABS(B[ind]) > 1.0e-6 * Bmax) 
+        if (PABS(VecB[ind]) > 1.0e-6 * Bmax) 
         {
-          if (PABS(Bvar[ind]) < 1.0e-15) coef = 0.0;
-          else coef = B[ind] / Bvar[ind]; 
+          if (PABS(VecBstd[ind]) < 1.0e-15) coef = 0.0;
+          else coef = VecB[ind] / VecBstd[ind]; 
           {
             printf("* Input %3d %3d ", nn1+1, nn2+1);
             for (ii = 2; ii < order_; ii++) printf("    ");
-            printf("= %12.4e %12.4e %12.4e\n",B[ind],Bvar[ind],coef); 
+            printf("= %12.4e %12.4e %12.4e\n",VecB[ind],VecBstd[ind],coef); 
           }
         }
         ind++;
@@ -1399,21 +1385,21 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
   {
     Bmax = 0.0;
     for (nn1 = ind; nn1 < N; nn1++)
-      if (PABS(B[nn1]) > Bmax) Bmax = PABS(B[nn1]); 
+      if (PABS(VecB[nn1]) > Bmax) Bmax = PABS(VecB[nn1]); 
     for (nn1 = 0; nn1 < nInputs_; nn1++)
     {
       for (nn2 = nn1; nn2 < nInputs_; nn2++)
       {
         for (nn3 = nn2; nn3 < nInputs_; nn3++)
         {
-          if (PABS(B[ind]) > 1.0e-6 * Bmax) 
+          if (PABS(VecB[ind]) > 1.0e-6 * Bmax) 
           {
-            if (PABS(Bvar[ind]) < 1.0e-15) coef = 0.0;
-            else coef = B[ind] / Bvar[ind]; 
+            if (PABS(VecBstd[ind]) < 1.0e-15) coef = 0.0;
+            else coef = VecB[ind] / VecBstd[ind]; 
             {
               printf("* Input %3d %3d %3d ", nn1+1, nn2+1, nn3+1);
               for (ii = 3; ii < order_; ii++) printf("    ");
-              printf("= %12.4e %12.4e %12.4e\n",B[ind],Bvar[ind],
+              printf("= %12.4e %12.4e %12.4e\n",VecB[ind],VecBstd[ind],
                      coef);
             }
           }
@@ -1433,15 +1419,15 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
         {
           for (nn4 = nn3; nn4 < nInputs_; nn4++)
           {
-            if (PABS(B[ind]) > 1.0e-6 * Bmax) 
+            if (PABS(VecB[ind]) > 1.0e-6 * Bmax) 
             {
-              if (PABS(Bvar[ind]) < 1.0e-15) coef = 0.0;
-              else coef = B[ind] / Bvar[ind]; 
+              if (PABS(VecBstd[ind]) < 1.0e-15) coef = 0.0;
+              else coef = VecB[ind] / VecBstd[ind]; 
               {
                 printf("* Input %3d %3d %3d %3d ",nn1+1,nn2+1,nn3+1,
                        nn4+1);
                 for (ii = 4; ii < order_; ii++) printf("    ");
-                printf("= %12.4e %12.4e %12.4e\n",B[ind],Bvar[ind],
+                printf("= %12.4e %12.4e %12.4e\n",VecB[ind],VecBstd[ind],
                        coef); 
               }
             }
@@ -1468,8 +1454,8 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
     {
       coef = 0.0;
       for (nn1 = 0; nn1 < N; nn1++) 
-        coef += PABS(XX[nn1*nSamples_+ii]*Bvar[nn1]);
-      fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,Y[ii],sqrt(coef));
+        coef += PABS(arrayXX[ii+nn1*nSamples_]*VecBstd[nn1]);
+      fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,VecY[ii],sqrt(coef));
     }
     fclose(fp);
     printf("FILE %s contains output data standard errors.\n",fname);
@@ -1480,11 +1466,12 @@ int Regression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
 // *************************************************************************
 // print standardized regression coefficients
 // -------------------------------------------------------------------------
-int Regression::printSRC(double *X, double *B, double SStotal)
+int Regression::printSRC(psVector VecX, psVector VecB, double SStotal)
 {
   int    nn, mm, ind, ii, nn2, itemp, nn3, nn4, *iArray;
   double denom, xmean, coef, Bmax, coef1, coef2, xmean1, xmean2;
-  double xmean3, coef3, xmean4, coef4, *B2;
+  double xmean3, coef3, xmean4, coef4;
+  psVector VecB2;
 
   if (order_ < 0 || order_ > 4) return 0;
 
@@ -1495,8 +1482,7 @@ int Regression::printSRC(double *X, double *B, double SStotal)
   printEquals(PL_INFO, 0);
   printf("* based on nSamples = %d\n", nSamples_);
 
-  B2 = new double[nSamples_];
-  checkAllocate(B2, " Regression B2");
+  VecB2.setLength(nSamples_);
   if (order_ >= 1)
   {
     denom = sqrt(SStotal / (double) (nSamples_ - 1));
@@ -1505,32 +1491,32 @@ int Regression::printSRC(double *X, double *B, double SStotal)
     {
       xmean = 0.0;
       for (mm = 0; mm < nSamples_; mm++) 
-        xmean += X[mm*nInputs_+nn] * sqrt(weights_[mm]);
+        xmean += VecX[mm*nInputs_+nn] * sqrt(weights_[mm]);
       xmean /= (double) nSamples_;
       coef = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
       {
-        coef += (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean) * 
-                (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean);
+        coef += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean) * 
+                (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean);
       }
       coef = sqrt(coef / (double) (nSamples_ - 1)) / denom;
       printf("* Input %3d ", nn+1);
       for (ii = 1; ii < order_; ii++) printf("    ");
-      if ((B[nn+1]*coef) > Bmax) Bmax = B[nn+1]*coef;
-      printf("= %12.4e\n", B[nn+1]*coef);
-      B2[nn] = PABS(B[nn+1] * coef);
+      if ((VecB[nn+1]*coef) > Bmax) Bmax = VecB[nn+1]*coef;
+      printf("= %12.4e\n", VecB[nn+1]*coef);
+      VecB2[nn] = PABS(VecB[nn+1] * coef);
     }
     printDashes(PL_INFO, 0);
     printf("*    ordered list of SRCs\n");
     printDashes(PL_INFO, 0);
     iArray = new int[nInputs_];
     for (nn = 0; nn < nInputs_; nn++) iArray[nn] = nn;
-    sortDbleList2a(nInputs_, B2, iArray); 
+    sortDbleList2a(nInputs_, VecB2.getDVector(), iArray); 
     for (nn = nInputs_-1; nn >= 0; nn--)
     {
       printf("* Input %3d ", iArray[nn]+1);
       for (ii = 1; ii < order_; ii++) printf("    ");
-      printf("= %12.4e\n", B2[nn]);
+      printf("= %12.4e\n", VecB2[nn]);
     }
     delete [] iArray; 
   }
@@ -1541,26 +1527,26 @@ int Regression::printSRC(double *X, double *B, double SStotal)
     {
       xmean1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++) 
-        xmean1 += X[mm*nInputs_+nn] * sqrt(weights_[mm]);
+        xmean1 += VecX[mm*nInputs_+nn] * sqrt(weights_[mm]);
       xmean1 /= (double) nSamples_;
       coef1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
-        coef1 += (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean1) * 
-                 (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean1);
+        coef1 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean1) * 
+                 (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean1);
       coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
       for (nn2 = nn; nn2 < nInputs_; nn2++)
       {
         xmean2 = 0.0;
         for (mm = 0; mm < nSamples_; mm++)
-          xmean2 += X[mm*nInputs_+nn2] * sqrt(weights_[mm]);
+          xmean2 += VecX[mm*nInputs_+nn2] * sqrt(weights_[mm]);
         xmean2 /= (double) nSamples_;
         coef2 = 0.0;
         for (mm = 0; mm < nSamples_; mm++)
-          coef2 += (sqrt(weights_[mm])*X[mm*nInputs_+nn2] - xmean2) * 
-                   (sqrt(weights_[mm])*X[mm*nInputs_+nn2] - xmean2);
+          coef2 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn2] - xmean2) * 
+                   (sqrt(weights_[mm])*VecX[mm*nInputs_+nn2] - xmean2);
         coef2 = sqrt(coef2 / (double) (nSamples_ - 1));
-        B2[ind] = B[ind] * coef1 * coef2 / denom;
-        if (PABS(B2[ind]) > Bmax) Bmax = PABS(B2[ind]);
+        VecB2[ind] = VecB[ind] * coef1 * coef2 / denom;
+        if (PABS(VecB2[ind]) > Bmax) Bmax = PABS(VecB2[ind]);
         ind++;
       }
     }
@@ -1569,11 +1555,11 @@ int Regression::printSRC(double *X, double *B, double SStotal)
     {
       for (nn2 = nn; nn2 < nInputs_; nn2++)
       {
-        if (PABS(B2[ind]) > 1.0e-3 * Bmax)
+        if (PABS(VecB2[ind]) > 1.0e-3 * Bmax)
         {
           printf("* Input %3d,%3d ", nn+1, nn2+1);
           for (ii = 2; ii < order_; ii++) printf("    ");
-          printf("= %12.4e\n", B2[ind]);
+          printf("= %12.4e\n", VecB2[ind]);
         }
         ind++;
       }
@@ -1586,37 +1572,37 @@ int Regression::printSRC(double *X, double *B, double SStotal)
     {
       xmean1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
-        xmean1 += X[mm*nInputs_+nn] * sqrt(weights_[mm]);
+        xmean1 += VecX[mm*nInputs_+nn] * sqrt(weights_[mm]);
       xmean1 /= (double) nSamples_;
       coef1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
-        coef1 += (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean1) * 
-                 (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean1);
+        coef1 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean1) * 
+                 (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean1);
       coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
       for (nn2 = nn; nn2 < nInputs_; nn2++)
       {
         xmean2 = 0.0;
         for (mm = 0; mm < nSamples_; mm++)
-          xmean2 += X[mm*nInputs_+nn2] * sqrt(weights_[mm]);
+          xmean2 += VecX[mm*nInputs_+nn2] * sqrt(weights_[mm]);
         xmean2 /= (double) nSamples_;
         coef2 = 0.0;
         for (mm = 0; mm < nSamples_; mm++)
-          coef2 += (sqrt(weights_[mm])*X[mm*nInputs_+nn2] - xmean2) * 
-                   (sqrt(weights_[mm])*X[mm*nInputs_+nn2] - xmean2);
+          coef2 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn2] - xmean2) * 
+                   (sqrt(weights_[mm])*VecX[mm*nInputs_+nn2] - xmean2);
         coef2 = sqrt(coef2 / (double) (nSamples_ - 1));
         for (nn3 = nn2; nn3 < nInputs_; nn3++)
         {
           xmean3 = 0.0;
           for (mm = 0; mm < nSamples_; mm++)
-            xmean3 += X[mm*nInputs_+nn3] * sqrt(weights_[mm]);
+            xmean3 += VecX[mm*nInputs_+nn3] * sqrt(weights_[mm]);
           xmean3 /= (double) nSamples_;
           coef3 = 0.0;
           for (mm = 0; mm < nSamples_; mm++)
-            coef3 += (sqrt(weights_[mm])*X[mm*nInputs_+nn3] - xmean3) * 
-                     (sqrt(weights_[mm])*X[mm*nInputs_+nn3] - xmean3);
+            coef3 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn3] - xmean3) * 
+                     (sqrt(weights_[mm])*VecX[mm*nInputs_+nn3] - xmean3);
           coef3 = sqrt(coef3 / (double) (nSamples_ - 1));
-          B2[ind] = B[ind] * coef1 * coef2 *coef3 / denom;
-          if (PABS(B2[ind]) > Bmax) Bmax = PABS(B2[ind]);
+          VecB2[ind] = VecB[ind] * coef1 * coef2 *coef3 / denom;
+          if (PABS(VecB2[ind]) > Bmax) Bmax = PABS(VecB2[ind]);
           ind++;
         }
       }
@@ -1628,11 +1614,11 @@ int Regression::printSRC(double *X, double *B, double SStotal)
       {
         for (nn3 = nn2; nn3 < nInputs_; nn3++)
         {
-          if (PABS(B2[ind]) > 1.0e-3 * Bmax)
+          if (PABS(VecB2[ind]) > 1.0e-3 * Bmax)
           {
             printf("* Input %3d,%3d,%3d ", nn+1, nn2+1, nn3+1);
             for (ii = 3; ii < order_; ii++) printf("    ");
-            printf("= %12.4e\n", B2[ind]);
+            printf("= %12.4e\n", VecB2[ind]);
           }
           ind++;
         }
@@ -1646,48 +1632,48 @@ int Regression::printSRC(double *X, double *B, double SStotal)
     {
       xmean1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
-        xmean1 += X[mm*nInputs_+nn] * sqrt(weights_[mm]);
+        xmean1 += VecX[mm*nInputs_+nn] * sqrt(weights_[mm]);
       xmean1 /= (double) nSamples_;
       coef1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
-        coef1 += (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean1) * 
-                 (sqrt(weights_[mm])*X[mm*nInputs_+nn] - xmean1);
+        coef1 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean1) * 
+                 (sqrt(weights_[mm])*VecX[mm*nInputs_+nn] - xmean1);
       coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
       for (nn2 = nn; nn2 < nInputs_; nn2++)
       {
         xmean2 = 0.0;
         for (mm = 0; mm < nSamples_; mm++)
-          xmean2 += X[mm*nInputs_+nn2] * sqrt(weights_[mm]);
+          xmean2 += VecX[mm*nInputs_+nn2] * sqrt(weights_[mm]);
         xmean2 /= (double) nSamples_;
         coef2 = 0.0;
         for (mm = 0; mm < nSamples_; mm++)
-          coef2 += (sqrt(weights_[mm])*X[mm*nInputs_+nn2] - xmean2) * 
-                   (sqrt(weights_[mm])*X[mm*nInputs_+nn2] - xmean2);
+          coef2 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn2] - xmean2) * 
+                   (sqrt(weights_[mm])*VecX[mm*nInputs_+nn2] - xmean2);
         coef2 = sqrt(coef2 / (double) (nSamples_ - 1));
         for (nn3 = nn2; nn3 < nInputs_; nn3++)
         {
           xmean3 = 0.0;
           for (mm = 0; mm < nSamples_; mm++)
-            xmean3 += X[mm*nInputs_+nn3] * sqrt(weights_[mm]);
+            xmean3 += VecX[mm*nInputs_+nn3] * sqrt(weights_[mm]);
           xmean3 /= (double) nSamples_;
           coef3 = 0.0;
           for (mm = 0; mm < nSamples_; mm++)
-            coef3 += (sqrt(weights_[mm])*X[mm*nInputs_+nn3] - xmean3) * 
-                     (sqrt(weights_[mm])*X[mm*nInputs_+nn3] - xmean3);
+            coef3 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn3] - xmean3) * 
+                     (sqrt(weights_[mm])*VecX[mm*nInputs_+nn3] - xmean3);
           coef3 = sqrt(coef3 / (double) (nSamples_ - 1));
           for (nn4 = nn3; nn4 < nInputs_; nn4++)
           {
             xmean4 = 0.0;
             for (mm = 0; mm < nSamples_; mm++)
-              xmean3 += X[mm*nInputs_+nn4] * sqrt(weights_[mm]);
+              xmean3 += VecX[mm*nInputs_+nn4] * sqrt(weights_[mm]);
             xmean4 /= (double) nSamples_;
             coef4 = 0.0;
             for (mm = 0; mm < nSamples_; mm++)
-              coef4 += (sqrt(weights_[mm])*X[mm*nInputs_+nn4] - xmean4) * 
-                       (sqrt(weights_[mm])*X[mm*nInputs_+nn4] - xmean4);
+              coef4 += (sqrt(weights_[mm])*VecX[mm*nInputs_+nn4] - xmean4) * 
+                       (sqrt(weights_[mm])*VecX[mm*nInputs_+nn4] - xmean4);
             coef4 = sqrt(coef4 / (double) (nSamples_ - 1));
-            B2[ind] = B[ind] * coef1 * coef2 *coef3 *coef4 / denom;
-            if (PABS(B2[ind]) > Bmax) Bmax = PABS(B2[ind]);
+            VecB2[ind] = VecB[ind] * coef1 * coef2 *coef3 *coef4 / denom;
+            if (PABS(VecB2[ind]) > Bmax) Bmax = PABS(VecB2[ind]);
             ind++;
           }
         }
@@ -1702,11 +1688,11 @@ int Regression::printSRC(double *X, double *B, double SStotal)
         {
           for (nn4 = nn3; nn4 < nInputs_; nn4++)
           {
-            if (PABS(B2[ind]) > 1.0e-3 * Bmax)
+            if (PABS(VecB2[ind]) > 1.0e-3 * Bmax)
             {
               printf("* Input %3d,%3d,%3d,%3d ",nn+1,nn2+1,nn3+1,nn4+1);
               for (ii = 4; ii < order_; ii++) printf("    ");
-              printf("= %12.4e\n",B2[ind]);
+              printf("= %12.4e\n",VecB2[ind]);
             }
             ind++;
           }
@@ -1714,7 +1700,6 @@ int Regression::printSRC(double *X, double *B, double SStotal)
       }
     }
   }
-  delete [] B2;
   printAsterisks(PL_INFO, 0);
   return 0;
 }
@@ -1722,12 +1707,13 @@ int Regression::printSRC(double *X, double *B, double SStotal)
 // *************************************************************************
 // print coefficients 
 // -------------------------------------------------------------------------
-int Regression::printCoefs(int N, double *B)
+int Regression::printCoefs(psVector VecB)
 {
-  int    ii, jj, nn1, nn2, nn3, nn4, **indexTable, ptr2, ptr3, ptr4, cnt;
+  int    ii, jj, N, nn1, nn2, nn3, nn4, **indexTable, ptr2, ptr3, ptr4, cnt;
   int    mm1, mm2, kk, *indices;
   double *trueCoefs, Bmax, ddata;
 
+  N = VecB.length();
   indexTable = new int*[N];
   for (ii = 0; ii < N; ii++) indexTable[ii] = new int[nInputs_];
   for (ii = 0; ii < nInputs_; ii++) indexTable[0][ii] = 0; 
@@ -1811,14 +1797,14 @@ int Regression::printCoefs(int N, double *B)
 
   trueCoefs = new double[N];
   for (ii = 0; ii < N; ii++) trueCoefs[ii] = 0.0;
-  trueCoefs[0] = B[0];
+  trueCoefs[0] = VecB[0];
   indices = new int[nInputs_];
   if (order_ >= 1)
   {
     for (nn1 = 1; nn1 <= nInputs_; nn1++)
     {
-      trueCoefs[nn1] = B[nn1] / XStds_[nn1-1];
-      trueCoefs[0]  -= B[nn1] * XMeans_[nn1-1] / XStds_[nn1-1];
+      trueCoefs[nn1] = VecB[nn1] / XStds_[nn1-1];
+      trueCoefs[0]  -= VecB[nn1] * XMeans_[nn1-1] / XStds_[nn1-1];
     }
   }
   if (order_ >= 2)
@@ -1828,12 +1814,12 @@ int Regression::printCoefs(int N, double *B)
     {
       for (nn2 = nn1; nn2 < nInputs_; nn2++)
       {
-        trueCoefs[cnt] = B[cnt] / (XStds_[nn1] * XStds_[nn2]);
-        trueCoefs[nn1+1] -= B[cnt]*XMeans_[nn2]/
+        trueCoefs[cnt] = VecB[cnt] / (XStds_[nn1] * XStds_[nn2]);
+        trueCoefs[nn1+1] -= VecB[cnt]*XMeans_[nn2]/
                             (XStds_[nn1]*XStds_[nn2]);
-        trueCoefs[nn2+1] -= B[cnt]*XMeans_[nn1]/
+        trueCoefs[nn2+1] -= VecB[cnt]*XMeans_[nn1]/
                             (XStds_[nn1]*XStds_[nn2]);
-        trueCoefs[0] += B[cnt]*(XMeans_[nn1]*XMeans_[nn2])/
+        trueCoefs[0] += VecB[cnt]*(XMeans_[nn1]*XMeans_[nn2])/
                                (XStds_[nn1]*XStds_[nn2]);
         cnt++;
       }
@@ -1848,7 +1834,7 @@ int Regression::printCoefs(int N, double *B)
       {
         for (nn3 = nn2; nn3 < nInputs_; nn3++)
         {
-          ddata = B[cnt];
+          ddata = VecB[cnt];
           ddata /= XStds_[nn1];
           ddata /= XStds_[nn2];
           ddata /= XStds_[nn3];
@@ -1857,22 +1843,22 @@ int Regression::printCoefs(int N, double *B)
           ddata = XMeans_[nn1] / XStds_[nn1];
           ddata *= XMeans_[nn2] / XStds_[nn2];
           ddata *= XMeans_[nn3] / XStds_[nn3];
-          trueCoefs[0] -= B[cnt] * ddata;
+          trueCoefs[0] -= VecB[cnt] * ddata;
 
           ddata = 1.0 / XStds_[nn1];
           ddata *= XMeans_[nn2] / XStds_[nn2];
           ddata *= XMeans_[nn3] / XStds_[nn3];
-          trueCoefs[nn1+1] += B[cnt] * ddata;
+          trueCoefs[nn1+1] += VecB[cnt] * ddata;
 
           ddata = 1.0 / XStds_[nn2];
           ddata *= XMeans_[nn1] / XStds_[nn1];
           ddata *= XMeans_[nn3] / XStds_[nn3];
-          trueCoefs[nn2+1] += B[cnt] * ddata;
+          trueCoefs[nn2+1] += VecB[cnt] * ddata;
 
           ddata = 1.0 / XStds_[nn3];
           ddata *= XMeans_[nn1] / XStds_[nn1];
           ddata *= XMeans_[nn2] / XStds_[nn2];
-          trueCoefs[nn3+1] += B[cnt] * ddata;
+          trueCoefs[nn3+1] += VecB[cnt] * ddata;
 
           ii = ptr2;
           for (mm1 = 0; mm1 < nInputs_; mm1++) indices[mm1] = 0;
@@ -1891,7 +1877,7 @@ int Regression::printCoefs(int N, double *B)
                    ddata = 1.0 / XStds_[nn1];
                    ddata /= XStds_[nn2];
                    ddata  *= XMeans_[nn3] / XStds_[nn3];
-                   trueCoefs[ii] -= B[cnt] * ddata;
+                   trueCoefs[ii] -= VecB[cnt] * ddata;
                    printf("(a) ii = %d\n",ii+1);
                 }
                 else if (indices[nn1] >= indexTable[ii][nn1] &&
@@ -1900,7 +1886,7 @@ int Regression::printCoefs(int N, double *B)
                    ddata = 1.0 / XStds_[nn1];
                    ddata /= XStds_[nn3];
                    ddata  *= XMeans_[nn2] / XStds_[nn2];
-                   trueCoefs[ii] -= B[cnt] * ddata;
+                   trueCoefs[ii] -= VecB[cnt] * ddata;
                    printf("(b) ii = %d\n",ii+1);
                 }
                 else if (indices[nn2] >= indexTable[ii][nn2] &&
@@ -1909,7 +1895,7 @@ int Regression::printCoefs(int N, double *B)
                    ddata = 1.0 / XStds_[nn2];
                    ddata /= XStds_[nn3];
                    ddata  *= XMeans_[nn1] / XStds_[nn1];
-                   trueCoefs[ii] -= B[cnt] * ddata;
+                   trueCoefs[ii] -= VecB[cnt] * ddata;
                    printf("(c) ii = %d\n",ii+1);
                 }
                 ii++;
@@ -1932,7 +1918,7 @@ int Regression::printCoefs(int N, double *B)
         {
           for (nn4 = nn3; nn4 < nInputs_; nn4++)
           {
-            ddata = B[cnt];
+            ddata = VecB[cnt];
             ddata /= XStds_[nn1];
             ddata /= XStds_[nn2];
             ddata /= XStds_[nn3];
@@ -1943,7 +1929,7 @@ int Regression::printCoefs(int N, double *B)
             ddata *= XMeans_[nn2] / XStds_[nn2];
             ddata *= XMeans_[nn3] / XStds_[nn3];
             ddata *= XMeans_[nn4] / XStds_[nn4];
-            trueCoefs[0] += B[cnt] * ddata;
+            trueCoefs[0] += VecB[cnt] * ddata;
 
             if (indexTable[cnt][0] = 2)
             {
@@ -1951,7 +1937,7 @@ int Regression::printCoefs(int N, double *B)
                ddata *= XMeans_[nn2] / XStds_[nn2];
                ddata *= XMeans_[nn3] / XStds_[nn3];
                ddata *= XMeans_[nn4] / XStds_[nn4];
-               trueCoefs[nn1+1] -= B[cnt] * ddata;
+               trueCoefs[nn1+1] -= VecB[cnt] * ddata;
             }
 
             if (indexTable[cnt][1] = 1)
@@ -1960,7 +1946,7 @@ int Regression::printCoefs(int N, double *B)
                ddata *= XMeans_[nn1] / XStds_[nn1];
                ddata *= XMeans_[nn3] / XStds_[nn3];
                ddata *= XMeans_[nn4] / XStds_[nn4];
-               trueCoefs[nn2+1] -= B[cnt] * ddata;
+               trueCoefs[nn2+1] -= VecB[cnt] * ddata;
             }
 
             if (indexTable[cnt][2] == 1)
@@ -1969,7 +1955,7 @@ int Regression::printCoefs(int N, double *B)
                ddata *= XMeans_[nn1] / XStds_[nn1];
                ddata *= XMeans_[nn2] / XStds_[nn2];
                ddata *= XMeans_[nn4] / XStds_[nn4];
-               trueCoefs[nn3+1] -= B[cnt] * ddata;
+               trueCoefs[nn3+1] -= VecB[cnt] * ddata;
             }
 
             if (indexTable[cnt][3] == 1)
@@ -1978,7 +1964,7 @@ int Regression::printCoefs(int N, double *B)
                ddata *= XMeans_[nn1] / XStds_[nn1];
                ddata *= XMeans_[nn2] / XStds_[nn2];
                ddata *= XMeans_[nn3] / XStds_[nn3];
-               trueCoefs[nn4+1] -= B[cnt] * ddata;
+               trueCoefs[nn4+1] -= VecB[cnt] * ddata;
             }
 
             ii = ptr2;
@@ -2012,7 +1998,7 @@ int Regression::printCoefs(int N, double *B)
                ddata  *= XMeans_[nn4] / XStds_[nn4];
                ddata  /= XStds_[nn1];
                ddata  /= XStds_[nn3];
-               trueCoefs[ii] += B[cnt] * ddata;
+               trueCoefs[ii] += VecB[cnt] * ddata;
             }
 
             ii = ptr2;
@@ -2029,7 +2015,7 @@ int Regression::printCoefs(int N, double *B)
                ddata  *= XMeans_[nn3] / XStds_[nn3];
                ddata  /= XStds_[nn1];
                ddata  /= XStds_[nn4];
-               trueCoefs[ii] += B[cnt] * ddata;
+               trueCoefs[ii] += VecB[cnt] * ddata;
             }
 
             ii = ptr2;
@@ -2046,7 +2032,7 @@ int Regression::printCoefs(int N, double *B)
                ddata  *= XMeans_[nn4] / XStds_[nn4];
                ddata  /= XStds_[nn2];
                ddata  /= XStds_[nn3];
-               trueCoefs[ii] += B[cnt] * ddata;
+               trueCoefs[ii] += VecB[cnt] * ddata;
             }
 
             ii = ptr2;
@@ -2063,7 +2049,7 @@ int Regression::printCoefs(int N, double *B)
                ddata  *= XMeans_[nn3] / XStds_[nn3];
                ddata  /= XStds_[nn2];
                ddata  /= XStds_[nn4];
-               trueCoefs[ii] += B[cnt] * ddata;
+               trueCoefs[ii] += VecB[cnt] * ddata;
             }
 
             ii = ptr2;
@@ -2080,7 +2066,7 @@ int Regression::printCoefs(int N, double *B)
                ddata  *= XMeans_[nn2] / XStds_[nn2];
                ddata  /= XStds_[nn3];
                ddata  /= XStds_[nn4];
-               trueCoefs[ii] += B[cnt] * ddata;
+               trueCoefs[ii] += VecB[cnt] * ddata;
             }
 
             ii = ptr3;
@@ -2096,7 +2082,7 @@ int Regression::printCoefs(int N, double *B)
             ddata  /= XStds_[nn1];
             ddata  /= XStds_[nn2];
             ddata  /= XStds_[nn3];
-            trueCoefs[ii] -= B[cnt] * ddata;
+            trueCoefs[ii] -= VecB[cnt] * ddata;
 
             ii = ptr3;
             while (ii < N)
@@ -2111,7 +2097,7 @@ int Regression::printCoefs(int N, double *B)
             ddata  /= XStds_[nn1];
             ddata  /= XStds_[nn2];
             ddata  /= XStds_[nn4];
-            trueCoefs[ii] -= B[cnt] * ddata;
+            trueCoefs[ii] -= VecB[cnt] * ddata;
 
             ii = ptr3;
             while (ii < N)
@@ -2126,7 +2112,7 @@ int Regression::printCoefs(int N, double *B)
             ddata  /= XStds_[nn1];
             ddata  /= XStds_[nn3];
             ddata  /= XStds_[nn4];
-            trueCoefs[ii] -= B[cnt] * ddata;
+            trueCoefs[ii] -= VecB[cnt] * ddata;
 
             ii = ptr3;
             while (ii < N)
@@ -2141,7 +2127,7 @@ int Regression::printCoefs(int N, double *B)
             ddata  /= XStds_[nn2];
             ddata  /= XStds_[nn3];
             ddata  /= XStds_[nn4];
-            trueCoefs[ii] -= B[cnt] * ddata;
+            trueCoefs[ii] -= VecB[cnt] * ddata;
             cnt++;
           }
         }

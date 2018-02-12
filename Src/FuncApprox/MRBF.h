@@ -28,7 +28,6 @@
 #define __MRBFH__
 
 #include "FuncApprox.h"
-#include "Matrix.h"
 
 // ************************************************************************
 // class definition

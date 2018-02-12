@@ -46,7 +46,7 @@ PsuadeRegression::PsuadeRegression(int nInputs,int nSamples):
   printf("*                Psuade Regression Analysis\n");
   printf("* To use this regression, a user needs to go into the\n");
   printf("* PsuadeRegression.cpp file and insert their function\n");
-  printf("* into the PsuadeRegression.cpp file.\n");
+  printf("* (to replace userFunction).\n");
   printEquals(PL_INFO, 0);
 }
 
@@ -371,5 +371,4 @@ int PsuadeRegression::userFunction(int nInputs, double *inputs,
   outputs[0] = muH2O*exp(dtemp*(CO2*(E*MEA+F*TEM+G)+1)*MEA/(TEM*TEM));
   return 0;
 }
-
 

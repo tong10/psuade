@@ -29,6 +29,7 @@
 #define __SGRIDREGRESSIONH__
 
 #include "FuncApprox.h"
+#include "Vector.h"
 
 // ************************************************************************
 // class definition
@@ -38,11 +39,11 @@ class SparseGridRegression : public FuncApprox
    int    pOrder_;
    int    numPerms_;
    int    **pcePerms_;
-   double *sampleInputs_;
-   double *sampleWeights_;
-   double *regCoefs_;
-   double *lBounds_;
-   double *uBounds_;
+   psVector sampleInputs_;
+   psVector sampleWeights_;
+   psVector regCoefs_;
+   psVector lBounds_;
+   psVector uBounds_;
  
 public:
    SparseGridRegression(int, int);

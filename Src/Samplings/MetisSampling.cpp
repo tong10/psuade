@@ -192,25 +192,26 @@ int MetisSampling::initialize(int initLevel)
    cellsOccupied_ = NULL;
    randFlag  = randomize_;
 
-   if (nInputs_ > 21)
+   if (nInputs_ > 22)
    {
-      printf("MetisSampling ERROR : nInputs > 21 currently not supported.\n");
+      printf("MetisSampling ERROR: nInputs > 22 currently not supported.\n");
       exit(1);
    }
    if (nInputs_ == 1 ) n1d_ = nSamples_*10;
-   if (nInputs_ == 2 ) n1d_ = 1024;
-   if (nInputs_ == 3 ) n1d_ = 100;
-   if (nInputs_ == 4 ) n1d_ = 36;
-   if (nInputs_ == 5 ) n1d_ = 16;
-   if (nInputs_ == 6 ) n1d_ = 11;
+   if (nInputs_ == 2 ) n1d_ = 2048;
+   if (nInputs_ == 3 ) n1d_ = 150;
+   if (nInputs_ == 4 ) n1d_ = 44;
+   if (nInputs_ == 5 ) n1d_ = 20;
+   if (nInputs_ == 6 ) n1d_ = 12;
    if (nInputs_ == 7 ) n1d_ = 8;
    if (nInputs_ == 8 ) n1d_ = 6;
    if (nInputs_ == 9 ) n1d_ = 5;
    if (nInputs_ == 10) n1d_ = 4;
-   if (nInputs_ == 11) n1d_ = 3;
+   if (nInputs_ == 11) n1d_ = 4;
    if (nInputs_ == 12) n1d_ = 3;
    if (nInputs_ == 13) n1d_ = 3;
-   if (nInputs_ >= 14) n1d_ = 2;
+   if (nInputs_ >= 14) n1d_ = 3;
+   if (nInputs_ >= 15) n1d_ = 2;
 
    incrs   = new int[nInputs_+1];
    graphN_ = 1;

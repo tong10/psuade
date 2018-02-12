@@ -5135,6 +5135,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
          return -1;
        }
        fwritePlotCLF(fp);
+       fprintf(fp, "%% 1D plot with +/- 2 std dev\n");
        fprintf(fp, "A = [\n");
        for (sInd = 0; sInd < nPtsPerDim; sInd++)
          fprintf(fp, "%16.8e %16.8e\n", faYOut[sInd], faYStds[sInd]);
@@ -7038,6 +7039,7 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
        return -1;
      }
      fprintf(fp, "twoPlots = 1;\n");
+     fprintf(fp, "fs = 10;\n");
      fwritePlotCLF(fp);
      
      int rsiNOutputs = 2;
@@ -7148,12 +7150,12 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
           fprintf(fp, "axis([%e %e %e %e])\n",iLowerB[iplot1],
                   iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2]);
           fwritePlotAxes(fp);
-          fprintf(fp, "xlabel('%s','FontSize',12,'FontWeight','bold')\n",
+          fprintf(fp, "xlabel('%s','FontSize',fs,'FontWeight','bold')\n",
                   inputNames[iplot1]);
-          fprintf(fp, "ylabel('%s','Fontsize',12,'FontWeight','bold')\n",
+          fprintf(fp, "ylabel('%s','Fontsize',fs,'FontWeight','bold')\n",
                   inputNames[iplot2]);
-          fprintf(fp, "title('Plot for %s',",outputNames[jplot]);
-          fprintf(fp, "'FontWeight','bold','FontSize',12)\n");
+          fprintf(fp, "title('%s',",outputNames[jplot]);
+          fprintf(fp, "'FontWeight','bold','FontSize',fs)\n");
           fprintf(fp, "colorbar\n");
         }
 
@@ -7212,12 +7214,12 @@ int PsuadeBase::RSBasedAnalysis(char *lineIn, PsuadeSession *session)
      fprintf(fp,"axis([%e %e %e %e])\n",iLowerB[iplot1],
              iUpperB[iplot1],iLowerB[iplot2],iUpperB[iplot2]);
      fwritePlotAxes(fp);
-     fprintf(fp,"xlabel('%s','FontSize',12,'FontWeight','bold')\n",
+     fprintf(fp,"xlabel('%s','FontSize',fs,'FontWeight','bold')\n",
              inputNames[iplot1]);
-     fprintf(fp,"ylabel('%s','Fontsize',12,'FontWeight','bold')\n",
+     fprintf(fp,"ylabel('%s','Fontsize',fs,'FontWeight','bold')\n",
              inputNames[iplot2]);
      fprintf(fp,"title('Intersection (color=deg of overlap)','FontWeight',");
-     fprintf(fp,"'bold','FontSize',12)\n");
+     fprintf(fp,"'bold','FontSize',fs)\n");
      fprintf(fp,"colorbar\n");
      fprintf(fp,"colormap(cool)\n");
      fprintf(fp,"disp('On intersection plot, if a region has a color value");

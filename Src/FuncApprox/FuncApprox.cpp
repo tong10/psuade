@@ -59,6 +59,7 @@
 #include "BSSAnova.h"
 #include "PsuadeRegression.h"
 #include "PLS.h"
+#include "MMars.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "PDFBase.h"
@@ -482,7 +483,9 @@ int getFAType(char *pString)
 
   faType = getInt(0, PSUADE_NUM_RS-1, pString);
 #ifndef HAVE_MARS
-  if (faType == PSUADE_RS_MARS) faType = -1;
+  if (faType == PSUADE_RS_MARS)  faType = -1;
+  if (faType == PSUADE_RS_MARSB) faType = -1;
+  if (faType == PSUADE_RS_MMARS) faType = -1;
 #endif
 #ifndef HAVE_SNNS
   if (faType == 5) faType = -1;
@@ -627,6 +630,15 @@ void printThisFA(int faType)
     case PSUADE_RS_MGP2: 
          printf("Multi-Gaussian process (Tong)\n"); 
          break;
+#ifdef HAVE_MARS
+    case PSUADE_RS_MMARS: 
+         printf("Multiple MARS model\n");
+         break;
+#else
+    case PSUADE_RS_MMARS: 
+         printf("Multiple MARS model (MARS not installed)\n");
+         break;
+#endif
   }
 }
 
@@ -686,8 +698,9 @@ int writeFAInfo(int level)
    printf(" K-NEAREST NEIGHBOR - for large data set when data points are\n");
    printf("   relatively close to one another, this may be useful.\n");
    printf(" RBF  - for small to medium data set (too expensive otherwise).\n");
-   printf(" MRBF - can accommodate larger data set.\n");
-   printf(" MGP2 - (Gaussian process) can accommodate larger data set.\n");
+   printf(" MRBF - for larger data set (> 2000).\n");
+   printf(" MGP2 - (Gaussian process) for larger data set (> 2000).\n");
+   printf(" MMARS - (multiple MARS) for even larger data set (> 20000).\n");
   }
 #ifdef HAVE_MARS
   printDashes(PL_INFO, 0);
@@ -732,6 +745,7 @@ int writeFAInfo(int level)
   printf("25. Partial Least Squares Linear Regression (PLS)\n");
   printf("26. Multi-Radial Basis Function (for large samples)\n");
   printf("27. Multi-Gaussian process (Tong, for large samples)\n");
+  printf("28. Multi-MARS (for large samples)\n");
   return PSUADE_NUM_RS;
 }
 
@@ -857,6 +871,8 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
        faPtr = new MRBF(nInputs, nSamples);
   else if (rsType == PSUADE_RS_MGP2)
        faPtr = new MGP3(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_MMARS)
+       faPtr = new MMars(nInputs, nSamples);
   else if (faType == PSUADE_RS_LOCAL)
        faPtr = new PsuadeRegression(nInputs, nSamples);
   else if (rsType == PSUADE_RS_NPL)
@@ -1042,6 +1058,8 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
        faPtr = new PLS(nInputs, nSamples);
   else if (faType == PSUADE_RS_MRBF)
        faPtr = new MRBF(nInputs, nSamples);
+  else if (faType == PSUADE_RS_MMARS)
+       faPtr = new MMars(nInputs, nSamples);
   else if (faType == PSUADE_RS_LOCAL)
        faPtr = new PsuadeRegression(nInputs, nSamples);
   else if (faType == PSUADE_RS_NPL)
@@ -1132,6 +1150,9 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
         sampleOutputs[nOutputs*ii+outputID] == PSUADE_UNDEFINED)
     {
       printf("FuncApprox::genRSModel ERROR - invalid output.\n");
+      printf("  Advice: check your sample data file to see if there is\n");
+      printf("          any sample output having the value 9.999e+34,\n");
+      printf("          any sample status flag not equal to 1.\n");
       exit(1);
     }
   }

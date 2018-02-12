@@ -26,6 +26,8 @@
 // ************************************************************************
 #ifndef __MATRIXH__
 #define __MATRIXH__
+#define PS_MAT1D 1
+#define PS_MAT2D 2
 
 /**
  * @name psMatrix class
@@ -41,8 +43,10 @@
 
 class psMatrix
 {
+   int    format_;
    int    nRows_, nCols_, status_;
-   double **Mat_, determinant_;
+   double **Mat2D_, determinant_;
+   double *Mat1D_;
 
 public:
    int *pivots_;
@@ -60,11 +64,14 @@ public:
    int    load(psMatrix &);
    int    load(int, int, double **);
    int    load(int, int, double *);
+   int    setFormat(int);
    int    setDim(int, int);
    void   setEntry(const int, const int, const double);
    double getEntry(const int, const int);
+   int    getFormat();
    double getDeterminant();
    void   getMatrix1D(psVector &);
+   double *getMatrix1D();
    double **getMatrix2D();
    int    submatrix(psMatrix &, const int, const int *);
    int    CholDecompose();
@@ -82,9 +89,11 @@ public:
    void   transpose();
    void   eigenSolve(psMatrix &, psVector &, int);
    void   matSolve(psVector &, psVector &);
+   int    computeSVD(psMatrix &, psVector &, psMatrix &);
 
 private:
    double computeDeterminant(int, double **);
+   void   cleanUp();
 };
 
 /*@}*/

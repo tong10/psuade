@@ -30,6 +30,8 @@
 #include "Analyzer.h"
 #include "pData.h"
 #include "FuncApprox.h"
+#include "Matrix.h"
+#include "Vector.h"
 
 // ************************************************************************
 // class definition
@@ -57,6 +59,8 @@ public:
 
    double analyze_bf(aData &adata);
 
+   double analyze_bf2(aData &adata);
+
    double analyze_mh(aData &adata);
 
    MCMCAnalyzer& operator=(const MCMCAnalyzer &analyzer);
@@ -64,6 +68,9 @@ public:
    int readIndexFile(PsuadeData *dataPtr,int nInputs,
                      int *designParams, int *rsIndices,
                      double *rsValues);
+
+   int readIndexFile2(PsuadeData *dataPtr, psIVector &rsIndices, 
+                      psVector &rsValues, psMatrix &);
 
    void cleanUp();
 
@@ -90,9 +97,25 @@ public:
                        double **dMeans, double **dStds, int &combFlag,
                        int printLevel);
 
+   double readSpecFile2(int nInputs, int nOutputs,
+                        psIVector &dParams, psMatrix &dSamInputs,
+                        psMatrix &dSamMeans, psMatrix &dSamStds,
+                        int &combineFlag, int printLevel);
+
    int setParams(int nParams, char **params);
 
    int checkConvergence(int num, double *means, double *stds, int leng);
+
+   void displayBanner_bf2(int printLevel);
+
+   double createDiscrepancyFunctions(int nInputs, int nOutputs,
+                double *lower, double *upper, psIVector &rsIndices,
+                psVector &rsValues, psIVector &dParams,
+                int dinInputs, int dnSamples, psMatrix &dSamInputs,
+                psMatrix &dSamMeans, PsuadeData *dataPtr,
+                psVector &discFuncConstantMeans,
+                psVector &discFuncConstantStds,
+                FuncApprox **faPtr, FuncApprox ***faPtrs, int printLevel);
 
    /** Getters for analysis results */
    int    get_nInputs();

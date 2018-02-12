@@ -9,7 +9,7 @@ set (PROJECT_NAME psuade)
 # The version number.
 set (psuade_VERSION_MAJOR 1)
 set (psuade_VERSION_MINOR 7)
-set (psuade_VERSION_PATCH 8)
+set (psuade_VERSION_PATCH 10)
 
 set (PROJECT_INCLUDE_DIR "${PROJECT_BINARY_DIR}/include")
 set (PROJECT_BIN_DIR "${PROJECT_BINARY_DIR}/bin}")

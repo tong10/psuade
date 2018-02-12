@@ -247,604 +247,628 @@ int AnalysisManager::loadLogXsformFlags(int n, int *flags)
 int AnalysisManager::analyze(PsuadeData *psuadeIO, int nLevels, 
                              int *levelSeps, int analysisOutputID)
 {
-   int    anaMethod, nInputs, nOutputs, nSamples, samplingMethod, nReps;
-   int    refineFlag=1, jj, analysisTransform, wgtID, *xsforms, nActive;
-   int    ii, outputLevel, *states, errCnt, *auxPDFs, pdfFlag, onlyMCMC;
-   double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;
-   double *auxMeans, *auxStds;
-   double analysisThreshold, analysisData, *tempX, *tempY;
-   char   **names;
-   pData  pPtr, pLowerB, pUpperB, pInpData, pOutData, pPDFs, pMeans, pStds;
-   pData  pStates;
-   aData  aPtr;
+  int    anaMethod, nInputs, nOutputs, nSamples, samplingMethod, nReps;
+  int    refineFlag=1, jj, analysisTransform, wgtID, *xsforms, nActive;
+  int    ii, outputLevel, *states, errCnt, *auxPDFs, pdfFlag, onlyMCMC;
+  double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;
+  double *auxMeans, *auxStds, dmin;
+  double analysisThreshold, analysisData, *tempX, *tempY;
+  char   **names, inStr[1000], lineIn[10000];
+  pData  pPtr, pLowerB, pUpperB, pInpData, pOutData, pPDFs, pMeans, pStds;
+  pData  pStates;
+  aData  aPtr;
 
-   nActive = 0;
-   for (ii = 0; ii < numAnalyzers_; ii++) 
-      if (analyzers_[ii] != NULL) nActive++;
-   if (nActive == 0) return 0;
-   onlyMCMC = 0;
-   if (nActive == 1 && analyzers_[22] != NULL) onlyMCMC = 1;
+  nActive = 0;
+  for (ii = 0; ii < numAnalyzers_; ii++) 
+     if (analyzers_[ii] != NULL) nActive++;
+  if (nActive == 0) return 0;
+  onlyMCMC = 0;
+  if (nActive == 1 && analyzers_[22] != NULL) onlyMCMC = 1;
 
-   if (psuadeIO == NULL && onlyMCMC == 0)
-   {
-      printOutTS(PL_ERROR, "AnalysisManager ERROR: no DataIO.\n");
+  if (psuadeIO == NULL && onlyMCMC == 0)
+  {
+     printOutTS(PL_ERROR, "AnalysisManager ERROR: no DataIO.\n");
+     return -1;
+  }
+  psuadeIO->getParameter("ana_method", pPtr);
+  anaMethod = pPtr.intData_;
+  psuadeIO->getParameter("input_ninputs", pPtr);
+  nInputs = pPtr.intData_;
+  psuadeIO->getParameter("output_noutputs", pPtr);
+  nOutputs = pPtr.intData_;
+  psuadeIO->getParameter("method_nsamples", pPtr);
+  nSamples = pPtr.intData_;
+  psuadeIO->getParameter("method_sampling", pPtr);
+  samplingMethod = pPtr.intData_;
+  psuadeIO->getParameter("method_nreplications", pPtr);
+  nReps = pPtr.intData_;
+  psuadeIO->getParameter("input_lbounds", pLowerB);
+  iLowerB = pLowerB.dbleArray_;
+  psuadeIO->getParameter("input_ubounds", pUpperB);
+  iUpperB = pUpperB.dbleArray_;
+  psuadeIO->getParameter("input_sample", pInpData);
+  tempX = pInpData.dbleArray_;
+  psuadeIO->getParameter("output_sample", pOutData);
+  tempY = pOutData.dbleArray_;
+  psuadeIO->getParameter("output_states", pStates);
+  states = pStates.intArray_;
+  psuadeIO->getParameter("ana_threshold", pPtr);
+  analysisThreshold = pPtr.dbleData_;
+  psuadeIO->getParameter("ana_transform", pPtr);
+  analysisTransform = pPtr.intData_;
+  if (tempX == NULL)
+  {
+    printOutTS(PL_WARN,
+         "AnalysisManager WARNING: missing sample input data.\n");
+    nSamples = 0;
+  }
+  if (tempY == NULL)
+  {
+    printOutTS(PL_WARN,
+         "AnalysisManager WARNING: missing sample output data.\n");
+    nSamples = 0;
+  }
+  if (analysisOutputID < 0)
+  {
+    psuadeIO->getParameter("ana_outputid", pPtr);
+    analysisOutputID = pPtr.intData_;
+    if (analysisOutputID < 0)
+    {
+      printOutTS(PL_ERROR,"AnalysisManager ERROR: output ID <= 0.\n");
       return -1;
-   }
-   psuadeIO->getParameter("ana_method", pPtr);
-   anaMethod = pPtr.intData_;
-   psuadeIO->getParameter("input_ninputs", pPtr);
-   nInputs = pPtr.intData_;
-   psuadeIO->getParameter("output_noutputs", pPtr);
-   nOutputs = pPtr.intData_;
-   psuadeIO->getParameter("method_nsamples", pPtr);
-   nSamples = pPtr.intData_;
-   psuadeIO->getParameter("method_sampling", pPtr);
-   samplingMethod = pPtr.intData_;
-   psuadeIO->getParameter("method_nreplications", pPtr);
-   nReps = pPtr.intData_;
-   psuadeIO->getParameter("input_lbounds", pLowerB);
-   iLowerB = pLowerB.dbleArray_;
-   psuadeIO->getParameter("input_ubounds", pUpperB);
-   iUpperB = pUpperB.dbleArray_;
-   psuadeIO->getParameter("input_sample", pInpData);
-   tempX = pInpData.dbleArray_;
-   psuadeIO->getParameter("output_sample", pOutData);
-   tempY = pOutData.dbleArray_;
-   psuadeIO->getParameter("output_states", pStates);
-   states = pStates.intArray_;
-   psuadeIO->getParameter("ana_threshold", pPtr);
-   analysisThreshold = pPtr.dbleData_;
-   psuadeIO->getParameter("ana_transform", pPtr);
-   analysisTransform = pPtr.intData_;
-   if (tempX == NULL)
-   {
-      printOutTS(PL_WARN,
-           "AnalysisManager WARNING: missing sample input data.\n");
-      nSamples = 0;
-   }
-   if (tempY == NULL)
-   {
-      printOutTS(PL_WARN,
-           "AnalysisManager WARNING: missing sample output data.\n");
-      nSamples = 0;
-   }
-   if (analysisOutputID < 0)
-   {
-      psuadeIO->getParameter("ana_outputid", pPtr);
-      analysisOutputID = pPtr.intData_;
-      if (analysisOutputID < 0)
-      {
-         printOutTS(PL_ERROR,"AnalysisManager ERROR: output ID <= 0.\n");
-         return -1;
-      }
-   }
-   psuadeIO->getParameter("ana_regressionwgtid", pPtr);
-   wgtID = pPtr.intData_;
-   psuadeIO->getParameter("ana_diagnostics", pPtr);
-   outputLevel = pPtr.intData_;
+    }
+  }
+  psuadeIO->getParameter("ana_regressionwgtid", pPtr);
+  wgtID = pPtr.intData_;
+  psuadeIO->getParameter("ana_diagnostics", pPtr);
+  outputLevel = pPtr.intData_;
 
-   if (logXsformFlags_ != NULL)
-   {
-      xsforms = new int[nInputs];
-      aPtr.inputXsforms_ = xsforms;
-      for (ii = 0; ii < nInputs; ii++)
-         xsforms[ii] = logXsformFlags_[0] & 1;
-      analysisTransform = logXsformFlags_[0] | logXsformFlags_[1];
-   }
-   else   
-   {
-      xsforms = new int[nInputs];
-      aPtr.inputXsforms_ = xsforms;
-      for (ii = 0; ii < nInputs; ii++) xsforms[ii] = analysisTransform & 1;
-   }
-   if (analysisTransform == 0)
-   {
-      printOutTS(PL_INFO,
-           "No transformation (e.g. log) on sample inputs nor outputs.\n");
+  if (logXsformFlags_ != NULL)
+  {
+    xsforms = new int[nInputs];
+    aPtr.inputXsforms_ = xsforms;
+    for (ii = 0; ii < nInputs; ii++)
+      xsforms[ii] = logXsformFlags_[0] & 1;
+    analysisTransform = logXsformFlags_[0] | logXsformFlags_[1];
+  }
+  else   
+  {
+    xsforms = new int[nInputs];
+    aPtr.inputXsforms_ = xsforms;
+    for (ii = 0; ii < nInputs; ii++) xsforms[ii] = analysisTransform & 1;
+  }
+  if (analysisTransform == 0)
+  {
+    printOutTS(PL_INFO,
+         "No transformation (e.g. log) on sample inputs nor outputs.\n");
+    sampleInputs = tempX;
+    sampleOutputs = tempY;
+  }
+  else
+  {
+    if ((analysisTransform & 1) && tempX != NULL)
+    {
+      for (ii = 0; ii < nInputs*nSamples; ii++)
+      {
+        if (tempX[ii] <= 0.0)
+        {
+          analysisTransform &= 2;
+          for (jj = 0; jj < nInputs; jj++) xsforms[jj] = 0;
+          printOutTS(PL_INFO,
+            "Some inputs are < 0 => TURN OFF INPUT TRANSFORMATION.\n");
+          printf("Okay to continue with no input transformation (y or n)? ");
+          scanf("%s", inStr);
+          fgets(lineIn, 1000, stdin);
+          if (inStr[0] != 'y') return -1;
+          break;
+        }
+      }
+    }
+    if ((analysisTransform & 2) && tempY != NULL)
+    {
+      for (ii = 0; ii < nSamples*nOutputs; ii++)
+      {
+        if (tempY[ii] <= 0.0)
+        {
+          analysisTransform &= 1;
+          printOutTS(PL_ERROR, 
+            "SOME OUTPUT ARE < 0 => TURN OFF OUTPUT TRANSFORMATION.\n");
+          printf("E.G. Sample %d output %d is negative.\n",
+                 ii/nOutputs+1, ii%nOutputs+1);
+          printf("Okay to continue with output no transformation (y or n)? ");
+          scanf("%s", inStr);
+          fgets(lineIn, 1000, stdin);
+          if (inStr[0] != 'y') return -1;
+          break;
+        }
+      }
+    }
+    if (analysisTransform == 0)
+    {
       sampleInputs = tempX;
       sampleOutputs = tempY;
-   }
-   else
-   {
-      if ((analysisTransform & 1) && tempX != NULL)
+    }
+    else
+    {
+      sampleInputs = new double[nSamples*nInputs];
+      sampleOutputs = new double[nSamples*nOutputs];
+      if (analysisTransform & 1) 
+        printOutTS(PL_INFO, "Log transformation on inputs.\n");
+      for (ii = 0; ii < nInputs; ii++)
       {
-         for (ii = 0; ii < nInputs*nSamples; ii++)
-         {
-           if (tempX[ii] < 0.0)
-           {
-             for (jj = 0; jj < nInputs; jj++) xsforms[jj] = 0;
-             printOutTS(PL_INFO,
-               "Some inputs are < 0 => Turn off input transformation.\n");
-             analysisTransform &= 2;
-             break;
-           }
-         }
+        if (xsforms[ii] == 1)
+        {
+          for (jj = 0; jj < nSamples; jj++)
+            sampleInputs[jj*nInputs+ii] = log(tempX[jj*nInputs+ii]);
+          if (iLowerB[ii] > 0) iLowerB[ii] = log(iLowerB[ii]);
+          else
+          {
+            dmin = PSUADE_UNDEFINED;
+            for (jj = 0; jj < nSamples; jj++)
+              if (tempX[jj*nInputs+ii] < dmin) dmin = tempX[jj*nInputs+ii];
+            iLowerB[ii] = log(dmin);
+            iUpperB[ii] = log(iUpperB[ii]);
+          }
+        }
+        else
+        {
+          for (jj = 0; jj < nSamples; jj++)
+            sampleInputs[jj*nInputs+ii] = tempX[jj*nInputs+ii];
+        }
       }
+      if (analysisTransform & 2) 
+        printOutTS(PL_INFO, "Log transformation on outputs.\n");
       if ((analysisTransform & 2) && tempY != NULL)
+        for (ii = 0; ii < nSamples*nOutputs; ii++)
+          sampleOutputs[ii] = log(tempY[ii]);
+      else if (tempY != NULL)
+        for (ii = 0; ii < nSamples*nOutputs; ii++)
+          sampleOutputs[ii] = tempY[ii];
+    }
+  }
+  errCnt = 0;
+  if (sampleOutputs != NULL)
+  {
+    for (ii = 0; ii < nSamples*nOutputs; ii++)
+      if (sampleOutputs[ii] == PSUADE_UNDEFINED) errCnt++;
+  }
+  if (errCnt > 0)
+  {
+    printOutTS(PL_WARN, 
+         "AnalysisManager ERROR: undefined data found (%d).\n",
+         errCnt);
+    return -1;
+  }
+
+  aPtr.ioPtr_ = psuadeIO;
+  aPtr.nSamples_ = nSamples;
+  aPtr.nInputs_ = nInputs;
+  aPtr.nOutputs_ = nOutputs;
+  aPtr.outputID_ = analysisOutputID;
+  aPtr.iLowerB_ = iLowerB;
+  aPtr.iUpperB_ = iUpperB;
+  aPtr.sampleInputs_ = sampleInputs;
+  aPtr.sampleOutputs_ = sampleOutputs;
+  aPtr.sampleStates_ = states;
+  aPtr.printLevel_ = outputLevel;
+
+  psuadeIO->getParameter("input_pdfs", pPDFs);
+  pdfFlag = 0;
+  for (ii = 0; ii < nInputs; ii++) pdfFlag += pPDFs.intArray_[ii];
+  auxPDFs  = new int[nInputs];
+  auxMeans = new double[nInputs];
+  auxStds  = new double[nInputs];
+  aPtr.inputPDFs_   = auxPDFs;
+  aPtr.inputMeans_  = auxMeans;
+  aPtr.inputStdevs_ = auxStds;
+  if (pdfFlag > 0)
+  {
+    psuadeIO->getParameter("input_pdfs", pPDFs);
+    psuadeIO->getParameter("input_means", pMeans);
+    psuadeIO->getParameter("input_stdevs", pStds);
+    for (ii = 0; ii < nInputs; ii++)
+    {
+      auxPDFs[ii]  = pPDFs.intArray_[ii];
+      auxMeans[ii] = pMeans.dbleArray_[ii];
+      auxStds[ii]  = pStds.dbleArray_[ii];
+    }
+  }
+  else
+  {
+    for (ii = 0; ii < nInputs; ii++)
+    {
+      auxMeans[ii] = auxStds[ii] = 0.0;
+      auxPDFs[ii] = 0;
+    }
+  } 
+
+  if (analyzers_[0] != NULL)
+  {
+    aPtr.currRefineLevel_ = 0;
+    aPtr.refineSeparators_ = NULL;
+    aPtr.nSubSamples_ = nSamples/nReps;
+    analysisData = analyzers_[0]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[1] != NULL)
+  {
+    aPtr.sampler_ = (void *) sampler_;
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = nSamples/nReps;
+    aPtr.analysisThreshold_ = analysisThreshold;
+    analysisData = analyzers_[1]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager : analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[2] != NULL)
+  {
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = nSamples/nReps;
+    analysisData = analyzers_[2]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[3] != NULL)
+  {
+    aPtr.currRefineLevel_ = 0;
+    aPtr.refineSeparators_ = NULL;
+    aPtr.nSubSamples_ = nSamples / nReps;
+    analysisData = analyzers_[3]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[4] != NULL)
+  {
+    aPtr.currRefineLevel_ = 0;
+    aPtr.refineSeparators_ = NULL;
+    aPtr.nSubSamples_ = nSamples / nReps;
+    analysisData = analyzers_[4]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+           analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[5] != NULL)
+  {
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = 0;
+    analysisData = analyzers_[5]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[6] != NULL)
+  {
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = 0;
+    analysisData = analyzers_[6]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+           analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[7] != NULL)
+  {
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = 0;
+    analysisData = analyzers_[7]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+           analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[8] != NULL)
+  {
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = 0;
+    aPtr.regWgtID_ = wgtID;
+    aPtr.cvFlag_ = 0;
+    if (((refineFlag == 1) && (outputLevel >= 3)) || (outputLevel >= 4))
+       aPtr.cvFlag_ = 1;
+    if (outputLevel >= 5) aPtr.cvFlag_ = 2;
+    analysisData = analyzers_[8]->analyze(aPtr);
+    if (analysisSampleErrors_ != NULL) delete [] analysisSampleErrors_;
+    analysisSampleErrors_ = aPtr.sampleErrors_;
+    aPtr.sampleErrors_ = NULL;
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+           analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[9] != NULL)
+  {
+    aPtr.currRefineLevel_ = nLevels;
+    aPtr.refineSeparators_ = levelSeps;
+    aPtr.nSubSamples_ = 0;
+    analysisData = analyzers_[9]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[10] != NULL)
+  {
+    analysisData = analyzers_[10]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[11] != NULL)
+  {
+    aPtr.samplingMethod_ = samplingMethod;
+    analysisData = analyzers_[11]->analyze(aPtr);
+    aPtr.samplingMethod_ = -1;
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
+
+  if (analyzers_[12] != NULL)
+  {
+    analysisData = analyzers_[12]->analyze(aPtr);
+    if (analysisData < analysisThreshold) refineFlag = 0;
+    if (outputLevel > 0 && analysisData > 0.0)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+           analysisData, analysisThreshold);
+    if (aPtr.nOutputs_ < nOutputs)
+    {
+      names = new char*[nOutputs];
+      for (ii = 0; ii < aPtr.nOutputs_; ii++)
       {
-         for (ii = 0; ii < nSamples*nOutputs; ii++)
-         {
-           if (tempY[ii] < 0.0)
-           {
-             analysisTransform &= 1;
-             printOutTS(PL_ERROR, 
-               "Some outputs are < 0 => Turn off output transformation.\n");
-             break;
-           }
-         }
+        names[ii] = new char[20];
+        sprintf(names[ii], "PC%d", ii+1);
       }
-      if (analysisTransform == 0)
-      {
-         sampleInputs = tempX;
-         sampleOutputs = tempY;
-      }
-      else
-      {
-         sampleInputs = new double[nSamples*nInputs];
-         sampleOutputs = new double[nSamples*nOutputs];
-         if (analysisTransform & 1) 
-            printOutTS(PL_INFO, "Log transformation on inputs.\n");
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            if (xsforms[ii] == 1)
-               for (jj = 0; jj < nSamples; jj++)
-                  sampleInputs[jj*nInputs+ii] = log(tempX[jj*nInputs+ii]);
-            else
-               for (jj = 0; jj < nSamples; jj++)
-                  sampleInputs[jj*nInputs+ii] = tempX[jj*nInputs+ii];
-         }
-         if (analysisTransform & 2) 
-            printOutTS(PL_INFO, "Log transformation on outputs.\n");
-         if ((analysisTransform & 2) && tempY != NULL)
-            for (ii = 0; ii < nSamples*nOutputs; ii++)
-               sampleOutputs[ii] = log(tempY[ii]);
-         else if (tempY != NULL)
-            for (ii = 0; ii < nSamples*nOutputs; ii++)
-               sampleOutputs[ii] = tempY[ii];
-      }
-   }
-   errCnt = 0;
-   if (sampleOutputs != NULL)
-   {
-      for (ii = 0; ii < nSamples*nOutputs; ii++)
-         if (sampleOutputs[ii] == PSUADE_UNDEFINED) errCnt++;
-   }
-   if (errCnt > 0)
-   {
-      printOutTS(PL_WARN, 
-           "AnalysisManager WARNING: undefined data found (%d).\n",
-           errCnt);
-   }
+    }
+    else names = NULL;
+    psuadeIO->updateOutputSection(nSamples, aPtr.nOutputs_,
+                             aPtr.sampleOutputs_, states, names);
+    if (aPtr.nOutputs_ < nOutputs)
+    {
+      for (ii = 0; ii < aPtr.nOutputs_; ii++)
+        delete [] names[ii];
+      delete [] names;
+    } 
+    psuadeIO->writePsuadeFile(NULL,0);
+  }
 
-   aPtr.ioPtr_ = psuadeIO;
-   aPtr.nSamples_ = nSamples;
-   aPtr.nInputs_ = nInputs;
-   aPtr.nOutputs_ = nOutputs;
-   aPtr.outputID_ = analysisOutputID;
-   aPtr.iLowerB_ = iLowerB;
-   aPtr.iUpperB_ = iUpperB;
-   aPtr.sampleInputs_ = sampleInputs;
-   aPtr.sampleOutputs_ = sampleOutputs;
-   aPtr.sampleStates_ = states;
-   aPtr.printLevel_ = outputLevel;
+  if (analyzers_[13] != NULL)
+  {
+    analysisData = analyzers_[13]->analyze(aPtr);
+    if (analysisData < analysisThreshold) refineFlag = 0;
+    if (outputLevel > 0 && analysisData > 0.0)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+    psuadeIO->updateOutputSection(nSamples, aPtr.nOutputs_,
+                             aPtr.sampleOutputs_, states, NULL);
+    if (analysisSampleErrors_ != NULL) delete [] analysisSampleErrors_;
+    analysisSampleErrors_ = aPtr.sampleErrors_;
+    aPtr.sampleErrors_ = NULL;
+  }
 
-   psuadeIO->getParameter("input_pdfs", pPDFs);
-   pdfFlag = 0;
-   for (ii = 0; ii < nInputs; ii++) pdfFlag += pPDFs.intArray_[ii];
-   auxPDFs  = new int[nInputs];
-   auxMeans = new double[nInputs];
-   auxStds  = new double[nInputs];
-   aPtr.inputPDFs_   = auxPDFs;
-   aPtr.inputMeans_  = auxMeans;
-   aPtr.inputStdevs_ = auxStds;
-   if (pdfFlag > 0)
-   {
-      psuadeIO->getParameter("input_pdfs", pPDFs);
-      psuadeIO->getParameter("input_means", pMeans);
-      psuadeIO->getParameter("input_stdevs", pStds);
-      for (ii = 0; ii < nInputs; ii++)
-      {
-         auxPDFs[ii]  = pPDFs.intArray_[ii];
-         auxMeans[ii] = pMeans.dbleArray_[ii];
-         auxStds[ii]  = pStds.dbleArray_[ii];
-      }
-   }
-   else
-   {
-      for (ii = 0; ii < nInputs; ii++)
-      {
-         auxMeans[ii] = auxStds[ii] = 0.0;
-         auxPDFs[ii] = 0;
-      }
-   } 
+  if (analyzers_[14] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[14]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[0] != NULL)
-   {
-      aPtr.currRefineLevel_ = 0;
-      aPtr.refineSeparators_ = NULL;
-      aPtr.nSubSamples_ = nSamples/nReps;
-      analysisData = analyzers_[0]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[15] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[15]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[1] != NULL)
-   {
-      aPtr.sampler_ = (void *) sampler_;
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = nSamples/nReps;
-      aPtr.analysisThreshold_ = analysisThreshold;
-      analysisData = analyzers_[1]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager : analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[16] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[16]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[2] != NULL)
-   {
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = nSamples/nReps;
-      analysisData = analyzers_[2]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[17] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[17]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[3] != NULL)
-   {
-      aPtr.currRefineLevel_ = 0;
-      aPtr.refineSeparators_ = NULL;
-      aPtr.nSubSamples_ = nSamples / nReps;
-      analysisData = analyzers_[3]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[18] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[18]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[4] != NULL)
-   {
-      aPtr.currRefineLevel_ = 0;
-      aPtr.refineSeparators_ = NULL;
-      aPtr.nSubSamples_ = nSamples / nReps;
-      analysisData = analyzers_[4]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[19] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[19]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[5] != NULL)
-   {
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = 0;
-      analysisData = analyzers_[5]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[20] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[20]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[6] != NULL)
-   {
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = 0;
-      analysisData = analyzers_[6]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[21] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[21]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+       printOutTS(PL_INFO, 
+            "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+            analysisData, analysisThreshold);
+  }
 
-   if (analyzers_[7] != NULL)
-   {
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = 0;
-      analysisData = analyzers_[7]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[22] != NULL)
+  {
+    aPtr.analysisThreshold_ = analysisThreshold; 
+    analysisData = analyzers_[22]->analyze(aPtr);
+    if (analysisData < analysisThreshold || 
+        analysisData == PSUADE_UNDEFINED) refineFlag = 0;
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
+           analysisData, analysisThreshold);
+  }
+  
+  if (analyzers_[23] != NULL)
+  {
+    analysisData = analyzers_[23]->analyze(aPtr);
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis metric = %8.2e\n",
+           analysisData);
+  }
 
-   if (analyzers_[8] != NULL)
-   {
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = 0;
-      aPtr.regWgtID_ = wgtID;
-      aPtr.cvFlag_ = 0;
-      if (((refineFlag == 1) && (outputLevel >= 3)) || (outputLevel >= 4))
-         aPtr.cvFlag_ = 1;
-      if (outputLevel >= 5) aPtr.cvFlag_ = 2;
-      analysisData = analyzers_[8]->analyze(aPtr);
-      if (analysisSampleErrors_ != NULL) delete [] analysisSampleErrors_;
-      analysisSampleErrors_ = aPtr.sampleErrors_;
-      aPtr.sampleErrors_ = NULL;
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[24] != NULL)
+  {
+    analysisData = analyzers_[24]->analyze(aPtr);
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis metric = %8.2e\n",
+           analysisData);
+  }
 
-   if (analyzers_[9] != NULL)
-   {
-      aPtr.currRefineLevel_ = nLevels;
-      aPtr.refineSeparators_ = levelSeps;
-      aPtr.nSubSamples_ = 0;
-      analysisData = analyzers_[9]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
+  if (analyzers_[25] != NULL)
+  {
+    analysisData = analyzers_[25]->analyze(aPtr);
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis metric = %8.2e\n",
+           analysisData);
+  }
 
-   if (analyzers_[10] != NULL)
-   {
-      analysisData = analyzers_[10]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[11] != NULL)
-   {
-      aPtr.samplingMethod_ = samplingMethod;
-      analysisData = analyzers_[11]->analyze(aPtr);
-      aPtr.samplingMethod_ = -1;
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[12] != NULL)
-   {
-      analysisData = analyzers_[12]->analyze(aPtr);
-      if (analysisData < analysisThreshold) refineFlag = 0;
-      if (outputLevel > 0 && analysisData > 0.0)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-      if (aPtr.nOutputs_ < nOutputs)
-      {
-         names = new char*[nOutputs];
-         for (ii = 0; ii < aPtr.nOutputs_; ii++)
-         {
-            names[ii] = new char[20];
-            sprintf(names[ii], "PC%d", ii+1);
-         }
-      }
-      else names = NULL;
-      psuadeIO->updateOutputSection(nSamples, aPtr.nOutputs_,
-                               aPtr.sampleOutputs_, states, names);
-      if (aPtr.nOutputs_ < nOutputs)
-      {
-         for (ii = 0; ii < aPtr.nOutputs_; ii++)
-            delete [] names[ii];
-         delete [] names;
-      } 
-      psuadeIO->writePsuadeFile(NULL,0);
-   }
-
-   if (analyzers_[13] != NULL)
-   {
-      analysisData = analyzers_[13]->analyze(aPtr);
-      if (analysisData < analysisThreshold) refineFlag = 0;
-      if (outputLevel > 0 && analysisData > 0.0)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-      psuadeIO->updateOutputSection(nSamples, aPtr.nOutputs_,
-                               aPtr.sampleOutputs_, states, NULL);
-      if (analysisSampleErrors_ != NULL) delete [] analysisSampleErrors_;
-      analysisSampleErrors_ = aPtr.sampleErrors_;
-      aPtr.sampleErrors_ = NULL;
-   }
-
-   if (analyzers_[14] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[14]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[15] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[15]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[16] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[16]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[17] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[17]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[18] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[18]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[19] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[19]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[20] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[20]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[21] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[21]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-
-   if (analyzers_[22] != NULL)
-   {
-      aPtr.analysisThreshold_ = analysisThreshold; 
-      analysisData = analyzers_[22]->analyze(aPtr);
-      if (analysisData < analysisThreshold || 
-          analysisData == PSUADE_UNDEFINED) refineFlag = 0;
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis error = %8.2e <? %8.2e\n",
-              analysisData, analysisThreshold);
-   }
-   
-   if (analyzers_[23] != NULL)
-   {
-      analysisData = analyzers_[23]->analyze(aPtr);
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis metric = %8.2e\n",
-              analysisData);
-   }
-
-   if (analyzers_[24] != NULL)
-   {
-      analysisData = analyzers_[24]->analyze(aPtr);
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis metric = %8.2e\n",
-              analysisData);
-   }
-
-   if (analyzers_[25] != NULL)
-   {
-      analysisData = analyzers_[25]->analyze(aPtr);
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis metric = %8.2e\n",
-              analysisData);
-   }
-
-   if (analyzers_[26] != NULL)
-   {
-      analysisData = analyzers_[26]->analyze(aPtr);
-      if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
-         printOutTS(PL_INFO, 
-              "AnalysisManager: analysis metric = %8.2e\n",
-              analysisData);
-   }
+  if (analyzers_[26] != NULL)
+  {
+    analysisData = analyzers_[26]->analyze(aPtr);
+    if (outputLevel > 0 && analysisData != PSUADE_UNDEFINED)
+      printOutTS(PL_INFO, 
+           "AnalysisManager: analysis metric = %8.2e\n",
+           analysisData);
+  }
 #ifdef HAVE_PYTHON
-   for (ii = 0; ii < numAnalyzers_; ii++)
-      if (analyzers_[ii] != NULL)
-	 PyList_Append(AnalysisDataList, 
-                       analyzers_[ii]->AnalysisDataDict);
+  for (ii = 0; ii < numAnalyzers_; ii++)
+    if (analyzers_[ii] != NULL)
+      PyList_Append(AnalysisDataList, 
+                    analyzers_[ii]->AnalysisDataDict);
 #endif
 
-   if (analysisTransform != 0)
-   {
-      if (sampleInputs  != NULL) delete [] sampleInputs;
-      if (sampleOutputs != NULL) delete [] sampleOutputs;
-   }
-   delete [] xsforms;
-   aPtr.sampleInputs_ = NULL;
-   aPtr.sampleOutputs_ = NULL;
-   aPtr.sampleStates_ = NULL;
-   aPtr.iLowerB_ = NULL;
-   aPtr.iUpperB_ = NULL;
-   aPtr.inputXsforms_ = NULL;
-   aPtr.inputPDFs_ = NULL;
-   aPtr.inputMeans_ = NULL;
-   aPtr.inputStdevs_ = NULL;
-   delete [] auxPDFs;
-   delete [] auxMeans;
-   delete [] auxStds;
-   return refineFlag;
+  if (analysisTransform != 0)
+  {
+    if (sampleInputs  != NULL) delete [] sampleInputs;
+    if (sampleOutputs != NULL) delete [] sampleOutputs;
+  }
+  delete [] xsforms;
+  aPtr.sampleInputs_ = NULL;
+  aPtr.sampleOutputs_ = NULL;
+  aPtr.sampleStates_ = NULL;
+  aPtr.iLowerB_ = NULL;
+  aPtr.iUpperB_ = NULL;
+  aPtr.inputXsforms_ = NULL;
+  aPtr.inputPDFs_ = NULL;
+  aPtr.inputMeans_ = NULL;
+  aPtr.inputStdevs_ = NULL;
+  delete [] auxPDFs;
+  delete [] auxMeans;
+  delete [] auxStds;
+  return refineFlag;
 }
 
 // ************************************************************************

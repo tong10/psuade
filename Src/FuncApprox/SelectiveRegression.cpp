@@ -96,7 +96,7 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
     printf("line   4: 2  number of inputs, input list (1-based).\n");
     printf("line   5: 3  number of inputs, input list (1-based).\n");
     printf(".........\n");
-    printf("lastline: END\n");
+    printf("lastline: PSUADE_END\n");
     exit(1);
   }
   coefTerms_ = new int*[numTerms_];
@@ -159,7 +159,7 @@ SelectiveRegression::SelectiveRegression(int nInputs,int nSamples):
     printf("line   4: 2  number of inputs, input list (1-based).\n");
     printf("line   5: 3  number of inputs, input list (1-based).\n");
     printf(".........\n");
-    printf("lastline: END\n");
+    printf("lastline: PSUADE_END\n");
     exit(1);
   }
 }
@@ -182,8 +182,9 @@ SelectiveRegression::~SelectiveRegression()
 // ------------------------------------------------------------------------
 int SelectiveRegression::initialize(double *X, double *Y)
 {
-  int    ii, status;
-  double *XX;
+  int      ii, status;
+  psVector VecX2;
+
   if (nSamples_ <= nInputs_)
   {
     printf("SelectiveRegression::initialize INFO- not enough points.\n");
@@ -193,16 +194,19 @@ int SelectiveRegression::initialize(double *X, double *Y)
    
   printEquals(PL_INFO, 0);
   printf("* Selective Regression Analysis\n");
-  printf("* You have the option to scale the sample matrix for\n");
-  printf("* conditioning, but it may require more terms than\n");
-  printf("* what you have provided.\n");
-  printf("* To turn on scaling, first set rs_expert mode.\n");
   printEquals(PL_INFO, 0);
-  XX = new double[nSamples_*nInputs_];
-  checkAllocate(XX, "XX in SelectiveRegression::initialize");
-  initInputScaling(X, XX, 0);
-  status = analyze(XX,Y);
-  delete [] XX;
+  VecX2.setLength(nSamples_ * nInputs_);
+  if (psMasterMode_ == 1)
+  {
+    printf("* SelectiveRegression INFO: scaling turned off.\n");
+    printf("*                  To turn scaling on in master mode,\n");
+    printf("*                  have rs_expert mode on also.\n");
+    initInputScaling(X, VecX2.getDVector(), 0);
+  }
+  else initInputScaling(X, VecX2.getDVector(), 1);
+
+  status = analyze(VecX2.getDVector(),Y);
+
   if (status != 0)
   {
     printf("SelectiveRegression::initialize - ERROR detected.\n");
@@ -529,19 +533,27 @@ double SelectiveRegression::evaluatePointFuzzy(int npts, double *X,
 }
 
 // ************************************************************************
-// perform mean/variance analysis
+// perform regression analysis
 // ------------------------------------------------------------------------
-int SelectiveRegression::analyze(double *X, double *Y)
+int SelectiveRegression::analyze(double *Xin, double *Y)
+{
+  psVector VecX, VecY;
+  VecX.load(nSamples_*nInputs_, Xin);
+  VecY.load(nSamples_, Y);
+  return analyze(VecX, VecY);
+}
+
+// ************************************************************************
+// perform regression analysis
+// ------------------------------------------------------------------------
+int SelectiveRegression::analyze(psVector VecX, psVector VecY)
 {
   int    N, M, mm, nn, wlen, info, NRevised;
-  double *B, *XX, SSresid, SStotal, R2, var, *Bvar;
-  double esum, ymax, *WW, *SS, *AA, *UU, *VV;
-  char   jobu  = 'S', jobvt = 'A';
+  double *arrayXX, SSresid, SStotal, R2, var, esum, ymax, *UU, *VV;
   char   pString[100];
   FILE   *fp;
-  psMatrix eigMatT;
+  psMatrix eigMatT, MatA, MatXX;
   psVector eigVals;
-
 
   if (nSamples_ <= nInputs_) 
   {
@@ -557,24 +569,22 @@ int SelectiveRegression::analyze(double *X, double *Y)
     printf("* R-square should be close to 1 if it is a good model.\n");
     printEquals(PL_INFO, 0);
   }
-  N = loadXMatrix(X, &XX);
+
+  N = loadXMatrix(VecX, MatXX);
   M = nSamples_;
 
-  wlen = 5 * M;
-  AA = new double[M*N];
-  UU = new double[M*N];
-  SS = new double[N];
-  VV = new double[M*N];
-  WW = new double[wlen];
-  B  = new double[N];
-  checkAllocate(B, "B in SelectiveRegression::analyze");
+  psVector VecA;
+  VecA.setLength(M*N);
+  arrayXX = MatXX.getMatrix1D();
   for (mm = 0; mm < M; mm++)
     for (nn = 0; nn < N; nn++)
-      AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
+      VecA[mm+nn*M] = sqrt(weights_[mm]) * arrayXX[mm+nn*M];
+  MatA.load(M, N, VecA.getDVector());
 
+  psMatrix MatU, MatV;
+  psVector VecS;
   if (outputLevel_ > 3) printf("Running SVD ...\n");
-  dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
-          &wlen, &info);
+  info = MatA.computeSVD(MatU, VecS, MatV);
   if (outputLevel_ > 3) 
     printf("SVD completed: status = %d (should be 0).\n",info);
 
@@ -583,42 +593,28 @@ int SelectiveRegression::analyze(double *X, double *Y)
     printf("* SelectiveRegression Info: dgesvd returns a nonzero (%d).\n",
            info);
     printf("* SelectiveRegression terminates further processing.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
 
   mm = 0;
-  for (nn = 0; nn < N; nn++) if (SS[nn] < 0) mm++;
+  for (nn = 0; nn < N; nn++) if (VecS[nn] < 0) mm++;
   if (mm > 0)
   {
     printf("* SelectiveRegression WARNING: some of the singular values\n");
     printf("*            are < 0. May spell trouble but will\n");
     printf("*            proceed anyway (%d).\n", mm);
   }
-  if (SS[0] == 0.0) NRevised = 0;
+  if (VecS[0] == 0.0) NRevised = 0;
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++)
-      if (SS[nn-1] > 0 && SS[nn]/SS[nn-1] < 1.0e-8) NRevised--;
+      if (VecS[nn-1] > 0 && VecS[nn]/VecS[nn-1] < 1.0e-8) NRevised--;
   }
   if (NRevised < N)
   {
     printf("* SelectiveRegression ERROR: sample rank = %d (need %d)\n",
            NRevised, N);
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
   if (psMasterMode_ == 1)
@@ -628,46 +624,49 @@ int SelectiveRegression::analyze(double *X, double *Y)
     printf("but not keeping them may ruin the approximation power.\n");
     printf("So, select them judiciously.\n");
     for (nn = 0; nn < N; nn++)
-      printf("Singular value %5d = %e\n", nn+1, SS[nn]);
+      printf("Singular value %5d = %e\n", nn+1, VecS[nn]);
     sprintf(pString, "How many to keep (1 - %d, 0 - all) ? ", N);
     NRevised = getInt(0,N,pString);
     if (NRevised == 0) NRevised = N;
-    for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
+    for (nn = NRevised; nn < N; nn++) VecS[nn] = 0.0;
   }
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++)
     {
-      if (SS[nn-1] > 0.0 && SS[nn]/SS[nn-1] < 1.0e-8)
+      if (VecS[nn-1] > 0.0 && VecS[nn]/VecS[nn-1] < 1.0e-8)
       {
-        SS[nn] = 0.0;
+        VecS[nn] = 0.0;
         NRevised--;
       }
     }
   }
   if (NRevised < N)
     printf("Number of singular values deleted = %d\n",N-NRevised);
+
+  psVector VecW, VecB;
+  VecW.setLength(M+N);
+  UU = MatU.getMatrix1D();
   for (mm = 0; mm < NRevised; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < M; nn++)
-      WW[mm] += UU[mm*M+nn] * sqrt(weights_[nn]) * Y[nn];
+      VecW[mm] += UU[mm*M+nn] * sqrt(weights_[nn]) * VecY[nn];
   }
-  for (nn = 0; nn < NRevised; nn++) WW[nn] /= SS[nn];
-  for (nn = NRevised; nn < N; nn++) WW[nn] = 0.0;
+  for (nn = 0; nn < NRevised; nn++) VecW[nn] /= VecS[nn];
+  for (nn = NRevised; nn < N; nn++) VecW[nn] = 0.0;
+  VecB.setLength(N);
+  VV = MatV.getMatrix1D();
   for (mm = 0; mm < N; mm++)
   {
-    B[mm] = 0.0;
-    for (nn = 0; nn < NRevised; nn++) B[mm] += VV[mm*N+nn] * WW[nn];
+    VecB[mm] = 0.0;
+    for (nn = 0; nn < NRevised; nn++) VecB[mm] += VV[nn+mm*N] * VecW[nn];
   }
+
   eigMatT.load(N, N, VV);
-  eigVals.load(N, SS);
+  eigVals.load(VecS);
   for (nn = 0; nn < N; nn++) eigVals[nn] = pow(eigVals[nn], 2.0);
-  delete [] AA;
-  delete [] SS;
-  delete [] UU;
-  delete [] VV;
 
   if (psMasterMode_ == 1)
   {
@@ -685,14 +684,14 @@ int SelectiveRegression::analyze(double *X, double *Y)
   esum = ymax = 0.0;
   for (mm = 0; mm < nSamples_; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < N; nn++)
-      WW[mm] = WW[mm] + XX[mm+nn*nSamples_] * B[nn];
-    WW[mm] = WW[mm] - Y[mm];
-    esum = esum + WW[mm] * WW[mm] * weights_[mm];
+      VecW[mm] = VecW[mm] + arrayXX[mm+nn*nSamples_] * VecB[nn];
+    VecW[mm] = VecW[mm] - VecY[mm];
+    esum = esum + VecW[mm] * VecW[mm] * weights_[mm];
     if (fp != NULL) 
-      fprintf(fp, "%6d %24.16e\n",mm+1,WW[mm]*sqrt(weights_[mm]));
-    if (PABS(Y[mm]) > ymax) ymax = PABS(Y[mm]);
+      fprintf(fp, "%6d %24.16e\n",mm+1,VecW[mm]*sqrt(weights_[mm]));
+    if (PABS(VecY[mm]) > ymax) ymax = PABS(VecY[mm]);
   }
   esum /= (double) nSamples_;
   esum = sqrt(esum);
@@ -705,7 +704,7 @@ int SelectiveRegression::analyze(double *X, double *Y)
     printf("FILE selective_regression_error.m contains data errors.\n");
   }
 
-  computeSS(N, XX, Y, B, SSresid, SStotal);
+  computeSS(MatXX, VecY, VecB, SSresid, SStotal);
   if (SStotal == 0) R2 = 1.0;
   else              R2  = 1.0 - SSresid / SStotal;
   if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
@@ -720,22 +719,23 @@ int SelectiveRegression::analyze(double *X, double *Y)
     }
     else var = 0;
   }
-  regCoeffs_.load(N, B);
+  regCoeffs_.load(VecB);
 
-  Bvar = new double[N];
-  checkAllocate(Bvar, "Bvar in SelectiveRegression::analyze");
   computeCoeffVariance(eigMatT, eigVals, var);
+  psVector VecBstd;
+  VecBstd.setLength(N);
   for (mm = 0; mm < N; mm++)
-    Bvar[mm] = sqrt(invCovMat_.getEntry(mm,mm));
+    VecBstd[mm] = sqrt(invCovMat_.getEntry(mm,mm));
 
   if (outputLevel_ >= 0)
   {
-    if (outputLevel_ >= 0) printRC(N, B, Bvar, XX, Y);
+    if (outputLevel_ >= 0) printRC(VecB, VecBstd, MatXX, VecY);
     printf("* SelectiveRegression model R-square = %12.4e\n",R2);
     printf("* adjusted   R-square = %12.4e\n",
            1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
-    if (outputLevel_ > 1) printSRC(X, B, SStotal);
+    if (outputLevel_ > 1) printSRC(VecX, VecB, SStotal);
   }
+
   fp = NULL;
   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "w");
   if (fp != NULL)
@@ -950,64 +950,65 @@ int SelectiveRegression::analyze(double *X, double *Y)
     printf("     functional form.\n");
     fclose(fp);
   }
-
-  delete [] XX;
-  delete [] WW;
-  delete [] B;
-  delete [] Bvar;
   return 0;
 }
 
 // *************************************************************************
 // load the X matrix
 // -------------------------------------------------------------------------
-int SelectiveRegression::loadXMatrix(double *X, double **XXOut)
+int SelectiveRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
-  int    M, N=0, m, n, k;
-  double *XX=NULL, multiplier;
+  int      M, N, mm, nn, kk;
+  double   multiplier;
+  psVector VecXX;
 
   M = nSamples_;
   N = numTerms_;
-  XX = new double[M*N];
-  checkAllocate(XX, "XX in SelectiveRegression::loadXMatrix");
-  for (m = 0; m < M; m++)
+  VecXX.setLength(M * N);
+  for (mm = 0; mm < M; mm++)
   {
-    for (n = 0; n < N; n++)
+    for (nn = 0; nn < N; nn++)
     {
       multiplier = 1.0;
-      for (k = 0; k < coefTerms_[n][0]; k++)
-        if (coefTerms_[n][k+1] >= 0)
-          multiplier *= X[m*nInputs_+coefTerms_[n][k+1]];
-      XX[M*n+m] = multiplier;
+      for (kk = 0; kk < coefTerms_[nn][0]; kk++)
+        if (coefTerms_[nn][kk+1] >= 0)
+          multiplier *= VecX[mm*nInputs_+coefTerms_[nn][kk+1]];
+      VecXX[mm+nn*M] = multiplier;
     }
   }
-  (*XXOut) = XX;
+  MatXX.setFormat(PS_MAT1D);
+  MatXX.load(M, N, VecXX.getDVector());
   return N;
 }
 
 // *************************************************************************
 // compute SS (sum of squares) statistics
 // -------------------------------------------------------------------------
-int SelectiveRegression::computeSS(int N, double *XX, double *Y,
-                              double *B, double &SSresid, double &SStotal)
+int SelectiveRegression::computeSS(psMatrix MatXX, psVector VecY,
+                            psVector VecB, double &SSresid, double &SStotal)
 {
-  int    nn, mm;
-  double ymean, SSreg, SSresidCheck, ddata, rdata;
+  int    nn, mm, N;
+  double ymean, SSreg, SSresidCheck, ddata, rdata, *arrayXX;
                                                                                 
+  N = VecB.length();
+  arrayXX = MatXX.getMatrix1D();
+
   SSresid = SStotal = ymean = SSreg = 0.0;
-  for (mm = 0; mm < nSamples_; mm++) ymean += (sqrt(weights_[mm]) * Y[mm]);
+  for (mm = 0; mm < nSamples_; mm++)
+     ymean += (sqrt(weights_[mm]) * VecY[mm]);
   ymean /= (double) nSamples_;
   for (mm = 0; mm < nSamples_; mm++)
   {
     ddata = 0.0;
-    for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
-    rdata = Y[mm] - ddata;
-    SSresid += rdata * Y[mm] * weights_[mm];
+    for (nn = 0; nn < N; nn++) 
+      ddata += (arrayXX[mm+nn*nSamples_] * VecB[nn]);
+    rdata = VecY[mm] - ddata;
+    SSresid += rdata * VecY[mm] * weights_[mm];
     SSresidCheck += rdata * rdata * weights_[mm];
     SSreg += (ddata - ymean) * (ddata - ymean);
   }
   for (mm = 0; mm < nSamples_; mm++)
-    SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+    SStotal += weights_[mm] * (VecY[mm] - ymean) * (VecY[mm] - ymean);
   if (outputLevel_ > 0)
   {
     printf("* SelectiveRegression: SStot  = %24.16e\n", SStotal);
@@ -1055,11 +1056,11 @@ int SelectiveRegression::computeCoeffVariance(psMatrix &eigMatT,
 // *************************************************************************
 // print statistics
 // -------------------------------------------------------------------------
-int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
-                                 double *Y)
+int SelectiveRegression::printRC(psVector VecB, psVector VecBstd, 
+                                 psMatrix MatXX, psVector VecY)
 {
-  int    ii, jj, maxTerms;
-  double coef;
+  int    ii, jj, maxTerms, N;
+  double coef, *arrayXX;
   char   fname[200];
   FILE   *fp;
 
@@ -1072,17 +1073,19 @@ int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
   for (jj = 0; jj < maxTerms; jj++) printf("    ");
   printf("   coefficient   std. error   t-value\n");
 
+  N = VecB.length();
+  arrayXX = MatXX.getMatrix1D();
   for (ii = 0; ii < numTerms_; ii++)
   {
-    if (PABS(Bvar[ii]) < 1.0e-15) coef = 0.0;
-    else                          coef = B[ii] / Bvar[ii]; 
+    if (PABS(VecBstd[ii]) < 1.0e-15) coef = 0.0;
+    else                             coef = VecB[ii] / VecBstd[ii]; 
     if (PABS(coef) > 0.0)
     {
       printf("* Input");
       for (jj = 0; jj < coefTerms_[ii][0]; jj++)
         printf(" %2d ", coefTerms_[ii][jj+1]+1);
       for (jj = coefTerms_[ii][0]; jj < maxTerms; jj++) printf("    ");
-      printf("= %12.4e %12.4e %12.4e\n", B[ii], Bvar[ii], coef);
+      printf("= %12.4e %12.4e %12.4e\n", VecB[ii], VecBstd[ii], coef);
     }
   }
   strcpy(fname, "dataVariance");
@@ -1101,11 +1104,12 @@ int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
     for (ii = 0; ii < nSamples_; ii++)
     {
       coef = 0.0;
-      for (jj = 0; jj < N; jj++) coef += XX[jj*nSamples_+ii] * Bvar[jj];
+      for (jj = 0; jj < N; jj++) 
+         coef += arrayXX[jj*nSamples_+ii] * VecBstd[jj];
       if (coef < 0)
-        fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,Y[ii],-sqrt(-coef));
+        fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,VecY[ii],-sqrt(-coef));
       else
-        fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,Y[ii],sqrt(coef));
+        fprintf(fp,"%7d         %12.4e %12.4e\n",ii+1,VecY[ii],sqrt(coef));
     }
     fclose(fp);
   }
@@ -1115,10 +1119,11 @@ int SelectiveRegression::printRC(int N,double *B,double *Bvar,double *XX,
 // *************************************************************************
 // print standardized regression coefficients
 // -------------------------------------------------------------------------
-int SelectiveRegression::printSRC(double *X, double *B, double SStotal)
+int SelectiveRegression::printSRC(psVector VecX,psVector VecB,double SStotal)
 {
   int    nn, mm, ii, index, length, maxTerms;
-  double denom, xmean, coef, Bmax, coef1, *B2;
+  double denom, xmean, coef, Bmax, coef1;
+  psVector VecB2;
 
   printEquals(PL_INFO, 0);
   printf("* Standardized Regression Coefficients (SRC)\n");
@@ -1130,7 +1135,7 @@ int SelectiveRegression::printSRC(double *X, double *B, double SStotal)
   maxTerms = 0;
   for (ii = 0; ii < numTerms_; ii++) 
     if (coefTerms_[ii][0] > maxTerms) maxTerms = coefTerms_[ii][0];
-  B2 = new double[nSamples_];
+  VecB2.setLength(nSamples_);
   denom = sqrt(SStotal / (double) (nSamples_ - 1));
   Bmax  = 0.0;
   for (nn = 0; nn < numTerms_; nn++)
@@ -1144,29 +1149,29 @@ int SelectiveRegression::printSRC(double *X, double *B, double SStotal)
       index = coefTerms_[nn][ii+1];
       if (index >= 0)
       {
-        for (mm = 0; mm < nSamples_; mm++) xmean += X[mm*nInputs_+index];
+        for (mm = 0; mm < nSamples_; mm++) xmean += VecX[mm*nInputs_+index];
         xmean /= (double) nSamples_;
         for (mm = 0; mm < nSamples_; mm++)
-          coef1 += (X[mm*nInputs_+index]-xmean) * (X[mm*nInputs_+index]-xmean);
+          coef1 += (VecX[mm*nInputs_+index]-xmean)*
+                   (VecX[mm*nInputs_+index]-xmean);
         coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
         coef *= coef1;
       }
     }
-    B2[nn] = B[nn] * coef / denom;
-    if (PABS(B2[nn]) > Bmax) Bmax = PABS(B2[nn]);
+    VecB2[nn] = VecB[nn] * coef / denom;
+    if (PABS(VecB2[nn]) > Bmax) Bmax = PABS(VecB2[nn]);
   }
   for (nn = 0; nn < numTerms_; nn++)
   {
-    if (PABS(B2[nn]) > 1.0e-12 * Bmax)
+    if (PABS(VecB2[nn]) > 1.0e-12 * Bmax)
     {
       printf("* Input");
       for (ii = 0; ii < coefTerms_[nn][0]; ii++)
         printf(" %2d ",coefTerms_[nn][ii+1]+1);
       for (ii = coefTerms_[nn][0]; ii < maxTerms; ii++) printf("    ");
-      printf("= %12.4e\n",B2[nn]);
+      printf("= %12.4e\n",VecB2[nn]);
     }
   }
-  delete [] B2;
   printAsterisks(PL_INFO, 0);
   return 0;
 }

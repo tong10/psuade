@@ -49,7 +49,7 @@ KSDensity::~KSDensity()
 // ------------------------------------------------------------------------
 void KSDensity::genDensity1D(psVector &dataSet, psVector &Xp, psVector &Pp)
 {
-   int    ncdfs=100000, outLeng=101, ii, jj, kk;
+   int    outLeng=101, ii, jj, kk;
    double lower, upper, width, median, accum, alpha, pi2Inv=0.5/3.1415928;
    double ddata, ddata2;
    psVector ds;

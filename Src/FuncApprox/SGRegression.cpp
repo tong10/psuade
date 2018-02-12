@@ -40,22 +40,26 @@
 SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
                                            FuncApprox(nInputs,nSamples)
 {
-  int  ii, kk;
-  FILE *fp;
+  int    ii, kk;
+  double ddata, ddata2;
+  FILE   *fp;
 
-  faID_          = PSUADE_RS_REGSG;
-  sampleInputs_  = NULL;
-  sampleWeights_ = NULL;
-  lBounds_       = NULL;
-  uBounds_       = NULL;
-  pcePerms_      = NULL;
-  numPerms_      = 0;
-  regCoefs_      = NULL;
+  faID_     = PSUADE_RS_REGSG;
+  pcePerms_ = NULL;
+  numPerms_ = 0;
 
   if (outputLevel_ >= 0)
   {
     printAsterisks(PL_INFO, 0);
     printf("*       Sparse Grid Regression Analysis\n");
+    printDashes(PL_INFO, 0);
+    printf("* Note: This function looks for a ps_sparse_grid_info file\n");
+    printf("*       for regression information.\n");
+    printf("The file should be in the format:\n");
+    printf(" line 1 : <nSamples> <nInputs> <pOrder>\n");
+    printf(" line 2 : 1 <input1Val> <input2Val> .. <inputnVal> <Weight>\n");
+    printf(" line 3 : 2 <input1Val> <input2Val> .. <inputnVal> <Weight>\n");
+    printf("          ...\n");
     printEquals(PL_INFO, 0);
   }
   fp = fopen("ps_sparse_grid_info", "r");
@@ -79,21 +83,25 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
     fclose(fp);
     return;
   }
-  sampleInputs_ = new double[nSamples_*nInputs_];
-  sampleWeights_ = new double[nSamples_];
-  checkAllocate(sampleWeights_, "sampleWeights in SGRegression::constructor");
+  sampleInputs_.setLength(nSamples_*nInputs_);
+  sampleWeights_.setLength(nSamples_);
   for (ii = 0; ii < nSamples_; ii++)
   {
     for (kk = 0; kk < nInputs_; kk++)
-      fscanf(fp, "%lg", &sampleInputs_[ii*nInputs_+kk]);
-    fscanf(fp, "%lg", &sampleWeights_[ii]);
+    {
+      fscanf(fp, "%lg", &ddata);
+      sampleInputs_[ii*nInputs_+kk] = ddata;
+    }
+    fscanf(fp, "%lg", &ddata);
+    sampleWeights_[ii] = ddata;
   }
-  lBounds_ = new double[nInputs_];
-  uBounds_ = new double[nInputs_];
-  checkAllocate(uBounds_, "uBounds_ in SGRegression::constructor");
+  lBounds_.setLength(nInputs_);
+  uBounds_.setLength(nInputs_);
   for (kk = 0; kk < nInputs_; kk++)
   {
-    fscanf(fp, "%lg %lg", &lBounds_[kk], &uBounds_[kk]);
+    fscanf(fp, "%lg %lg", &ddata, &ddata2);
+    lBounds_[kk] = ddata;
+    uBounds_[kk] = ddata2;
     if (lBounds_[kk] >= uBounds_[kk])
     {
       printf("SparseGridRegression ERROR: invalid input bounds.\n");
@@ -111,18 +119,12 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
 // ------------------------------------------------------------------------
 SparseGridRegression::~SparseGridRegression()
 {
-  int ii;
-  if (sampleInputs_  != NULL) delete [] sampleInputs_;
-  if (sampleWeights_ != NULL) delete [] sampleWeights_;
   if (pcePerms_ != NULL)
   {
-    for (ii = 0; ii < numPerms_; ii++) 
+    for (int ii = 0; ii < numPerms_; ii++) 
       if (pcePerms_[ii] != NULL) delete [] pcePerms_[ii];
     delete [] pcePerms_;
   }
-  if (regCoefs_ != NULL) delete [] regCoefs_;
-  if (lBounds_ != NULL) delete [] lBounds_;
-  if (uBounds_ != NULL) delete [] uBounds_;
 }
 
 // ************************************************************************
@@ -132,7 +134,7 @@ int SparseGridRegression::initialize(double *X, double *Y)
 {
   int totPts, ss;
 
-  if (sampleInputs_ == NULL)
+  if (sampleInputs_.length() == 0)
   {
     printf("SparseGridRegression::initialize ERROR - invalid sample.\n");
     return -1;
@@ -160,7 +162,7 @@ int SparseGridRegression::genNDGridData(double *X, double *Y, int *N2,
 {
   int totPts, ss;
 
-  if (sampleInputs_ == NULL)
+  if (sampleInputs_.length() == 0)
   {
     printf("SparseGridRegression::genNDGridData ERROR - invalid sample.\n");
     return -1;
@@ -377,7 +379,7 @@ double SparseGridRegression::evaluatePoint(double *X)
   int    ii, kk;
   double Y, multiplier, **LTable, ddata;
 
-  if (regCoefs_ == NULL) return 0.0;
+  if (regCoefs_.length() == 0) return 0.0;
   Y = 0.0;
   LTable = new double*[nInputs_];
   for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
@@ -393,7 +395,7 @@ double SparseGridRegression::evaluatePoint(double *X)
     multiplier = 1.0;
     for (ii = 0; ii < nInputs_; ii++)
       multiplier *= LTable[ii][pcePerms_[kk][ii]];
-    Y += regCoefs_[kk]* multiplier;
+    Y += regCoefs_[kk] * multiplier;
   }
   for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
   delete [] LTable;
@@ -444,7 +446,7 @@ int SparseGridRegression::analyze(double *X, double *Y)
     printf("SparseGridRegression::analyze ERROR - invalid arguments.\n");
     exit(1);
   } 
-  if (lBounds_ == NULL || uBounds_ == NULL)
+  if (lBounds_.length() == 0)
   {
     printf("SparseGridRegression::analyze ERROR - input bounds not set.\n");
     exit(1);
@@ -458,15 +460,13 @@ int SparseGridRegression::analyze(double *X, double *Y)
       ddata = ddata * (uBounds_[kk] - lBounds_[kk]) + lBounds_[kk];
       if (PABS(ddata - X[ii*nInputs_+kk]) > 1.0e-13)
       {
-        printf("SparseGridRegression::analyze ERROR - samples do not match.\n");
+        printf("SparseGridRegression::analyze ERROR - sample mismatch\n");
         exit(1);
       }
     }
   }
 
-  if (regCoefs_ != NULL) delete [] regCoefs_;
-  regCoefs_ = new double[numPerms_];
-  for (ii = 0; ii < numPerms_; ii++) regCoefs_[ii] = 0.0;
+  regCoefs_.setLength(numPerms_);
   LTables = new double*[nInputs_];
   for (ii = 0; ii < nInputs_; ii++) LTables[ii] = new double[pOrder_+1];
   coefs = new double[numPerms_];

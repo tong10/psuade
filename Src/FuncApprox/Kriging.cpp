@@ -293,277 +293,273 @@ extern "C"
 // ------------------------------------------------------------------------
 Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
-   int    ii, jj;
-   double ddata;
-   char   pString[500], winput[500], winput2[500], fname[500], *strPtr;
-   FILE   *fp;
+  int    ii, jj;
+  double ddata;
+  char   pString[500], winput[500], winput2[500], fname[500], *strPtr;
+  FILE   *fp;
 
-   // initialize variables and parameters
-   faID_ = PSUADE_RS_KR;
-   XNormalized_ = NULL;
-   YNormalized_ = NULL;
-   Rmatrix_ = NULL;
-   Mmatrix_ = NULL;
-   V1_ = NULL;
-   V2_ = NULL;
-   pOrder_  = 0;
-   initFlag_ = 0;
-   workLength_ = 0;
-   workArray_ = NULL;
-   workX_ = NULL;
-   dataStdDevs_ = NULL;
-   optTolerance_ = 1.0e-4;
-   fastMode_ = 3;
-   Thetas_ = new double[nInputs_+1];
-   checkAllocate(Thetas_, "Thetas_ in Kriging::constructor");
+  // initialize variables and parameters
+  faID_ = PSUADE_RS_KR;
+  XNormalized_ = NULL;
+  YNormalized_ = NULL;
+  Rmatrix_ = NULL;
+  Mmatrix_ = NULL;
+  V1_ = NULL;
+  V2_ = NULL;
+  pOrder_  = 0;
+  initFlag_ = 0;
+  workLength_ = 0;
+  workArray_ = NULL;
+  workX_ = NULL;
+  dataStdDevs_ = NULL;
+  optTolerance_ = 1.0e-4;
+  fastMode_ = 3;
+  Thetas_ = new double[nInputs_+1];
+  checkAllocate(Thetas_, "Thetas_ in Kriging::constructor");
 
-   for (ii = 0; ii <= nInputs_; ii++) Thetas_[ii] = 0.01;
-   noReuse_ = 0;
-   betas_ = NULL;
-   gammas_ = NULL;
-   betasOpt_ = NULL;
-   gammasOpt_ = NULL;
-   thetasOpt_ = NULL;
+  for (ii = 0; ii <= nInputs_; ii++) Thetas_[ii] = 0.01;
+  noReuse_ = 0;
+  betas_ = NULL;
+  gammas_ = NULL;
+  betasOpt_ = NULL;
+  gammasOpt_ = NULL;
+  thetasOpt_ = NULL;
 
-   // display banner and additonal information
-   if (psInteractive_ == 1)
-   {
-      printAsterisks(PL_INFO, 0);
-      printf("*                Kriging Analysis\n");
-      printf("* Set printlevel to 1-4 to see Kriging details.\n");
-      printf("* Turn on rs_expert mode to set slow or fast mode.\n");
-      printf("*  + Fast mode: no optimization of hyperparameters.\n");
-      printf("*      - turn on rs_expert to set hyperparameters.\n");
-      printf("*      - default values = 1.0\n");
-      printf("*  + Slow mode : hyperparameters are optimized.\n");
-      printf("*      - to change optimization parameters, turn\n");
-      printf("*        rs_expert mode.\n");
-      printf("*  + Snail mode (DEFAULT): use multi-start optimization.\n");
-      printf("*      - to change optimization parameters, turn\n");
-      printf("*        rs_expert mode.\n");
-      printf("* Create 'psuade_stop' file to gracefully terminate.\n");
-      printf("* Create 'ps_print' file to set print level on the fly.\n");
-      printEquals(PL_INFO, 0);
-   }
+  // display banner and additonal information
+  if (psInteractive_ == 1)
+  {
+    printAsterisks(PL_INFO, 0);
+    printf("*                Kriging Analysis\n");
+    printf("* Set printlevel to 1-4 to see Kriging details.\n");
+    printf("* Turn on rs_expert mode to set slow or fast mode.\n");
+    printf("*  + Fast mode: no optimization of hyperparameters.\n");
+    printf("*      - turn on rs_expert to set hyperparameters.\n");
+    printf("*      - default values = 1.0\n");
+    printf("*  + Slow mode : hyperparameters are optimized.\n");
+    printf("*      - to change optimization parameters, turn\n");
+    printf("*        rs_expert mode.\n");
+    printf("*  + Snail mode (DEFAULT): use multi-start optimization.\n");
+    printf("*      - to change optimization parameters, turn\n");
+    printf("*        rs_expert mode.\n");
+    printf("* Create 'psuade_stop' file to gracefully terminate.\n");
+    printf("* Create 'ps_print' file to set print level on the fly.\n");
+    printEquals(PL_INFO, 0);
+  }
 
-   // read configure file, if any 
-   if (psRSExpertMode_ == 0 && psConfig_ != NULL)
-   {
-      strPtr = psConfig_->getParameter("KRI_mode");
-      if (strPtr != NULL)
+  // read configure file, if any 
+  if (psRSExpertMode_ == 0 && psConfig_ != NULL)
+  {
+    strPtr = psConfig_->getParameter("KRI_mode");
+    if (strPtr != NULL)
+    {
+      sscanf(strPtr, "%s %s %d", winput, winput2, &ii);
+      if (ii < 0 || ii > 3)
       {
-         sscanf(strPtr, "%s %s %d", winput, winput2, &ii);
-         if (ii < 0 || ii > 3)
-         {
-            printf("Kriging INFO: mode from config not valid.\n");
-            printf("              mode kept at %d.\n", fastMode_);
-         }
-         else
-         {
-            fastMode_ = ii;
-            printf("Kriging INFO: mode from config = %d.\n",
-                   fastMode_);
-         }
-      }
-      strPtr = psConfig_->getParameter("KRI_tol");
-      if (strPtr != NULL)
-      {
-         sscanf(strPtr, "%s %s %lg", winput, winput2, &optTolerance_);
-         if (optTolerance_ < 0.0 || optTolerance_ >= 1.0)
-         {
-            optTolerance_ = 1.0e-4;
-            printf("Kriging INFO: tolerance from config not valid.\n");
-            printf("              tolerance kept at %e.\n", optTolerance_);
-         }
-         else
-         {
-            printf("Kriging INFO: tolerance from config = %e.\n",
-                   optTolerance_);
-         }
-      }
-      strPtr = psConfig_->getParameter("KRI_LENG_SCALE");
-      if (strPtr != NULL)
-      {
-         sscanf(strPtr, "%s %d %s %lg", winput, &ii, winput2, &ddata);
-         if (ii < 1 || ii > nInputs_)
-         {
-            printf("Kriging INFO: invalid input number for length scale.\n");
-            printf("              Input number read = %d.\n", ii);
-         }
-         else
-         {
-            Thetas_[ii-1] = ddata;
-            printf("Kriging INFO: length scale for input %d set to %e.\n",
-                   ii, ddata);
-         }
-      }
-      strPtr = psConfig_->getParameter("KRI_DATA_STDEV_FILE");
-      if (strPtr != NULL)
-      {
-         sscanf(strPtr, "%s %s %s", winput, winput2, fname);
-         fp = fopen(fname, "r");
-         if (fp == NULL)
-         {
-            printf("Kriging INFO: data variance file not found.\n");
-         }
-         else
-         {
-            fscanf(fp, "%d", &ii); 
-            if (ii != nSamples_)
-            {
-               printf("Kriging ERROR: stdev file should have %d entries.\n",
-                      nSamples_);
-               fclose(fp);
-            }
-            else
-            {
-               dataStdDevs_ = new double[nSamples_];
-               checkAllocate(dataStdDevs_, "dataStdDevs_ in Kriging::constructor");
-               for (ii = 0; ii < nSamples_; ii++)
-               {
-                  fscanf(fp, "%d %lg", &jj, &dataStdDevs_[ii]); 
-                  if (jj != ii+1)
-                  {
-                     printf("Kriging ERROR: line %d in the std dev file.\n",
-                            jj+1);
-                     delete [] dataStdDevs_;
-                     dataStdDevs_ = NULL;
-                     break;
-                  }
-               } 
-               fclose(fp);
-               if (dataStdDevs_ != NULL)
-               {
-                  printf("Kriging INFO: std. dev. file has been read.\n");
-                  KRI_dataStdDevs = dataStdDevs_; 
-               }
-            }
-         }
-      }
-   }
-   if (psInteractive_ == 1)
-   {
-      fp = fopen("psuade_kriging_optdata","r");
-      if (fp != NULL)
-      {
-         printf("Kriging: psuade_kriging_optdata file found.\n");
-         sprintf(pString,
-                 "Use Kriging length scales from the file? (y or n) ");
-         getString(pString, winput);
-         if (winput[0] == 'y')
-            for (ii = 0; ii < nInputs_; ii++) fscanf(fp,"%lg",&Thetas_[ii]); 
-         fclose(fp);
-         fastMode_ = 1;
-      }
-   }
-   
-   // if configure file is not used, ask for parameters if
-   // response surface expert mode is on 
-   if (psRSExpertMode_ == 1 && psInteractive_ == 1)
-   {
-      printf("There are three modes available: \n");
-      printf("(1) fast mode with pre-specified thetas\n");
-      printf("(2) slow mode with optimization on the thetas\n");
-      printf("(3) very slow mode with multi-start optimization\n");
-      //printf("(4) another fast mode using another optimization\n");
-      sprintf(pString, "Please select mode (1 - 4) : ");
-      fastMode_ = getInt(1,4,pString);
-      if      (fastMode_ == 4) fastMode_ = 0;
-      else if (fastMode_ == 1)
-      {
-         printf("Kriging: Length scales are correlation lengths\n");
-         printf("         in the random parameter space.\n");
-         printf("Current initial length scales are:\n");
-         for (ii = 0; ii < nInputs_; ii++)
-            printf("    Input %d: %e\n", ii+1, Thetas_[ii]);
-         sprintf(pString, "Change length scales (thetas)? (y or n) ");
-         getString(pString, winput);
-         if (winput[0] == 'y')
-         {
-            for (ii = 0; ii < nInputs_; ii++)
-            {
-               sprintf(pString,"Enter theta for input %d (>0): ", ii+1);
-               Thetas_[ii] = getDouble(pString);
-               if (Thetas_[ii] <= 0.0)
-               {
-                  printf("ERROR: theta <= 0 not valid.\n");
-                  exit(1);
-               }
-               if (ii == 0)
-               {
-                  sprintf(pString,"Use %e for all other thetas? (y or n) ",
-                          Thetas_[0]);
-                  getString(pString, winput);
-                  if (winput[0] == 'y')
-                  {
-                     for (jj = 1; jj < nInputs_; jj++) 
-                        Thetas_[jj] = Thetas_[0];
-                     break;
-                  }
-               }
-            }
-         }
+        printf("Kriging INFO: mode from config not valid.\n");
+        printf("              mode kept at %d.\n", fastMode_);
       }
       else
       {
-         sprintf(pString, "Enter optimization tolerance (default = 1e-4): ");
-         optTolerance_ = getDouble(pString);
-         if (optTolerance_ <= 0 || optTolerance_ > 0.5)
-         {
-            printf("Kriging INFO: optimization tol should be in (0,0.5]).\n");
-            printf("              Tolerance set to default = 1.0e-4.\n");
-            optTolerance_ = 1.0e-4;
-         }
-         if (fastMode_ == 2)
-         {
-            printf("Kriging: Current initial length scales (thetas) are:\n");
-            for (ii = 0; ii < nInputs_; ii++)
-               printf("     Input %d: %e\n", ii+1, Thetas_[ii]);
-            printf("If some knowledge is available about the relative\n");
-            printf("importance of some parameters, different initial\n");
-            printf("thetas can be entered to reflect this knowledge \n");
-            printf("(sensitive parameters have larger thetas.)\n");
-            sprintf(pString, "Change initial thetas? (y or n) ");
+        fastMode_ = ii;
+        printf("Kriging INFO: mode from config = %d.\n",fastMode_);
+      }
+    }
+    strPtr = psConfig_->getParameter("KRI_tol");
+    if (strPtr != NULL)
+    {
+      sscanf(strPtr, "%s %s %lg", winput, winput2, &optTolerance_);
+      if (optTolerance_ < 0.0 || optTolerance_ >= 1.0)
+      {
+        optTolerance_ = 1.0e-4;
+        printf("Kriging INFO: tolerance from config not valid.\n");
+        printf("              tolerance kept at %e.\n", optTolerance_);
+      }
+      else
+      {
+        printf("Kriging INFO: tolerance from config = %e.\n",
+               optTolerance_);
+      }
+    }
+    strPtr = psConfig_->getParameter("KRI_LENG_SCALE");
+    if (strPtr != NULL)
+    {
+      sscanf(strPtr, "%s %d %s %lg", winput, &ii, winput2, &ddata);
+      if (ii < 1 || ii > nInputs_)
+      {
+        printf("Kriging INFO: invalid input number for length scale.\n");
+        printf("              Input number read = %d.\n", ii);
+      }
+      else
+      {
+        Thetas_[ii-1] = ddata;
+        printf("Kriging INFO: length scale for input %d set to %e.\n",
+               ii, ddata);
+      }
+    }
+    strPtr = psConfig_->getParameter("KRI_DATA_STDEV_FILE");
+    if (strPtr != NULL)
+    {
+      sscanf(strPtr, "%s %s %s", winput, winput2, fname);
+      fp = fopen(fname, "r");
+      if (fp == NULL)
+      {
+        printf("Kriging INFO: data variance file not found.\n");
+      }
+      else
+      {
+        fscanf(fp, "%d", &ii); 
+        if (ii != nSamples_)
+        {
+          printf("Kriging ERROR: stdev file should have %d entries.\n",
+                 nSamples_);
+          fclose(fp);
+        }
+        else
+        {
+          dataStdDevs_ = new double[nSamples_];
+          checkAllocate(dataStdDevs_,"dataStdDevs_ in Kriging::constructor");
+          for (ii = 0; ii < nSamples_; ii++)
+          {
+            fscanf(fp, "%d %lg", &jj, &dataStdDevs_[ii]); 
+            if (jj != ii+1)
+            {
+              printf("Kriging ERROR: line %d in the std dev file.\n",jj+1);
+              delete [] dataStdDevs_;
+              dataStdDevs_ = NULL;
+              break;
+            }
+          } 
+          fclose(fp);
+          if (dataStdDevs_ != NULL)
+          {
+            printf("Kriging INFO: std. dev. file has been read.\n");
+            KRI_dataStdDevs = dataStdDevs_; 
+          }
+        }
+      }
+    }
+  }
+  if (psInteractive_ == 1)
+  {
+    fp = fopen("psuade_kriging_optdata","r");
+    if (fp != NULL)
+    {
+      printf("Kriging: psuade_kriging_optdata file found.\n");
+      sprintf(pString,
+              "Use Kriging length scales from the file? (y or n) ");
+      getString(pString, winput);
+      if (winput[0] == 'y')
+        for (ii = 0; ii < nInputs_; ii++) fscanf(fp,"%lg",&Thetas_[ii]); 
+      fclose(fp);
+      fastMode_ = 1;
+    }
+  }
+   
+  // if configure file is not used, ask for parameters if
+  // response surface expert mode is on 
+  if (psRSExpertMode_ == 1 && psInteractive_ == 1)
+  {
+    printf("There are three modes available: \n");
+    printf("(1) fast mode with pre-specified thetas\n");
+    printf("(2) slow mode with optimization on the thetas\n");
+    printf("(3) very slow mode with multi-start optimization\n");
+    //printf("(4) another fast mode using another optimization\n");
+    sprintf(pString, "Please select mode (1 - 3) : ");
+    fastMode_ = getInt(1,3,pString);
+    if      (fastMode_ == 4) fastMode_ = 0;
+    else if (fastMode_ == 1)
+    {
+      printf("Kriging: Length scales are correlation lengths\n");
+      printf("         in the random parameter space.\n");
+      printf("Current initial length scales are:\n");
+      for (ii = 0; ii < nInputs_; ii++)
+         printf("    Input %d: %e\n", ii+1, Thetas_[ii]);
+      sprintf(pString, "Change length scales (thetas)? (y or n) ");
+      getString(pString, winput);
+      if (winput[0] == 'y')
+      {
+        for (ii = 0; ii < nInputs_; ii++)
+        {
+          sprintf(pString,"Enter theta for input %d (>0): ", ii+1);
+          Thetas_[ii] = getDouble(pString);
+          if (Thetas_[ii] <= 0.0)
+          {
+            printf("ERROR: theta <= 0 not valid.\n");
+            exit(1);
+          }
+          if (ii == 0)
+          {
+            sprintf(pString,"Use %e for all other thetas? (y or n) ",
+                    Thetas_[0]);
             getString(pString, winput);
             if (winput[0] == 'y')
             {
-               for (ii = 0; ii < nInputs_; ii++)
-               {
-                  sprintf(pString,"Enter theta for input %d : ", ii+1);
-                  Thetas_[ii] = getDouble(pString);
-                  if (Thetas_[ii] <= 0.0)
-                     printf("Warning: theta < 0 not recommended.\n");
-                  if (ii == 0)
-                  {
-                     sprintf(pString,"Use %e for all other thetas? (y or n) ",
-                             Thetas_[0]);
-                     getString(pString, winput);
-                     if (winput[0] == 'y')
-                     {
-                        for (jj = 1; jj < nInputs_; jj++) 
-                           Thetas_[jj] = Thetas_[0];
-                        break;
-                     }
-                  }
-               }
+              for (jj = 1; jj < nInputs_; jj++) Thetas_[jj] = Thetas_[0];
+              break;
             }
-         }
+          }
+        }
       }
-      if (psMasterMode_ == 1)
+    }
+    else
+    {
+      sprintf(pString, "Enter optimization tolerance (default = 1e-4): ");
+      optTolerance_ = getDouble(pString);
+      if (optTolerance_ <= 0 || optTolerance_ > 0.5)
       {
-         sprintf(pString, "Add nugget? (y or n) ");
-         getString(pString, winput);
-         if (winput[0] == 'y') 
-         {
-            KRI_nugget = 1.0;
-            while (KRI_nugget >= 1.0 || KRI_nugget < 0.0)
-            {
-               sprintf(pString, "Enter nugget ([0,1)) : ");
-               KRI_nugget = getDouble(pString);
-            }
-         }
+        printf("Kriging INFO: optimization tol should be in (0,0.5]).\n");
+        printf("              Tolerance set to default = 1.0e-4.\n");
+        optTolerance_ = 1.0e-4;
       }
-   }
+      if (fastMode_ == 2)
+      {
+        printf("Kriging: Current initial length scales (thetas) are:\n");
+        for (ii = 0; ii < nInputs_; ii++)
+          printf("     Input %d: %e\n", ii+1, Thetas_[ii]);
+        printf("If some knowledge is available about the relative\n");
+        printf("importance of some parameters, different initial\n");
+        printf("thetas can be entered to reflect this knowledge \n");
+        printf("(sensitive parameters have larger thetas.)\n");
+        sprintf(pString, "Change initial thetas? (y or n) ");
+        getString(pString, winput);
+        if (winput[0] == 'y')
+        {
+          for (ii = 0; ii < nInputs_; ii++)
+          {
+            sprintf(pString,"Enter theta for input %d : ", ii+1);
+            Thetas_[ii] = getDouble(pString);
+            if (Thetas_[ii] <= 0.0)
+              printf("Warning: theta < 0 not recommended.\n");
+            if (ii == 0)
+            {
+              sprintf(pString,"Use %e for all other thetas? (y or n) ",
+                      Thetas_[0]);
+              getString(pString, winput);
+              if (winput[0] == 'y')
+              {
+                for (jj = 1; jj < nInputs_; jj++) Thetas_[jj] = Thetas_[0];
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    if (psMasterMode_ == 1)
+    {
+      sprintf(pString, "Add nugget? (y or n) ");
+      getString(pString, winput);
+      if (winput[0] == 'y') 
+      {
+        KRI_nugget = 1.0;
+        while (KRI_nugget >= 1.0 || KRI_nugget < 0.0)
+        {
+          sprintf(pString, "Enter nugget ([0,1)) : ");
+          KRI_nugget = getDouble(pString);
+        }
+      }
+    }
+  }
 }
 
 // ************************************************************************
@@ -571,21 +567,21 @@ Kriging::Kriging(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 Kriging::~Kriging()
 {
-   if (Thetas_ != NULL) delete [] Thetas_;
-   if (XNormalized_ != NULL) delete [] XNormalized_;
-   if (YNormalized_ != NULL) delete [] YNormalized_;
-   if (Rmatrix_ != NULL) delete [] Rmatrix_;
-   if (Mmatrix_ != NULL) delete [] Mmatrix_;
-   if (V1_ != NULL) delete [] V1_;
-   if (V2_ != NULL) delete [] V2_;
-   if (workArray_ != NULL) delete [] workArray_;
-   if (workX_ != NULL) delete [] workX_;
-   if (dataStdDevs_ != NULL) delete [] dataStdDevs_;
-   if (betas_ != NULL) delete [] betas_;
-   if (betasOpt_ != NULL) delete [] betasOpt_;
-   if (gammas_ != NULL) delete [] gammas_;
-   if (gammasOpt_ != NULL) delete [] gammasOpt_;
-   if (thetasOpt_ != NULL) delete [] thetasOpt_;
+  if (Thetas_ != NULL) delete [] Thetas_;
+  if (XNormalized_ != NULL) delete [] XNormalized_;
+  if (YNormalized_ != NULL) delete [] YNormalized_;
+  if (Rmatrix_ != NULL) delete [] Rmatrix_;
+  if (Mmatrix_ != NULL) delete [] Mmatrix_;
+  if (V1_ != NULL) delete [] V1_;
+  if (V2_ != NULL) delete [] V2_;
+  if (workArray_ != NULL) delete [] workArray_;
+  if (workX_ != NULL) delete [] workX_;
+  if (dataStdDevs_ != NULL) delete [] dataStdDevs_;
+  if (betas_ != NULL) delete [] betas_;
+  if (betasOpt_ != NULL) delete [] betasOpt_;
+  if (gammas_ != NULL) delete [] gammas_;
+  if (gammasOpt_ != NULL) delete [] gammasOpt_;
+  if (thetasOpt_ != NULL) delete [] thetasOpt_;
 }
 
 // ************************************************************************
@@ -593,10 +589,10 @@ Kriging::~Kriging()
 // ------------------------------------------------------------------------
 int Kriging::initialize(double *X, double *Y)
 {
-   if (outputLevel_ >= 1) printf("Kriging training begins....\n");
-   train(X,Y);
-   if (outputLevel_ >= 1) printf("Kriging training completed.\n");
-   return 0;
+  if (outputLevel_ >= 1) printf("Kriging training begins....\n");
+  train(X,Y);
+  if (outputLevel_ >= 1) printf("Kriging training completed.\n");
+  return 0;
 }
   
 // ************************************************************************
@@ -605,24 +601,24 @@ int Kriging::initialize(double *X, double *Y)
 int Kriging::genNDGridData(double *X, double *Y, int *N2, double **X2,
                            double **Y2)
 {
-   int totPts;
+  int totPts;
 
-   if (outputLevel_ >= 1) printf("Kriging training begins....\n");
-   train(X,Y);
-   if (outputLevel_ >= 1) printf("Kriging training completed.\n");
-   if ((*N2) == -999 || X2 == NULL || Y2 == NULL) return 0;
-  
-   genNDGrid(N2, X2);
-   if ((*N2) == 0) return 0;
-   totPts = (*N2);
+  if (outputLevel_ >= 1) printf("Kriging training begins....\n");
+  train(X,Y);
+  if (outputLevel_ >= 1) printf("Kriging training completed.\n");
+  if ((*N2) == -999 || X2 == NULL || Y2 == NULL) return 0;
+ 
+  genNDGrid(N2, X2);
+  if ((*N2) == 0) return 0;
+  totPts = (*N2);
 
-   (*Y2) = new double[totPts];
-   checkAllocate(*Y2, "Y2 in Kriging::genNDGridData");
+  (*Y2) = new double[totPts];
+  checkAllocate(*Y2, "Y2 in Kriging::genNDGridData");
 
-   if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
-   predict(totPts, *X2, *Y2, NULL);
-   if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
-   return 0;
+  if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
+  predict(totPts, *X2, *Y2, NULL);
+  if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -631,36 +627,36 @@ int Kriging::genNDGridData(double *X, double *Y, int *N2, double **X2,
 int Kriging::gen1DGridData(double *X, double *Y, int ind1, double *settings, 
                            int *n, double **X2, double **Y2)
 {
-   int    ii, kk, totPts;
-   double HX, *XX, *YY;
+  int    ii, kk, totPts;
+  double HX, *XX, *YY;
 
-   if (outputLevel_ >= 1) printf("Kriging training begins....\n");
-   train(X,Y);
-   if (outputLevel_ >= 1) printf("Kriging training completed.\n");
-  
-   totPts = nPtsPerDim_;
-   HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  if (outputLevel_ >= 1) printf("Kriging training begins....\n");
+  train(X,Y);
+  if (outputLevel_ >= 1) printf("Kriging training completed.\n");
+ 
+  totPts = nPtsPerDim_;
+  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
 
-   (*X2) = new double[totPts];
-   XX = new double[totPts*nInputs_];
-   checkAllocate(XX, "XX in Kriging::gen1DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (kk = 0; kk < nInputs_; kk++) 
-         XX[ii*nInputs_+kk] = settings[kk]; 
-      XX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
-      (*X2)[ii] = HX * ii + lowerBounds_[ind1];
-   }
+  (*X2) = new double[totPts];
+  XX = new double[totPts*nInputs_];
+  checkAllocate(XX, "XX in Kriging::gen1DGridData");
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (kk = 0; kk < nInputs_; kk++) 
+      XX[ii*nInputs_+kk] = settings[kk]; 
+    XX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
+    (*X2)[ii] = HX * ii + lowerBounds_[ind1];
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in Kriging::gen1DGridData");
-   if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
-   predict(totPts, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   return 0;
+  YY = new double[totPts];
+  checkAllocate(YY, "YY in Kriging::gen1DGridData");
+  if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
+  predict(totPts, XX, YY, NULL);
+  if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
+  (*n) = totPts;
+  (*Y2) = YY;
+  delete [] XX;
+  return 0;
 }
 
 // ************************************************************************
@@ -669,45 +665,45 @@ int Kriging::gen1DGridData(double *X, double *Y, int ind1, double *settings,
 int Kriging::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
                       double *settings, int *n, double **X2, double **Y2)
 {
-   int    ii, jj, kk, totPts, index;
-   double *HX, *XX, *YY;
+  int    ii, jj, kk, totPts, index;
+  double *HX, *XX, *YY;
 
-   if (outputLevel_ >= 1) printf("Kriging training begins....\n");
-   train(X, Y);
-   if (outputLevel_ >= 1) printf("Kriging training completed.\n");
+  if (outputLevel_ >= 1) printf("Kriging training begins....\n");
+  train(X, Y);
+  if (outputLevel_ >= 1) printf("Kriging training completed.\n");
   
-   totPts = nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[2];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  totPts = nPtsPerDim_ * nPtsPerDim_;
+  HX    = new double[2];
+  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
 
-   (*X2) = new double[2*totPts];
-   XX = new double[totPts*nInputs_];
-   checkAllocate(XX, "XX in Kriging::gen2DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
-      {
-         index = ii * nPtsPerDim_ + jj;
-         for (kk = 0; kk < nInputs_; kk++) 
-            XX[index*nInputs_+kk] = settings[kk]; 
-         XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-         XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-         (*X2)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-         (*X2)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
-      }
-   }
+  (*X2) = new double[2*totPts];
+  XX = new double[totPts*nInputs_];
+  checkAllocate(XX, "XX in Kriging::gen2DGridData");
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      index = ii * nPtsPerDim_ + jj;
+      for (kk = 0; kk < nInputs_; kk++) 
+        XX[index*nInputs_+kk] = settings[kk]; 
+      XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
+      XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
+      (*X2)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
+      (*X2)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
+    }
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in Kriging::gen2DGridData");
-   if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
-   predict(totPts, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
-   return 0;
+  YY = new double[totPts];
+  checkAllocate(YY, "YY in Kriging::gen2DGridData");
+  if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
+  predict(totPts, XX, YY, NULL);
+  if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
+  (*n) = totPts;
+  (*Y2) = YY;
+  delete [] XX;
+  delete [] HX;
+  return 0;
 }
 
 // ************************************************************************
@@ -717,51 +713,51 @@ int Kriging::gen3DGridData(double *X, double *Y, int ind1, int ind2,
                            int ind3, double *settings, int *n, double **X2, 
                            double **Y2)
 {
-   int    ii, jj, ll, kk, totPts, index;
-   double *HX, *XX, *YY;
+  int    ii, jj, ll, kk, totPts, index;
+  double *HX, *XX, *YY;
 
-   if (outputLevel_ >= 1) printf("Kriging training begins....\n");
-   train(X, Y);
-   if (outputLevel_ >= 1) printf("Kriging training completed.\n");
-  
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[3];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  if (outputLevel_ >= 1) printf("Kriging training begins....\n");
+  train(X, Y);
+  if (outputLevel_ >= 1) printf("Kriging training completed.\n");
+ 
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  HX    = new double[3];
+  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
 
-   (*X2) = new double[3*totPts];
-   XX = new double[totPts*nInputs_];
-   checkAllocate(XX, "XX in Kriging::gen3DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
+  (*X2) = new double[3*totPts];
+  XX = new double[totPts*nInputs_];
+  checkAllocate(XX, "XX in Kriging::gen3DGridData");
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++) 
       {
-         for (ll = 0; ll < nPtsPerDim_; ll++) 
-         {
-            index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-            for (kk = 0; kk < nInputs_; kk++) 
-               XX[index*nInputs_+kk] = settings[kk]; 
-            XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-            XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-            XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-            (*X2)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-            (*X2)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-            (*X2)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
-         }
+        index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
+        for (kk = 0; kk < nInputs_; kk++) 
+          XX[index*nInputs_+kk] = settings[kk]; 
+        XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
+        XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
+        XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
+        (*X2)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
+        (*X2)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
+        (*X2)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
       }
-   }
-    
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in Kriging::gen3DGridData");
-   if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
-   predict(totPts, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
-   return 0;
+    }
+  }
+   
+  YY = new double[totPts];
+  checkAllocate(YY, "YY in Kriging::gen3DGridData");
+  if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
+  predict(totPts, XX, YY, NULL);
+  if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
+  (*n) = totPts;
+  (*Y2) = YY;
+  delete [] XX;
+  delete [] HX;
+  return 0;
 }
 
 // ************************************************************************
@@ -771,58 +767,58 @@ int Kriging::gen4DGridData(double *X, double *Y, int ind1, int ind2,
                            int ind3, int ind4, double *settings, int *N2, 
                            double **X2, double **Y2)
 {
-   int    ii, jj, ll, mm, kk, totPts, index;
-   double *HX, *XX, *YY;
+  int    ii, jj, ll, mm, kk, totPts, index;
+  double *HX, *XX, *YY;
 
-   if (outputLevel_ >= 1) printf("Kriging training begins....\n");
-   train(X, Y);
-   if (outputLevel_ >= 1) printf("Kriging training completed.\n");
+  if (outputLevel_ >= 1) printf("Kriging training begins....\n");
+  train(X, Y);
+  if (outputLevel_ >= 1) printf("Kriging training completed.\n");
   
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[4];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-   HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  HX    = new double[4];
+  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
 
-   (*X2) = new double[4*totPts];
-   XX = new double[totPts*nInputs_];
-   checkAllocate(XX, "XX in Kriging::gen4DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
+  (*X2) = new double[4*totPts];
+  XX = new double[totPts*nInputs_];
+  checkAllocate(XX, "XX in Kriging::gen4DGridData");
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++) 
       {
-         for (ll = 0; ll < nPtsPerDim_; ll++) 
-         {
-            for (mm = 0; mm < nPtsPerDim_; mm++) 
-            {
-               index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
-                       jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-               for (kk = 0; kk < nInputs_; kk++) 
-                  XX[index*nInputs_+kk] = settings[kk]; 
-               XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-               XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-               XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-               XX[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
-               (*X2)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-               (*X2)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-               (*X2)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-               (*X2)[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
-            }
-         }
+        for (mm = 0; mm < nPtsPerDim_; mm++) 
+        {
+          index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
+                  jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
+          for (kk = 0; kk < nInputs_; kk++) 
+            XX[index*nInputs_+kk] = settings[kk]; 
+          XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
+          XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
+          XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
+          XX[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
+          (*X2)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
+          (*X2)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
+          (*X2)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
+          (*X2)[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
+        }
       }
-   }
+    }
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in Kriging::gen4DGridData");
-   if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
-   predict(totPts, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
-   (*N2) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
-   return 0;
+  YY = new double[totPts];
+  checkAllocate(YY, "YY in Kriging::gen4DGridData");
+  if (outputLevel_ >= 1) printf("Kriging interpolation begins....\n");
+  predict(totPts, XX, YY, NULL);
+  if (outputLevel_ >= 1) printf("Kriging interpolation completed.\n");
+  (*N2) = totPts;
+  (*Y2) = YY;
+  delete [] XX;
+  delete [] HX;
+  return 0;
 }
 
 // ************************************************************************
@@ -830,10 +826,10 @@ int Kriging::gen4DGridData(double *X, double *Y, int ind1, int ind2,
 // ------------------------------------------------------------------------
 double Kriging::evaluatePoint(double *X)
 {
-   int    iOne=1;
-   double Y=0.0;
-   predict(iOne, X, &Y, NULL);
-   return Y;
+  int    iOne=1;
+  double Y=0.0;
+  predict(iOne, X, &Y, NULL);
+  return Y;
 }
 
 // ************************************************************************
@@ -841,8 +837,8 @@ double Kriging::evaluatePoint(double *X)
 // ------------------------------------------------------------------------
 double Kriging::evaluatePoint(int npts, double *X, double *Y)
 {
-   predict(npts, X, Y, NULL);
-   return 0.0;
+  predict(npts, X, Y, NULL);
+  return 0.0;
 }
 
 // ************************************************************************
@@ -850,10 +846,10 @@ double Kriging::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double Kriging::evaluatePointFuzzy(double *X, double &Ystd)
 {
-   int    iOne=1;
-   double Y=0.0;
-   predict(iOne, X, &Y, &Ystd);
-   return Y;
+  int    iOne=1;
+  double Y=0.0;
+  predict(iOne, X, &Y, &Ystd);
+  return Y;
 }
 
 // ************************************************************************
@@ -862,8 +858,8 @@ double Kriging::evaluatePointFuzzy(double *X, double &Ystd)
 double Kriging::evaluatePointFuzzy(int npts, double *X, double *Y, 
                                    double *Ystds)
 {
-   predict(npts, X, Y, Ystds);
-   return 0.0;
+  predict(npts, X, Y, Ystds);
+  return 0.0;
 }
 
 // ************************************************************************
@@ -946,7 +942,7 @@ double Kriging::train(double *X, double *Y)
       }
       return 0.0;
    }
-   // fast mode: nothing needs to be done
+   // slower mode
    else if (fastMode_ == 1)
    {
       if (outputLevel_ > 0)
@@ -1169,9 +1165,9 @@ double Kriging::train(double *X, double *Y)
 //                &pLevel, &maxfun, work);
 #endif
 #ifdef HAVE_NEWUOA
-        pLevel = 6666;
-        newuoa_(&nInputs_, &nPts, TValues, &rhobeg, &rhoend, &pLevel,
-                &maxfun, work);
+         pLevel = 6666;
+         newuoa_(&nInputs_, &nPts, TValues, &rhobeg, &rhoend, &pLevel,
+                 &maxfun, work);
 #endif
          if (outputLevel_ >= 1) 
          {
@@ -1969,228 +1965,228 @@ double Kriging::train(double *X, double *Y)
 // ------------------------------------------------------------------------
 double Kriging::predict(int length, double *X, double *Y, double *YStds)
 {
-   int    ii, jj, kk, ll, status, nRows, nBasis, leng,maxLeng=500;
-   int    offset;
-   double ddata, dist, mean, stdev;
-   char   uplo='L';
+  int    ii, jj, kk, ll, status, nRows, nBasis, leng,maxLeng=500;
+  int    offset;
+  double ddata, dist, mean, stdev;
+  char   uplo='L';
 
-   if (fastMode_ == 0)
-   {
-      predict0(length, X, Y, YStds);
-      return 0.0;
-   }
+  if (fastMode_ == 0)
+  {
+    predict0(length, X, Y, YStds);
+    return 0.0;
+  }
 #if 1
-   nRows = nSamples_ + 1;
-   if (pOrder_ == 1) nRows = nRows + nInputs_;
-   nBasis = nRows - nSamples_;
-   if (workArray_ == NULL)
-   {
-      workArray_ = new double[2*nSamples_*maxLeng+maxLeng];
-      workX_ = new double[maxLeng*nInputs_+2*maxLeng*nBasis];
-      checkAllocate(workX_, "workX_ in Kriging::predict");
-      workLength_ = maxLeng;
-   }
-   for (ll = 0; ll < length; ll+=maxLeng)
-   {
-      leng = maxLeng;
-      if (ll+leng > length) leng = length - ll;
-      for (ii = 0; ii < nInputs_; ii++)
-      {
-         mean  = XMeans_[ii];
-         stdev = XStds_[ii];
-         for (kk = 0; kk < leng; kk++)
-            workX_[kk*nInputs_+ii] = (X[(ll+kk)*nInputs_+ii]-mean)/stdev;
-      }
-      for (kk = 0; kk < leng; kk++)
-      {
-         for (jj = 0; jj < nSamples_; jj++)
-         {
-            dist = 0.0;
-            for (ii = 0; ii < nInputs_; ii++)
-            {
-               ddata = XNormalized_[jj*nInputs_+ii]-workX_[kk*nInputs_+ii];
-               dist += ddata * ddata / (Thetas_[ii] * Thetas_[ii]);
-            }
-            ddata = exp(-dist);
-            if (ddata < 1.0e-16) ddata = 0.0;
-            workArray_[kk*nSamples_+jj] = ddata;
-            workArray_[nSamples_*leng+kk*nSamples_+jj] = ddata;
-         }
-      }
-      for (kk = 0; kk < leng; kk++)
-      {
-         ddata = 1.0 * V1_[0];
-         if (pOrder_ == 1)
-            for (ii = 1; ii <= nInputs_; ii++) 
-               ddata += workX_[kk*nInputs_+ii-1]*V1_[ii];
-         for (jj = 0; jj < nSamples_; jj++) 
-            ddata += workArray_[nSamples_*leng+kk*nSamples_+jj] * V2_[jj];
-         Y[ll+kk] = ddata * YStd_ + YMean_;
-      }
-      if (YStds != NULL)
-      {
-         dpotrs_(&uplo, &nSamples_, &leng, Rmatrix_, &nSamples_,
-                 &workArray_[leng*nSamples_], &nSamples_, &status);
-         for (kk = 0; kk < leng; kk++)
-         {
-            ddata = 0.0;
-            for (jj = 0; jj < nSamples_; jj++)
-               ddata += workArray_[kk*nSamples_+jj] *
-                        workArray_[leng*nSamples_+kk*nSamples_+jj];
-            workArray_[2*leng*nSamples_+kk] = ddata; 
-         }
-         for (kk = 0; kk < leng; kk++)
-         {
-            ddata = 0.0;
-            for (jj = 0; jj < nSamples_; jj++)
-               ddata += workArray_[leng*nSamples_+kk*nSamples_+jj]; 
-            workX_[leng*nInputs_+kk*nBasis] = ddata - 1.0; 
-            workX_[leng*nInputs_+leng*nBasis+kk*nBasis] = ddata - 1.0; 
-            for (ii = 1; ii < nBasis; ii++)
-            {
-               ddata = 0.0;
-               for (jj = 0; jj < nSamples_; jj++)
-                  ddata += workX_[kk*nInputs_+ii-1] *
-                           workArray_[leng*nSamples_+kk*nSamples_+jj]; 
-               ddata -= workX_[kk*nInputs_+ii-1];
-               workX_[leng*nInputs_+kk*nBasis+ii] = ddata; 
-               workX_[leng*nInputs_+leng*nBasis+kk*nBasis+ii] = ddata; 
-            }
-         }
-         dpotrs_(&uplo, &nBasis, &leng, Mmatrix_, &nSamples_,
-                 &workX_[leng*nInputs_+leng*nBasis], &nBasis, &status);
-
-         for (kk = 0; kk < leng; kk++)
-         {
-            ddata = 0.0;
-            for (ii = 0; ii < nBasis; ii++)
-               ddata += workX_[leng*nInputs_+kk*nBasis+ii] *
-                        workX_[leng*nInputs_+(leng+kk)*nBasis+ii];
-            ddata = KrigingVariance_*
-                    (1.0 + ddata-workArray_[2*leng*nSamples_+kk]);
-            if (ddata < 0.0)
-            {
-               printf("Kriging WARNING: prediction variance < 0\n");
-               ddata = 0.0;
-            }
-            YStds[ll+kk] = sqrt(ddata);
-         }
-      }
-   }
-#else
-   nRows = nSamples_ + 1;
-   if (pOrder_ == 1) nRows = nRows + nInputs_;
-   nBasis = nRows - nSamples_;
-   if (workArray_ == NULL)
-   {
-      workArray_ = new double[2*nSamples_*length+length];
-      workX_ = new double[length*nInputs_+2*length*nBasis];
-      workLength_ = length;
-      if (workX_ == NULL)
-      {
-         printOutTS(PL_ERROR,"ERROR: memory allocation in file %s line %d\n",
-                    __FILE__, __LINE__);
-         abort();
-      }
-   }
-   else if (workArray_ != NULL && length > workLength_)
-   {
-      delete [] workArray_;
-      delete [] workX_;
-      workLength_ = length;
-      workArray_ = new double[2*nSamples_*length+length];
-      workX_ = new double[length*nInputs_+2*length*nBasis];
-      if (workX_ == NULL)
-      {
-         printOutTS(PL_ERROR,"ERROR: memory allocation in file %s line %d\n",
-                    __FILE__, __LINE__);
-         abort();
-      }
-   }
-   for (ii = 0; ii < nInputs_; ii++)
-   {
+  nRows = nSamples_ + 1;
+  if (pOrder_ == 1) nRows = nRows + nInputs_;
+  nBasis = nRows - nSamples_;
+  if (workArray_ == NULL)
+  {
+    workArray_ = new double[2*nSamples_*maxLeng+maxLeng];
+    workX_ = new double[maxLeng*nInputs_+2*maxLeng*nBasis];
+    checkAllocate(workX_, "workX_ in Kriging::predict");
+    workLength_ = maxLeng;
+  }
+  for (ll = 0; ll < length; ll+=maxLeng)
+  {
+    leng = maxLeng;
+    if (ll+leng > length) leng = length - ll;
+    for (ii = 0; ii < nInputs_; ii++)
+    {
       mean  = XMeans_[ii];
       stdev = XStds_[ii];
-      for (jj = 0; jj < length; jj++)
-         workX_[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - mean) / stdev;
-   }
-   for (kk = 0; kk < length; kk++)
-   {
+      for (kk = 0; kk < leng; kk++)
+        workX_[kk*nInputs_+ii] = (X[(ll+kk)*nInputs_+ii]-mean)/stdev;
+    }
+    for (kk = 0; kk < leng; kk++)
+    {
       for (jj = 0; jj < nSamples_; jj++)
       {
-         dist = 0.0;
-         for (ii = 0; ii < nInputs_; ii++)
-         {
-            ddata = XNormalized_[jj*nInputs_+ii] - workX_[kk*nInputs_+ii];
-            dist += ddata * ddata / (Thetas_[ii] * Thetas_[ii]);
-         }
-         ddata = exp(-dist);
-         if (ddata < 1.0e-16) ddata = 0.0;
-         workArray_[kk*nSamples_+jj] = ddata;
-         workArray_[nSamples_*length+kk*nSamples_+jj] = ddata;
+        dist = 0.0;
+        for (ii = 0; ii < nInputs_; ii++)
+        {
+          ddata = XNormalized_[jj*nInputs_+ii]-workX_[kk*nInputs_+ii];
+          dist += ddata * ddata / (Thetas_[ii] * Thetas_[ii]);
+        }
+        ddata = exp(-dist);
+        if (ddata < 1.0e-16) ddata = 0.0;
+        workArray_[kk*nSamples_+jj] = ddata;
+        workArray_[nSamples_*leng+kk*nSamples_+jj] = ddata;
       }
-   }
-   for (kk = 0; kk < length; kk++)
-   {
+    }
+    for (kk = 0; kk < leng; kk++)
+    {
       ddata = 1.0 * V1_[0];
       if (pOrder_ == 1)
-         for (jj = 1; jj <= nInputs_; jj++) 
-            ddata += workX_[kk*nInputs_+jj-1]*V1_[jj];
+        for (ii = 1; ii <= nInputs_; ii++) 
+          ddata += workX_[kk*nInputs_+ii-1]*V1_[ii];
       for (jj = 0; jj < nSamples_; jj++) 
-         ddata += workArray_[nSamples_*length+kk*nSamples_+jj] * V2_[jj];
-      Y[kk] = ddata * YStd_ + YMean_;
-   }
-   if (YStds != NULL)
-   {
-      dpotrs_(&uplo, &nSamples_, &length, Rmatrix_, &nSamples_,
-              &workArray_[length*nSamples_], &nSamples_, &status);
-      for (kk = 0; kk < length; kk++)
+        ddata += workArray_[nSamples_*leng+kk*nSamples_+jj] * V2_[jj];
+      Y[ll+kk] = ddata * YStd_ + YMean_;
+    }
+    if (YStds != NULL)
+    {
+      dpotrs_(&uplo, &nSamples_, &leng, Rmatrix_, &nSamples_,
+              &workArray_[leng*nSamples_], &nSamples_, &status);
+      for (kk = 0; kk < leng; kk++)
       {
-         ddata = 0.0;
-         for (ii = 0; ii < nSamples_; ii++)
-            ddata += workArray_[kk*nSamples_+ii] *
-                     workArray_[length*nSamples_+kk*nSamples_+ii];
-         workArray_[2*length*nSamples_+kk] = ddata; 
+        ddata = 0.0;
+        for (jj = 0; jj < nSamples_; jj++)
+          ddata += workArray_[kk*nSamples_+jj] *
+                   workArray_[leng*nSamples_+kk*nSamples_+jj];
+        workArray_[2*leng*nSamples_+kk] = ddata; 
       }
-      for (kk = 0; kk < length; kk++)
+      for (kk = 0; kk < leng; kk++)
       {
-         ddata = 0.0;
-         for (ii = 0; ii < nSamples_; ii++)
-            ddata += workArray_[length*nSamples_+kk*nSamples_+ii]; 
-         workX_[length*nInputs_+kk*nBasis] = ddata - 1.0; 
-         workX_[length*nInputs_+length*nBasis+kk*nBasis] = ddata - 1.0; 
-         for (ii = 1; ii < nBasis; ii++)
-         {
-            ddata = 0.0;
-            for (jj = 0; jj < nSamples_; jj++)
-               ddata += workX_[kk*nInputs_+ii-1] *
-                        workArray_[length*nSamples_+kk*nSamples_+jj]; 
-            ddata -= workX_[kk*nInputs_+ii-1];
-            workX_[length*nInputs_+kk*nBasis+ii] = ddata; 
-            workX_[length*nInputs_+length*nBasis+kk*nBasis+ii] = ddata; 
-         }
+        ddata = 0.0;
+        for (jj = 0; jj < nSamples_; jj++)
+           ddata += workArray_[leng*nSamples_+kk*nSamples_+jj]; 
+        workX_[leng*nInputs_+kk*nBasis] = ddata - 1.0; 
+        workX_[leng*nInputs_+leng*nBasis+kk*nBasis] = ddata - 1.0; 
+        for (ii = 1; ii < nBasis; ii++)
+        {
+          ddata = 0.0;
+          for (jj = 0; jj < nSamples_; jj++)
+            ddata += workX_[kk*nInputs_+ii-1] *
+                     workArray_[leng*nSamples_+kk*nSamples_+jj]; 
+          ddata -= workX_[kk*nInputs_+ii-1];
+          workX_[leng*nInputs_+kk*nBasis+ii] = ddata; 
+          workX_[leng*nInputs_+leng*nBasis+kk*nBasis+ii] = ddata; 
+        }
       }
-      dpotrs_(&uplo, &nBasis, &length, Mmatrix_, &nSamples_,
-              &workX_[length*nInputs_+length*nBasis], &nBasis, &status);
+      dpotrs_(&uplo, &nBasis, &leng, Mmatrix_, &nSamples_,
+              &workX_[leng*nInputs_+leng*nBasis], &nBasis, &status);
 
-      for (kk = 0; kk < length; kk++)
+      for (kk = 0; kk < leng; kk++)
       {
-         ddata = 0.0;
-         for (ii = 0; ii < nBasis; ii++)
-            ddata += workX_[length*nInputs_+kk*nBasis+ii] *
-                     workX_[length*nInputs_+(length+kk)*nBasis+ii];
-         ddata = KrigingVariance_*
-                 (1.0 + ddata-workArray_[2*length*nSamples_+kk]);
-         if (ddata < 0.0)
-         {
-            printf("Kriging WARNING: prediction variance < 0\n");
-            ddata = 0.0;
-         }
-         YStds[kk] = sqrt(ddata);
+        ddata = 0.0;
+        for (ii = 0; ii < nBasis; ii++)
+          ddata += workX_[leng*nInputs_+kk*nBasis+ii] *
+                   workX_[leng*nInputs_+(leng+kk)*nBasis+ii];
+        ddata = KrigingVariance_*
+                (1.0 + ddata-workArray_[2*leng*nSamples_+kk]);
+        if (ddata < 0.0)
+        {
+          printf("Kriging WARNING: prediction variance < 0\n");
+          ddata = 0.0;
+        }
+        YStds[ll+kk] = sqrt(ddata);
       }
-   }
+    }
+  }
+#else
+  nRows = nSamples_ + 1;
+  if (pOrder_ == 1) nRows = nRows + nInputs_;
+  nBasis = nRows - nSamples_;
+  if (workArray_ == NULL)
+  {
+    workArray_ = new double[2*nSamples_*length+length];
+    workX_ = new double[length*nInputs_+2*length*nBasis];
+    workLength_ = length;
+    if (workX_ == NULL)
+    {
+      printOutTS(PL_ERROR,"ERROR: memory allocation in file %s line %d\n",
+                 __FILE__, __LINE__);
+      abort();
+    }
+  }
+  else if (workArray_ != NULL && length > workLength_)
+  {
+    delete [] workArray_;
+    delete [] workX_;
+    workLength_ = length;
+    workArray_ = new double[2*nSamples_*length+length];
+    workX_ = new double[length*nInputs_+2*length*nBasis];
+    if (workX_ == NULL)
+    {
+      printOutTS(PL_ERROR,"ERROR: memory allocation in file %s line %d\n",
+                 __FILE__, __LINE__);
+      abort();
+    }
+  }
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    mean  = XMeans_[ii];
+    stdev = XStds_[ii];
+    for (jj = 0; jj < length; jj++)
+      workX_[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - mean) / stdev;
+  }
+  for (kk = 0; kk < length; kk++)
+  {
+    for (jj = 0; jj < nSamples_; jj++)
+    {
+      dist = 0.0;
+      for (ii = 0; ii < nInputs_; ii++)
+      {
+        ddata = XNormalized_[jj*nInputs_+ii] - workX_[kk*nInputs_+ii];
+        dist += ddata * ddata / (Thetas_[ii] * Thetas_[ii]);
+      }
+      ddata = exp(-dist);
+      if (ddata < 1.0e-16) ddata = 0.0;
+      workArray_[kk*nSamples_+jj] = ddata;
+      workArray_[nSamples_*length+kk*nSamples_+jj] = ddata;
+    }
+  }
+  for (kk = 0; kk < length; kk++)
+  {
+    ddata = 1.0 * V1_[0];
+    if (pOrder_ == 1)
+      for (jj = 1; jj <= nInputs_; jj++) 
+        ddata += workX_[kk*nInputs_+jj-1]*V1_[jj];
+    for (jj = 0; jj < nSamples_; jj++) 
+      ddata += workArray_[nSamples_*length+kk*nSamples_+jj] * V2_[jj];
+    Y[kk] = ddata * YStd_ + YMean_;
+  }
+  if (YStds != NULL)
+  {
+    dpotrs_(&uplo, &nSamples_, &length, Rmatrix_, &nSamples_,
+            &workArray_[length*nSamples_], &nSamples_, &status);
+    for (kk = 0; kk < length; kk++)
+    {
+      ddata = 0.0;
+      for (ii = 0; ii < nSamples_; ii++)
+        ddata += workArray_[kk*nSamples_+ii] *
+                 workArray_[length*nSamples_+kk*nSamples_+ii];
+      workArray_[2*length*nSamples_+kk] = ddata; 
+    }
+    for (kk = 0; kk < length; kk++)
+    {
+      ddata = 0.0;
+      for (ii = 0; ii < nSamples_; ii++)
+        ddata += workArray_[length*nSamples_+kk*nSamples_+ii]; 
+      workX_[length*nInputs_+kk*nBasis] = ddata - 1.0; 
+      workX_[length*nInputs_+length*nBasis+kk*nBasis] = ddata - 1.0; 
+      for (ii = 1; ii < nBasis; ii++)
+      {
+        ddata = 0.0;
+        for (jj = 0; jj < nSamples_; jj++)
+          ddata += workX_[kk*nInputs_+ii-1] *
+                   workArray_[length*nSamples_+kk*nSamples_+jj]; 
+        ddata -= workX_[kk*nInputs_+ii-1];
+        workX_[length*nInputs_+kk*nBasis+ii] = ddata; 
+        workX_[length*nInputs_+length*nBasis+kk*nBasis+ii] = ddata; 
+      }
+    }
+    dpotrs_(&uplo, &nBasis, &length, Mmatrix_, &nSamples_,
+            &workX_[length*nInputs_+length*nBasis], &nBasis, &status);
+
+    for (kk = 0; kk < length; kk++)
+    {
+      ddata = 0.0;
+      for (ii = 0; ii < nBasis; ii++)
+        ddata += workX_[length*nInputs_+kk*nBasis+ii] *
+                 workX_[length*nInputs_+(length+kk)*nBasis+ii];
+      ddata = KrigingVariance_*
+              (1.0 + ddata-workArray_[2*length*nSamples_+kk]);
+      if (ddata < 0.0)
+      {
+        printf("Kriging WARNING: prediction variance < 0\n");
+        ddata = 0.0;
+      }
+      YStds[kk] = sqrt(ddata);
+    }
+  }
 #endif
-   return 0.0;
+  return 0.0;
 }
 
 // ************************************************************************
@@ -2198,41 +2194,41 @@ double Kriging::predict(int length, double *X, double *Y, double *YStds)
 // ------------------------------------------------------------------------
 int Kriging::computeDistances(double **XDists, int *length)
 {
-   int    ii, jj, kk, count, error=0;
-   double *LDists, dist;
+  int    ii, jj, kk, count, error=0;
+  double *LDists, dist;
 
-   LDists = new double[(nSamples_*(nSamples_-1)/2)*nInputs_];
-   checkAllocate(LDists, "LDists in Kriging::computeDistances");
-   count = 0;
-   for (jj = 0; jj < nSamples_; jj++)
-   {
-      for (kk = jj+1; kk < nSamples_; kk++)
+  LDists = new double[(nSamples_*(nSamples_-1)/2)*nInputs_];
+  checkAllocate(LDists, "LDists in Kriging::computeDistances");
+  count = 0;
+  for (jj = 0; jj < nSamples_; jj++)
+  {
+    for (kk = jj+1; kk < nSamples_; kk++)
+    {
+      dist = 0.0;
+      for (ii = 0; ii < nInputs_; ii++)
       {
-         dist = 0.0;
-         for (ii = 0; ii < nInputs_; ii++)
-         {
-            LDists[count*nInputs_+ii] = XNormalized_[jj*nInputs_+ii] - 
-                                XNormalized_[kk*nInputs_+ii];
-            if (LDists[count*nInputs_+ii] < 0) 
-               LDists[count*nInputs_+ii] = - LDists[count*nInputs_+ii]; 
-            dist += pow(LDists[count*nInputs_+ii], 2.0);
-         }
-         if (dist == 0.0)
-         {
-            printf("Kriging ERROR: repeated sample points.\n");
-            printf("               Prune repeated points and re-run.\n");
-            printf("Sample %d : (with sample point %d)\n", kk+1, jj+1);
-            for (ii = 0; ii < nInputs_; ii++)
-               printf("   Input %d : %e\n",ii+1,
-                    XNormalized_[kk*nInputs_+ii]*XStds_[ii]+XMeans_[ii]);
-            error = 1;
-         }
-         count++;
+        LDists[count*nInputs_+ii] = XNormalized_[jj*nInputs_+ii] - 
+                            XNormalized_[kk*nInputs_+ii];
+        if (LDists[count*nInputs_+ii] < 0) 
+          LDists[count*nInputs_+ii] = - LDists[count*nInputs_+ii]; 
+        dist += pow(LDists[count*nInputs_+ii], 2.0);
       }
-   }
-   (*length) = count;
-   (*XDists) = LDists;
-   return error;
+      if (dist == 0.0)
+      {
+        printf("Kriging ERROR: repeated sample points.\n");
+        printf("               Prune repeated points and re-run.\n");
+        printf("Sample %d : (with sample point %d)\n", kk+1, jj+1);
+        for (ii = 0; ii < nInputs_; ii++)
+          printf("   Input %d : %e\n",ii+1,
+                 XNormalized_[kk*nInputs_+ii]*XStds_[ii]+XMeans_[ii]);
+        error = 1;
+      }
+      count++;
+    }
+  }
+  (*length) = count;
+  (*XDists) = LDists;
+  return error;
 }
 
 // ************************************************************************
@@ -2240,96 +2236,96 @@ int Kriging::computeDistances(double **XDists, int *length)
 // ------------------------------------------------------------------------
 double Kriging::setParams(int targc, char **targv)
 {
-   int    ii, *iArray;
-   double *lengthScales, mmax, range;
-   char   pString[500];
-   FILE   *fp=NULL;
+  int    ii, *iArray;
+  double *lengthScales, mmax, range;
+  char   pString[500];
+  FILE   *fp=NULL;
 
-   if (targc > 0 && !strcmp(targv[0], "noReuse"))
-      noReuse_ = 1;
-   else if (targc > 0 && !strcmp(targv[0], "setMode0"))
-      fastMode_ = 0;
-   else if (targc > 0 && !strcmp(targv[0], "setMode1"))
-      fastMode_ = 1;
-   else if (targc > 0 && !strcmp(targv[0], "setMode2"))
-      fastMode_ = 2;
-   else if (targc > 0 && !strcmp(targv[0], "setMode3"))
-      fastMode_ = 3;
-   else if (targc > 0 && !strcmp(targv[0], "rank"))
-   {
-      lengthScales = new double[nInputs_];
-      checkAllocate(lengthScales, "lengthScales in Kriging::setParams");
-      mmax = 0.0;
-      for (ii = 0; ii < nInputs_; ii++)
+  if (targc > 0 && !strcmp(targv[0], "noReuse"))
+     noReuse_ = 1;
+  else if (targc > 0 && !strcmp(targv[0], "setMode0"))
+     fastMode_ = 0;
+  else if (targc > 0 && !strcmp(targv[0], "setMode1"))
+     fastMode_ = 1;
+  else if (targc > 0 && !strcmp(targv[0], "setMode2"))
+     fastMode_ = 2;
+  else if (targc > 0 && !strcmp(targv[0], "setMode3"))
+     fastMode_ = 3;
+  else if (targc > 0 && !strcmp(targv[0], "rank"))
+  {
+    lengthScales = new double[nInputs_];
+    checkAllocate(lengthScales, "lengthScales in Kriging::setParams");
+    mmax = 0.0;
+    for (ii = 0; ii < nInputs_; ii++)
+    {
+      lengthScales[ii] = 1.0 / Thetas_[ii];
+      if (XMeans_[ii] == 0 && XStds_[ii] == 1)
       {
-         lengthScales[ii] = 1.0 / Thetas_[ii];
-         if (XMeans_[ii] == 0 && XStds_[ii] == 1)
-         {
-            range = upperBounds_[ii] - lowerBounds_[ii];
-            lengthScales[ii] *= range;
-         }
-         if (lengthScales[ii] > mmax) mmax = lengthScales[ii];
+        range = upperBounds_[ii] - lowerBounds_[ii];
+        lengthScales[ii] *= range;
       }
-      for (ii = 0; ii < nInputs_; ii++)
-         lengthScales[ii] = lengthScales[ii] / mmax * 100.0;
+      if (lengthScales[ii] > mmax) mmax = lengthScales[ii];
+    }
+    for (ii = 0; ii < nInputs_; ii++)
+      lengthScales[ii] = lengthScales[ii] / mmax * 100.0;
 
+    if (psPlotTool_ == 1)
+         fp = fopen("scilabkrisa.sci", "w");
+    else fp = fopen("matlabkrisa.m", "w");
+    if (fp == NULL)
+    {
+      printf("Kriging ERROR: something wrong with opening a write file.\n");
+    }
+    else
+    {
+      fprintf(fp, "n = %d;\n", nInputs_);
+      fprintf(fp, "Y = [\n");
+      for (ii = 0; ii < nInputs_; ii++)
+        fprintf(fp, "%24.16e \n", PABS(lengthScales[ii]));
+      fprintf(fp, "]; \n");
+      fprintf(fp, "ymax = max(Y);\n");
+      fprintf(fp, "ymin = 0;\n");
+      fprintf(fp, "if (ymax == ymin)\n");
+      fprintf(fp, "   ymax = ymax * 0.1;\n");
+      fprintf(fp, "end;\n");
+      fwritePlotCLF(fp);
+      fprintf(fp, "bar(Y,0.8);\n");
+      fwritePlotAxes(fp);
+      sprintf(pString, "Kriging Ranking");
+      fwritePlotTitle(fp, pString);
+      sprintf(pString, "Input Numbers");
+      fwritePlotXLabel(fp, pString);
+      sprintf(pString, "Kriging Measure");
+      fwritePlotYLabel(fp, pString);
       if (psPlotTool_ == 1)
-           fp = fopen("scilabkrisa.sci", "w");
-      else fp = fopen("matlabkrisa.m", "w");
-      if (fp == NULL)
       {
-         printf("Kriging ERROR: something wrong with opening a write file.\n");
+        fprintf(fp,"a=gca();\n");
+        fprintf(fp,"a.data_bounds=[0,ymin; n+1,ymax+0.01*(ymax-ymin)];\n");
       }
       else
       {
-         fprintf(fp, "n = %d;\n", nInputs_);
-         fprintf(fp, "Y = [\n");
-         for (ii = 0; ii < nInputs_; ii++)
-            fprintf(fp, "%24.16e \n", PABS(lengthScales[ii]));
-         fprintf(fp, "]; \n");
-         fprintf(fp, "ymax = max(Y);\n");
-         fprintf(fp, "ymin = 0;\n");
-         fprintf(fp, "if (ymax == ymin)\n");
-         fprintf(fp, "   ymax = ymax * 0.1;\n");
-         fprintf(fp, "end;\n");
-         fwritePlotCLF(fp);
-         fprintf(fp, "bar(Y,0.8);\n");
-         fwritePlotAxes(fp);
-         sprintf(pString, "Kriging Ranking");
-         fwritePlotTitle(fp, pString);
-         sprintf(pString, "Input Numbers");
-         fwritePlotXLabel(fp, pString);
-         sprintf(pString, "Kriging Measure");
-         fwritePlotYLabel(fp, pString);
-         if (psPlotTool_ == 1)
-         {
-            fprintf(fp,"a=gca();\n");
-            fprintf(fp,"a.data_bounds=[0,ymin; n+1,ymax+0.01*(ymax-ymin)];\n");
-         }
-         else
-         {
-            fprintf(fp,"axis([0 n+1 ymin ymax+0.01*(ymax-ymin)])\n");
-         }
-         fclose(fp);
-         if (psPlotTool_ == 1)
-              printf("Kriging ranking in file scilabkrisa.sci\n");
-         else printf("Kriging ranking in file matlabkrisa.m\n");
+        fprintf(fp,"axis([0 n+1 ymin ymax+0.01*(ymax-ymin)])\n");
       }
-      iArray = new int[nInputs_];
-      checkAllocate(iArray, "iArray in Kriging::setParams");
-      for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-      sortDbleList2a(nInputs_, lengthScales, iArray);
-      printAsterisks(PL_INFO, 0);
-      printf("* Kriging screening rankings\n");
-      printAsterisks(PL_INFO, 0);
-      for (ii = nInputs_-1; ii >= 0; ii--)
-         printf("*  Rank %3d : Input = %4d (score = %5.1f) (ref = %e)\n",
-                nInputs_-ii, iArray[ii]+1, lengthScales[ii], 
-                0.01*lengthScales[ii]*mmax);
-      printAsterisks(PL_INFO, 0);
-      delete [] lengthScales;
-   }
-   return 0.0;
+      fclose(fp);
+      if (psPlotTool_ == 1)
+           printf("Kriging ranking in file scilabkrisa.sci\n");
+      else printf("Kriging ranking in file matlabkrisa.m\n");
+    }
+    iArray = new int[nInputs_];
+    checkAllocate(iArray, "iArray in Kriging::setParams");
+    for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
+    sortDbleList2a(nInputs_, lengthScales, iArray);
+    printAsterisks(PL_INFO, 0);
+    printf("* Kriging screening rankings\n");
+    printAsterisks(PL_INFO, 0);
+    for (ii = nInputs_-1; ii >= 0; ii--)
+      printf("*  Rank %3d : Input = %4d (score = %5.1f) (ref = %e)\n",
+             nInputs_-ii, iArray[ii]+1, lengthScales[ii], 
+             0.01*lengthScales[ii]*mmax);
+    printAsterisks(PL_INFO, 0);
+    delete [] lengthScales;
+  }
+  return 0.0;
 }
 
 // ************************************************************************
@@ -2337,188 +2333,188 @@ double Kriging::setParams(int targc, char **targv)
 // ------------------------------------------------------------------------
 void Kriging::optimize()
 {
-   int    ii, jj, mm, nBasis, nDists, deg; 
-   double *TUppers, *TLowers, *Thetas, *XDists, objfcn, objtmp, ddata;
-   char   pString[1000];
+  int    ii, jj, mm, nBasis, nDists, deg; 
+  double *TUppers, *TLowers, *Thetas, *XDists, objfcn, objtmp, ddata;
+  char   pString[1000];
 
-   pOrder_ = 1;
-   nBasis  = 1;
-   if (pOrder_ == 1) nBasis = nInputs_ + 1;
-   TUppers = new double[nInputs_];
-   TLowers = new double[nInputs_];
-   checkAllocate(TLowers, "TLowers in Kriging::optimize");
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      if (XMeans_[ii] == 0 && XStds_[ii] == 1.0)
+  pOrder_ = 1;
+  nBasis  = 1;
+  if (pOrder_ == 1) nBasis = nInputs_ + 1;
+  TUppers = new double[nInputs_];
+  TLowers = new double[nInputs_];
+  checkAllocate(TLowers, "TLowers in Kriging::optimize");
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    if (XMeans_[ii] == 0 && XStds_[ii] == 1.0)
+    {
+      TUppers[ii] = 20.0 * (upperBounds_[ii]-lowerBounds_[ii]);;
+      TLowers[ii] = 0.1 * (upperBounds_[ii]-lowerBounds_[ii]);;
+    }
+    else
+    {
+      TUppers[ii] = 20.0;
+      TLowers[ii] = 0.1;
+    }
+    if (psMasterMode_ == 1 && psInteractive_ == 1)
+    {
+      printf("Kriging: for input %d :\n", ii+1);
+      printf("Kriging: current optimization lower bound = %e\n",
+             TLowers[ii]);
+      sprintf(pString,
+         "Kriging: Enter new optimization lower bound : ");
+      TLowers[ii] = getDouble(pString);
+      if (TLowers[ii] <= 0.0)
       {
-         TUppers[ii] = 20.0 * (upperBounds_[ii]-lowerBounds_[ii]);;
-         TLowers[ii] = 0.1 * (upperBounds_[ii]-lowerBounds_[ii]);;
+        printf("Kriging ERROR: lower bound <= 0\n");
+        exit(1);
+      }
+      printf("Kriging: current optimization upper bound = %e\n",
+             TUppers[ii]);
+      sprintf(pString,
+         "Kriging: Enter new optimization upper bound : ");
+      TUppers[ii] = getDouble(pString);
+      if (TUppers[ii] <= 0.0)
+      {
+        printf("Kriging ERROR: upper bound <= 0\n");
+        exit(1);
+      }
+      if (TLowers[ii] >= TUppers[ii])
+      {
+        printf("Kriging ERROR: upper bound <= lower bound.\n");
+        exit(1);
+      }
+    }
+  }
+  computeDistances(&XDists, &nDists);
+  KRI_SMatrix = new double[nSamples_*nSamples_];
+  KRI_FMatrix = new double[nSamples_*nBasis];
+  KRI_FMatTmp = new double[nSamples_*nBasis];
+  KRI_XDists  = XDists;
+  KRI_iter    = 0;
+  betas_      = new double[nBasis];
+  betasOpt_   = new double[nBasis];
+  gammas_     = new double[nSamples_];
+  gammasOpt_  = new double[nSamples_];
+  thetasOpt_  = new double[nInputs_];
+
+  Thetas = new double[nInputs_+1];
+  checkAllocate(Thetas, "Thetas in Kriging::optimize");
+  for (ii = 0; ii < nInputs_; ii++) Thetas[ii] = 10.0;
+  objfcn = evaluateFunction(Thetas);
+
+  int maxIts = 4, flag;
+  if (nInputs_ < maxIts) maxIts = nInputs_;
+  if (nInputs_ == 1) maxIts = 2;
+  double *scales = new double[nInputs_];
+  checkAllocate(scales, "scales in Kriging::optimize");
+  for (ii = 0; ii < nInputs_; ii++) 
+    scales[ii] = pow(2.0, (1.0+ii)/(2.0+nInputs_));
+
+  double *Thetas2 = new double[nInputs_];
+  double *T1      = new double[nInputs_];
+  double *S1      = new double[nInputs_];
+  checkAllocate(S1, "S1 in Kriging::optimize");
+  for (mm = 0; mm < maxIts; mm++)
+  {
+    for (ii = 0; ii < nInputs_; ii++) Thetas2[ii] = Thetas[ii];
+     
+    for (ii = 0; ii < nInputs_; ii++)
+    {
+      for (jj = 0; jj < nInputs_; jj++) T1[jj] = Thetas[jj];
+      if (Thetas[ii] >= TUppers[ii])
+      {
+        flag = 1;
+        T1[ii] = Thetas[ii] / sqrt(scales[ii]);
+      }
+      else if (Thetas[ii] == TLowers[ii])
+      {
+        flag = 1;
+        T1[ii] = Thetas[ii] * sqrt(scales[ii]);
       }
       else
       {
-         TUppers[ii] = 20.0;
-         TLowers[ii] = 0.1;
+        flag = 0;
+        T1[ii] = Thetas[ii] * scales[ii];
+        if (TUppers[ii] < T1[ii]) T1[ii] = TUppers[ii];
       }
-      if (psMasterMode_ == 1 && psInteractive_ == 1)
+      objtmp = evaluateFunction(T1);
+      if (objtmp < objfcn)
       {
-         printf("Kriging: for input %d :\n", ii+1);
-         printf("Kriging: current optimization lower bound = %e\n",
-                TLowers[ii]);
-         sprintf(pString,
-            "Kriging: Enter new optimization lower bound : ");
-         TLowers[ii] = getDouble(pString);
-         if (TLowers[ii] <= 0.0)
-         {
-            printf("Kriging ERROR: lower bound <= 0\n");
-            exit(1);
-         }
-         printf("Kriging: current optimization upper bound = %e\n",
-                TUppers[ii]);
-         sprintf(pString,
-            "Kriging: Enter new optimization upper bound : ");
-         TUppers[ii] = getDouble(pString);
-         if (TUppers[ii] <= 0.0)
-         {
-            printf("Kriging ERROR: upper bound <= 0\n");
-            exit(1);
-         }
-         if (TLowers[ii] >= TUppers[ii])
-         {
-            printf("Kriging ERROR: upper bound <= lower bound.\n");
-            exit(1);
-         }
+        for (jj = 0; jj < nInputs_; jj++) Thetas[jj] = T1[jj];
+        objfcn = objtmp;
+        for (jj = 0; jj < nBasis; jj++) betasOpt_[jj] = betas_[jj];
+        for (jj = 0; jj < nSamples_; jj++) gammasOpt_[jj] = gammas_[jj];
+        for (jj = 0; jj < nInputs_; jj++) thetasOpt_[jj] = Thetas[jj];
       }
-   }
-   computeDistances(&XDists, &nDists);
-   KRI_SMatrix = new double[nSamples_*nSamples_];
-   KRI_FMatrix = new double[nSamples_*nBasis];
-   KRI_FMatTmp = new double[nSamples_*nBasis];
-   KRI_XDists  = XDists;
-   KRI_iter    = 0;
-   betas_      = new double[nBasis];
-   betasOpt_   = new double[nBasis];
-   gammas_     = new double[nSamples_];
-   gammasOpt_  = new double[nSamples_];
-   thetasOpt_  = new double[nInputs_];
-
-   Thetas = new double[nInputs_+1];
-   checkAllocate(Thetas, "Thetas in Kriging::optimize");
-   for (ii = 0; ii < nInputs_; ii++) Thetas[ii] = 10.0;
-   objfcn = evaluateFunction(Thetas);
-
-   int maxIts = 4, flag;
-   if (nInputs_ < maxIts) maxIts = nInputs_;
-   if (nInputs_ == 1) maxIts = 2;
-   double *scales = new double[nInputs_];
-   checkAllocate(scales, "scales in Kriging::optimize");
-   for (ii = 0; ii < nInputs_; ii++) 
-      scales[ii] = pow(2.0, (1.0+ii)/(2.0+nInputs_));
-
-   double *Thetas2 = new double[nInputs_];
-   double *T1      = new double[nInputs_];
-   double *S1      = new double[nInputs_];
-   checkAllocate(S1, "S1 in Kriging::optimize");
-   for (mm = 0; mm < maxIts; mm++)
-   {
-      for (ii = 0; ii < nInputs_; ii++) Thetas2[ii] = Thetas[ii];
-      
-      for (ii = 0; ii < nInputs_; ii++)
+      else
       {
-         for (jj = 0; jj < nInputs_; jj++) T1[jj] = Thetas[jj];
-         if (Thetas[ii] >= TUppers[ii])
-         {
-            flag = 1;
-            T1[ii] = Thetas[ii] / sqrt(scales[ii]);
-         }
-         else if (Thetas[ii] == TLowers[ii])
-         {
-            flag = 1;
-            T1[ii] = Thetas[ii] * sqrt(scales[ii]);
-         }
-         else
-         {
-            flag = 0;
-            T1[ii] = Thetas[ii] * scales[ii];
-            if (TUppers[ii] < T1[ii]) T1[ii] = TUppers[ii];
-         }
-         objtmp = evaluateFunction(T1);
-         if (objtmp < objfcn)
-         {
+        if (flag == 0)
+        {
+          T1[ii] = Thetas[ii] / scales[ii];
+          if (T1[ii] < TLowers[ii]) T1[ii] = TLowers[ii];
+          objtmp = evaluateFunction(T1);
+          if (objtmp < objfcn)
+          {
             for (jj = 0; jj < nInputs_; jj++) Thetas[jj] = T1[jj];
             objfcn = objtmp;
             for (jj = 0; jj < nBasis; jj++) betasOpt_[jj] = betas_[jj];
             for (jj = 0; jj < nSamples_; jj++) gammasOpt_[jj] = gammas_[jj];
             for (jj = 0; jj < nInputs_; jj++) thetasOpt_[jj] = Thetas[jj];
-         }
-         else
-         {
-            if (flag == 0)
-            {
-               T1[ii] = Thetas[ii] / scales[ii];
-               if (T1[ii] < TLowers[ii]) T1[ii] = TLowers[ii];
-               objtmp = evaluateFunction(T1);
-               if (objtmp < objfcn)
-               {
-                  for (jj = 0; jj < nInputs_; jj++) Thetas[jj] = T1[jj];
-                  objfcn = objtmp;
-                  for (jj = 0; jj < nBasis; jj++) betasOpt_[jj] = betas_[jj];
-                  for (jj = 0; jj < nSamples_; jj++) gammasOpt_[jj] = gammas_[jj];
-                  for (jj = 0; jj < nInputs_; jj++) thetasOpt_[jj] = Thetas[jj];
-               }
-            }
-         }
+          }
+        }
       }
+    }
 
-      flag = 1;
-      deg  = 1;
-      for (ii = 0; ii < nInputs_; ii++) S1[ii] = Thetas[ii]/Thetas2[ii];
-      while (flag == 1)
+    flag = 1;
+    deg  = 1;
+    for (ii = 0; ii < nInputs_; ii++) S1[ii] = Thetas[ii]/Thetas2[ii];
+    while (flag == 1)
+    {
+      for (ii = 0; ii < nInputs_; ii++)
       {
-         for (ii = 0; ii < nInputs_; ii++)
-         {
-            ddata = pow(S1[ii],1.0*deg) * Thetas[ii];
-            if (ddata < TLowers[ii]) ddata = TLowers[ii]; 
-            if (ddata > TUppers[ii]) ddata = TUppers[ii]; 
-            T1[ii] = ddata;
-         }
-         objtmp = evaluateFunction(T1);
-         if (objtmp < objfcn)
-         {
-            for (ii = 0; ii < nInputs_; ii++) Thetas[ii] = T1[ii];
-            objfcn = objtmp;
-            deg *= 2;
-            for (jj = 0; jj < nBasis; jj++) betasOpt_[jj] = betas_[jj];
-            for (jj = 0; jj < nSamples_; jj++) gammasOpt_[jj] = gammas_[jj];
-            for (jj = 0; jj < nInputs_; jj++) thetasOpt_[jj] = Thetas[jj];
-         }
-         else flag = 0;
-         for (ii = 0; ii < nInputs_; ii++) 
-         {
-            if (T1[ii] <= TLowers[ii]) flag = 0;
-            if (T1[ii] >= TUppers[ii]) flag = 0;
-         }
+        ddata = pow(S1[ii],1.0*deg) * Thetas[ii];
+        if (ddata < TLowers[ii]) ddata = TLowers[ii]; 
+        if (ddata > TUppers[ii]) ddata = TUppers[ii]; 
+        T1[ii] = ddata;
       }
-      ddata = scales[0];
-      for (ii = 0; ii < nInputs_-1; ii++) scales[ii] = scales[ii+1];
-      scales[nInputs_-1] = ddata;
-      for (ii = 0; ii < nInputs_; ii++) scales[ii] = pow(scales[ii],0.25);
-   }
+      objtmp = evaluateFunction(T1);
+      if (objtmp < objfcn)
+      {
+        for (ii = 0; ii < nInputs_; ii++) Thetas[ii] = T1[ii];
+        objfcn = objtmp;
+        deg *= 2;
+        for (jj = 0; jj < nBasis; jj++) betasOpt_[jj] = betas_[jj];
+        for (jj = 0; jj < nSamples_; jj++) gammasOpt_[jj] = gammas_[jj];
+        for (jj = 0; jj < nInputs_; jj++) thetasOpt_[jj] = Thetas[jj];
+      }
+      else flag = 0;
+      for (ii = 0; ii < nInputs_; ii++) 
+      {
+        if (T1[ii] <= TLowers[ii]) flag = 0;
+        if (T1[ii] >= TUppers[ii]) flag = 0;
+      }
+    }
+    ddata = scales[0];
+    for (ii = 0; ii < nInputs_-1; ii++) scales[ii] = scales[ii+1];
+    scales[nInputs_-1] = ddata;
+    for (ii = 0; ii < nInputs_; ii++) scales[ii] = pow(scales[ii],0.25);
+  }
 
-   delete [] T1;
-   delete [] S1;
-   delete [] scales;
-   delete [] Thetas;
-   delete [] Thetas2;
-   delete [] TUppers;
-   delete [] TLowers;
-   delete [] KRI_SMatrix;
-   delete [] KRI_FMatrix;
-   delete [] KRI_FMatTmp;
-   delete [] KRI_XDists;
-   KRI_SMatrix = NULL;
-   KRI_FMatrix = NULL;
-   KRI_FMatTmp = NULL;
-   KRI_XDists  = NULL;
+  delete [] T1;
+  delete [] S1;
+  delete [] scales;
+  delete [] Thetas;
+  delete [] Thetas2;
+  delete [] TUppers;
+  delete [] TLowers;
+  delete [] KRI_SMatrix;
+  delete [] KRI_FMatrix;
+  delete [] KRI_FMatTmp;
+  delete [] KRI_XDists;
+  KRI_SMatrix = NULL;
+  KRI_FMatrix = NULL;
+  KRI_FMatTmp = NULL;
+  KRI_XDists  = NULL;
 }
 
 // ************************************************************************
@@ -2526,136 +2522,136 @@ void Kriging::optimize()
 // ------------------------------------------------------------------------
 double Kriging::evaluateFunction(double *thetas)
 {
-   int    nBasis, count, ii, jj, kk, status, inc=1;
-   double dist, ddata, retVal;
-   FILE   *fp=NULL;
-   char   uplo='L', trans='N', diag='N', side='L';
+  int    nBasis, count, ii, jj, kk, status, inc=1;
+  double dist, ddata, retVal;
+  FILE   *fp=NULL;
+  char   uplo='L', trans='N', diag='N', side='L';
 
-   KRI_iter++;
-   nBasis = 1;
-   if (pOrder_ == 1) nBasis = nInputs_ + 1;
+  KRI_iter++;
+  nBasis = 1;
+  if (pOrder_ == 1) nBasis = nInputs_ + 1;
 
-   count = 0;
-   for (jj = 0; jj < nSamples_; jj++)
-   {
-      //KRI_SMatrix[jj*nSamples_+jj] = 1.0 + 1e-15 * nSamples_;
-      KRI_SMatrix[jj*nSamples_+jj] = 1.0 + 2.22e-16 * (nSamples_ + 10);
-      if (KRI_nugget != 0.0) 
-         KRI_SMatrix[jj*nSamples_+jj] += KRI_nugget;
-      else if (nInputs_ == 2) 
-         KRI_SMatrix[jj*nSamples_+jj] += 0.01;
-      if (KRI_dataStdDevs != NULL) 
+  count = 0;
+  for (jj = 0; jj < nSamples_; jj++)
+  {
+    //KRI_SMatrix[jj*nSamples_+jj] = 1.0 + 1e-15 * nSamples_;
+    KRI_SMatrix[jj*nSamples_+jj] = 1.0 + 2.22e-16 * (nSamples_ + 10);
+    if (KRI_nugget != 0.0) 
+      KRI_SMatrix[jj*nSamples_+jj] += KRI_nugget;
+    else if (nInputs_ == 2) 
+      KRI_SMatrix[jj*nSamples_+jj] += 0.01;
+    if (KRI_dataStdDevs != NULL) 
+    {
+      ddata = pow(KRI_dataStdDevs[jj]/KRI_YStd,KRI_Exponent);
+      KRI_SMatrix[jj*nSamples_+jj] += ddata;
+    }
+    for (kk = jj+1; kk < nSamples_; kk++)
+    {
+      dist = 0.0;
+      for (ii = 0; ii < nInputs_; ii++)
+        dist += pow(KRI_XDists[count*nInputs_+ii],KRI_Exponent)*
+                thetas[ii];
+      dist = exp(-dist);
+      //if (dist < 1.0e-16) dist = 0;
+      KRI_SMatrix[jj*nSamples_+kk] = dist;
+      KRI_SMatrix[kk*nSamples_+jj] = dist;
+      count++;
+    }
+  }
+  dpotrf_(&uplo, &nSamples_, KRI_SMatrix, &nSamples_, &status);
+  if (status != 0) 
+  {
+    printf("Kriging ERROR: Cholesky decomposition not successful.\n");
+    exit(1);
+  }
+
+  for (ii = 0; ii < nSamples_; ii++) 
+  {
+    KRI_FMatrix[ii] = 1.0;
+    KRI_FMatTmp[ii] = 1.0;
+    if (pOrder_ == 1)
+    {
+      for (kk = 1; kk < nBasis; kk++) 
       {
-         ddata = pow(KRI_dataStdDevs[jj]/KRI_YStd,KRI_Exponent);
-         KRI_SMatrix[jj*nSamples_+jj] += ddata;
+        ddata = XNormalized_[ii*nInputs_+kk-1];
+        KRI_FMatTmp[kk*nSamples_+ii] = ddata;
+        KRI_FMatrix[kk*nSamples_+ii] = ddata;
       }
-      for (kk = jj+1; kk < nSamples_; kk++)
-      {
-         dist = 0.0;
-         for (ii = 0; ii < nInputs_; ii++)
-            dist += pow(KRI_XDists[count*nInputs_+ii],KRI_Exponent)*
-                    thetas[ii];
-         dist = exp(-dist);
-         //if (dist < 1.0e-16) dist = 0;
-         KRI_SMatrix[jj*nSamples_+kk] = dist;
-         KRI_SMatrix[kk*nSamples_+jj] = dist;
-         count++;
-      }
-   }
-   dpotrf_(&uplo, &nSamples_, KRI_SMatrix, &nSamples_, &status);
-   if (status != 0) 
-   {
-      printf("Kriging ERROR: Cholesky decomposition not successful.\n");
-      exit(1);
-   }
+    }
+  }
+  for (ii = 0; ii < nBasis; ii++) 
+  { 
+    dtrsv_(&uplo,&trans,&diag,&nSamples_,KRI_SMatrix,&nSamples_,
+           &KRI_FMatTmp[ii*nSamples_], &inc);
+  }
+  for (ii = 0; ii < nSamples_*nBasis; ii++) 
+    KRI_FMatrix[ii] = KRI_FMatTmp[ii];
 
-   for (ii = 0; ii < nSamples_; ii++) 
-   {
-      KRI_FMatrix[ii] = 1.0;
-      KRI_FMatTmp[ii] = 1.0;
-      if (pOrder_ == 1)
-      {
-         for (kk = 1; kk < nBasis; kk++) 
-         {
-            ddata = XNormalized_[ii*nInputs_+kk-1];
-            KRI_FMatTmp[kk*nSamples_+ii] = ddata;
-            KRI_FMatrix[kk*nSamples_+ii] = ddata;
-         }
-      }
-   }
-   for (ii = 0; ii < nBasis; ii++) 
-   { 
-      dtrsv_(&uplo,&trans,&diag,&nSamples_,KRI_SMatrix,&nSamples_,
-             &KRI_FMatTmp[ii*nSamples_], &inc);
-   }
-   for (ii = 0; ii < nSamples_*nBasis; ii++) 
-      KRI_FMatrix[ii] = KRI_FMatTmp[ii];
+  double *tau  = new double[nSamples_];
+  double *work = new double[nSamples_];
+  double *QMat = new double[nSamples_*nBasis];
+  checkAllocate(QMat, "QMat in Kriging::evaluateFunction");
+  dgeqrf_(&nSamples_, &nBasis, KRI_FMatTmp, &nSamples_, 
+          tau, work, &nSamples_, &status);
+  for (ii = 0; ii < nSamples_*nBasis; ii++) QMat[ii] = 0.0;
+  for (ii = 0; ii < nBasis; ii++) QMat[ii*nSamples_+ii] = 1.0;
+  dormqr_(&side, &trans, &nSamples_, &nBasis, &nBasis, KRI_FMatTmp, 
+          &nSamples_, tau, QMat, &nSamples_, work, &nSamples_, 
+          &status);
+  delete [] work;
+  delete [] tau;
 
-   double *tau  = new double[nSamples_];
-   double *work = new double[nSamples_];
-   double *QMat = new double[nSamples_*nBasis];
-   checkAllocate(QMat, "QMat in Kriging::evaluateFunction");
-   dgeqrf_(&nSamples_, &nBasis, KRI_FMatTmp, &nSamples_, 
-           tau, work, &nSamples_, &status);
-   for (ii = 0; ii < nSamples_*nBasis; ii++) QMat[ii] = 0.0;
-   for (ii = 0; ii < nBasis; ii++) QMat[ii*nSamples_+ii] = 1.0;
-   dormqr_(&side, &trans, &nSamples_, &nBasis, &nBasis, KRI_FMatTmp, 
-           &nSamples_, tau, QMat, &nSamples_, work, &nSamples_, 
-           &status);
-   delete [] work;
-   delete [] tau;
-
-   double *Ytmp = new double[nSamples_];
-   checkAllocate(Ytmp, "Ytmp in Kriging::evaluateFunction");
-   for (ii = 0; ii < nSamples_; ii++) Ytmp[ii] = YNormalized_[ii];
-   dtrsv_(&uplo,&trans,&diag,&nSamples_,KRI_SMatrix,&nSamples_,
-          Ytmp, &inc);
-   work = new double[nBasis];
-   checkAllocate(work, "work in Kriging::evaluateFunction");
-   for (jj = 0; jj < nBasis; jj++)
-   {
-      ddata = 0.0;
-      for (kk = 0; kk < nSamples_; kk++)
-         ddata += QMat[kk+jj*nSamples_] * Ytmp[kk];
-      work[jj] = ddata;
-   }
-   for (jj = nBasis-1; jj >= 0; jj--)
-   {
-      ddata = work[jj];
-      for (kk = jj+1; kk < nBasis; kk++)
-         ddata -= betas_[kk] * KRI_FMatTmp[kk*nSamples_+jj];
-      betas_[jj] = ddata/ KRI_FMatTmp[jj*nSamples_+jj];
-   }
-   delete [] work;
-   double *rho = new double[nSamples_];
-   checkAllocate(rho, "rho in Kriging::evaluateFunction");
-   for (ii = 0; ii < nSamples_; ii++) rho[ii] = Ytmp[ii];
-   for (ii = 0; ii < nSamples_; ii++) 
-   {
-      ddata = 0.0;
-      for (kk = 0; kk < nBasis; kk++) 
-         ddata += KRI_FMatrix[kk*nSamples_+ii] * betas_[kk];
-      rho[ii] -= ddata;
-   }
-   double sigma = 0.0;
-   //for (ii = 0; ii < nSamples_; ii++) sigma += rho[ii] * rho[ii];
-   for (ii = 0; ii < nSamples_; ii++) sigma += pow(rho[ii],2.0);
-   sigma /= (double) nSamples_;
-   double detR = 1.0;
-   for (ii = 0; ii < nSamples_; ii++) 
-   {
-      ddata = KRI_SMatrix[ii*nSamples_+ii];
-      detR *= pow(ddata, 2.0/nSamples_);
-   }
-   char transT = 'T';
-   dtrsv_(&uplo,&transT,&diag,&nSamples_,KRI_SMatrix,&nSamples_,
-          rho, &inc);
-   for (ii = 0; ii < nSamples_; ii++) gammas_[ii] = rho[ii];
-   delete [] QMat;
-   delete [] Ytmp;
-   delete [] rho;
-   retVal = sigma * detR;
-   return retVal;
+  double *Ytmp = new double[nSamples_];
+  checkAllocate(Ytmp, "Ytmp in Kriging::evaluateFunction");
+  for (ii = 0; ii < nSamples_; ii++) Ytmp[ii] = YNormalized_[ii];
+  dtrsv_(&uplo,&trans,&diag,&nSamples_,KRI_SMatrix,&nSamples_,
+         Ytmp, &inc);
+  work = new double[nBasis];
+  checkAllocate(work, "work in Kriging::evaluateFunction");
+  for (jj = 0; jj < nBasis; jj++)
+  {
+    ddata = 0.0;
+    for (kk = 0; kk < nSamples_; kk++)
+      ddata += QMat[kk+jj*nSamples_] * Ytmp[kk];
+    work[jj] = ddata;
+  }
+  for (jj = nBasis-1; jj >= 0; jj--)
+  {
+    ddata = work[jj];
+    for (kk = jj+1; kk < nBasis; kk++)
+      ddata -= betas_[kk] * KRI_FMatTmp[kk*nSamples_+jj];
+    betas_[jj] = ddata/ KRI_FMatTmp[jj*nSamples_+jj];
+  }
+  delete [] work;
+  double *rho = new double[nSamples_];
+  checkAllocate(rho, "rho in Kriging::evaluateFunction");
+  for (ii = 0; ii < nSamples_; ii++) rho[ii] = Ytmp[ii];
+  for (ii = 0; ii < nSamples_; ii++) 
+  {
+    ddata = 0.0;
+    for (kk = 0; kk < nBasis; kk++) 
+      ddata += KRI_FMatrix[kk*nSamples_+ii] * betas_[kk];
+    rho[ii] -= ddata;
+  }
+  double sigma = 0.0;
+  //for (ii = 0; ii < nSamples_; ii++) sigma += rho[ii] * rho[ii];
+  for (ii = 0; ii < nSamples_; ii++) sigma += pow(rho[ii],2.0);
+  sigma /= (double) nSamples_;
+  double detR = 1.0;
+  for (ii = 0; ii < nSamples_; ii++) 
+  {
+    ddata = KRI_SMatrix[ii*nSamples_+ii];
+    detR *= pow(ddata, 2.0/nSamples_);
+  }
+  char transT = 'T';
+  dtrsv_(&uplo,&transT,&diag,&nSamples_,KRI_SMatrix,&nSamples_,
+         rho, &inc);
+  for (ii = 0; ii < nSamples_; ii++) gammas_[ii] = rho[ii];
+  delete [] QMat;
+  delete [] Ytmp;
+  delete [] rho;
+  retVal = sigma * detR;
+  return retVal;
 }
 
 // ************************************************************************
@@ -2663,44 +2659,44 @@ double Kriging::evaluateFunction(double *thetas)
 // ------------------------------------------------------------------------
 double Kriging::predict0(int length, double *X, double *Y, double *YStds)
 {
-   int    ii, jj, kk, nBasis;
-   double *Xt = new double[nInputs_];
-   double *FMat, ddata, Yt, *RMat;
+  int    ii, jj, kk, nBasis;
+  double *Xt = new double[nInputs_];
+  double *FMat, ddata, Yt, *RMat;
 
-   nBasis = 1;
-   if (pOrder_ >= 1) nBasis += nInputs_;
-   FMat = new double[nBasis];
-   RMat = new double[nSamples_];
-   checkAllocate(RMat, "RMat in Kriging::predict0");
-   if (YStds != NULL)
-      for (ii = 0; ii < length; ii++) YStds[ii] = 0;
+  nBasis = 1;
+  if (pOrder_ >= 1) nBasis += nInputs_;
+  FMat = new double[nBasis];
+  RMat = new double[nSamples_];
+  checkAllocate(RMat, "RMat in Kriging::predict0");
+  if (YStds != NULL)
+    for (ii = 0; ii < length; ii++) YStds[ii] = 0;
 
-   for (ii = 0; ii < length; ii++) 
-   {
-      for (jj = 0; jj < nInputs_; jj++) 
-         Xt[jj] = (X[ii*nInputs_+jj] - XMeans_[jj])/XStds_[jj];
+  for (ii = 0; ii < length; ii++) 
+  {
+    for (jj = 0; jj < nInputs_; jj++) 
+      Xt[jj] = (X[ii*nInputs_+jj] - XMeans_[jj])/XStds_[jj];
 
-      //*/ construct regression matrix F
-      FMat[0] = 1.0;
-      if (pOrder_ == 1)
-         for (kk = 1; kk < nBasis; kk++) FMat[kk] = Xt[kk-1];
-      //*/ construct correlation R
-      for (jj = 0; jj < nSamples_; jj++)
-      {
-         ddata = 0.0;
-         for (kk = 0; kk < nInputs_; kk++)
-            ddata += pow(Xt[kk]-XNormalized_[jj*nInputs_+kk],
-                     KRI_Exponent)*thetasOpt_[kk];
-         RMat[jj] = exp(-ddata);
-      }
-      Yt = 0.0;
-      for (jj = 0; jj < nBasis; jj++) Yt += FMat[jj] * betasOpt_[jj];
-      for (jj = 0; jj < nSamples_; jj++) Yt += RMat[jj] * gammasOpt_[jj];
-      Y[ii] = Yt * YStd_ + YMean_;
-   }
-   delete [] FMat;
-   delete [] RMat;
-   delete [] Xt;
-   return 0;
+    //*/ construct regression matrix F
+    FMat[0] = 1.0;
+    if (pOrder_ == 1)
+      for (kk = 1; kk < nBasis; kk++) FMat[kk] = Xt[kk-1];
+    //*/ construct correlation R
+    for (jj = 0; jj < nSamples_; jj++)
+    {
+      ddata = 0.0;
+      for (kk = 0; kk < nInputs_; kk++)
+        ddata += pow(Xt[kk]-XNormalized_[jj*nInputs_+kk],
+                 KRI_Exponent)*thetasOpt_[kk];
+      RMat[jj] = exp(-ddata);
+    }
+    Yt = 0.0;
+    for (jj = 0; jj < nBasis; jj++) Yt += FMat[jj] * betasOpt_[jj];
+    for (jj = 0; jj < nSamples_; jj++) Yt += RMat[jj] * gammasOpt_[jj];
+    Y[ii] = Yt * YStd_ + YMean_;
+  }
+  delete [] FMat;
+  delete [] RMat;
+  delete [] Xt;
+  return 0;
 }
 

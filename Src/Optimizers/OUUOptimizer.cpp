@@ -28,6 +28,8 @@
 
 #ifdef WINDOWS
 #include <windows.h>
+#undef ERROR
+#undef IS_ERROR
 #endif
 
 #include <stdio.h>
@@ -86,6 +88,7 @@ int psOUUZ4RSType_=0;
 int psOUUZ4RSAux_=0;
 int psOUUValidateRS_=0;
 
+double *psOUUM2Values_=NULL;
 int psOUUZ3nSamples_=-1;
 int psOUUZ4nSamples_=-1;
 double *psOUUZ3SamInputs_=NULL;
@@ -371,8 +374,9 @@ extern "C"
             {
               lowers[index] = odata->lowerBounds_[ii];
               uppers[index] = odata->upperBounds_[ii];
-              ddata = 0.5 * (lowers[index] + uppers[index]);
-              XLocal[index] = ddata;
+              //Nov 2017 - set to user-specified values
+              //ddata = 0.5 * (lowers[index] + uppers[index]);
+              XLocal[index] = psOUUM2Values_[index];
               ddata = uppers[index] - lowers[index];
               if (ddata < rhobeg) rhobeg = ddata;
               index++;
@@ -415,8 +419,10 @@ extern "C"
           {
             if (psOUUInputTypes_[ii] == psOUUType2)
             {
-              XLocal[ii] = 0.5 * (odata->lowerBounds_[ii] + 
-                                  odata->upperBounds_[ii]);
+              //Nov 2017 - set to user-specified values
+              //XLocal[ii] = 0.5 * (odata->lowerBounds_[ii] + 
+              //                    odata->upperBounds_[ii]);
+              XLocal[ii] = psOUUM2Values_[index];
               index++;
             }
           }
@@ -546,12 +552,16 @@ extern "C"
             index++;
           }
         }
+        index = 0;
         for (ii = 0; ii < M; ii++)
         {
           if (psOUUInputTypes_[ii] == psOUUType2)
           {
-            psOUUXValues_[ss*M+ii] = 0.5*(odata->lowerBounds_[ii] + 
-                                          odata->upperBounds_[ii]);
+            //Nov 2017 - set to user-specified values
+            //psOUUXValues_[ss*M+ii] = 0.5*(odata->lowerBounds_[ii] + 
+            //                              odata->upperBounds_[ii]);
+            psOUUXValues_[ss*M+ii] = psOUUM2Values_[index];
+            index++;
           }
         }
         index = 0;
@@ -918,8 +928,10 @@ extern "C"
         {
           if (psOUUInputTypes_[ii] == psOUUType2)
           {
-            XLocal[ii] = 0.5 * (odata->lowerBounds_[ii] +
-                                odata->upperBounds_[ii]);
+            //Nov 2017 - set to user-specified values
+            //XLocal[ii] = 0.5 * (odata->lowerBounds_[ii] +
+            //                    odata->upperBounds_[ii]);
+            XLocal[ii] = psOUUM2Values_[index];
             index++;
           }
         }
@@ -1052,12 +1064,16 @@ extern "C"
             index++;
           }
         }
+        index = 0;
         for (ii = 0; ii < M; ii++)
         {
           if (psOUUInputTypes_[ii] == psOUUType2)
           {
-            psOUUXValues_[ss*M+ii] = 0.5*(odata->lowerBounds_[ii] +
-                                          odata->upperBounds_[ii]);
+            //Nov 2017 - set to user-specified values
+            //psOUUXValues_[ss*M+ii] = 0.5*(odata->lowerBounds_[ii] +
+            //                              odata->upperBounds_[ii]);
+            psOUUXValues_[ss*M+ii] = psOUUM2Values_[index];
+            index++;
           }
         }
         index = 0;
@@ -1463,6 +1479,7 @@ OUUOptimizer::~OUUOptimizer()
   if (psOUUfaPtr_ != NULL) delete psOUUfaPtr_;
   if (psOUUInputTypes_ != NULL) delete psOUUInputTypes_;
   if (psOUUDesignTypes_ != NULL) delete psOUUDesignTypes_;
+  if (psOUUM2Values_ != NULL) delete psOUUM2Values_;
   psOUUZ3SamInputs_ = NULL;
   psOUUZ4SamInputs_ = NULL;
   psOUUZ4LBounds_ = NULL;
@@ -1478,6 +1495,7 @@ OUUOptimizer::~OUUOptimizer()
   psOUUfaPtr_ = NULL;
   psOUUInputTypes_ = NULL;
   psOUUDesignTypes_ = NULL;
+  psOUUM2Values_ = NULL;
 }
 
 // ************************************************************************
@@ -1939,6 +1957,19 @@ void OUUOptimizer::optimize(oData *odata)
       {
          XValues[index] = odata->initialX_[ii];
          index++;
+      }
+   }
+   if (M2 > 0)
+   {
+      psOUUM2Values_ = new double[M2];
+      index = 0;
+      for (ii = 0; ii < nInputs; ii++)
+      {
+         if (psOUUInputTypes_[ii] == psOUUType2)
+         {
+            psOUUM2Values_[index] = odata->initialX_[ii];
+            index++;
+         }
       }
    }
    rhobeg = 1e35;

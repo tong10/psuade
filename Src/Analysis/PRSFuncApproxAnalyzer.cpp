@@ -266,8 +266,8 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       if (mypid_ == 0)
       {
          printOutTS(PL_INFO,"Cross validation (CV) cannot be performed on\n");
-         printOutTS(PL_INFO,"    Legendre polynomial, splines, and sparse\n");
-         printOutTS(PL_INFO,"    grid response surface.\n");
+         printOutTS(PL_INFO,"  gradient-based Legendre polynomial, splines,\n");
+         printOutTS(PL_INFO,"  and sparse grid response surface.\n");
       }
       return 0;
    }

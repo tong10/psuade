@@ -38,8 +38,8 @@ class UserRegression : public FuncApprox
 {
    int    numTerms_;
    int    noAnalysis_;
-   double *XNShift_;
-   double *XNScale_;
+   psVector XNShift_;
+   psVector XNScale_;
    int    *XScales_;
    int    **coefTerms_;
    char   regFile_[1001];
@@ -71,10 +71,11 @@ public:
 
 private:
    int    analyze(double *, double *);
-   int    loadXMatrix(double *, double **);
-   int    computeSS(int, double *, double *, double *, double &, double &);
+   int    analyze(psVector, psVector);
+   int    loadXMatrix(psVector, psMatrix &);
+   int    computeSS(psMatrix, psVector, psVector, double &, double &);
    int    computeCoeffVariance(psMatrix&, psVector&, double);
-   int    printRC(int, double *, double *, double *, double *);
+   int    printRC(psVector, psVector, psMatrix, psVector);
 
 };
 

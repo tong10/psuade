@@ -1313,7 +1313,7 @@ int PsuadeBase::runAdaptiveNN()
    int    parallelJobCount, status, maxState, jobsCompletedLast, refineType;
    int    lastNSamples, rstype, nPtsPerDim=64, length, refineSize, iSum;
    int    tstNSamples=0, tstNInputs, tstNOutputs, ivar1, ivar2, numMars=100;
-   int    marsNSamples;
+   int    marsNSamples, iOne=1;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs, outData, errAvg;
    double refineThreshold=1.0, errMax, dtemp;
    double anaThreshold, errRMS, *tstSamInputs, *tstSamOutputs;
@@ -1702,7 +1702,7 @@ int PsuadeBase::runAdaptiveNN()
          printOutTS(PL_INFO,
                 "   test response surface with previous %d sample points.\n",
                 nSamples-lastNSamples);
-         faPtr = genFA(rstype, nInputs, nOutputs, lastNSamples);
+         faPtr = genFA(rstype, nInputs, iOne, lastNSamples);
          if (faPtr == NULL)
          {
             printOutTS(PL_ERROR, 
@@ -1780,7 +1780,7 @@ int PsuadeBase::runAdaptiveNN()
       if (tstNSamples > 0)
       {
          printEquals(PL_INFO, 0);
-         faPtr = genFA(rstype, nInputs, nOutputs, nSamples);
+         faPtr = genFA(rstype, nInputs, iOne, nSamples);
          if (faPtr == NULL)
          {
 	    printOutTS(PL_ERROR,
@@ -2003,7 +2003,7 @@ int PsuadeBase::runAdaptiveErrBased1()
    int    saveFrequency, nSamples, refineRatio, randomize, iSum, *inputPDFs;
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff, *samStates2=NULL;
    int    parallelJobCount, status, maxState, jobsCompletedLast, refineType;
-   int    rstype, nPtsPerDim=64, length, refineSize;
+   int    rstype, nPtsPerDim=64, length, refineSize, iOne=1;
    int    nSamples2, *iArray, useRandomPts=0, auxNSamples=0, ivar1, ivar2;
    int    auxNInputs, auxNOutputs, tstNSamples=0, tstNInputs, tstNOutputs;
    int    ii, jj, ss, numMars=100, marsMode=0, marsNSamples;
@@ -2504,7 +2504,7 @@ int PsuadeBase::runAdaptiveErrBased1()
       printOutTS(PL_INFO, "                    test set nSamples = %d\n",
              nSamples2-nSamples);
 
-      faPtr = genFA(rstype, nInputs, nOutputs, nSamples+auxNSamples);
+      faPtr = genFA(rstype, nInputs, iOne, nSamples+auxNSamples);
       faPtr->setNPtsPerDim(nPtsPerDim);
       faPtr->setBounds(iLowerB, iUpperB);
       faPtr->setOutputLevel(outputLevel_);
@@ -2584,8 +2584,8 @@ int PsuadeBase::runAdaptiveErrBased1()
            "     response surface   scaled rms error = %e\n",errL2/totalSum);
          printOutTS(PL_INFO, 
            "     response surface unscaled avg error = %e\n",errAvg);
-         printOutTS(PL_INFO,"     response surface   scaled avg error = %e\n",
-                errAvg/totalSum);
+         printOutTS(PL_INFO,
+           "     response surface   scaled avg error = %e\n",errAvg/totalSum);
       }
       if (tstNSamples > 0)
       {
@@ -2615,8 +2615,8 @@ int PsuadeBase::runAdaptiveErrBased1()
            "     test sample RS   scaled rms error = %e\n",errL2/totalSum);
          printOutTS(PL_INFO, 
            "     test sample RS unscaled avg error = %e\n",errAvg);
-         printOutTS(PL_INFO, "     test sample RS   scaled avg error = %e\n",
-                errAvg/totalSum);
+         printOutTS(PL_INFO, 
+           "     test sample RS   scaled avg error = %e\n",errAvg/totalSum);
          if (outputLevel_ > 0)
          {
             sprintf(cString, "arsm_marsb_err.m");
@@ -2792,7 +2792,7 @@ int PsuadeBase::runAdaptiveErrBasedG()
    int    loopFlag, currNJobs, *sampleStates, nJobsDiff, *samStates2=NULL;
    int    parallelJobCount, status, maxState, jobsCompletedLast;
    int    rstype, nPtsPerDim=64, length, refineSize, marsMode=0;
-   int    nSamples2, auxNSamples = 0, auxNInputs, auxNOutputs;
+   int    nSamples2, auxNSamples = 0, auxNInputs, auxNOutputs, iOne=1;
    int    tstNSamples=0,tstNInputs, tstNOutputs, ivar1, ivar2, numMars=100;
    double *iLowerB, *iUpperB, *sampleInputs, *sampleOutputs;
    double refineThreshold=1.0, dtemp;
@@ -3262,7 +3262,7 @@ int PsuadeBase::runAdaptiveErrBasedG()
       printOutTS(PL_INFO,"                    test set nSamples = %d\n",
              nSamples2-nSamples);
 
-      faPtr = genFA(rstype, nInputs, nOutputs, nSamples+auxNSamples);
+      faPtr = genFA(rstype, nInputs, iOne, nSamples+auxNSamples);
       faPtr->setNPtsPerDim(nPtsPerDim);
       faPtr->setBounds(iLowerB, iUpperB);
       faPtr->setOutputLevel(outputLevel_);
@@ -3325,8 +3325,8 @@ int PsuadeBase::runAdaptiveErrBasedG()
            "     response surface   scaled rms error = %e\n",errL2/totalSum);
       printOutTS(PL_INFO, 
            "     response surface unscaled avg error = %e\n",errAvg);
-      printOutTS(PL_INFO, "     response surface   scaled avg error = %e\n",
-             errAvg/totalSum);
+      printOutTS(PL_INFO, 
+           "     response surface   scaled avg error = %e\n",errAvg/totalSum);
       if (tstNSamples > 0)
       {
          printEquals(PL_INFO, 0);
@@ -3355,8 +3355,8 @@ int PsuadeBase::runAdaptiveErrBasedG()
            "     test sample RS   scaled rms error = %e\n",errL2/totalSum);
          printOutTS(PL_INFO, 
            "     test sample RS unscaled avg error = %e\n",errAvg);
-         printOutTS(PL_INFO, "     test sample RS   scaled avg error = %e\n",
-                errAvg/totalSum);
+         printOutTS(PL_INFO, 
+           "     test sample RS   scaled avg error = %e\n",errAvg/totalSum);
          if (outputLevel_ > 0)
          {
             sprintf(cString, "rsag_err_hist_%d.m", refineLevel);
@@ -3594,9 +3594,9 @@ int PsuadeBase::runAdaptivePRA()
    printOutTS(PL_INFO, 
         "is important that the initial nSamples is sufficient large to\n");
    printOutTS(PL_INFO, 
-        "uncover all fail/no fail interfaces. Alternatively, you can\n");
+        "uncover all fail/no fail interfaces.\n");
    printOutTS(PL_INFO, 
-        "enforce the number of uniform refinements before adaptive\n");
+        "Alternatively, you can pre-refine uniformly before adaptive\n");
    printOutTS(PL_INFO, 
         "sampling is applied. You have the opportunity to do it now.\n");
    sprintf(cString,"Number of initial uniform refinements : (0 - %d): ",
@@ -3757,31 +3757,32 @@ int PsuadeBase::runAdaptivePRA()
 
       if (ss != nSamples)
       {
-         printOutTS(PL_INFO, 
-              "PSUADE adaptivePRA: non 0/1 outputs (transform to 0/1).\n");
-         if (askFlag == 0)
-         {
-            while (relMin >= relMax)
-            {
-               sprintf(cString,"Upper bound for safe region (-999 if none): ");
-               relMax = getDouble(cString);
-               if (relMax == -999) relMax = 1.0e10;
-               sprintf(cString,"Lower bound for safe region (-999 if none): ");
-               relMin = getDouble(cString);
-               if (relMin == -999) relMin = -1.0e10;
-               if (relMin >= relMax) printOutTS(PL_INFO, "INVALID bounds.\n");
-            } 
-            askFlag = 1;
-         }
-         tempY = new double[nSamples];
-         for (ss = 0; ss < nSamples; ss++)
-         {
-            if (sampleOutputs[ss] < relMin || sampleOutputs[ss] > relMax)
-                 tempY[ss] = 0;
-            else tempY[ss] = 1;
-         }
-         sampler_->loadSamples(nSamples, nInputs, nOutputs, sampleInputs, 
-                               tempY, sampleStates);
+        printOutTS(PL_INFO, 
+             "PSUADE adaptivePRA: non 0/1 outputs (transform to 0/1).\n");
+        if (askFlag == 0)
+        {
+          while (relMin >= relMax)
+          {
+            printf("Safe region is defined to be inside [lower, upper].\n");
+            sprintf(cString,"Upper bound for safe region (-999 if none): ");
+            relMax = getDouble(cString);
+            if (relMax == -999) relMax = 1.0e10;
+            sprintf(cString,"Lower bound for safe region (-999 if none): ");
+            relMin = getDouble(cString);
+            if (relMin == -999) relMin = -1.0e10;
+            if (relMin >= relMax) printOutTS(PL_INFO, "INVALID bounds.\n");
+          } 
+          askFlag = 1;
+        }
+        tempY = new double[nSamples];
+        for (ss = 0; ss < nSamples; ss++)
+        {
+           if (sampleOutputs[ss] < relMin || sampleOutputs[ss] > relMax)
+                tempY[ss] = 0;
+           else tempY[ss] = 1;
+        }
+        sampler_->loadSamples(nSamples, nInputs, nOutputs, sampleInputs, 
+                              tempY, sampleStates);
       }
 
       strcpy(sparam, "calVolumes");
@@ -3791,13 +3792,16 @@ int PsuadeBase::runAdaptivePRA()
       lastVal = curVal;
       curVal = 1.0 * curVol / totVol;
       if (refineLevel == 1) lastVal = curVal;
-      printOutTS(PL_INFO, "Current reliability = %8.5f%% (%d/%d*100)\n",
-                100*curVal,curVol,totVol);
-      if ((refineLevel > 1) && (curVal != 1.0) && (curVal != 0.0))
+      printOutTS(PL_INFO,
+           "CURRENT RELIABLITY (SUCCESS) = %8.5f%% (%d/%d*100)\n",
+           100*curVal,curVol,totVol);
+      if ((refineLevel > 1) && (curVal != 1.0) && (curVal != 0.0) &&
+          (curVal+lastVal != 0.0))
          printOutTS(PL_INFO, "Convergence check = %e (%e), trial %d (of 2)\n",
                 PABS(2.0*(curVal-lastVal)/(curVal+lastVal)),anaThreshold,
                 numSuccess+1);
       if ((refineLevel > 1) && (curVal != 1.0) && (curVal != 0.0) &&
+          (curVal+lastVal != 0.0) &&
           (PABS(2.0*(lastVal-curVal)/(lastVal+curVal)) < anaThreshold))
       {
          if (curVal != 1.0)
@@ -3808,7 +3812,8 @@ int PsuadeBase::runAdaptivePRA()
                printOutTS(PL_INFO, "Convergence check: %e <? %e\n",
                   PABS(2.0*(lastVal-curVal)/(lastVal+curVal)),anaThreshold);
                printOutTS(PL_INFO, 
-                  "Convergence achieved: reliability = %8.5f%%\n",100*curVal);
+                  "CONVERGED: RELIABILITY (SUCCESS) = %8.5f%%\n",
+                  100*curVal);
                break;
             }
          }
@@ -4273,6 +4278,7 @@ int PsuadeBase::runAdaptiveOpt()
 int PsuadeBase::runAdaptive2Level()
 {
   int    samMethod, initFlag, refineLevel, nInputs, nOutputs, nRefinements;
+  int    iOne=1;
   char   systemCommand[100], cString[100], winput[500];
   char   *targv[6], sparam[501];
   pData  pPtr, pLowerB, pUpperB, pPDFs, pTstInputs, pTstOutputs;
@@ -4596,7 +4602,7 @@ int PsuadeBase::runAdaptive2Level()
     printOutTS(PL_INFO,"                    test set nSamples = %d\n",
            nSamples2-nSamples);
 
-    faPtr = genFA(rstype, nInputs, nOutputs, nSamples+auxNSamples);
+    faPtr = genFA(rstype, nInputs, iOne, nSamples+auxNSamples);
     faPtr->setNPtsPerDim(nPtsPerDim);
     faPtr->setBounds(iLowerB, iUpperB);
     faPtr->setOutputLevel(outputLevel_);
@@ -4650,17 +4656,17 @@ int PsuadeBase::runAdaptive2Level()
     totalSum /= (nSamples2 - nSamples);
     errAvg  = errAvg / (nSamples2 - nSamples);
     printOutTS(PL_INFO,
-         "     response surface unscaled max error = %e\n",errMax);
+       "     response surface unscaled max error = %e\n",errMax);
     printOutTS(PL_INFO,
-         "     response surface   scaled max error = %e\n",errMax/totalSum);
+       "     response surface   scaled max error = %e\n",errMax/totalSum);
     printOutTS(PL_INFO,
-         "     response surface unscaled rms error = %e\n",errL2);
+       "     response surface unscaled rms error = %e\n",errL2);
     printOutTS(PL_INFO,
-         "     response surface   scaled rms error = %e\n",errL2/totalSum);
+       "     response surface   scaled rms error = %e\n",errL2/totalSum);
     printOutTS(PL_INFO,
-         "     response surface unscaled avg error = %e\n",errAvg);
-    printOutTS(PL_INFO, "     response surface   scaled avg error = %e\n",
-           errAvg/totalSum);
+       "     response surface unscaled avg error = %e\n",errAvg);
+    printOutTS(PL_INFO, 
+       "     response surface   scaled avg error = %e\n",errAvg/totalSum);
 
     refineLevel++;
     sampler_->loadSamples(nSamples, nInputs, nOutputs, sampleInputs,

@@ -39,12 +39,12 @@
 psVector::psVector()
 {
 #ifdef PS_DEBUG
-   printf("psVector constructor\n");
+  printf("psVector constructor\n");
 #endif
-   length_ = 0;
-   Vec_ = NULL;
+  length_ = 0;
+  Vec_ = NULL;
 #ifdef PS_DEBUG
-   printf("psVector constructor ends\n");
+  printf("psVector constructor ends\n");
 #endif
 }
 
@@ -53,13 +53,13 @@ psVector::psVector()
 // ------------------------------------------------------------------------
 psVector::psVector(const psVector & v)
 {
-   length_ = v.length_;
-   Vec_ = NULL;
-   if (length_ > 0)
-   {
-      Vec_ = new double[length_];
-      for (int ii = 0; ii < length_; ii++) Vec_[ii] = v.Vec_[ii];
-   }
+  length_ = v.length_;
+  Vec_ = NULL;
+  if (length_ > 0)
+  {
+    Vec_ = new double[length_];
+    for (int ii = 0; ii < length_; ii++) Vec_[ii] = v.Vec_[ii];
+  }
 }
 
 // ************************************************************************
@@ -67,16 +67,16 @@ psVector::psVector(const psVector & v)
 // ------------------------------------------------------------------------
 psVector & psVector::operator=(const psVector & v)
 {
-   if (this == &v) return *this;
-   delete [] Vec_;
-   Vec_ = NULL;
-   length_ = v.length_;
-   if (length_ > 0)
-   {
-      Vec_ = new double[length_];
-      for (int ii = 0; ii < length_; ii++) Vec_[ii] = v.Vec_[ii];
-   }
-   return *this;
+  if (this == &v) return *this;
+  delete [] Vec_;
+  Vec_ = NULL;
+  length_ = v.length_;
+  if (length_ > 0)
+  {
+    Vec_ = new double[length_];
+    for (int ii = 0; ii < length_; ii++) Vec_[ii] = v.Vec_[ii];
+  }
+  return *this;
 }
 
 // ************************************************************************
@@ -85,13 +85,13 @@ psVector & psVector::operator=(const psVector & v)
 psVector::~psVector()
 {
 #ifdef PS_DEBUG
-   printf("psVector destructor\n");
+  printf("psVector destructor\n");
 #endif
-   if (Vec_ != NULL) delete [] Vec_;
-   Vec_ = NULL;
-   length_ = 0;
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  length_ = 0;
 #ifdef PS_DEBUG
-   printf("psVector destructor ends\n");
+  printf("psVector destructor ends\n");
 #endif
 }
 
@@ -100,7 +100,7 @@ psVector::~psVector()
 // ------------------------------------------------------------------------
 int psVector::length() 
 {
-   return length_;
+  return length_;
 }
 
 // ************************************************************************
@@ -109,20 +109,20 @@ int psVector::length()
 int psVector::load(psVector &inVec)
 {
 #ifdef PS_DEBUG
-   printf("psVector load\n");
+  printf("psVector load\n");
 #endif
-   assert(this != &inVec);
-   if (Vec_ != NULL) delete [] Vec_;
-   Vec_ = NULL;
-   length_ = inVec.length();
-   if (length_ <= 0) return -1;
-   Vec_ = new double[length_];
-   assert(Vec_ != NULL);
-   for (int ii = 0; ii < length_; ii++) Vec_[ii] = inVec[ii];
+  assert(this != &inVec);
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  length_ = inVec.length();
+  if (length_ <= 0) return -1;
+  Vec_ = new double[length_];
+  assert(Vec_ != NULL);
+  for (int ii = 0; ii < length_; ii++) Vec_[ii] = inVec[ii];
 #ifdef PS_DEBUG
-   printf("psVector load ends\n");
+  printf("psVector load ends\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
@@ -131,19 +131,19 @@ int psVector::load(psVector &inVec)
 int psVector::setLength(int leng)
 {
 #ifdef PS_DEBUG
-   printf("psVector setLength\n");
+  printf("psVector setLength\n");
 #endif
-   if (Vec_ != NULL) delete [] Vec_;
-   Vec_ = NULL;
-   assert(leng > 0);
-   length_ = leng;
-   Vec_ = new double[leng];
-   assert(Vec_ != NULL);
-   for (int ii = 0; ii < leng; ii++) Vec_[ii] = 0.0;
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  assert(leng > 0);
+  length_ = leng;
+  Vec_ = new double[leng];
+  assert(Vec_ != NULL);
+  for (int ii = 0; ii < leng; ii++) Vec_[ii] = 0.0;
 #ifdef PS_DEBUG
-   printf("psVector setLength ends\n");
+  printf("psVector setLength ends\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
@@ -152,20 +152,20 @@ int psVector::setLength(int leng)
 int psVector::load(int leng, double *data)
 {
 #ifdef PS_DEBUG
-   printf("psVector load, length = %d\n", leng);
+  printf("psVector load, length = %d\n", leng);
 #endif
-   if (Vec_ != NULL) delete [] Vec_;
-   Vec_ = NULL;
-   assert(leng > 0);
-   assert(data != NULL);
-   length_ = leng;
-   Vec_ = new double[leng];
-   assert(Vec_ != NULL);
-   for (int ii = 0; ii < leng; ii++) Vec_[ii] = data[ii];
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  assert(leng > 0);
+  assert(data != NULL);
+  length_ = leng;
+  Vec_ = new double[leng];
+  assert(Vec_ != NULL);
+  for (int ii = 0; ii < leng; ii++) Vec_[ii] = data[ii];
 #ifdef PS_DEBUG
-   printf("psVector load ends\n");
+  printf("psVector load ends\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
@@ -173,12 +173,12 @@ int psVector::load(int leng, double *data)
 // ------------------------------------------------------------------------
 double& psVector::operator[](int ind) 
 {
-   if (ind < 0 || ind >= length_)
-   {
-      printf("psVector operator[] ERROR: index = %d (0, %d)\n",ind,length_-1);
-      exit(1);
-   }
-   return Vec_[ind];
+  if (ind < 0 || ind >= length_)
+  {
+    printf("psVector operator[] ERROR: index = %d (0, %d)\n",ind,length_-1);
+    exit(1);
+  }
+  return Vec_[ind];
 }
 
 // ************************************************************************
@@ -186,7 +186,7 @@ double& psVector::operator[](int ind)
 // ------------------------------------------------------------------------
 double *psVector::getDVector() 
 {
-   return Vec_;
+  return Vec_;
 }
 
 // ************************************************************************
@@ -194,11 +194,11 @@ double *psVector::getDVector()
 // ------------------------------------------------------------------------
 double psVector::max()
 {
-   int    ii;
-   double dmax = -PSUADE_UNDEFINED;
-   for (ii = 0; ii < length_; ii++) 
-      if (Vec_[ii] > dmax) dmax = Vec_[ii];
-   return dmax;
+  int    ii;
+  double dmax = -PSUADE_UNDEFINED;
+  for (ii = 0; ii < length_; ii++) 
+    if (Vec_[ii] > dmax) dmax = Vec_[ii];
+  return dmax;
 }
    
 // ************************************************************************
@@ -206,11 +206,11 @@ double psVector::max()
 // ------------------------------------------------------------------------
 double psVector::min()
 {
-   int    ii;
-   double dmin = PSUADE_UNDEFINED;
-   for (ii = 0; ii < length_; ii++) 
-      if (Vec_[ii] < dmin) dmin = Vec_[ii];
-   return dmin;
+  int    ii;
+  double dmin = PSUADE_UNDEFINED;
+  for (ii = 0; ii < length_; ii++) 
+    if (Vec_[ii] < dmin) dmin = Vec_[ii];
+  return dmin;
 }
    
 // ************************************************************************
@@ -218,10 +218,10 @@ double psVector::min()
 // ------------------------------------------------------------------------
 double psVector::sum()
 {
-   int    ii;
-   double dsum=0.0;
-   for (ii = 0; ii < length_; ii++) dsum += Vec_[ii];
-   return dsum;
+  int    ii;
+  double dsum=0.0;
+  for (ii = 0; ii < length_; ii++) dsum += Vec_[ii];
+  return dsum;
 }
 
 // ************************************************************************
@@ -229,7 +229,7 @@ double psVector::sum()
 // ------------------------------------------------------------------------
 void psVector::scale(double alpha)
 {
-   for (int ii = 0; ii < length_; ii++) Vec_[ii] *= alpha;
+  for (int ii = 0; ii < length_; ii++) Vec_[ii] *= alpha;
 }
 
 // ************************************************************************
@@ -237,7 +237,7 @@ void psVector::scale(double alpha)
 // ------------------------------------------------------------------------
 void psVector::sort()
 {
-   sortDbleList(length_, Vec_);
+  sortDbleList(length_, Vec_);
 }
    
 // ************************************************************************
@@ -246,20 +246,146 @@ void psVector::sort()
 int psVector::addElements(int leng, double *data)
 {
 #ifdef PS_DEBUG
-   printf("psVector add, length = %d\n", leng);
+  printf("psVector add, length = %d\n", leng);
 #endif
-   int    ii;
-   double *tmpVec = Vec_;
-   Vec_ = new double[leng+length_];
-   for (ii = 0; ii < length_; ii++) Vec_[ii] = tmpVec[ii];
-   if (data == NULL)
-        for (ii = 0; ii < leng; ii++) Vec_[length_+ii] = 0.0;
-   else for (ii = 0; ii < leng; ii++) Vec_[length_+ii] = data[ii];
-   delete [] tmpVec;
-   length_ += leng;
+  int    ii;
+  double *tmpVec = Vec_;
+  Vec_ = new double[leng+length_];
+  for (ii = 0; ii < length_; ii++) Vec_[ii] = tmpVec[ii];
+  if (data == NULL)
+       for (ii = 0; ii < leng; ii++) Vec_[length_+ii] = 0.0;
+  else for (ii = 0; ii < leng; ii++) Vec_[length_+ii] = data[ii];
+  delete [] tmpVec;
+  length_ += leng;
 #ifdef PS_DEBUG
    printf("psVector add ends\n");
 #endif
    return 0;
+}
+
+// ************************************************************************
+// Constructor
+// ------------------------------------------------------------------------
+psIVector::psIVector()
+{
+  length_ = 0;
+  Vec_ = NULL;
+}
+
+// ************************************************************************
+// Copy Constructor 
+// ------------------------------------------------------------------------
+psIVector::psIVector(const psIVector & v)
+{
+  length_ = v.length_;
+  Vec_ = NULL;
+  if (length_ > 0)
+  {
+    Vec_ = new int[length_];
+    for (int ii = 0; ii < length_; ii++) Vec_[ii] = v.Vec_[ii];
+  }
+}
+
+// ************************************************************************
+// overload operator= 
+// ------------------------------------------------------------------------
+psIVector & psIVector::operator=(const psIVector & v)
+{
+  if (this == &v) return *this;
+  delete [] Vec_;
+  Vec_ = NULL;
+  length_ = v.length_;
+  if (length_ > 0)
+  {
+    Vec_ = new int[length_];
+    for (int ii = 0; ii < length_; ii++) Vec_[ii] = v.Vec_[ii];
+  }
+  return *this;
+}
+
+// ************************************************************************
+// destructor
+// ------------------------------------------------------------------------
+psIVector::~psIVector()
+{
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  length_ = 0;
+}
+
+// ************************************************************************
+// get length 
+// ------------------------------------------------------------------------
+int psIVector::length() 
+{
+  return length_;
+}
+
+// ************************************************************************
+// load vector
+// ------------------------------------------------------------------------
+int psIVector::load(psIVector &inVec)
+{
+  assert(this != &inVec);
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  length_ = inVec.length();
+  if (length_ <= 0) return -1;
+  Vec_ = new int[length_];
+  assert(Vec_ != NULL);
+  for (int ii = 0; ii < length_; ii++) Vec_[ii] = inVec[ii];
+  return 0;
+}
+
+// ************************************************************************
+// set dimension
+// ------------------------------------------------------------------------
+int psIVector::setLength(int leng)
+{
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  assert(leng > 0);
+  length_ = leng;
+  Vec_ = new int[leng];
+  assert(Vec_ != NULL);
+  for (int ii = 0; ii < leng; ii++) Vec_[ii] = 0.0;
+  return 0;
+}
+
+// ************************************************************************
+// load vector
+// ------------------------------------------------------------------------
+int psIVector::load(int leng, int *data)
+{
+  if (Vec_ != NULL) delete [] Vec_;
+  Vec_ = NULL;
+  assert(leng > 0);
+  assert(data != NULL);
+  length_ = leng;
+  Vec_ = new int[leng];
+  assert(Vec_ != NULL);
+  for (int ii = 0; ii < leng; ii++) Vec_[ii] = data[ii];
+  return 0;
+}
+
+// ************************************************************************
+// get entry
+// ------------------------------------------------------------------------
+int& psIVector::operator[](int ind) 
+{
+  if (ind < 0 || ind >= length_)
+  {
+    printf("psVector operator[] ERROR: index = %d (0, %d)\n",ind,length_-1);
+    exit(1);
+  }
+  return Vec_[ind];
+}
+
+// ************************************************************************
+// get vector
+// ------------------------------------------------------------------------
+int *psIVector::getIVector() 
+{
+  return Vec_;
 }
 

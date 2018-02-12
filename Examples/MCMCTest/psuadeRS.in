@@ -24,6 +24,7 @@ END
 ANALYSIS
 #  analyzer method = Moment
    analyzer output_id  = 1
+#  analyzer rs_index_file = indexFile
    printlevel 3
 END
 END

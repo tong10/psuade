@@ -531,12 +531,12 @@ int PDFManager::getPDF(int nSamples, psVector &vecIn, psVector &vecOut,
       printf("PDFManager evaluate ERROR: vecBounds length mismatch.\n");
       exit(1);
    }
-   if (nSamples != vecIn.length()/nInputs)
+   if (nSamples > vecIn.length()/nInputs)
    {
       printf("PDFManager evaluate ERROR: vecIn length mismatch.\n");
       exit(1);
    }
-   if (nSamples != vecOut.length()/nInputs)
+   if (nSamples > vecOut.length()/nInputs)
    {
       printf("PDFManager evaluate ERROR: vecOut length mismatch.\n");
       exit(1);
@@ -737,7 +737,7 @@ int PDFManager::genSample(int nSamples, psVector &vecOut,
       printf("PDFManager genSample ERROR: vecBounds length mismatch.\n");
       exit(1);
    }
-   if (nSamples != vecOut.length()/nInputs_)
+   if (nSamples > vecOut.length()/nInputs_)
    {
       printf("PDFManager genSample ERROR: vecOut length mismatch (%d vs %d).\n",
              nSamples, vecOut.length()/nInputs);
@@ -971,7 +971,7 @@ int PDFManager::invCDF(int nSamples, psVector &vecIn, psVector &vecOut,
       printf("PDFManager invCDF ERROR: vecBounds length mismatch.\n");
       exit(1);
    }
-   if (nSamples != vecIn.length()/nInputs_)
+   if (nSamples > vecIn.length()/nInputs_)
    {
       printf("PDFManager invCDF ERROR: vecIn length mismatch.\n");
       exit(1);
@@ -1210,7 +1210,7 @@ int PDFManager::getCDF(int nSamples, psVector &vecIn, psVector &vecOut,
       printf("PDFManager getCDF ERROR: vecIn length mismatch.\n");
       exit(1);
    }
-   if (nSamples != vecOut.length()/nInputs_)
+   if (nSamples > vecOut.length()/nInputs_)
    {
       printf("PDFManager getCDF ERROR: vecOut length mismatch.\n");
       exit(1);

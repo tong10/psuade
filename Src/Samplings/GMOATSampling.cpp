@@ -105,9 +105,9 @@ GMOATSampling::GMOATSampling(const GMOATSampling & gms) : Sampling()
       sampleStates_[i] = gms.sampleStates_[i];
 }
 
-//********************************************************************
+//*************************************************************************
 //* destructor 
-//*-------------------------------------------------------------------
+//*------------------------------------------------------------------------
 GMOATSampling::~GMOATSampling()
 {
    if (inpLevels_   != NULL) delete [] inpLevels_;

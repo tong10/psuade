@@ -1,4 +1,4 @@
-Problem:
+Test Problem 1:
 
 - Read the simulator.c file.
 - This program outputs the differences between the simulator
@@ -32,4 +32,15 @@ Steps to run:
 The steps have been captured by psScript.in
 
 just run: psuade < psScript.in 
+
+**********************************************************************
+Test Problem 2:
+
+- Read the simulator2.c file
+- experiment2.c creates the data for inference
+- indexFile2 contains definition of the variables
+  Specifically, variable 5 is an uncertain parameter that is not to
+  be calibrated.
+- psScript2.in captures the run sequence
+
 

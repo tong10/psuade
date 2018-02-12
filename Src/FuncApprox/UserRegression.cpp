@@ -140,8 +140,8 @@ UserRegression::UserRegression(int nInputs,int nSamples):
     if (response[0] != 'y') noAnalysis_ = 1;
   }
 
-  XNShift_ = new double[nInputs_];
-  XNScale_ = new double[nInputs_];
+  XNShift_.setLength(nInputs_);
+  XNScale_.setLength(nInputs_);
   XScales_ = new int[nInputs_];
   checkAllocate(XScales_, "XScales_ in UserRegression::constructor");
   for (ii = 0; ii < nInputs_; ii++)
@@ -212,8 +212,6 @@ UserRegression::~UserRegression()
       if (coefTerms_[ii] != NULL) delete [] coefTerms_[ii];
     delete [] coefTerms_;
   }
-  if (XNShift_ != NULL) delete [] XNShift_;
-  if (XNScale_ != NULL) delete [] XNScale_;
 }
 
 // ************************************************************************
@@ -726,6 +724,7 @@ double UserRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
     }
     fprintf(fp, "\n");
     fclose(fp);
+
     if (numArgs_ == 2) 
     {
       if (psPythonOverride_ == 0)
@@ -816,17 +815,26 @@ double UserRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
 }
 
 // ************************************************************************
-// perform mean/variance analysis
+// perform regression analysis
 // ------------------------------------------------------------------------
-int UserRegression::analyze(double *X, double *Y)
+int UserRegression::analyze(double *Xin, double *Y)
+{
+  psVector VecX, VecY;
+  VecX.load(nSamples_*nInputs_, Xin);
+  VecY.load(nSamples_, Y);
+  return analyze(VecX, VecY);
+}
+
+// ************************************************************************
+// perform regression analysis
+// ------------------------------------------------------------------------
+int UserRegression::analyze(psVector VecX, psVector VecY)
 {
   int    N, M, mm, nn, wlen, info, NRevised;
-  double *B, *XX, SSresid, SStotal, R2, var, *Bvar;
-  double esum, ymax, *WW, *SS, *AA, *UU, *VV;
-  char   jobu  = 'S', jobvt = 'A';
+  double SSresid, SStotal, R2, var, esum, ymax, *arrayXX, *UU, *VV;
   char   pString[100];
   FILE   *fp;
-  psMatrix eigMatT;
+  psMatrix eigMatT, MatXX, MatA;
   psVector eigVals;
 
   if (nSamples_ <= numTerms_)
@@ -835,20 +843,16 @@ int UserRegression::analyze(double *X, double *Y)
     return -1;
   } 
    
-  N = loadXMatrix(X, &XX);
+  N = loadXMatrix(VecX, MatXX);
   M = nSamples_;
 
-  wlen = 5 * M;
-  AA = new double[M*N];
-  UU = new double[M*N];
-  SS = new double[N];
-  VV = new double[M*N];
-  WW = new double[wlen];
-  B  = new double[N];
-  checkAllocate(B, "B in UserRegression::analyze");
+  psVector VecA;
+  VecA.setLength(M*N);
+  arrayXX = MatXX.getMatrix1D();
   for (mm = 0; mm < M; mm++)
     for (nn = 0; nn < N; nn++)
-      AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
+      VecA[mm+nn*M] = sqrt(weights_[mm]) * arrayXX[mm+nn*M];
+  MatA.load(M, N, VecA.getDVector());
 
   if (psMasterMode_ == 1)
   {
@@ -866,8 +870,8 @@ int UserRegression::analyze(double *X, double *Y)
     for (mm = 0; mm < M; mm++)
     {
       for (nn = 0; nn < N; nn++)
-        fprintf(fp, "%24.16e ", AA[mm+nn*M]);
-      fprintf(fp, "%24.16e \n",Y[mm]);
+        fprintf(fp, "%24.16e ", VecA[mm+nn*M]);
+      fprintf(fp, "%24.16e \n",VecY[mm]);
     }
     fprintf(fp, "];\n");
     fprintf(fp, "A = AA(:,1:%d);\n", N);
@@ -877,9 +881,10 @@ int UserRegression::analyze(double *X, double *Y)
     printf("Regression matrix written to user_regression_matrix.m\n");
   }
 
+  psMatrix MatU, MatV;
+  psVector VecS;
   if (outputLevel_ > 3) printf("Running SVD ...\n");
-  dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
-          &wlen, &info);
+  info = MatA.computeSVD(MatU, VecS, MatV);
   if (outputLevel_ > 3) 
     printf("SVD completed: status = %d (should be 0).\n",info);
 
@@ -887,42 +892,28 @@ int UserRegression::analyze(double *X, double *Y)
   {
     printf("* UserRegression Info: dgesvd returns a nonzero (%d).\n",info);
     printf("* UserRegression terminates further processing.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
 
   mm = 0;
-  for (nn = 0; nn < N; nn++) if (SS[nn] < 0) mm++;
+  for (nn = 0; nn < N; nn++) if (VecS[nn] < 0) mm++;
   if (mm > 0)
   {
     printf("* UserRegression WARNING: some of the singular values\n");
     printf("*            are < 0. May spell trouble but will\n");
     printf("*            proceed anyway (%d).\n",mm);
   }
-  if (SS[0] == 0.0) NRevised = 0;
+  if (VecS[0] == 0.0) NRevised = 0;
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++)
-      if (SS[nn-1] > 0 && SS[nn]/SS[nn-1] < 1.0e-8) NRevised--;
+      if (VecS[nn-1] > 0 && VecS[nn]/VecS[nn-1] < 1.0e-8) NRevised--;
   }
   if (NRevised < N)
   {
     printf("* UserRegression ERROR: true rank of sample = %d (need %d)\n",
            NRevised, N);
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
   if (psMasterMode_ == 1)
@@ -932,44 +923,47 @@ int UserRegression::analyze(double *X, double *Y)
     printf("but not keeping them may ruin the approximation power.\n");
     printf("So, select them judiciously.\n");
     for (nn = 0; nn < N; nn++)
-      printf("Singular value %5d = %e\n", nn+1, SS[nn]);
+      printf("Singular value %5d = %e\n", nn+1, VecS[nn]);
     sprintf(pString, "How many to keep (1 - %d, 0 - all) ? ", N);
     NRevised = getInt(0,N,pString);
     if (NRevised == 0) NRevised = N;
-    for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
+    for (nn = NRevised; nn < N; nn++) VecS[nn] = 0.0;
   }
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++)
     {
-      if (SS[nn-1] > 0.0 && SS[nn]/SS[nn-1] < 1.0e-8)
+      if (VecS[nn-1] > 0.0 && VecS[nn]/VecS[nn-1] < 1.0e-8)
       {
-        SS[nn] = 0.0;
+        VecS[nn] = 0.0;
         NRevised--;
       }
     }
   }
+
+  psVector VecW, VecB;
+  VecW.setLength(M+N);
+  UU = MatU.getMatrix1D();
   for (mm = 0; mm < NRevised; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < M; nn++)
-      WW[mm] += UU[mm*M+nn] * sqrt(weights_[nn]) * Y[nn];
+      VecW[mm] += UU[nn+mm*M] * sqrt(weights_[nn]) * VecY[nn];
   }
-  for (nn = 0; nn < NRevised; nn++) WW[nn] /= SS[nn];
-  for (nn = NRevised; nn < N; nn++) WW[nn] = 0.0;
+  for (nn = 0; nn < NRevised; nn++) VecW[nn] /= VecS[nn];
+  for (nn = NRevised; nn < N; nn++) VecW[nn] = 0.0;
+  VecB.setLength(N);
+  VV = MatV.getMatrix1D();
   for (mm = 0; mm < N; mm++)
   {
-    B[mm] = 0.0;
-    for (nn = 0; nn < NRevised; nn++) B[mm] += VV[mm*N+nn] * WW[nn];
+    VecB[mm] = 0.0;
+    for (nn = 0; nn < NRevised; nn++) VecB[mm] += VV[nn+mm*N] * VecW[nn];
   }
+
   eigMatT.load(N, N, VV);
-  eigVals.load(N, SS);
+  eigVals.load(N, VecS.getDVector());
   for (nn = 0; nn < N; nn++) eigVals[nn] = pow(eigVals[nn], 2.0);
-  delete [] AA;
-  delete [] SS;
-  delete [] UU;
-  delete [] VV;
 
   if (psMasterMode_ == 1)
   {
@@ -987,14 +981,14 @@ int UserRegression::analyze(double *X, double *Y)
   esum = ymax = 0.0;
   for (mm = 0; mm < nSamples_; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < N; nn++)
-      WW[mm] = WW[mm] + XX[mm+nn*nSamples_] * B[nn];
-    WW[mm] = WW[mm] - Y[mm];
-    esum = esum + WW[mm] * WW[mm] * weights_[mm];
+      VecW[mm] = VecW[mm] + arrayXX[mm+nn*nSamples_] * VecB[nn];
+    VecW[mm] = VecW[mm] - VecY[mm];
+    esum = esum + VecW[mm] * VecW[mm] * weights_[mm];
     if (fp != NULL) 
-      fprintf(fp, "%6d %24.16e\n",mm+1,WW[mm]*sqrt(weights_[mm]));
-    if (PABS(Y[mm]) > ymax) ymax = PABS(Y[mm]);
+      fprintf(fp, "%6d %24.16e\n",mm+1,VecW[mm]*sqrt(weights_[mm]));
+    if (PABS(VecY[mm]) > ymax) ymax = PABS(VecY[mm]);
   }
   esum /= (double) nSamples_;
   esum = sqrt(esum);
@@ -1010,7 +1004,7 @@ int UserRegression::analyze(double *X, double *Y)
     printf("FILE user_regression_error.m contains data errors.\n");
   }
 
-  computeSS(N, XX, Y, B, SSresid, SStotal);
+  computeSS(MatXX, VecY, VecB, SSresid, SStotal);
   if (SStotal == 0.0) R2 = 1.0;
   else                R2  = 1.0 - SSresid / SStotal;
   if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
@@ -1025,21 +1019,23 @@ int UserRegression::analyze(double *X, double *Y)
     }
     else var = 0;
   }
-  regCoeffs_.load(N, B);
+  regCoeffs_.load(VecB);
 
-  Bvar = new double[N];
+  psVector VecBstd;
+  VecBstd.setLength(N);
   computeCoeffVariance(eigMatT, eigVals, var);
   for (mm = 0; mm < N; mm++)
-    Bvar[mm] = sqrt(invCovMat_.getEntry(mm,mm));
+    VecBstd[mm] = sqrt(invCovMat_.getEntry(mm,mm));
 
   if (outputLevel_ >= 0)
   {
-    printRC(N, B, Bvar, XX, Y);
+    printRC(VecB, VecBstd, MatXX, VecY);
     printf("* UserRegression model R-square = %12.4e\n", R2);
     printf("* adjusted   R-square = %12.4e\n",
            1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
      printEquals(PL_INFO, 0);
   }
+
   fp = NULL;
   if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "w");
   if (fp != NULL)
@@ -1261,28 +1257,23 @@ int UserRegression::analyze(double *X, double *Y)
     fclose(fp);
     printf("FILE psuade_rs.py contains the user regression interpolator.\n");
   }
- 
-  delete [] XX;
-  delete [] WW;
-  delete [] B;
-  delete [] Bvar;
   return 0;
 }
 
 // *************************************************************************
 // load the X matrix
 // -------------------------------------------------------------------------
-int UserRegression::loadXMatrix(double *X, double **XXOut)
+int UserRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
   int    M, N, mm, kk;
-  double *XX=NULL;
+  double *arrayXX;
   char   sysCmd[500], lineIn[5001];
   FILE   *fp;
 
   M = nSamples_;
   N = numTerms_;
-  XX = new double[M*N];
-  checkAllocate(XX, "XX in UserRegression::loadXMatrix");
+  MatXX.setDim(M, N);
+  arrayXX = MatXX.getMatrix1D();
   if (psPythonOverride_ == 0)
   {
     if (psPythonInterpreter_ != NULL)
@@ -1320,7 +1311,7 @@ int UserRegression::loadXMatrix(double *X, double **XXOut)
   {
     fprintf(fp, "%d", mm+1);
     for (kk = 0; kk < nInputs_; kk++)
-      fprintf(fp, " %e", (X[mm*nInputs_+kk]-XNShift_[kk])*XNScale_[kk]);
+      fprintf(fp, " %e", (VecX[mm*nInputs_+kk]-XNShift_[kk])*XNScale_[kk]);
     fprintf(fp, "\n");
   }
   fclose(fp);
@@ -1354,7 +1345,7 @@ int UserRegression::loadXMatrix(double *X, double **XXOut)
       fclose(fp);
       exit(1);
     }
-    for (kk = 0; kk < N; kk++) fscanf(fp, "%lg", &XX[M*kk+mm]);
+    for (kk = 0; kk < N; kk++) fscanf(fp, "%lg", &arrayXX[M*kk+mm]);
     if ((fgets(lineIn, 5000, fp) == NULL) && (mm < M-1))
     {
       printf("ERROR: user output file does not have enough data (%d).\n",
@@ -1367,34 +1358,35 @@ int UserRegression::loadXMatrix(double *X, double **XXOut)
   fclose(fp);
   unlink("ps_input");
   unlink("ps_output");
-  (*XXOut) = XX;
   return N;
 }
 
 // *************************************************************************
 // compute SS (sum of squares) statistics
 // -------------------------------------------------------------------------
-int UserRegression::computeSS(int N, double *XX, double *Y,
-                              double *B, double &SSresid, double &SStotal)
+int UserRegression::computeSS(psMatrix MatXX, psVector VecY, psVector VecB,
+                              double &SSresid, double &SStotal)
 {
-  int    nn, mm;
-  double rdata, ymean, SSreg, ddata, SSresidCheck;
+  int    nn, mm, N;
+  double rdata, ymean, SSreg, ddata, SSresidCheck, *arrayXX;
                                                                                 
+  N = VecB.length();
+  arrayXX = MatXX.getMatrix1D();
   SSresid = SSresidCheck = SStotal = SSreg = ymean = 0.0;
   for (mm = 0; mm < nSamples_; mm++)
-    ymean += (sqrt(weights_[mm]) * Y[mm]);
+    ymean += (sqrt(weights_[mm]) * VecY[mm]);
   ymean /= (double) nSamples_;
   for (mm = 0; mm < nSamples_; mm++)
   {
     ddata = 0.0;
-    for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
-    rdata = Y[mm] - ddata;
-    SSresid += Y[mm] * rdata * weights_[mm];
+    for (nn = 0; nn < N; nn++) ddata += (arrayXX[mm+nn*nSamples_]*VecB[nn]);
+    rdata = VecY[mm] - ddata;
+    SSresid += VecY[mm] * rdata * weights_[mm];
     SSresidCheck += rdata * rdata * weights_[mm];
     SSreg += (ddata - ymean) * (ddata - ymean);
   }
   for (mm = 0; mm < nSamples_; mm++)
-    SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
+    SStotal += weights_[mm] * (VecY[mm] - ymean) * (VecY[mm] - ymean);
   if (outputLevel_ > 0)
   {
     printf("* UserRegression: SStot  = %24.16e\n", SStotal);
@@ -1446,8 +1438,8 @@ int UserRegression::computeCoeffVariance(psMatrix &eigMatT,
 // ************************************************************************
 // print statistics
 // ------------------------------------------------------------------------
-int UserRegression::printRC(int N,double *B,double *Bvar,double *XX,
-                            double *Y)
+int UserRegression::printRC(psVector VecB,psVector VecBstd,psMatrix,
+                            psVector VecY)
 {
   int    ii;
   double coef;
@@ -1456,9 +1448,10 @@ int UserRegression::printRC(int N,double *B,double *Bvar,double *XX,
   printf("*  Term    coefficient     std. error     t-value\n");
   for (ii = 0; ii < numTerms_; ii++)
   {
-    if (PABS(Bvar[ii]) < 1.0e-15) coef = 0.0;
-    else                          coef = B[ii] / Bvar[ii]; 
-    printf("*   %3d   %12.4e   %12.4e   %12.4e\n",ii+1,B[ii],Bvar[ii],coef);
+    if (PABS(VecBstd[ii]) < 1.0e-15) coef = 0.0;
+    else                             coef = VecB[ii] / VecBstd[ii]; 
+    printf("*   %3d   %12.4e   %12.4e   %12.4e\n",ii+1,VecB[ii],
+           VecBstd[ii],coef);
   }
   printDashes(PL_INFO, 0);
   return 0;

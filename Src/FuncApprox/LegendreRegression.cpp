@@ -35,11 +35,6 @@
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
-extern "C" {
-  void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
-               double *, int *, double *, int *, double *, int *, int *);
-}
-
 // ************************************************************************
 // Constructor 
 // ------------------------------------------------------------------------
@@ -118,8 +113,8 @@ LegendreRegression::~LegendreRegression()
 // ------------------------------------------------------------------------
 int LegendreRegression::initialize(double *X, double *Y)
 {
-  int    ii, status;
-  double *X2;
+  int      ii, status;
+  psVector VecX2;
 
   if (pcePerms_ != NULL)
   {
@@ -131,11 +126,9 @@ int LegendreRegression::initialize(double *X, double *Y)
 
   if (normalizeFlag_ == 0)
   {
-    X2 = new double[nInputs_*nSamples_];
-    checkAllocate(X2, "X2 in LegendreRegression::initialize");
-    initInputScaling(X, X2, 1);
-    status = analyze(X2, Y);
-    delete [] X2;
+    VecX2.setLength(nInputs_*nSamples_);
+    initInputScaling(X, VecX2.getDVector(), 1);
+    status = analyze(VecX2.getDVector(), Y);
   }
   else status = analyze(X, Y);
   return status; 
@@ -177,8 +170,9 @@ int LegendreRegression::gen1DGridData(double *X, double *Y, int ind1,
                                       double *settings, int *NN, 
                                       double **XX, double **YY)
 {
-  int    totPts, mm, nn;
-  double HX, *Xloc;
+  int      totPts, mm, nn;
+  double   HX;
+  psVector VecXLocal;
 
   if (initialize(X, Y) != 0)
   {
@@ -193,18 +187,16 @@ int LegendreRegression::gen1DGridData(double *X, double *Y, int ind1,
   (*NN) = totPts;
   (*XX) = new double[totPts];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in LegendreRegression::gen1DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in LegendreRegression::gen1DGridData");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
-    Xloc[ind1] = HX * mm + lowerBounds_[ind1];
-    (*XX)[mm] = Xloc[ind1];
-    (*YY)[mm] = evaluatePoint(Xloc);
+    VecXLocal[ind1] = HX * mm + lowerBounds_[ind1];
+    (*XX)[mm] = VecXLocal[ind1];
+    (*YY)[mm] = evaluatePoint(VecXLocal.getDVector());
   }
-
-  delete [] Xloc;
   return 0;
 }
 
@@ -215,8 +207,8 @@ int LegendreRegression::gen2DGridData(double *X, double *Y, int ind1,
                                       int ind2, double *settings, int *NN, 
                                       double **XX, double **YY)
 {
-  int    totPts, mm, nn, index;
-  double *HX, *Xloc;
+  int      totPts, mm, nn, index;
+  psVector VecHX, VecXLocal;
 
   if (initialize(X, Y) != 0)
   {
@@ -226,32 +218,29 @@ int LegendreRegression::gen2DGridData(double *X, double *Y, int ind1,
   }
 
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(2);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
 
   (*NN) = totPts;
   (*XX) = new double[totPts * 2];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in LegendreRegression::gen2DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in LegendreRegression::gen2DGridData");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
     for (nn = 0; nn < nPtsPerDim_; nn++)
     {
       index = mm * nPtsPerDim_ + nn;
-      Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-      Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-      (*XX)[index*2]   = Xloc[ind1];
-      (*XX)[index*2+1] = Xloc[ind2];
-      (*YY)[index] = evaluatePoint(Xloc);
+      VecXLocal[ind1] = VecHX[0] * mm + lowerBounds_[ind1];
+      VecXLocal[ind2] = VecHX[1] * nn + lowerBounds_[ind2];
+      (*XX)[index*2]   = VecXLocal[ind1];
+      (*XX)[index*2+1] = VecXLocal[ind2];
+      (*YY)[index] = evaluatePoint(VecXLocal.getDVector());
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -262,8 +251,8 @@ int LegendreRegression::gen3DGridData(double *X, double *Y, int ind1,
                                       int ind2, int ind3, double *settings, 
                                       int *NN, double **XX, double **YY)
 {
-  int    totPts, mm, nn, pp, index;
-  double *HX, *Xloc;
+  int      totPts, mm, nn, pp, index;
+  psVector VecHX, VecXLocal;
 
   if (initialize(X, Y) != 0)
   {
@@ -273,17 +262,17 @@ int LegendreRegression::gen3DGridData(double *X, double *Y, int ind1,
   }
 
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(3);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
 
   (*NN) = totPts;
   (*XX) = new double[totPts * 3];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in LegendreRegression::gen3DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in LegendreRegression::gen3DGridData");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -292,20 +281,16 @@ int LegendreRegression::gen3DGridData(double *X, double *Y, int ind1,
       for (pp = 0; pp < nPtsPerDim_; pp++)
       {
         index = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
-        Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-        Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-        Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-        (*XX)[index*3]   = Xloc[ind1];
-        (*XX)[index*3+1] = Xloc[ind2];
-        (*XX)[index*3+2] = Xloc[ind3];
-        (*YY)[index] = evaluatePoint(Xloc);
+        VecXLocal[ind1] = VecHX[0] * mm + lowerBounds_[ind1];
+        VecXLocal[ind2] = VecHX[1] * nn + lowerBounds_[ind2];
+        VecXLocal[ind3] = VecHX[2] * pp + lowerBounds_[ind3];
+        (*XX)[index*3]   = VecXLocal[ind1];
+        (*XX)[index*3+1] = VecXLocal[ind2];
+        (*XX)[index*3+2] = VecXLocal[ind3];
+        (*YY)[index] = evaluatePoint(VecXLocal.getDVector());
       }
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
-  return 0;
 }
 
 // ************************************************************************
@@ -316,8 +301,8 @@ int LegendreRegression::gen4DGridData(double *X, double *Y, int ind1,
                                       double *settings, int *NN, 
                                       double **XX, double **YY)
 {
-  int    totPts, mm, nn, pp, qq, index;
-  double *HX, *Xloc;
+  int      totPts, mm, nn, pp, qq, index;
+  psVector VecHX, VecXLocal;
 
   if (initialize(X, Y) != 0)
   {
@@ -327,18 +312,18 @@ int LegendreRegression::gen4DGridData(double *X, double *Y, int ind1,
   }
 
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(4);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
 
   (*NN) = totPts;
   (*XX) = new double[totPts * 4];
   (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in LegendreRegression::gen4DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  checkAllocate(*YY, "(*YY) in LegendreRegression::gen4DGridData");
+  VecXLocal.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) VecXLocal[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -350,22 +335,19 @@ int LegendreRegression::gen4DGridData(double *X, double *Y, int ind1,
         {
           index = mm*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
                   nn*nPtsPerDim_*nPtsPerDim_ + pp * nPtsPerDim_ + qq;
-          Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-          Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-          Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-          Xloc[ind4] = HX[3] * qq + lowerBounds_[ind4];
-          (*XX)[index*4]   = Xloc[ind1];
-          (*XX)[index*4+1] = Xloc[ind2];
-          (*XX)[index*4+2] = Xloc[ind3];
-          (*XX)[index*4+3] = Xloc[ind4];
-          (*YY)[index] = evaluatePoint(Xloc);
+          VecXLocal[ind1] = VecHX[0] * mm + lowerBounds_[ind1];
+          VecXLocal[ind2] = VecHX[1] * nn + lowerBounds_[ind2];
+          VecXLocal[ind3] = VecHX[2] * pp + lowerBounds_[ind3];
+          VecXLocal[ind4] = VecHX[3] * qq + lowerBounds_[ind4];
+          (*XX)[index*4]   = VecXLocal[ind1];
+          (*XX)[index*4+1] = VecXLocal[ind2];
+          (*XX)[index*4+2] = VecXLocal[ind3];
+          (*XX)[index*4+3] = VecXLocal[ind4];
+          (*YY)[index] = evaluatePoint(VecXLocal.getDVector());
         }
       }
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -433,8 +415,9 @@ double LegendreRegression::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double LegendreRegression::evaluatePointFuzzy(double *X, double &std)
 {
-  int    iOne=1, ii, nn;
-  double Y, stdev, dtmp, multiplier, **LTable, normalX, *Xs;
+  int      iOne=1, ii, nn;
+  double   Y, stdev, dtmp, multiplier, **LTable, normalX, *Xs;
+  psVector VecXs;
 
   if (regCoeffs_.length() <= 0)
   {
@@ -446,7 +429,7 @@ double LegendreRegression::evaluatePointFuzzy(double *X, double &std)
   for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
   checkAllocate(LTable[nInputs_-1],"LTable in LegendreRegr::evaluatePtFuzzy");
 
-  Xs = new double[numPerms_];
+  VecXs.setLength(numPerms_);
   Y = 0.0;
   for (nn = 0; nn < numPerms_; nn++)
   {
@@ -469,7 +452,7 @@ double LegendreRegression::evaluatePointFuzzy(double *X, double &std)
     for (ii = 0; ii < nInputs_; ii++)
       multiplier *= LTable[ii][pcePerms_[nn][ii]];
     Y += regCoeffs_[nn] * multiplier;
-    Xs[nn] = multiplier;
+    VecXs[nn] = multiplier;
   }
   Y = Y * YStd_ + YMean_;
 
@@ -478,14 +461,13 @@ double LegendreRegression::evaluatePointFuzzy(double *X, double &std)
   {
     dtmp = 0.0;
     for (nn = 0; nn < numPerms_; nn++)
-      dtmp += invCovMat_.getEntry(ii,nn) * Xs[nn];
-    stdev += dtmp * Xs[ii];
+      dtmp += invCovMat_.getEntry(ii,nn) * VecXs[nn];
+    stdev += dtmp * VecXs[ii];
   }
   std = sqrt(stdev) * YStd_;
 
   for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
   delete [] LTable;
-  delete [] Xs;
   return Y;
 }
 
@@ -501,17 +483,27 @@ double LegendreRegression::evaluatePointFuzzy(int npts,double *X,double *Y,
 }
 
 // ************************************************************************
-// perform mean/variance analysis
+// perform regression analysis
 // ------------------------------------------------------------------------
-int LegendreRegression::analyze(double *X, double *Y)
+int LegendreRegression::analyze(double *Xin, double *Y)
 {
-  int    N, M, ii, mm, nn, wlen, info, NRevised;
-  double *B, *XX, SSresid, SStotal, R2, var, *Bvar;
-  double esum, ymax, *WW, *SS, *AA, *UU, *VV;
-  char   jobu  = 'S', jobvt = 'A';
-  char   pString[100];
+  psVector VecX, VecY;
+  VecX.load(nSamples_*nInputs_, Xin);
+  VecY.load(nSamples_, Y);
+  return analyze(VecX, VecY);
+}
+
+// ************************************************************************
+// perform regression analysis
+// ------------------------------------------------------------------------
+int LegendreRegression::analyze(psVector VecX, psVector VecY)
+{
+  int    N, M, ii, mm, nn, info, NRevised;
+  double *X, *Y, SSresid, SStotal, R2, var;
+  double esum, ymax, *arrayA, *arrayXX, *SS, *UU, *VV;
+  char   pString[100], response[1000];
   FILE   *fp;
-  psMatrix eigMatT;
+  psMatrix eigMatT, MatXX;
   psVector eigVals;
 
   if (nSamples_ <= nInputs_)
@@ -519,54 +511,62 @@ int LegendreRegression::analyze(double *X, double *Y)
     printf("LegendreRegression::analyze ERROR - sample size too small.\n");
     return -1;
   }
+  X = VecX.getDVector();
+  Y = VecY.getDVector();
 
   GenPermutations();
    
-  N = loadXMatrix(X, &XX);
+  N = loadXMatrix(VecX, MatXX);
   M = nSamples_;
 
-  wlen = 5 * M;
-  AA = new double[M*N];
-  UU = new double[M*N];
-  SS = new double[N];
-  VV = new double[N*N];
-  WW = new double[wlen];
-  B  = new double[N];
-  checkAllocate(B, "B in LegendreRegression::analyze");
+  psMatrix MatA;
+  psVector VecA;
+  VecA.setLength(M*N);
+  arrayA = VecA.getDVector();
+  arrayXX = MatXX.getMatrix1D();
   for (mm = 0; mm < M; mm++)
     for (nn = 0; nn < N; nn++)
-      AA[mm+nn*M] = sqrt(weights_[mm]) * XX[mm+nn*M];
+      arrayA[mm+nn*M] = sqrt(weights_[mm]) * arrayXX[mm+nn*M];
+  MatA.load(M, N, arrayA);
 
   if (psMasterMode_ == 1)
   {
-    fp = fopen("legendre_regression_matrix.m", "w");
-    if(fp == NULL)
+    printf("You have the option to store the regression matrix (that\n");
+    printf("is, the matrix A in Ax=b) in a matlab file for inspection.\n");
+    sprintf(pString, "Store regression matrix? (y or n) ");
+    getString(pString, response);
+    if (response[0] == 'y')
     {
-      printf("fopen returned NULL in file %s line %d, exiting\n",
-             __FILE__, __LINE__);
-      exit(1);
+      fp = fopen("legendre_regression_matrix.m", "w");
+      if(fp == NULL)
+      {
+        printf("fopen returned NULL in file %s line %d, exiting\n",
+               __FILE__, __LINE__);
+        exit(1);
+      }
+      fprintf(fp, "%% the sample matrix where svd is computed\n");
+      fprintf(fp, "%% the last column is the right hand side\n");
+      fprintf(fp, "%% B is the vector of coefficients\n");
+      fprintf(fp, "AA = [\n");
+      for (mm = 0; mm < M; mm++)
+      {
+        for (nn = 0; nn < N; nn++)
+          fprintf(fp, "%16.6e ", arrayA[mm+nn*M]);
+        fprintf(fp, "%16.6e \n",Y[mm]);
+      }
+      fprintf(fp, "];\n");
+      fprintf(fp, "A = AA(:,1:%d);\n", N);
+      fprintf(fp, "Y = AA(:,%d);\n", N+1);
+      fprintf(fp, "B = A\\Y\n");
+      fclose(fp);
+      printf("Regression matrix written to legendre_regression_matrix.m\n");
     }
-    fprintf(fp, "%% the sample matrix where svd is computed\n");
-    fprintf(fp, "%% the last column is the right hand side\n");
-    fprintf(fp, "%% B is the vector of coefficients\n");
-    fprintf(fp, "AA = [\n");
-    for (mm = 0; mm < M; mm++)
-    {
-      for (nn = 0; nn < N; nn++)
-        fprintf(fp, "%16.6e ", AA[mm+nn*M]);
-      fprintf(fp, "%16.6e \n",Y[mm]);
-    }
-    fprintf(fp, "];\n");
-    fprintf(fp, "A = AA(:,1:%d);\n", N);
-    fprintf(fp, "Y = AA(:,%d);\n", N+1);
-    fprintf(fp, "B = A\\Y\n");
-    fclose(fp);
-    printf("Regression matrix written to legendre_regression_matrix.m\n");
   }
 
+  psMatrix Umat, Vmat;
+  psVector Svec;
   if (outputLevel_ > 3) printf("Running SVD ...\n");
-  dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
-          &wlen, &info);
+  info = MatA.computeSVD(Umat, Svec, Vmat);
   if (outputLevel_ > 3) 
     printf("SVD completed: status = %d (should be 0).\n",info);
 
@@ -575,16 +575,10 @@ int LegendreRegression::analyze(double *X, double *Y)
     printf("* LegendreRegression Info: dgesvd returns a nonzero (%d).\n",
            info);
     printf("* LegendreRegression terminates further processing.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
 
+  SS = Svec.getDVector();
   mm = 0;
   for (nn = 0; nn < N; nn++) if (SS[nn] < 0) mm++;
   if (mm > 0)
@@ -606,13 +600,6 @@ int LegendreRegression::analyze(double *X, double *Y)
     printf("*         true rank of sample matrix = %d (need %d)\n",
            NRevised, N);
     printf("*         Try lower order polynomials.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
   if (psMasterMode_ == 1)
@@ -643,27 +630,29 @@ int LegendreRegression::analyze(double *X, double *Y)
       printf("LegendreRegression: %d singular values taken out.\n",
              N-NRevised);
   }
+
+  psVector VecW, VecB;
+  VecW.setLength(M+N);
+  UU = Umat.getMatrix1D();
   for (mm = 0; mm < NRevised; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < M; nn++)
-      WW[mm] += UU[mm*M+nn] * sqrt(weights_[nn]) * Y[nn];
+      VecW[mm] += UU[nn+mm*M] * sqrt(weights_[nn]) * Y[nn];
   }
-  for (nn = 0; nn < NRevised; nn++) WW[nn] /= SS[nn];
-  for (nn = NRevised; nn < N; nn++) WW[nn] = 0.0;
+  for (nn = 0; nn < NRevised; nn++) VecW[nn] /= SS[nn];
+  for (nn = NRevised; nn < N; nn++) VecW[nn] = 0.0;
+  VecB.setLength(N);
+  VV = Vmat.getMatrix1D();
   for (mm = 0; mm < N; mm++)
   {
-    B[mm] = 0.0;
-    for (nn = 0; nn < NRevised; nn++) B[mm] += VV[mm*N+nn] * WW[nn];
+    VecB[mm] = 0.0;
+    for (nn = 0; nn < NRevised; nn++) VecB[mm] += VV[nn+mm*N] * VecW[nn];
   }
 
   eigMatT.load(N, N, VV);
   eigVals.load(N, SS);
   for (nn = 0; nn < N; nn++) eigVals[nn] = pow(eigVals[nn], 2.0);
-  delete [] AA;
-  delete [] SS;
-  delete [] UU;
-  delete [] VV;
 
   if (psMasterMode_ == 1)
   {
@@ -675,19 +664,21 @@ int LegendreRegression::analyze(double *X, double *Y)
       exit(1);
     }
     fprintf(fp, "%% This file contains errors of each data point.\n");
+    printf("Regression_error_file.m file is to be created to show\n");
+    printf("interpolation errors of each data point.\n");
   }
   else fp = NULL;
 
   esum = ymax = 0.0;
   for (mm = 0; mm < nSamples_; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < N; nn++)
-      WW[mm] = WW[mm] + XX[mm+nn*nSamples_] * B[nn];
-    WW[mm] = WW[mm] - Y[mm];
-    esum = esum + WW[mm] * WW[mm] * weights_[mm];
+      VecW[mm] = VecW[mm] + arrayXX[mm+nn*nSamples_] * VecB[nn];
+    VecW[mm] = VecW[mm] - Y[mm];
+    esum = esum + VecW[mm] * VecW[mm] * weights_[mm];
     if (fp != NULL) 
-      fprintf(fp, "%6d %24.16e\n",mm+1,WW[mm]*sqrt(weights_[mm]));
+      fprintf(fp, "%6d %24.16e\n",mm+1,VecW[mm]*sqrt(weights_[mm]));
     if (PABS(Y[mm]) > ymax) ymax = PABS(Y[mm]);
   }
   esum /= (double) nSamples_;
@@ -698,10 +689,10 @@ int LegendreRegression::analyze(double *X, double *Y)
   if (fp != NULL)
   {
     fclose(fp);
-    printf("FILE regression_error_file.m contains data errors.\n");
+    printf("Now regression_error_file.m file contains data errors.\n");
   }
 
-  computeSS(N, XX, Y, B, SSresid, SStotal);
+  computeSS(MatXX, VecY, VecB, SSresid, SStotal);
   if (SStotal == 0) R2 = 1.0;
   else              R2 = 1.0 - SSresid / SStotal;
   if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
@@ -716,22 +707,22 @@ int LegendreRegression::analyze(double *X, double *Y)
     }
     else var = 0.0;
   }
-  regCoeffs_.load(N, B);
+  regCoeffs_.load(VecB);
 
-  Bvar = new double[N];
-  checkAllocate(Bvar, "Bvar in LegendreRegression::analyze");
   computeCoeffVariance(eigMatT, eigVals, var);
+  psVector VecBstd;
+  VecBstd.setLength(N);
   for (ii = 0; ii < N; ii++)
-    Bvar[ii] = sqrt(invCovMat_.getEntry(ii,ii));
+    VecBstd[ii] = sqrt(invCovMat_.getEntry(ii,ii));
 
   if (outputLevel_ >= 0)
   {
-    printRC(N, B, Bvar, XX, Y);
+    printRC(VecB, VecBstd, MatXX, VecY);
     printf("* Regression R-square = %10.3e\n", R2);
     if (M-N-1 > 0)
       printf("* adjusted   R-square = %10.3e\n",
              1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
-    if (outputLevel_ > 1) printSRC(X, B, SStotal);
+    if (outputLevel_ > 1) printSRC(VecX, VecB, SStotal);
   }
   printAsterisks(PL_INFO, 0);
  
@@ -995,21 +986,17 @@ int LegendreRegression::analyze(double *X, double *Y)
     printf("     functional form.\n");
     fclose(fp);
   }
-
-  delete [] XX;
-  delete [] WW;
-  delete [] B;
-  delete [] Bvar;
   return 0;
 }
 
 // *************************************************************************
 // load the X matrix
 // -------------------------------------------------------------------------
-int LegendreRegression::loadXMatrix(double *X, double **XXOut)
+int LegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
-  int    M, N=0, ss, ii, nn;
-  double *XX=NULL, multiplier, **LTable, normalX;
+  int    M, N, ss, ii, nn;
+  double multiplier, **LTable, normalX;
+  psVector VecXX;
 
   if (normalizeFlag_ == 1)
   {
@@ -1026,7 +1013,7 @@ int LegendreRegression::loadXMatrix(double *X, double **XXOut)
   }
   M = nSamples_;
   N = numPerms_;
-  XX = new double[M*N];
+  VecXX.setLength(M*N);
   LTable = new double*[nInputs_];
   for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
   checkAllocate(LTable[nInputs_-1],"LTable in LegendreRegr::loadXMatrix");
@@ -1034,10 +1021,10 @@ int LegendreRegression::loadXMatrix(double *X, double **XXOut)
   {
     for (ii = 0; ii < nInputs_; ii++)
     {
-      if (normalizeFlag_ == 0) normalX = X[ss*nInputs_+ii];
+      if (normalizeFlag_ == 0) normalX = VecX[ss*nInputs_+ii];
       else
       {
-        normalX = X[ss*nInputs_+ii] - lowerBounds_[ii];
+        normalX = VecX[ss*nInputs_+ii] - lowerBounds_[ii];
         normalX /= (upperBounds_[ii] - lowerBounds_[ii]);
         normalX = normalX * 2.0 - 1.0;
       }
@@ -1048,10 +1035,11 @@ int LegendreRegression::loadXMatrix(double *X, double **XXOut)
       multiplier = 1.0;
       for (ii = 0; ii < nInputs_; ii++)
         multiplier *= LTable[ii][pcePerms_[nn][ii]];
-      XX[nSamples_*nn+ss] = multiplier;
+      VecXX[nSamples_*nn+ss] = multiplier;
     }
   }
-  (*XXOut) = XX;
+  MatXX.setFormat(PS_MAT1D);
+  MatXX.load(M, N, VecXX.getDVector());
   for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
   delete [] LTable;
   return N;
@@ -1060,12 +1048,17 @@ int LegendreRegression::loadXMatrix(double *X, double **XXOut)
 // *************************************************************************
 // compute SS (sum of squares) statistics
 // -------------------------------------------------------------------------
-int LegendreRegression::computeSS(int N, double *XX, double *Y,
-                                  double *B, double &SSresid, double &SStotal)
+int LegendreRegression::computeSS(psMatrix MatXX, psVector VecY,
+                            psVector VecB, double &SSresid, double &SStotal)
 {
-  int    nn, mm;
-  double ymean, SSresidCheck, SSreg, ddata, rdata;
+  int    N, nn, mm;
+  double *B, *Y, *arrayXX, ymean, SSresidCheck, SSreg, ddata, rdata;
                                                                                 
+  N = VecB.length();
+  B = VecB.getDVector();
+  Y = VecY.getDVector();
+  arrayXX = MatXX.getMatrix1D();
+
   SSresid = SSresidCheck = SStotal = ymean = SSreg = 0.0;
   for (mm = 0; mm < nSamples_; mm++)
     ymean += (sqrt(weights_[mm]) * Y[mm]);
@@ -1073,7 +1066,7 @@ int LegendreRegression::computeSS(int N, double *XX, double *Y,
   for (mm = 0; mm < nSamples_; mm++)
   {
     ddata = 0.0;
-    for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
+    for (nn = 0; nn < N; nn++) ddata += (arrayXX[mm+nn*nSamples_] * B[nn]);
     rdata = Y[mm] - ddata;
     SSresid += rdata * Y[mm] * weights_[mm];
     SSresidCheck += rdata * rdata * weights_[mm];
@@ -1127,11 +1120,11 @@ int LegendreRegression::computeCoeffVariance(psMatrix &eigMatT,
 // *************************************************************************
 // print statistics
 // -------------------------------------------------------------------------
-int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
-                                double *Y)
+int LegendreRegression::printRC(psVector VecB, psVector VecBstd, 
+                                psMatrix MatXX, psVector VecY)
 {
-  int    ii, jj, kk, maxTerms, flag;
-  double coef, ddata, variance;
+  int    ii, jj, kk, maxTerms, flag, N;
+  double coef, ddata, variance, *arrayXX;
   FILE   *fp;
 
   maxTerms = 0;
@@ -1140,21 +1133,23 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
 
   printEquals(PL_INFO, 0);
   if (normalizeFlag_ == 1)
-    printf("* Note: the coefficients below are for normalized input ranges\n");
+    printf("* Note: the coefficients below have been normalized\n");
   printDashes(PL_INFO, 0);
   printf("*      ");
   for (ii = 0; ii < nInputs_; ii++) printf("     ");
   printf("               coefficient  std. error  t-value\n");
 
+  N = VecB.length();
+  arrayXX = MatXX.getMatrix1D();
   for (ii = 0; ii < numPerms_; ii++)
   {
-    if (PABS(Bvar[ii]) < 1.0e-15) coef = 0.0;
-    else                          coef = B[ii] / Bvar[ii]; 
+    if (PABS(VecBstd[ii]) < 1.0e-15) coef = 0.0;
+    else                             coef = VecB[ii] / VecBstd[ii]; 
     {
        printf("* Input orders: ");
        for (jj = 0; jj < nInputs_; jj++)
          printf(" %4d ", pcePerms_[ii][jj]);
-       printf("= %11.3e %11.3e %11.3e\n", B[ii], Bvar[ii], coef);
+       printf("= %11.3e %11.3e %11.3e\n", VecB[ii], VecBstd[ii], coef);
     }
   }
   flag = 1;
@@ -1165,11 +1160,11 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
   if (normalizeFlag_ == 1 || flag == 1)
   {
     printDashes(PL_INFO, 0);
-    printf("* Mean     = %12.4e\n", B[0]);
+    printf("* Mean     = %12.4e\n", VecB[0]);
     coef = 0.0;
     for (jj = 1; jj < numPerms_; jj++) 
     {
-      ddata = B[jj];
+      ddata = VecB[jj];
       for (kk = 0; kk < nInputs_; kk++)
         ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
       coef = coef + ddata * ddata;
@@ -1189,7 +1184,7 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
           if (kk != ii && pcePerms_[jj][kk] != 0) flag = 0;
         if (flag == 1)
         {
-          ddata = B[jj];
+          ddata = VecB[jj];
           for (kk = 0; kk < nInputs_; kk++)
             ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
           coef = coef + ddata * ddata;
@@ -1214,10 +1209,11 @@ int LegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
 // *************************************************************************
 // print standardized regression coefficients
 // -------------------------------------------------------------------------
-int LegendreRegression::printSRC(double *X, double *B, double SStotal)
+int LegendreRegression::printSRC(psVector VecX,psVector VecB,double SStotal)
 {
-  int    nn, mm, ii;
-  double denom, xmean, coef, Bmax, coef1, *B2;
+  int      nn, mm, ii;
+  double   denom, xmean, coef, Bmax, coef1;
+  psVector VecB2;
 
   printEquals(PL_INFO, 0);
   printf("* Standardized Regression Coefficients (SRC)\n");
@@ -1226,8 +1222,7 @@ int LegendreRegression::printSRC(double *X, double *B, double SStotal)
   printDashes(PL_INFO, 0);
   printf("* based on nSamples = %d\n", nSamples_);
 
-  B2 = new double[nSamples_];
-  checkAllocate(B2, "B2 in LegendreRegression::printSRC");
+  VecB2.setLength(nSamples_);
   denom = sqrt(SStotal / (double) (nSamples_ - 1));
   Bmax  = 0.0;
   for (nn = 0; nn < numPerms_; nn++)
@@ -1236,28 +1231,27 @@ int LegendreRegression::printSRC(double *X, double *B, double SStotal)
     for (ii = 0; ii < nInputs_; ii++)
     {
       xmean = 0.0;
-      for (mm = 0; mm < nSamples_; mm++) xmean += X[mm*nInputs_+ii];
+      for (mm = 0; mm < nSamples_; mm++) xmean += VecX[mm*nInputs_+ii];
       xmean /= (double) nSamples_;
       coef1 = 0.0;
       for (mm = 0; mm < nSamples_; mm++)
-        coef1 += (X[mm*nInputs_+ii]-xmean)*(X[mm*nInputs_+ii]-xmean);
+        coef1 += (VecX[mm*nInputs_+ii]-xmean)*(VecX[mm*nInputs_+ii]-xmean);
       coef1 = sqrt(coef1 / (double) (nSamples_ - 1));
       coef *= coef1;
     }
-    B2[nn] = B[nn] * coef / denom;
-    if (PABS(B2[nn]) > Bmax) Bmax = PABS(B2[nn]);
+    VecB2[nn] = VecB[nn] * coef / denom;
+    if (PABS(VecB2[nn]) > Bmax) Bmax = PABS(VecB2[nn]);
   }
   for (nn = 0; nn < numPerms_; nn++)
   {
-    if (PABS(B2[nn]) > 1.0e-12 * Bmax)
+    if (PABS(VecB2[nn]) > 1.0e-12 * Bmax)
     {
       printf("* Input orders: ");
       for (ii = 0; ii < nInputs_; ii++)
         printf(" %2d ",pcePerms_[nn][ii]);
-      printf("= %12.4e \n", B2[nn]);
+      printf("= %12.4e \n", VecB2[nn]);
     }
   }
-  delete [] B2;
   printAsterisks(PL_INFO, 0);
   return 0;
 }

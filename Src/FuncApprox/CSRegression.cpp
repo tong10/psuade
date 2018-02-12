@@ -409,7 +409,7 @@ double CSRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
 }
 
 // ************************************************************************
-// perform mean/variance analysis
+// perform regression analysis
 // ------------------------------------------------------------------------
 int CSRegression::analyze(double *Xin, double *Y)
 {

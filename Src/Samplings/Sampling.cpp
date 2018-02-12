@@ -54,6 +54,8 @@
 #include "SparseGridSampling.h"
 #include "DiscreteSampling.h"
 #include "RFractFactSampling.h"
+#include "PrintingTS.h"
+#include "PsuadeUtil.h"
 
 // ------------------------------------------------------------------------
 // local includes : The OTHER way to do sampling...
@@ -824,165 +826,161 @@ Sampling *SamplingCreateFromID(int samplingMethod)
 // ------------------------------------------------------------------------
 int SamplingDestroy(Sampling *sampler)
 {
-   MCSampling               *MCSampler;
-   FactorialSampling        *FactSampler;
-   LHSampling               *LHSampler;
-   OASampling               *OASampler;
-   OALHSampling             *OALHSampler;
-   MOATSampling             *MOATSampler;
-   SobolSampling            *SobolSampler;
-   LPtauSampling            *LPtauSampler;
-   MetisSampling            *MetisSampler;
-   FASTSampling             *FastSampler;
-   SFASTSampling            *SFastSampler;
-   BoxBehnkenSampling       *BBDSampler;
-   PlackettBurmanSampling   *PBDSampler;
-   FractFactSampling        *FFSampler;
-   CentralCompositeSampling *CCDSampler;
-   UserMetisSampling        *UMetisSampler;
-   GMOATSampling            *GMOATSampler;
-   GMetisSampling           *GMetisSampler;
-   SparseGridSampling       *SparseGridSampler;
-   DiscreteSampling         *DiscreteSampler;
-   LSASampling              *LSASampler;
-   RFractFactSampling       *RFFSampler;
+  MCSampling               *MCSampler;
+  FactorialSampling        *FactSampler;
+  LHSampling               *LHSampler;
+  OASampling               *OASampler;
+  OALHSampling             *OALHSampler;
+  MOATSampling             *MOATSampler;
+  SobolSampling            *SobolSampler;
+  LPtauSampling            *LPtauSampler;
+  MetisSampling            *MetisSampler;
+  FASTSampling             *FastSampler;
+  SFASTSampling            *SFastSampler;
+  BoxBehnkenSampling       *BBDSampler;
+  PlackettBurmanSampling   *PBDSampler;
+  FractFactSampling        *FFSampler;
+  CentralCompositeSampling *CCDSampler;
+  UserMetisSampling        *UMetisSampler;
+  GMOATSampling            *GMOATSampler;
+  GMetisSampling           *GMetisSampler;
+  SparseGridSampling       *SparseGridSampler;
+  DiscreteSampling         *DiscreteSampler;
+  LSASampling              *LSASampler;
+  RFractFactSampling       *RFFSampler;
 
-   switch (sampler->samplingID_)
-   {
-      case PSUADE_SAMP_MC: 
-           MCSampler = (MCSampling *) sampler;
-           delete MCSampler;
-           break;
-      case PSUADE_SAMP_FACT:
-           FactSampler = (FactorialSampling *) sampler;
-           delete FactSampler;
-           break;
-      case PSUADE_SAMP_LHS:
-           LHSampler = (LHSampling *) sampler;
-           delete LHSampler;
-           break;
-      case PSUADE_SAMP_OA:
-           OASampler = (OASampling *) sampler;
-           delete OASampler;
-           break;
-      case PSUADE_SAMP_OALH:
-           OALHSampler = (OALHSampling *) sampler;
-           delete OALHSampler;
-           break;
-      case PSUADE_SAMP_MOAT:
-           MOATSampler = (MOATSampling *) sampler;
-           delete MOATSampler;
-           break;
-      case PSUADE_SAMP_SOBOL:
-           SobolSampler = (SobolSampling *) sampler;
-           delete SobolSampler;
-           break;
-      case PSUADE_SAMP_LPTAU:
-           LPtauSampler = (LPtauSampling *) sampler;
-           delete LPtauSampler;
-           break;
-      case PSUADE_SAMP_METIS:
-           MetisSampler = (MetisSampling *) sampler;
-           delete MetisSampler;
-           break;
-      case PSUADE_SAMP_FAST:
-           FastSampler = (FASTSampling *) sampler;
-           delete FastSampler;
-           break;
-      case PSUADE_SAMP_BBD:
-           BBDSampler = (BoxBehnkenSampling *) sampler;
-           delete BBDSampler;
-           break;
-      case PSUADE_SAMP_PBD:
-           PBDSampler = (PlackettBurmanSampling *) sampler;
-           delete PBDSampler;
-           break;
-      case PSUADE_SAMP_FF4:
-           FFSampler = (FractFactSampling *) sampler;
-           delete FFSampler;
-           break;
-      case PSUADE_SAMP_FF5:
-           FFSampler = (FractFactSampling *) sampler;
-           delete FFSampler;
-           break;
-      case PSUADE_SAMP_CCI4:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCI5:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCIF:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCF4:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCF5:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCFF:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCC4:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCC5:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_CCCF:
-           CCDSampler = (CentralCompositeSampling *) sampler;
-           delete CCDSampler;
-           break;
-      case PSUADE_SAMP_SFAST:
-           SFastSampler = (SFASTSampling *) sampler;
-           delete SFastSampler;
-           break;
-      case PSUADE_SAMP_UMETIS:
-           UMetisSampler = (UserMetisSampling *) sampler;
-           delete UMetisSampler;
-           break;
-      case PSUADE_SAMP_GMOAT:
-           GMOATSampler = (GMOATSampling *) sampler;
-           delete GMOATSampler;
-           break;
-      case PSUADE_SAMP_GMETIS:
-           GMetisSampler = (GMetisSampling *) sampler;
-           delete GMetisSampler;
-           break;
-      case PSUADE_SAMP_SG:
-           SparseGridSampler = (SparseGridSampling *) sampler;
-           delete SparseGridSampler;
-           break;
-      case PSUADE_SAMP_DISCRETE:
-           DiscreteSampler = (DiscreteSampling *) sampler;
-           delete DiscreteSampler;
-           break;
-      case PSUADE_SAMP_LSA:
-           LSASampler = (LSASampling *) sampler;
-           delete LSASampler;
-           break;
-      case PSUADE_SAMP_RFF4:
-           RFFSampler = (RFractFactSampling *) sampler;
-           // delete FFSampler;  
-	   // deleted wrong object. Fixed by Bill Oliver
-	   delete RFFSampler;
-           break;
-      case PSUADE_SAMP_RFF5:
-           RFFSampler = (RFractFactSampling *) sampler;
-	   // delete FFSampler;  
-	   // deleted wrong object. Fixed by Bill Oliver
-	   delete RFFSampler;
-           break;
-   }
-   return 0;
+  switch (sampler->samplingID_)
+  {
+    case PSUADE_SAMP_MC: 
+         MCSampler = (MCSampling *) sampler;
+         delete MCSampler;
+         break;
+    case PSUADE_SAMP_FACT:
+         FactSampler = (FactorialSampling *) sampler;
+         delete FactSampler;
+         break;
+    case PSUADE_SAMP_LHS:
+         LHSampler = (LHSampling *) sampler;
+         delete LHSampler;
+         break;
+    case PSUADE_SAMP_OA:
+         OASampler = (OASampling *) sampler;
+         delete OASampler;
+         break;
+    case PSUADE_SAMP_OALH:
+         OALHSampler = (OALHSampling *) sampler;
+         delete OALHSampler;
+         break;
+    case PSUADE_SAMP_MOAT:
+          MOATSampler = (MOATSampling *) sampler;
+          delete MOATSampler;
+          break;
+    case PSUADE_SAMP_SOBOL:
+         SobolSampler = (SobolSampling *) sampler;
+         delete SobolSampler;
+         break;
+    case PSUADE_SAMP_LPTAU:
+         LPtauSampler = (LPtauSampling *) sampler;
+         delete LPtauSampler;
+         break;
+    case PSUADE_SAMP_METIS:
+         MetisSampler = (MetisSampling *) sampler;
+         delete MetisSampler;
+         break;
+    case PSUADE_SAMP_FAST:
+         FastSampler = (FASTSampling *) sampler;
+         delete FastSampler;
+         break;
+    case PSUADE_SAMP_BBD:
+         BBDSampler = (BoxBehnkenSampling *) sampler;
+         delete BBDSampler;
+         break;
+    case PSUADE_SAMP_PBD:
+         PBDSampler = (PlackettBurmanSampling *) sampler;
+         delete PBDSampler;
+         break;
+    case PSUADE_SAMP_FF4:
+         FFSampler = (FractFactSampling *) sampler;
+         delete FFSampler;
+         break;
+    case PSUADE_SAMP_FF5:
+         FFSampler = (FractFactSampling *) sampler;
+         delete FFSampler;
+         break;
+    case PSUADE_SAMP_CCI4:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCI5:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCIF:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCF4:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCF5:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCFF:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCC4:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCC5:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_CCCF:
+         CCDSampler = (CentralCompositeSampling *) sampler;
+         delete CCDSampler;
+         break;
+    case PSUADE_SAMP_SFAST:
+         SFastSampler = (SFASTSampling *) sampler;
+         delete SFastSampler;
+         break;
+    case PSUADE_SAMP_UMETIS:
+         UMetisSampler = (UserMetisSampling *) sampler;
+         delete UMetisSampler;
+         break;
+    case PSUADE_SAMP_GMOAT:
+         GMOATSampler = (GMOATSampling *) sampler;
+         delete GMOATSampler;
+         break;
+    case PSUADE_SAMP_GMETIS:
+         GMetisSampler = (GMetisSampling *) sampler;
+         delete GMetisSampler;
+         break;
+    case PSUADE_SAMP_SG:
+         SparseGridSampler = (SparseGridSampling *) sampler;
+         delete SparseGridSampler;
+         break;
+    case PSUADE_SAMP_DISCRETE:
+         DiscreteSampler = (DiscreteSampling *) sampler;
+         delete DiscreteSampler;
+         break;
+    case PSUADE_SAMP_LSA:
+         LSASampler = (LSASampling *) sampler;
+         delete LSASampler;
+         break;
+    case PSUADE_SAMP_RFF4:
+         RFFSampler = (RFractFactSampling *) sampler;
+         delete RFFSampler;  
+         break;
+    case PSUADE_SAMP_RFF5:
+         RFFSampler = (RFractFactSampling *) sampler;
+         delete RFFSampler;
+         break;
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -991,58 +989,111 @@ int SamplingDestroy(Sampling *sampler)
 int SamplingQuality(int nSamples, int nInputs, double *sampleInputs,
                     double *lbnds, double *ubnds, double *quality)
 {
-   int    ss1, ss2, ii, numPerms;
-   double distance, minDistance, dtemp, minMinDist, *darray;
+  int    ss1, ss2, ii, numPerms;
+  double distance, minDistance, dtemp, minMinDist, avgDist, *darray;
 
-   minMinDist =  1.0e35;
-   for (ss1 = 0; ss1 < nSamples; ss1++)
-   {
-      minDistance = 1.0e35;
-      for (ss2 = 0; ss2 < nSamples; ss2++)
+  minMinDist =  1.0e35;
+  for (ss1 = 0; ss1 < nSamples; ss1++)
+  {
+    minDistance = 1.0e35;
+    for (ss2 = 0; ss2 < nSamples; ss2++)
+    {
+      if (ss1 != ss2)
       {
-         if (ss1 != ss2)
-         {
-            distance = 0.0;
-            for (ii = 0; ii < nInputs; ii++)
-            {
-               dtemp = sampleInputs[ss1*nInputs+ii] - 
-                       sampleInputs[ss2*nInputs+ii];
-               distance += pow(dtemp/(ubnds[ii]-lbnds[ii]), 2.0);
-            }
-            distance = sqrt(distance);
-            if (distance < minDistance) minDistance = distance;
-         }
+        distance = 0.0;
+        for (ii = 0; ii < nInputs; ii++)
+        {
+          dtemp = sampleInputs[ss1*nInputs+ii] - 
+                  sampleInputs[ss2*nInputs+ii];
+          distance += pow(dtemp/(ubnds[ii]-lbnds[ii]), 2.0);
+        }
+        distance = sqrt(distance);
+        if (distance < minDistance) minDistance = distance;
       }
-      if (minDistance < minMinDist) minMinDist = minDistance;
-   }
-   quality[0] = minMinDist;
-   numPerms = 1;
-   for (ii = 0; ii < nInputs; ii++) numPerms *= 2;
-   darray = new double[nInputs];
-   minDistance = 1.0e35;
-   for (ss1 = 0; ss1 < numPerms; ss1++)
-   {
-      for (ii = 0; ii < nInputs; ii++) 
+    }
+    if (minDistance < minMinDist) minMinDist = minDistance;
+  }
+  quality[0] = minMinDist;
+
+  numPerms = 1;
+  for (ii = 0; ii < nInputs; ii++) numPerms *= 2;
+  darray = new double[nInputs];
+  for (ss1 = 0; ss1 < numPerms; ss1++)
+  {
+    for (ii = 0; ii < nInputs; ii++) 
+    {
+      if (ss1 & (1 << ii)) darray[ii] = 1.0;
+      else                 darray[ii] = 0.0;
+    }
+    minDistance = 1.0e35;
+    for (ss2 = 0; ss2 < nSamples; ss2++)
+    {
+      distance = 0.0;
+      for (ii = 0; ii < nInputs; ii++)
       {
-        if ((ss1 & (1 << ii)) == 1) darray[ii] = 1.0;
-        else                        darray[ii] = 0.0;
+        dtemp = (sampleInputs[ss2*nInputs+ii] - lbnds[ii]) /
+                (ubnds[ii] - lbnds[ii]);
+        dtemp -= darray[ii];
+        distance += dtemp * dtemp;
       }
-      for (ss2 = 0; ss2 < nSamples; ss2++)
+      distance = sqrt(distance);
+      if (distance < minDistance) minDistance = distance;
+    } 
+    avgDist += minDistance;
+  }
+  quality[1] = minDistance / (double) numPerms;
+ 
+  avgDist =  0.0;
+  for (ss1 = 0; ss1 < nSamples; ss1++)
+  {
+    for (ss2 = 0; ss2 < nSamples; ss2++)
+    {
+      if (ss1 != ss2)
       {
-         distance = 0.0;
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            dtemp = (sampleInputs[ss1*nInputs+ii] - lbnds[ii]) /
-                    (ubnds[ii] - lbnds[ii]);
-            dtemp -= darray[ii];
-            distance += dtemp * dtemp;
-         }
-         distance = sqrt(distance);
-         if (distance < minDistance) minDistance = distance;
-      } 
-   }
-   quality[1] = minDistance;
-   delete [] darray;
-   return 0;
+        distance = 0.0;
+        for (ii = 0; ii < nInputs; ii++)
+        {
+          dtemp = sampleInputs[ss1*nInputs+ii] - 
+                  sampleInputs[ss2*nInputs+ii];
+          distance += pow(dtemp/(ubnds[ii]-lbnds[ii]), 2.0);
+        }
+        distance = sqrt(distance);
+        avgDist += distance;
+      }
+    }
+  }
+  avgDist /= (1.0 * (nSamples) * (nSamples - 1.0));
+  quality[2] = avgDist;
+  delete [] darray;
+  return 0;
 }
+
+// ************************************************************************
+// ask user for a sampling method 
+// ------------------------------------------------------------------------
+int getSamplingMethod(char *pString)
+{
+  printDashes(PL_INFO, 0);
+  printf("Available sampling methods: \n");
+  printDashes(PL_INFO, 0);
+  printf("1. Monte Carlo sampling\n");
+  printf("2. Full Factorial sampling\n", PSUADE_SAMP_FACT);
+  printf("3. Latin hypercube sampling\n", PSUADE_SAMP_LHS);
+  printf("4. Orthogonal array sampling\n", PSUADE_SAMP_OA);
+  printf("5. Morris sampling\n", PSUADE_SAMP_MOAT);
+  printf("6. Quasi Monte Carlo (LPTAU) sampling\n",PSUADE_SAMP_LPTAU);
+  printf("7. Full space-filling (METIS) sampling\n",PSUADE_SAMP_METIS);
+  printf("8. Sparse grid sampling\n",PSUADE_SAMP_SG);
+  int samType = getInt(1, 8, pString);
+  if      (samType == 1) samType = PSUADE_SAMP_MC;
+  else if (samType == 2) samType = PSUADE_SAMP_FACT;
+  else if (samType == 3) samType = PSUADE_SAMP_LHS;
+  else if (samType == 4) samType = PSUADE_SAMP_OA;
+  else if (samType == 5) samType = PSUADE_SAMP_MOAT;
+  else if (samType == 6) samType = PSUADE_SAMP_LPTAU;
+  else if (samType == 7) samType = PSUADE_SAMP_METIS;
+  else if (samType == 8) samType = PSUADE_SAMP_SG;
+  return samType;
+}
+
 

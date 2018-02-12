@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <PsuadeConfig.h>
+#include "Matrix.h"
 
 extern "C" 
 {
@@ -157,6 +158,8 @@ int     gettimeofday(struct timeval *,struct timezone *);
    int    checkOUUFileFormat(char *, int, int, int);
    int    checkMCMCFileFormat(char *, int, int);
    int    checkSPDFFileFormat(char *, int);
+   int    readStdDataFile(char *, psMatrix &);
+   int    readSampleInputFile(const char *, psIVector &, psMatrix &);
 
    int    dsvdi(int, double *, double *);
    int    read_csv(char *, int *, int *, double **, int *, 

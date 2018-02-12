@@ -55,6 +55,7 @@ RBF::RBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
    char pString[501];
 
+   faID_ = PSUADE_RS_RBF;
    type_ = 0;
 
    XNormalized_ = NULL;
@@ -464,7 +465,7 @@ int RBF::initialize(double *X, double *Y)
    {
       fwriteRSPythonHeader(fp);
       fprintf(fp,"#==================================================\n");
-      fprintf(fp,"# KNN regression interpolation\n");
+      fprintf(fp,"# RBF regression interpolation\n");
       fprintf(fp,"#==================================================\n");
       fwriteRSPythonCommon(fp);
       fprintf(fp,"nSamples = %d;\n",nSamples_);

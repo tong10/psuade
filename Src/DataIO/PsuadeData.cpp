@@ -3108,7 +3108,7 @@ int PsuadeData::readAnalysisSection(FILE *fp)
              "MARSBag","EARTH","sum_of_trees","Legendre","user_regression",
              "sparse_grid_regression", "Kriging", "splines", "KNN", "RBF",
              "Acosso", "Bssanova", "psuade_regression", "RBFBag", "PLS",
-             "MRBF", "MGP2"};
+             "MRBF", "MGP2", "MMARS"};
   const char *transformTypes[] = {"logx","logy"};
   const char *optimizeOptions[] = {
              "method", "fmin", "num_local_minima", "use_response_surface", 
@@ -3290,6 +3290,8 @@ int PsuadeData::readAnalysisSection(FILE *fp)
              rstype = PSUADE_RS_MRBF;
         else if (!strcmp(winput4,resSurfTypes[28])) 
              rstype = PSUADE_RS_MGP2;
+        else if (!strcmp(winput4,resSurfTypes[29])) 
+             rstype = PSUADE_RS_MMARS;
         else
         {
           printf("readAnalysis ERROR: invalid RS type %s\n",winput4);
@@ -4526,6 +4528,11 @@ void PsuadeData::writeAnalysisSection(FILE *fOut)
   if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_MGP2)
        fprintf(fOut,"   analyzer rstype = MGP2\n");
   else fprintf(fOut,"#  analyzer rstype = MGP2\n");
+  fprintf(fOut, "##==============================================\n");
+  fprintf(fOut, "##RS: MMARS - multiple MARS\n");
+  if (pAnalysis_.analysisIntOptions_[2] == PSUADE_RS_MGP2)
+       fprintf(fOut,"   analyzer rstype = MMARS\n");
+  else fprintf(fOut,"#  analyzer rstype = MMARS\n");
   fprintf(fOut, "##==============================================\n");
   if (pAnalysis_.legendreOrder_ > 0)
        fprintf(fOut,"   analyzer rs_legendre_order = %d\n", 

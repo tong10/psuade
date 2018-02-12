@@ -33,8 +33,8 @@
 // ------------------------------------------------------------------------ 
 pdfData::pdfData()
 {
-   nInputs_   = 0;
-   pdfTables_ = NULL;
+  nInputs_   = 0;
+  pdfTables_ = NULL;
 }
 
 // ************************************************************************
@@ -42,7 +42,7 @@ pdfData::pdfData()
 // ------------------------------------------------------------------------ 
 pdfData::~pdfData()
 { 
-   clean();
+  clean();
 }
 
 // ************************************************************************
@@ -50,12 +50,12 @@ pdfData::~pdfData()
 // ------------------------------------------------------------------------ 
 void pdfData::clean()
 { 
-   if (pdfTables_ != NULL)
-   {
-      for (int ii = 0; ii < nInputs_; ii++) delete pdfTables_[ii];
-      delete [] pdfTables_;
-   } 
-   nInputs_   = 0;
-   pdfTables_ = NULL;
+  if (pdfTables_ != NULL)
+  {
+    for (int ii = 0; ii < nInputs_; ii++) delete pdfTables_[ii];
+    delete [] pdfTables_;
+  } 
+  nInputs_   = 0;
+  pdfTables_ = NULL;
 }
 

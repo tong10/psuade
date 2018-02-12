@@ -197,11 +197,15 @@ double MOATAnalyzer::analyze(aData &adata)
     if (isScreenDumpModeOn() && PABS(dtemp-dtemp2) > 1.0e-6)
     {
       printOutTS(PL_WARN, 
-          "MOATAnalyzer WARNING: input and data range mismatch but\n");
+          "MOATAnalyzer WARNING: input and data range mismatch but there\n");
       printOutTS(PL_WARN, 
-          "             there is no need to be alarmed, as this may\n");
+          "             is no need to be alarmed, as this may be the\n");
       printOutTS(PL_WARN, 
-          "             be the result of applying MOAT constraints.\n");
+          "             result of applying MOAT constraints. However, it\n");
+      printOutTS(PL_WARN, 
+          "             may also be due to applying input transformation\n");
+      printOutTS(PL_WARN, 
+          "             in which case you need to make proper changes.\n");
       printOutTS(PL_WARN, "    Diagnostics: \n");
       printOutTS(PL_WARN, 
           "    Input %3d: original vs new ranges = %e %e\n", ii+1,

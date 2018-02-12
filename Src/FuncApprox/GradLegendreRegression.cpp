@@ -36,40 +36,22 @@
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
 
-extern "C" {
-   void dgesvd_(char *, char *, int *, int *, double *, int *, double *,
-               double *, int *, double *, int *, double *, int *, int *);
-}
-
 // ************************************************************************
 // Constructor 
 // ------------------------------------------------------------------------
 GradLegendreRegression::GradLegendreRegression(int nInputs,int nSamples):
                                                FuncApprox(nInputs,nSamples)
 {
-  int  ii;
-  char pString[101];
-
   faID_ = PSUADE_RS_REGRGL;
   pOrder_ = -1;
   numPerms_ = 0;
   pcePerms_ = NULL;
+  derivSample_ = NULL;
   normalizeFlag_ = 1;
   nOutputs_ = 1;
   printAsterisks(PL_INFO, 0);
   printf("* GradLegendreRegression constructor\n");
   printDashes(PL_INFO, 0);
-  sprintf(pString,"Enter name of derivative file (PSUADE format): ");
-  getString(pString, gradFile_);
-  ii = strlen(gradFile_);
-  gradFile_[ii-1] = '\0';
-  FILE *fp = fopen(gradFile_, "r");
-  if (fp == NULL)
-  {
-    printf("GradLegendreRegression ERROR: cannot open derivative file (%s)\n",
-           gradFile_);
-    exit(1);
-  }
 }
 
 // ************************************************************************
@@ -91,13 +73,36 @@ GradLegendreRegression::~GradLegendreRegression()
 // ------------------------------------------------------------------------
 int GradLegendreRegression::initialize(double *X, double *Y)
 {
-  int ii, status;
+  int  ii, status;
+  char pString[101];
+  FILE *fp;
+
   if (pcePerms_ != NULL)
   {
     for (ii = 0; ii < numPerms_; ii++) 
       if (pcePerms_[ii] != NULL) delete [] pcePerms_[ii];
     delete [] pcePerms_;
     pcePerms_ = NULL;
+  }
+
+  if (derivSample_ == NULL)
+  {
+    printf("Users need to provide a sample file (PSUADE format) that\n");
+    printf("has derivative information (where the sample outputs are\n");
+    printf("derivatives of Y with respect to each input).\n");
+    printf("Note: The number of inputs/outputs in this file should match\n");
+    printf("      that of the sample used for creating response surface.\n");
+    sprintf(pString,"Enter name of derivative file (PSUADE format): ");
+    getString(pString, gradFile_);
+    ii = strlen(gradFile_);
+    gradFile_[ii-1] = '\0';
+    fp = fopen(gradFile_, "r");
+    if (fp == NULL)
+    {
+      printf("GradLegendreRegr ERROR: cannot open derivative file (%s)\n",
+             gradFile_);
+      exit(1);
+    }
   }
 
   status = analyze(X, Y);
@@ -373,7 +378,7 @@ double GradLegendreRegression::evaluatePoint(double *X)
 double GradLegendreRegression::evaluatePoint(int npts, double *X, double *Y)
 {
   for (int kk = 0; kk < npts; kk++)
-     Y[kk] = evaluatePoint(&X[kk*nInputs_]);
+    Y[kk] = evaluatePoint(&X[kk*nInputs_]);
   return 0.0;
 }
 
@@ -382,8 +387,9 @@ double GradLegendreRegression::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double GradLegendreRegression::evaluatePointFuzzy(double *X, double &std)
 {
-  int    ii, nn;
-  double Y, multiplier, **LTable, normalX, *Xs, stdev, dtmp;
+  int      ii, nn;
+  double   Y, multiplier, **LTable, normalX, stdev, dtmp;
+  psVector VecXs;
 
   if (regCoeffs_.length() <= 0)
   {
@@ -395,7 +401,7 @@ double GradLegendreRegression::evaluatePointFuzzy(double *X, double &std)
   for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
   checkAllocate(LTable[nInputs_-1], "LTable in GradLegendre::evaluatePoint");
 
-  Xs = new double[numPerms_];
+  VecXs.setLength(numPerms_);
   Y = 0.0;
   for (nn = 0; nn < numPerms_; nn++)
   {
@@ -417,7 +423,7 @@ double GradLegendreRegression::evaluatePointFuzzy(double *X, double &std)
     for (ii = 0; ii < nInputs_; ii++)
       multiplier *= LTable[ii][pcePerms_[nn][ii]];
     Y += regCoeffs_[nn]* multiplier;
-    Xs[nn] = multiplier;
+    VecXs[nn] = multiplier;
   }
 
   stdev = 0.0;
@@ -425,14 +431,13 @@ double GradLegendreRegression::evaluatePointFuzzy(double *X, double &std)
   {
     dtmp = 0.0;
     for (nn = 0; nn < numPerms_; nn++)
-      dtmp += invCovMat_.getEntry(ii,nn) * Xs[nn];
-    stdev += dtmp * Xs[ii];
+      dtmp += invCovMat_.getEntry(ii,nn) * VecXs[nn];
+    stdev += dtmp * VecXs[ii];
   }
   std = sqrt(stdev);
 
   for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
   delete [] LTable;
-  delete [] Xs;
   return Y;
 }
 
@@ -448,18 +453,29 @@ double GradLegendreRegression::evaluatePointFuzzy(int npts, double *X,
 }
 
 // ************************************************************************
-// perform mean/variance analysis
+// perform regression analysis
 // ------------------------------------------------------------------------
-int GradLegendreRegression::analyze(double *X, double *Y)
+int GradLegendreRegression::analyze(double *Xin, double *Y)
 {
-  int    N, M, ii, mm, nn, wlen, info, NRevised;
-  double *B, *XX, SSreg, SStotal, R2, *XTX, var, *Bvar;
-  double esum, ymax, *WW, *SS, *AA, *UU, *VV, *YY;
-  char   jobu  = 'S', jobvt = 'A';
+  psVector VecX, VecY;
+  VecX.load(nSamples_*nInputs_, Xin);
+  VecY.load(nSamples_, Y);
+  return analyze(VecX, VecY);
+}
+
+// ************************************************************************
+// perform regression analysis
+// ------------------------------------------------------------------------
+int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
+{
+  int    N, M, ii, mm, nn, wlen, info, NRevised, status, nInps;
+  double SSreg, SStotal, R2, var, esum, ymax, *UU, *VV, *arrayXX;
   char   pString[100];
   FILE   *fp;
-  psMatrix eigMatT;
-  psVector eigVals;
+  pData    pPtr;
+  psMatrix eigMatT, MatXX, MatA, MatU, MatV;
+  psVector eigVals, VecYY, VecS, VecW, VecB;
+  PsuadeData *ioPtr;
 
   if (nInputs_ <= 0 || nSamples_ <= 0)
   {
@@ -475,74 +491,74 @@ int GradLegendreRegression::analyze(double *X, double *Y)
     printf("* R-square gives a measure of the goodness of the model.\n");
     printf("* R-square should be close to 1 if it is a good model.\n");
     printf("* Turn on rs_expert mode to output regression matrix.\n");
-    printf("* Set print level to 5 to output regression error splot.\n");
     printDashes(PL_INFO, 0);
-    printf("* Turn on rs_expert mode to scale the inputs to [-1, 1].\n");
+    printf("* Each input will be scaled to [-1, 1].\n");
     printf("* With this, statistics such as mean, variances, and\n");
     printf("* conditional variances are readily available.\n");
     printEquals(PL_INFO, 0);
   }
-  N = loadXMatrix(X, &XX);
-  M = nSamples_ * (nInputs_ + 1);
 
-  PsuadeData *ioPtr = new PsuadeData;
-  int status = ioPtr->readPsuadeFile(gradFile_);
-  if (status != 0)
+  if (derivSample_ == NULL)
   {
-    printf("GradLegendreReg ERROR: problem reading derivative file.\n");
-    exit(1);
+    status = ioPtr->readPsuadeFile(gradFile_);
+    if (status != 0)
+    {
+      printf("GradLegendreReg ERROR: problem reading derivative file.\n");
+      exit(1);
+    }
+    ioPtr->getParameter("input_ninputs", pPtr);
+    int nInps = pPtr.intData_;
+    if (nInps != nInputs_)
+    {
+      printf("GradLegendreReg ERROR: nInput mismatch in derivative file.\n");
+      exit(1);
+    }
+    ioPtr->getParameter("output_noutputs", pPtr);
+    if (pPtr.intData_ != nInputs_)
+    {
+      printf("GradLegendreReg ERROR: invalid nOutputs in derivative file.\n");
+      printf("                       Should be equal to %d\n", nInputs_);
+      exit(1);
+    }
+    ioPtr->getParameter("method_nsamples", pPtr);
+    if (pPtr.intData_ != nSamples_)
+    {
+      printf("GradLegendreReg ERROR: invalid sample size in derivative file\n");
+      printf("                        Should be equal to %d\n", nSamples_);
+      exit(1);
+    }
+    ioPtr->getParameter("output_noutputs", pPtr);
+    nn = pPtr.intData_;
+    if (nn != nInputs_)
+    {
+      printf("GradLegendreReg ERROR - derivative file should have %d outputs\n",
+             nInputs_);
+      printf("                               You only have %d outputs.\n",nn);
+      exit(1);
+    }
+    ioPtr->getParameter("output_sample", pPtr);
+    delete ioPtr;
   }
-  pData pPtr;
-  ioPtr->getParameter("input_ninputs", pPtr);
-  int nInps = pPtr.intData_;
-  if (nInps != nInputs_)
-  {
-    printf("GradLegendreReg ERROR: nInput mismatch in derivative file.\n");
-    exit(1);
-  }
-  ioPtr->getParameter("output_noutputs", pPtr);
-  if (pPtr.intData_ != nInputs_)
-  {
-    printf("GradLegendreReg ERROR: invalid nOutputs in derivative file.\n");
-    printf("                        Should be equal to %d\n", nInputs_);
-    exit(1);
-  }
-  ioPtr->getParameter("method_nsamples", pPtr);
-  if (pPtr.intData_ != nSamples_)
-  {
-    printf("GradLegendreReg ERROR: invalid sample size in derivative file\n");
-    printf("                        Should be equal to %d\n", nSamples_);
-    exit(1);
-  }
-  YY = new double[M];
-  ioPtr->getParameter("output_noutputs", pPtr);
-  nn = pPtr.intData_;
-  if (nn != nInputs_)
-  {
-    printf("GradLegendreReg ERROR - derivative file should have %d outputs\n",
-           nInputs_);
-    printf("                               You only have %d outputs.\n",nn);
-    exit(1);
-  }
-  ioPtr->getParameter("output_sample", pPtr);
+
+  double *derivatives;
+  if (derivSample_ == NULL) derivatives = pPtr.dbleArray_;
+  else                      derivatives = derivSample_;
+  M = nSamples_ * (nInputs_ + 1);
+  VecYY.setLength(M);
   for (mm = 0; mm < nSamples_; mm++)
   {
-    YY[mm*(nInputs_+1)] = Y[mm];
+    VecYY[mm*(nInputs_+1)] = VecY[mm];
     for (nn = 0; nn < nInputs_; nn++)
-      YY[mm*(nInputs_+1)+nn+1] = pPtr.dbleArray_[mm*nInputs_+nn];
+      VecYY[mm*(nInputs_+1)+nn+1] = derivatives[mm*nInputs_+nn];
   }
-  delete ioPtr;
 
-  wlen = 5 * M;
-  AA = new double[M*N];
-  UU = new double[M*N];
-  SS = new double[N];
-  VV = new double[M*N];
-  WW = new double[wlen];
-  B  = new double[N];
-  checkAllocate(B, "B in GradLegendre::analyze");
+  N = loadXMatrix(VecX, MatXX);
+  psVector VecA;
+  VecA.setLength(M*N);
+  arrayXX = MatXX.getMatrix1D();
   for (mm = 0; mm < M; mm++)
-    for (nn = 0; nn < N; nn++) AA[mm+nn*M] = XX[mm+nn*M];
+    for (nn = 0; nn < N; nn++) VecA[mm+nn*M] = arrayXX[mm+nn*M];
+  MatA.load(M, N, VecA.getDVector());
 
   if (psRSExpertMode_ == 1 && outputLevel_ > 0)
   {
@@ -560,8 +576,8 @@ int GradLegendreRegression::analyze(double *X, double *Y)
     for (mm = 0; mm < M; mm++)
     {
       for (nn = 0; nn < N; nn++) 
-        fprintf(fp, "%16.6e ", AA[mm+nn*M]);
-      fprintf(fp, "%16.6e \n",YY[mm]);
+        fprintf(fp, "%16.6e ", VecA[mm+nn*M]);
+      fprintf(fp, "%16.6e \n",VecYY[mm]);
     }
     fprintf(fp, "];\n");
     fprintf(fp, "A = AA(:,1:%d);\n", N);
@@ -571,9 +587,8 @@ int GradLegendreRegression::analyze(double *X, double *Y)
   }
 
   if (outputLevel_ > 3) printf("Running SVD ...\n");
-  dgesvd_(&jobu, &jobvt, &M, &N, AA, &M, SS, UU, &M, VV, &N, WW,
-          &wlen, &info);
-  if (outputLevel_ > 3) 
+  info = MatA.computeSVD(MatU, VecS, MatV);
+  if (outputLevel_ > 3)
     printf("SVD completed: status = %d (should be 0).\n",info);
 
   if (info != 0)
@@ -582,22 +597,15 @@ int GradLegendreRegression::analyze(double *X, double *Y)
            info);
     printf("* GradLegendreRegression terminates further processing.\n");
     printf("* Consult PSUADE developers for advice.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
 
-  if (SS[0] == 0.0) NRevised = 0;
+  if (VecS[0] == 0.0) NRevised = 0;
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++)
-      if (SS[nn-1] > 0 && SS[nn]/SS[nn-1] < 1.0e-8) NRevised--;
+      if (VecS[nn-1] > 0 && VecS[nn]/VecS[nn-1] < 1.0e-8) NRevised--;
   }
   if (NRevised < N)
   {
@@ -605,13 +613,6 @@ int GradLegendreRegression::analyze(double *X, double *Y)
            NRevised);
     printf("*                               need %d\n", N);
     printf("*                               Try lower order.\n");
-    delete [] XX;
-    delete [] AA;
-    delete [] UU;
-    delete [] SS;
-    delete [] VV;
-    delete [] WW;
-    delete [] B;
     return -1;
   }
   if (psRSExpertMode_ == 1)
@@ -621,46 +622,49 @@ int GradLegendreRegression::analyze(double *X, double *Y)
     printf("but not keeping them may ruin the approximation power.\n");
     printf("So, select them judiciously.\n");
     for (nn = 0; nn < N; nn++)
-      printf("Singular value %5d = %e\n", nn+1, SS[nn]);
+      printf("Singular value %5d = %e\n", nn+1, VecS[nn]);
     sprintf(pString, "How many to keep (1 - %d) ? ", N);
     NRevised = getInt(1,N,pString);
-    for (nn = NRevised; nn < N; nn++) SS[nn] = 0.0;
+    for (nn = NRevised; nn < N; nn++) VecS[nn] = 0.0;
   }
   else
   {
     NRevised = N;
     for (nn = 1; nn < N; nn++)
     {
-      if (SS[nn-1] > 0 && SS[nn]/SS[nn-1] < 1.0e-8)
+      if (VecS[nn-1] > 0 && VecS[nn]/VecS[nn-1] < 1.0e-8)
       {
-        SS[nn] = 0.0;
+        VecS[nn] = 0.0;
         NRevised--;
       }
     }
   }
+
+  VecW.setLength(M+N);
+  UU = MatU.getMatrix1D();
   for (mm = 0; mm < NRevised; mm++)
   {
-    WW[mm] = 0.0;
-    for (nn = 0; nn < M; nn++) WW[mm] += UU[mm*M+nn] * YY[nn];
+    VecW[mm] = 0.0;
+    for (nn = 0; nn < M; nn++) VecW[mm] += UU[mm*M+nn] * VecYY[nn];
   }
-  for (nn = 0; nn < NRevised; nn++) WW[nn] /= SS[nn];
-  for (nn = NRevised; nn < N; nn++) WW[nn] = 0.0;
+  for (nn = 0; nn < NRevised; nn++) VecW[nn] /= VecS[nn];
+  for (nn = NRevised; nn < N; nn++) VecW[nn] = 0.0;
+  VecB.setLength(N);
+  VV = MatV.getMatrix1D();
   for (mm = 0; mm < N; mm++)
   {
-    B[mm] = 0.0;
-    for (nn = 0; nn < NRevised; nn++) B[mm] += VV[mm*N+nn] * WW[nn];
+    VecB[mm] = 0.0;
+    for (nn = 0; nn < NRevised; nn++) VecB[mm] += VV[nn+mm*N] * VecW[nn];
   }
 
   eigMatT.load(N, N, VV);
-  eigVals.load(N, SS);
-  delete [] AA;
-  delete [] SS;
-  delete [] UU;
-  delete [] VV;
+  eigVals.load(N, VecS.getDVector());
+  for (nn = 0; nn < N; nn++) eigVals[nn] = pow(eigVals[nn], 2.0);
 
-  if (outputLevel_ >= 5)
+  fp = NULL;
+  if (psMasterMode_ == 1)
   {
-    fp = fopen("grad_legendre_regression_error_file.m", "w");
+    fp = fopen("grad_legendre_regression_err_file.m", "w");
     if(fp == NULL)
     {
       printf("fopen returned NULL in file %s line %d, exiting\n",
@@ -669,19 +673,18 @@ int GradLegendreRegression::analyze(double *X, double *Y)
     }
     fprintf(fp, "%% This file contains errors of each data point.\n");
   }
-  else fp = NULL;
 
   esum = ymax = 0.0;
   for (mm = 0; mm < M; mm++)
   {
-    WW[mm] = 0.0;
+    VecW[mm] = 0.0;
     for (nn = 0; nn < N; nn++)
-      WW[mm] = WW[mm] + XX[mm+nn*M] * B[nn];
-    WW[mm] = WW[mm] - YY[mm];
-    esum = esum + WW[mm] * WW[mm];
+      VecW[mm] = VecW[mm] + arrayXX[mm+nn*M] * VecB[nn];
+    VecW[mm] = VecW[mm] - VecYY[mm];
+    esum = esum + VecW[mm] * VecW[mm];
     if (fp != NULL) 
-      fprintf(fp, "%6d %24.16e\n",mm+1,WW[mm]);
-    if (PABS(YY[mm]) > ymax) ymax = PABS(YY[mm]);
+      fprintf(fp, "%6d %24.16e\n",mm+1,VecW[mm]);
+    if (PABS(VecYY[mm]) > ymax) ymax = PABS(VecYY[mm]);
   }
   esum /= (double) M;
   esum = sqrt(esum);
@@ -691,10 +694,10 @@ int GradLegendreRegression::analyze(double *X, double *Y)
   if (fp != NULL)
   {
     fclose(fp);
-    printf("FILE grad_legendre_regression_error_file contains data errors\n");
+    printf("FILE grad_legendre_regression_err_file contains data errors\n");
   }
 
-  status = computeSS(N, XX, YY, B, SSreg, SStotal);
+  status = computeSS(MatXX, VecYY, VecB, SSreg, SStotal);
   
   if (status == 0)
   {
@@ -725,17 +728,17 @@ int GradLegendreRegression::analyze(double *X, double *Y)
       else var = 0;
     }
   }
-  regCoeffs_.load(N, B);
+  regCoeffs_.load(VecB);
 
-  Bvar = new double[N];
-  checkAllocate(Bvar, "Bvar in GradLegendre::analyze");
   computeCoeffVariance(eigMatT, eigVals, var);
+  psVector VecBstd;
+  VecBstd.setLength(N);
   for (ii = 0; ii < N; ii++)
-    Bvar[ii] = sqrt(invCovMat_.getEntry(ii,ii));
+    VecBstd[ii] = sqrt(invCovMat_.getEntry(ii,ii));
 
   if (outputLevel_ >= 0)
   {
-    printRC(N, B, Bvar, XX, YY);
+    printRC(VecB, VecBstd, MatXX, VecYY);
     printf("* Regression R-square = %10.3e\n", R2);
     if (M-N-1 > 0)
       printf("* adjusted   R-square = %10.3e\n",
@@ -1003,22 +1006,17 @@ int GradLegendreRegression::analyze(double *X, double *Y)
     printf("     functional form.\n");
     fclose(fp);
   }
-
-  delete [] XX;
-  delete [] WW;
-  delete [] YY;
-  delete [] B;
-  delete [] Bvar;
   return 0;
 }
 
 // *************************************************************************
 // load the X matrix
 // -------------------------------------------------------------------------
-int GradLegendreRegression::loadXMatrix(double *X, double **XXOut)
+int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
   int    M, N=0, ss, ii, kk, nn;
-  double *XX=NULL, multiplier, **LTable, **DTable, normalX, range;
+  double multiplier, **LTable, **DTable, normalX, range;
+  psVector VecXX;
 
   for (ii = 0; ii < nInputs_; ii++)
   {
@@ -1032,7 +1030,7 @@ int GradLegendreRegression::loadXMatrix(double *X, double **XXOut)
 
   M = nSamples_ * (nInputs_ + 1);
   N = numPerms_;
-  XX = new double[M*N];
+  VecXX.setLength(M*N);
   LTable = new double*[nInputs_];
   DTable = new double*[nInputs_];
   checkAllocate(DTable, "DTable in GradLegendre::loadXMatrix");
@@ -1046,10 +1044,10 @@ int GradLegendreRegression::loadXMatrix(double *X, double **XXOut)
   {
     for (ii = 0; ii < nInputs_; ii++)
     {
-      if (normalizeFlag_ == 0) normalX = X[ss*nInputs_+ii]; 
+      if (normalizeFlag_ == 0) normalX = VecX[ss*nInputs_+ii]; 
       else
       {
-        normalX = X[ss*nInputs_+ii] - lowerBounds_[ii];
+        normalX = VecX[ss*nInputs_+ii] - lowerBounds_[ii];
         normalX /= (upperBounds_[ii] - lowerBounds_[ii]);
         normalX = normalX * 2.0 - 1.0;
       }
@@ -1066,7 +1064,7 @@ int GradLegendreRegression::loadXMatrix(double *X, double **XXOut)
       multiplier = 1.0;
       for (ii = 0; ii < nInputs_; ii++)
         multiplier *= LTable[ii][pcePerms_[nn][ii]];
-      XX[M*nn+ss*(nInputs_+1)] = multiplier;
+      VecXX[M*nn+ss*(nInputs_+1)] = multiplier;
     }
     for (kk = 0; kk < nInputs_; kk++)
     {
@@ -1078,12 +1076,13 @@ int GradLegendreRegression::loadXMatrix(double *X, double **XXOut)
           if (kk == ii) multiplier *= DTable[ii][pcePerms_[nn][ii]];
           else          multiplier *= LTable[ii][pcePerms_[nn][ii]];
         }
-        XX[M*nn+ss*(nInputs_+1)+kk+1] = multiplier;
+        VecXX[M*nn+ss*(nInputs_+1)+kk+1] = multiplier;
       }
     }
   }
+  MatXX.setFormat(PS_MAT1D);
+  MatXX.load(M, N, VecXX.getDVector());
 
-  (*XXOut) = XX;
   for (ii = 0; ii < nInputs_; ii++)
   {
     delete [] LTable[ii];
@@ -1097,28 +1096,30 @@ int GradLegendreRegression::loadXMatrix(double *X, double **XXOut)
 // *************************************************************************
 // compute SS (sum of squares) statistics
 // -------------------------------------------------------------------------
-int GradLegendreRegression::computeSS(int N, double *XX, double *Y,
-                                      double *B, double &SSreg, 
+int GradLegendreRegression::computeSS(psMatrix MatXX, psVector VecY,
+                                      psVector VecB, double &SSreg, 
                                       double &SStotal)
 {
-  int    nn, mm, M;
-  double ymean, SSresid, SSresidCheck, ddata, rdata;
+  int    nn, mm, M, N;
+  double ymean, SSresid, SSresidCheck, ddata, rdata, *arrayXX;
                                                                                
+  N = VecB.length();
+  arrayXX = MatXX.getMatrix1D();
   M = nSamples_ * (nInputs_ + 1);
   SSresid = SSresidCheck = SStotal = ymean = SSreg = 0.0;
-  for (mm = 0; mm < M; mm++) ymean += Y[mm];
+  for (mm = 0; mm < M; mm++) ymean += VecY[mm];
   ymean /= (double) M;
   for (mm = 0; mm < M; mm++)
   {
     ddata = 0.0;
-    for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*M] * B[nn]);
-    rdata = Y[mm] - ddata;
-    SSresid += Y[mm] * rdata;
+    for (nn = 0; nn < N; nn++) ddata += (arrayXX[mm+nn*M] * VecB[nn]);
+    rdata = VecY[mm] - ddata;
+    SSresid += VecY[mm] * rdata;
     SSresidCheck += rdata * rdata;
     SSreg += (ddata - ymean) * (ddata - ymean);
   }
   for (mm = 0; mm < M; mm++)
-    SStotal += (Y[mm] - ymean) * (Y[mm] - ymean);
+    SStotal += (VecY[mm] - ymean) * (VecY[mm] - ymean);
   printf("* GradLegendreRegression: SStot = %e\n", SStotal);
   printf("* GradLegendreRegression: SSreg = %e\n", SSreg);
   printf("* GradLegendreRegression: SSres = %e\n", SSresid);
@@ -1162,8 +1163,8 @@ int GradLegendreRegression::computeCoeffVariance(psMatrix &eigMatT,
 // *************************************************************************
 // print statistics
 // -------------------------------------------------------------------------
-int GradLegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
-                                    double *Y)
+int GradLegendreRegression::printRC(psVector VecB, psVector VecBstd,
+                                    psMatrix, psVector VecY)
 {
   int    ii, jj, kk, maxTerms, flag;
   double coef, ddata, variance;
@@ -1183,13 +1184,13 @@ int GradLegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
 
   for (ii = 0; ii < numPerms_; ii++)
   {
-    if (PABS(Bvar[ii]) < 1.0e-15) coef = 0.0;
-    else                          coef = B[ii] / Bvar[ii]; 
+    if (PABS(VecBstd[ii]) < 1.0e-15) coef = 0.0;
+    else                             coef = VecB[ii] / VecBstd[ii]; 
     {
       printf("* Input orders: ");
       for (jj = 0; jj < nInputs_; jj++)
         printf(" %4d ", pcePerms_[ii][jj]);
-      printf("= %11.3e %11.3e %11.3e\n", B[ii], Bvar[ii], coef);
+      printf("= %11.3e %11.3e %11.3e\n", VecB[ii], VecBstd[ii], coef);
     }
   }
   flag = 1;
@@ -1200,11 +1201,11 @@ int GradLegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
   if (normalizeFlag_ == 1 || flag == 1)
   {
     printDashes(PL_INFO, 0);
-    printf("* Mean     = %12.4e\n", B[0]);
+    printf("* Mean     = %12.4e\n", VecB[0]);
     coef = 0.0;
     for (jj = 1; jj < numPerms_; jj++) 
     {
-      ddata = B[jj];
+      ddata = VecB[jj];
       for (kk = 0; kk < nInputs_; kk++)
         ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
       coef = coef + ddata * ddata;
@@ -1224,7 +1225,7 @@ int GradLegendreRegression::printRC(int N,double *B,double *Bvar,double *XX,
           if (kk != ii && pcePerms_[jj][kk] != 0) flag = 0;
         if (flag == 1)
         {
-          ddata = B[jj];
+          ddata = VecB[jj];
           for (kk = 0; kk < nInputs_; kk++)
             ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
           coef = coef + ddata * ddata;
@@ -1382,6 +1383,15 @@ double GradLegendreRegression::setParams(int targc, char **targv)
       printf("LegendreRegression setParams: nOutputs not valid.\n");
       exit(1);
     }
+  }
+  else if (targc == 2 && !strcmp(targv[0], "deriv_sample"))
+  {
+    derivSample_ = (double *) targv[1];
+  }
+  else
+  {
+    printf("LegendreRegression setParams ERROR: keyword not recognized.\n");
+    exit(1);
   }
   return 0.0;
 }

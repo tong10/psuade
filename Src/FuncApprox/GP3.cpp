@@ -26,6 +26,8 @@
 // ************************************************************************
 #ifdef WINDOWS
 #include <windows.h>
+#undef ERROR  //Windows already has a macro defined as ERROR
+#undef IS_ERROR
 #endif
 
 #include <stdlib.h>
@@ -49,10 +51,44 @@
 extern "C" {
   void dpotrf_(char *, int *, double *, int *, int *);
   void dpotrs_(char *, int *, int *, double *, int *, double *,int *,int *);
+  void newuoa_(int *,int *,double *,double *,double *,int *,int *,double*);
 #ifdef HAVE_LBFGS
 #include "../../External/L-BFGS-B-C/src/lbfgsb.h"
 #endif
 }
+GP3 *GP3Obj=NULL;
+psVector GP3_OptX;
+double   GP3_OptY=1e35;
+
+// ************************************************************************
+// resident function perform evaluation 
+// ------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" 
+{
+#endif
+  void *gp3newuoaevalfunc_(int *nInps, double *XValues, double *YValue)
+  {
+    int status;
+    psVector VecG;
+    if (GP3Obj == NULL)
+    {
+      printf("GP3 ERROR: no GP3 object in function evalution\n");
+      exit(1);
+    }
+    psVector VecP;
+    VecP.load(*nInps, XValues);
+    (*YValue) = GP3Obj->computeGradients(VecP, VecG, status);
+    if ((*YValue) < GP3_OptY)
+    {
+      GP3_OptY = *YValue;
+      GP3_OptX = VecP;
+    }
+    return NULL;
+  }    
+#ifdef __cplusplus
+}
+#endif
 
 // ************************************************************************
 // Constructor for object class GP3
@@ -75,13 +111,10 @@ GP3::~GP3()
 // ------------------------------------------------------------------------
 int GP3::initialize(double *XIn, double *YIn)
 {
-  double *dVec;
   XDataN_.setLength(nSamples_*nInputs_);
-  dVec = XDataN_.getDVector();
-  initInputScaling(XIn, dVec, 1);
+  initInputScaling(XIn, XDataN_.getDVector(), 1);
   YData_.setLength(nSamples_);
-  dVec = YData_.getDVector();
-  initOutputScaling(YIn, dVec);
+  initOutputScaling(YIn, YData_.getDVector());
    
   if (outputLevel_ > 1) printf("GP3 training begins....\n");
   train();
@@ -122,7 +155,8 @@ int GP3::gen1DGridData(double *XIn, double *YIn, int ind1,
                        double *settings, int *n, double **X2, double **Y2)
 {
   int    totPts, ii, kk;
-  double *XX, *YY, HX;
+  double *YY, HX;
+  psVector VecXX;
 
   initialize(XIn, YIn);
   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
@@ -131,23 +165,21 @@ int GP3::gen1DGridData(double *XIn, double *YIn, int ind1,
   HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
 
   (*X2) = new double[totPts];
-  XX = new double[totPts*nInputs_];
-  checkAllocate(XX, "XX in GP3::gen1DGrid");
+  VecXX.setLength(totPts*nInputs_);
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
      for (kk = 0; kk < nInputs_; kk++) 
-        XX[ii*nInputs_+kk] = settings[kk]; 
-     XX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
+        VecXX[ii*nInputs_+kk] = settings[kk]; 
+     VecXX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
      (*X2)[ii] = HX * ii + lowerBounds_[ind1];
   }
    
   YY = new double[totPts];
   if (outputLevel_ >= 1) printf("GP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
+  evaluatePoint(totPts, VecXX.getDVector(), YY);
   if (outputLevel_ >= 1) printf("GP3 interpolation completed.\n");
   (*n) = totPts;
   (*Y2) = YY;
-  delete [] XX;
   return 0;
 }
 
@@ -158,17 +190,18 @@ int GP3::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
                        double *settings, int *n, double **X2, double **Y2)
 {
   int    totPts, ii, jj, kk, index;
-  double *XX, *YY, *HX;
+  double *YY;
+  psVector VecXX, VecHX;
 
   initialize(XIn, YIn);
   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(2);
+  VecHX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
 
-  XX = new double[totPts*nInputs_];
+  VecXX.setLength(totPts*nInputs_);
   (*X2) = new double[2*totPts];
   checkAllocate(*X2, "X2 in GP3::gen2DGrid");
   for (ii = 0; ii < nPtsPerDim_; ii++) 
@@ -177,22 +210,20 @@ int GP3::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
     {
       index = ii * nPtsPerDim_ + jj;
       for (kk = 0; kk < nInputs_; kk++) 
-        XX[index*nInputs_+kk] = settings[kk]; 
-      XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-      XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-      (*X2)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-      (*X2)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
+        VecXX[index*nInputs_+kk] = settings[kk]; 
+      VecXX[index*nInputs_+ind1]  = VecHX[0] * ii + lowerBounds_[ind1];
+      VecXX[index*nInputs_+ind2]  = VecHX[1] * jj + lowerBounds_[ind2];
+      (*X2)[index*2]   = VecHX[0] * ii + lowerBounds_[ind1];
+      (*X2)[index*2+1] = VecHX[1] * jj + lowerBounds_[ind2];
     }
   }
     
   YY = new double[totPts];
   if (outputLevel_ >= 1) printf("GP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
+  evaluatePoint(totPts, VecXX.getDVector(), YY);
   if (outputLevel_ >= 1) printf("GP3 interpolation completed.\n");
   (*n) = totPts;
   (*Y2) = YY;
-  delete [] XX;
-  delete [] HX;
   return 0;
 }
 
@@ -203,18 +234,19 @@ int GP3::gen3DGridData(double *XIn, double *YIn,int ind1,int ind2,int ind3,
                        double *settings, int *n, double **X2, double **Y2)
 {
   int    totPts, ii, jj, kk, ll, index;
-  double *XX, *YY, *HX;
+  double *YY;
+  psVector VecXX, VecHX;
 
   initialize(XIn, YIn);
   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
   
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(3);
+  VecHX[0] = (upperBounds_[ind1]-lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2]-lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (upperBounds_[ind3]-lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
 
-  XX = new double[totPts*nInputs_];
+  VecXX.setLength(totPts*nInputs_);
   (*X2) = new double[3*totPts];
   checkAllocate(*X2, "X2 in GP3::gen3DGrid");
   for (ii = 0; ii < nPtsPerDim_; ii++) 
@@ -225,25 +257,23 @@ int GP3::gen3DGridData(double *XIn, double *YIn,int ind1,int ind2,int ind3,
       {
         index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
         for (kk = 0; kk < nInputs_; kk++) 
-          XX[index*nInputs_+kk] = settings[kk]; 
-        XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-        XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-        XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-        (*X2)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-        (*X2)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-        (*X2)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
+          VecXX[index*nInputs_+kk] = settings[kk]; 
+        VecXX[index*nInputs_+ind1]  = VecHX[0] * ii + lowerBounds_[ind1];
+        VecXX[index*nInputs_+ind2]  = VecHX[1] * jj + lowerBounds_[ind2];
+        VecXX[index*nInputs_+ind3]  = VecHX[2] * ll + lowerBounds_[ind3];
+        (*X2)[index*3]   = VecHX[0] * ii + lowerBounds_[ind1];
+        (*X2)[index*3+1] = VecHX[1] * jj + lowerBounds_[ind2];
+        (*X2)[index*3+2] = VecHX[2] * ll + lowerBounds_[ind3];
       }
     }
   }
     
   YY = new double[totPts];
   if (outputLevel_ >= 1) printf("GP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
+  evaluatePoint(totPts, VecXX.getDVector(), YY);
   if (outputLevel_ >= 1) printf("GP3 interpolation completed.\n");
   (*n) = totPts;
   (*Y2) = YY;
-  delete [] XX;
-  delete [] HX;
   return 0;
 }
 
@@ -255,19 +285,20 @@ int GP3::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2, int ind3,
                        double **Y2)
 {
   int    totPts, ii, jj, kk, ll, mm, index;
-  double *XX, *YY, *HX;
+  double *YY;
+  psVector VecXX, VecHX;
 
   initialize(XIn, YIn);
   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
  
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  VecHX.setLength(4);
+  VecHX[0] = (upperBounds_[ind1]-lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (upperBounds_[ind2]-lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (upperBounds_[ind3]-lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX[3] = (upperBounds_[ind4]-lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
 
-  XX = new double[totPts*nInputs_];
+  VecXX.setLength(totPts*nInputs_);
   (*X2) = new double[4*totPts];
   checkAllocate(*X2, "X2 in GP3::gen4DGrid");
   for (ii = 0; ii < nPtsPerDim_; ii++) 
@@ -281,15 +312,15 @@ int GP3::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2, int ind3,
           index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
                   jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
           for (kk = 0; kk < nInputs_; kk++) 
-            XX[index*nInputs_+kk] = settings[kk]; 
-          XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-          XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-          XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-          XX[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
-          (*X2)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-          (*X2)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-          (*X2)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-          (*X2)[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
+            VecXX[index*nInputs_+kk] = settings[kk]; 
+          VecXX[index*nInputs_+ind1]  = VecHX[0] * ii + lowerBounds_[ind1];
+          VecXX[index*nInputs_+ind2]  = VecHX[1] * jj + lowerBounds_[ind2];
+          VecXX[index*nInputs_+ind3]  = VecHX[2] * ll + lowerBounds_[ind3];
+          VecXX[index*nInputs_+ind4]  = VecHX[3] * mm + lowerBounds_[ind4];
+          (*X2)[index*4]   = VecHX[0] * ii + lowerBounds_[ind1];
+          (*X2)[index*4+1] = VecHX[1] * jj + lowerBounds_[ind2];
+          (*X2)[index*4+2] = VecHX[2] * ll + lowerBounds_[ind3];
+          (*X2)[index*4+3] = VecHX[3] * mm + lowerBounds_[ind4];
         }
       }
     }
@@ -297,12 +328,10 @@ int GP3::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2, int ind3,
     
   YY = new double[totPts];
   if (outputLevel_ >= 1) printf("GP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
+  evaluatePoint(totPts, VecXX.getDVector(), YY);
   if (outputLevel_ >= 1) printf("GP3 interpolation completed.\n");
   (*n) = totPts;
   (*Y2) = YY;
-  delete [] XX;
-  delete [] HX;
   return 0;
 }
 
@@ -334,22 +363,21 @@ double GP3::evaluatePoint(double *X)
 // ------------------------------------------------------------------------
 double GP3::evaluatePoint(int npts, double *X, double *Y)
 {
-  int    ii, jj;
-  double *XX;
+  int      ii, jj;
+  psVector VecXX;
+
   if (XMeans_ == NULL)
   {
     printf("PSUADE ERROR : not initialized yet.\n");
     exit(1);
   }
-  XX = new double[npts*nInputs_];
-  checkAllocate(XX, "XX in GP3::evaluatePoint");
+  VecXX.setLength(npts*nInputs_);
   for (ii = 0; ii < nInputs_; ii++)
     for (jj = 0; jj < npts; jj++)
-      XX[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - XMeans_[ii]) / XStds_[ii];
-  interpolate(npts, XX, Y, NULL);
+      VecXX[jj*nInputs_+ii] = (X[jj*nInputs_+ii]-XMeans_[ii])/XStds_[ii];
+  interpolate(npts, VecXX.getDVector(), Y, NULL);
   for (jj = 0; jj < npts; jj++)
      Y[jj] = Y[jj] * YStd_ + YMean_;
-  delete [] XX;
   return 0.0;
 }
 
@@ -358,22 +386,22 @@ double GP3::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double GP3::evaluatePointFuzzy(double *X, double &std)
 {
-  int    ii, iOne=1;
-  double *XX, Y=0.0;
+  int      ii, iOne=1;
+  double   Y=0.0;
+  psVector VecXX;
+
   if (XMeans_ == NULL)
   {
     printf("PSUADE ERROR : not initialized yet.\n");
     exit(1);
   }
-  XX = new double[nInputs_];
-  checkAllocate(XX, "XX in GP3::evaluatePointFuzzy");
+  VecXX.setLength(nInputs_);
   for (ii = 0; ii < nInputs_; ii++)
-    XX[ii] = (X[ii] - XMeans_[ii]) / XStds_[ii];
-  interpolate(iOne, XX, &Y, &std);
+    VecXX[ii] = (X[ii] - XMeans_[ii]) / XStds_[ii];
+  interpolate(iOne, VecXX.getDVector(), &Y, &std);
   Y = Y * YStd_ + YMean_;
   if (std < 0) printf("GP3 ERROR: variance (%e) < 0\n",std);
   else         std = sqrt(std) * YStd_;
-  delete [] XX;
   return Y;
 }
 
@@ -382,26 +410,25 @@ double GP3::evaluatePointFuzzy(double *X, double &std)
 // ------------------------------------------------------------------------
 double GP3::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystds)
 {
-  int    ii, jj;
-  double *XX;
+  int      ii, jj;
+  psVector VecXX;
+
   if (XMeans_ == NULL)
   {
     printf("PSUADE ERROR : not initialized yet.\n");
     exit(1);
   }
-  XX = new double[npts*nInputs_];
-  checkAllocate(XX, "XX in GP3::evaluatePointFuzzy");
+  VecXX.setLength(npts*nInputs_);
   for (ii = 0; ii < nInputs_; ii++)
     for (jj = 0; jj < npts; jj++)
-      XX[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - XMeans_[ii]) / XStds_[ii];
-  interpolate(npts, XX, Y, Ystds);
+      VecXX[jj*nInputs_+ii] = (X[jj*nInputs_+ii]-XMeans_[ii])/XStds_[ii];
+  interpolate(npts, VecXX.getDVector(), Y, Ystds);
   for (int ii = 0; ii < npts; ii++)
   {
     Y[ii] = Y[ii] * YStd_ + YMean_;
     if (Ystds[ii] < 0) printf("GP3 ERROR: variance (%e) < 0\n", Ystds[ii]);
     else               Ystds[ii] = sqrt(Ystds[ii]) * YStd_;
   }
-  delete [] XX;
   return 0.0;
 }
 
@@ -411,12 +438,12 @@ double GP3::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystds)
 int GP3::train()
 {
   int     ii, jj, kk, its, count, status, newnInps, nhypers;
-  int     nSamp=1000, *SS, fail, nHist, maxHist=10;
-  double  minVal=1e35, dmax, dmin, dtemp, *work;
-  double  *PVals, *lBounds, *uBounds, *Grads, FValue, *XS, *YS, *history;
+  int     nSamp=1000, fail, nHist, maxHist=10;
+  double  minVal=1e35, dmax, dmin, dtemp, dmean, dstd, FValue;
   double  sqrt2pi=sqrt(2*3.1415928);
   Sampling *sampler;
-  psVector YT;
+  psVector YT, VecLB, VecUB, VecPVals, VecGrads, VecW, VecXS, VecYS;
+  psVector VecHist;
 
   nhypers = nInputs_ + 4;
   if (optLinTerm_) nhypers += nInputs_;
@@ -455,19 +482,17 @@ int GP3::train()
     for (ii = 0; ii < nInputs_; ii++) 
       hyperparameters_[count++] = 0.0;
   }
-  if (outputLevel_ > 0) 
-  {
-    printf("GP3 initial hyperparameter values:\n");
-    for (ii = 0; ii < hyperparameters_.length(); ii++) 
-      printf("   Initial hyperparameters %2d  = %e\n",ii+1,
-             hyperparameters_[ii]);
-  }
 
   int  optimizeFlag=1;
-  char pString[1000], winput[1000];
-  if (psRSExpertMode_ == 1 && isScreenDumpModeOn() == 1)
+  char pString[1000], winput[1000], *inStr;
+  if (psConfig_ != NULL)
   {
-    sprintf(pString, "Use user-provided hyperparameters? (y or n) ");
+    inStr = psConfig_->getParameter("GP3_optimize2");
+    if (inStr != NULL) optimizeFlag = 2;
+  }
+  if (optimizeFlag != 2 && psRSExpertMode_ == 1 && isScreenDumpModeOn() == 1)
+  {
+    sprintf(pString,"Use user-provided hyperparameters? (y or n) ");
     getString(pString, winput);
     if (winput[0] == 'y')
     {
@@ -475,10 +500,15 @@ int GP3::train()
       {
         sprintf(pString,"Enter hyperparameter %d : ",ii+1);
         hyperparameters_[ii] = getDouble(pString);
-        if (hyperparameters_[ii] <= 0.0)
-          printf("WARNING: hyperparameter <= 0 may not be valid.\n");
       }
       optimizeFlag = 0;
+    }
+    else
+    {
+      sprintf(pString,"Select optimizer (1 or 2, default = 1): ");
+      optimizeFlag = getInt(1, 2, pString);
+      if (psConfig_ != NULL && optimizeFlag == 2)
+        psConfig_->putParameter("GP3_optimize2");
     }
   }
 
@@ -516,82 +546,86 @@ int GP3::train()
     XHighs_[ii] = -PSUADE_UNDEFINED;
   }
 
+  psIVector VecIS;
   if (optimizeFlag == 1)
   {
     nhypers = hyperparameters_.length();
-    PVals = new double[nhypers];
-    lBounds = new double[nhypers];
-    uBounds = new double[nhypers];
+    VecPVals.setLength(nhypers);
+    VecLB.setLength(nhypers);
+    VecUB.setLength(nhypers);
     for (ii = 0; ii < nInputs_; ii++) 
     {
-      lBounds[ii] = -4.0;
-      uBounds[ii] =  4.0;
+      VecLB[ii] = -4.0;
+      VecUB[ii] =  4.0;
     }
-    lBounds[nInputs_] = -3.0;
-    uBounds[nInputs_] = 10.0;
-    lBounds[nInputs_+1] = -28;
-    uBounds[nInputs_+1] = - 3;
-    lBounds[nInputs_+2] = -0.5;
-    uBounds[nInputs_+2] =  0.5;
-    lBounds[nInputs_+3] = -24;
-    uBounds[nInputs_+3] = - 2;
+    VecLB[nInputs_] = -3.0;
+    VecUB[nInputs_] = 10.0;
+    VecLB[nInputs_+1] = -28;
+    VecUB[nInputs_+1] = - 3;
+    VecLB[nInputs_+2] = -0.5;
+    VecUB[nInputs_+2] =  0.5;
+    VecLB[nInputs_+3] = -24;
+    VecUB[nInputs_+3] = - 2;
     count = nInputs_ + 4;
     if (optLinTerm_) 
     {
       for (ii = 0; ii < nInputs_; ii++) 
       {
-        lBounds[count] = - 5*hyperparameters_[nInputs_]/hyperparameters_[ii];
-        uBounds[count++] = + 5*hyperparameters_[nInputs_]/hyperparameters_[ii];
+        VecLB[count] = - 5*hyperparameters_[nInputs_]/hyperparameters_[ii];
+        VecUB[count++] = + 5*hyperparameters_[nInputs_]/hyperparameters_[ii];
       }
     }
     if (outputLevel_ > 0) 
     {
       for (ii = 0; ii < nhypers; ii++)
-        printf("Hyperparameter bounds %3d = %12.4e %12.4e\n",ii+1,
-               lBounds[ii],uBounds[ii]);
+        printf("   Hyperparameter bounds %3d = %12.4e %12.4e\n",ii+1,
+               VecLB[ii],VecUB[ii]);
     }
-    nSamp = 100;
+    nSamp = 2;
     if (nhypers > 51)
       sampler = SamplingCreateFromID(PSUADE_SAMP_LHS);
     else
       sampler = SamplingCreateFromID(PSUADE_SAMP_LPTAU);
-    sampler->setInputBounds(nhypers, lBounds, uBounds);
+    sampler->setInputBounds(nhypers,VecLB.getDVector(),VecUB.getDVector());
     sampler->setOutputParams(1);
     sampler->setSamplingParams(nSamp, 1, 0);
     sampler->initialize(0);
-    SS = new int[nSamp];
-    XS = new double[nSamp*nhypers];
-    YS = new double[nSamp];
-    sampler->getSamples(nSamp, nhypers, 1, XS, YS, SS);
-    delete [] SS;
+    VecIS.setLength(nSamp);
+    VecXS.setLength(nSamp*nhypers);
+    VecYS.setLength(nSamp);
+    sampler->getSamples(nSamp,nhypers,1,VecXS.getDVector(),
+                        VecYS.getDVector(), VecIS.getIVector());
     delete sampler;
-    for (ii = 0; ii < nhypers; ii++) XS[ii] = hyperparameters_[ii];
+    for (ii = 0; ii < nhypers; ii++) VecXS[ii] = hyperparameters_[ii];
  
     integer nInps, iprint=0, itask, *task=&itask, lsave[4], isave[44];
-    integer *iwork, nCorr=5, *nbds, csave[60], nLBFGS=1;
+    integer *iwork, nCorr=5, *nbds, csave[60], nLBFGS=nSamp;
     double  factr, pgtol, dsave[29];
 
     nInps = nhypers;
-    Grads = new double[nInps];
-    for (ii = 0; ii < nInps; ii++) Grads[ii] = 0.0;
+    VecGrads.setLength(nInps);
     nbds = new integer[nInps];
     for (ii = 0; ii < nInps; ii++) nbds[ii] = 2;
     factr = 1e7;
     pgtol = 1e-8;
     kk = (2 * nCorr + 5) * nInps + 11 * nCorr * nCorr + 8 * nCorr;
-    work  = new double[kk];
+    VecW.setLength(kk);
     iwork = new integer[3*nInps];
     its   = 0;
-    history = new double[maxHist];
+    VecHist.setLength(maxHist);
 
     for (ii = 0; ii < nLBFGS; ii++)
     {
       if (outputLevel_ > 0 && nLBFGS > 1 && ii > 0) 
         printf("GP3 LBFGS sample %d (%ld)\n",ii+1, nLBFGS);
-      for (jj = 0; jj < nInps; jj++) PVals[jj] = XS[ii*nInps+jj];
+      for (jj = 0; jj < nInps; jj++) VecPVals[jj] = VecXS[ii*nInps+jj];
       if (outputLevel_ > 0 && ii > 0) 
-        for (jj = 0; jj < nInps; jj++) 
-          printf("   Hyperparameter (init) %2d = %e\n",jj+1,PVals[jj]);
+      {
+        printf("   GP3 initial hyperparameter values:\n");
+        for (ii = 0; ii < hyperparameters_.length(); ii++) 
+          printf("   Hyperparameter %2d = %e\n",ii+1,
+                 VecPVals[ii]);
+      }
       nHist = 0;
       fail = 0;
       its = 0;
@@ -599,17 +633,18 @@ int GP3::train()
       while (1 && its < 1000)
       {
         its++;
-        setulb(&nInps, &nCorr, PVals, lBounds, uBounds, nbds, &FValue,
-              Grads, &factr, &pgtol, work, iwork, task, &iprint, csave,
-              lsave, isave, dsave);
+        setulb(&nInps,&nCorr,VecPVals.getDVector(),VecLB.getDVector(),
+               VecUB.getDVector(),nbds,&FValue,VecGrads.getDVector(),
+               &factr,&pgtol,VecW.getDVector(),iwork,task,&iprint,
+               csave,lsave,isave,dsave);
         if (IS_FG(*task))
         {
-          if (outputLevel_ > 2) 
-            for (kk = 0; kk < nInps; kk++)
-              printf("     Hyperparameter %5d = %e\n",kk+1,PVals[kk]);
+          //if (outputLevel_ > 2) 
+          //  for (kk = 0; kk < nInps; kk++)
+          //    printf("     Hyperparameter %5d = %e\n",kk+1,VecPVals[kk]);
 
 #if 1
-          FValue = computeGradients(PVals, Grads, status);
+          FValue = computeGradients(VecPVals, VecGrads, status);
           if (FValue == 1e35) 
           {
             fail = 1;
@@ -617,11 +652,11 @@ int GP3::train()
           }
           dtemp = 0.0;
           for (kk = 0; kk < nInps; kk++)
-            dtemp += pow(Grads[kk], 2.0);
+            dtemp += pow(VecGrads[kk], 2.0);
           dtemp = sqrt(dtemp);
 #else
           status = 0;
-          FValue = computeLikelihood(PVals);
+          FValue = computeLikelihood(XDataN_, YData_, VecPVals);
           if (FValue == 1e35) 
           {
             fail = 1;
@@ -630,11 +665,11 @@ int GP3::train()
           dtemp = 0.0;
           for (kk = 0; kk < nInps; kk++)
           {
-            PVals[kk] += 1.0e-11;
-            Grads[kk] = computeLikelihood(PVals);
-            Grads[kk] = 1e11 * (Grads[kk] - FValue);
-            PVals[kk] -= 1.0e-11;
-            dtemp += pow(Grads[kk], 2.0);
+            VecPVals[kk] += 1.0e-11;
+            VecGrads[kk] = computeLikelihood(XDataN_,YData_,VecPVals);
+            VecGrads[kk] = 1e11 * (VecGrads[kk] - FValue);
+            VecPVals[kk] -= 1.0e-11;
+            dtemp += pow(VecGrads[kk], 2.0);
           }
           dtemp = sqrt(dtemp);
 #endif
@@ -643,58 +678,65 @@ int GP3::train()
                    FValue,its,dtemp);
           if (outputLevel_ > 2) 
             for (kk = 0; kk < nInps; kk++)
-              printf("         Gradient %5d = %e\n",kk+1,Grads[kk]);
+              printf("         Gradient %5d = %e\n",kk+1,VecGrads[kk]);
           if (FValue < minVal && status == 0)
           {
-            for (jj = 0; jj < nhypers; jj++) hyperparameters_[jj] = PVals[jj];
+            for (jj = 0; jj < nhypers; jj++) 
+              hyperparameters_[jj] = VecPVals[jj];
             minVal = FValue;
           }
-          if (nHist < maxHist && FValue != 1e35) history[nHist++] = FValue;
+          if (nHist < maxHist && FValue != 1e35) VecHist[nHist++] = FValue;
           else if (FValue != 1e35)
           {
-            for (kk = 0; kk < 4; kk++) history[kk] = history[kk+1];
-            history[4] = FValue;
+            for (kk = 0; kk < maxHist-1; kk++) VecHist[kk] = VecHist[kk+1];
+            VecHist[maxHist-1] = FValue;
           }
           if (nHist >= maxHist && FValue != 1e35)
           {
-            dmin = 0.0;
-            for (kk = 0; kk < maxHist; kk++) dmin += history[kk];
-            dmin *= 0.2;
-            dmax = 0.0;
-            for (kk = 0; kk < maxHist; kk++) dmax += pow(history[kk]-dmin, 2.0);
-            dmax = sqrt(dmax/9.0);
-            if (dmin == 0) dmin = 1;
-            dmax = dmin = 1;
-            if (PABS(dmax/dmin) < 1e-6)
+            dmean = 0.0;
+            for (kk = 0; kk < maxHist; kk++) dmean += VecHist[kk];
+            dmean /= (double) maxHist;
+            dstd = 0.0;
+            for (kk = 0; kk < maxHist; kk++) 
+              dstd += pow(VecHist[kk]-dmean,2.0);
+            dstd = sqrt(dstd/(maxHist-1.0));
+            if (dmean == 0) dmean = 1;
+            if (PABS(dstd/dmean) < 1e-3)
             {
               *task = STOP_ITER;
               if (outputLevel_ > 1) 
               {
-                printf("INFO: PSUADE issues a stop (converged?))\n");
+                printf("INFO: PSUADE issues a stop (converged))\n");
                 printf("INFO: current iteration   = %d\n", its);
                 printf("INFO: current best FValue = %e (%e)\n",minVal,
-                       PABS(dmax/dmin));
+                       PABS(dstd/dmean));
                 printf("INFO: current grad norm   = %e\n",dtemp);
               }
             }
+            else
+            {
+              if (outputLevel_ > 1) 
+                printf("INFO: convergence check: %e < 1e-3?\n",
+                       PABS(dstd/dmean));
+            }
           }
-          if (isave[33] >= 1000) 
+          if (isave[33] >= 300) 
           {
             *task = STOP_ITER;
             if (outputLevel_ > 1) 
             {
-              printf("INFO: PSUADE issues a stop (> 1000 iterations)\n");
+              printf("INFO: PSUADE issues a stop (> 300 iterations)\n");
               printf("INFO: current best FValue = %e\n", minVal);
             }
           }
         }
         else if (*task == NEW_X)
         {
-          if (isave[33] >= 1000) 
+          if (isave[33] >= 300) 
           {
             *task = STOP_ITER;
             if (outputLevel_ > 1) 
-              printf("INFO: PSUADE issues a stop (> 1000 iterations)\n");
+              printf("INFO: PSUADE issues a stop (> 300 iterations)\n");
           }
         }
         else
@@ -709,34 +751,140 @@ int GP3::train()
       }
       if (outputLevel_ > 1) 
       {
+        printf("   GP3 final hyperparameter values:\n");
         for (jj = 0; jj < hyperparameters_.length(); jj++) 
-          printf("   Hyperparameter (final) %2d = %e\n",jj+1,
+          printf("   Hyperparameter %2d = %e\n",jj+1,
                  hyperparameters_[jj]);
         printf("   Sample %5d: Fvalue (final) = %e\n", ii+1, minVal);
       }
       if (ii == (nLBFGS-1) && (fail == 1)) nLBFGS++;
     }
-    delete [] work;
     delete [] iwork;
     delete [] nbds;
-    delete [] Grads;
-    delete [] history;
-    delete [] PVals;
-    delete [] lBounds;
-    delete [] uBounds;
-    delete [] XS;
-    delete [] YS;
 
     if (outputLevel_ > 0) 
     {
-      printf("GP3 final hyperparameter values:\n");
+      printf("GP3 very final hyperparameter values:\n");
       for (ii = 0; ii < hyperparameters_.length(); ii++) 
-        printf("   Hyperparameter %2d = %e\n",ii+1,
+        printf("   Hyperparameter %2d = %24.16e\n",ii+1,
                hyperparameters_[ii]);
     }
   }
+  else if (optimizeFlag == 2)
+  {
+    printf("GP3: you are choosing optimization option 2.\n");
+    printf("     This isn't working as good as option 1.\n");
+    nhypers = hyperparameters_.length();
+    VecPVals.setLength(nhypers);
+    VecLB.setLength(nhypers);
+    VecUB.setLength(nhypers);
+    for (ii = 0; ii < nInputs_; ii++) 
+    {
+      VecLB[ii] = -4.0;
+      VecUB[ii] =  4.0;
+    }
+    VecLB[nInputs_] = -3.0;
+    VecUB[nInputs_] = 10.0;
+    VecLB[nInputs_+1] = -28;
+    VecUB[nInputs_+1] = - 3;
+    VecLB[nInputs_+2] = -0.5;
+    VecUB[nInputs_+2] =  0.5;
+    VecLB[nInputs_+3] = -24;
+    VecUB[nInputs_+3] = - 2;
+    count = nInputs_ + 4;
+    if (optLinTerm_) 
+    {
+      for (ii = 0; ii < nInputs_; ii++) 
+      {
+        VecLB[count] = - 5*hyperparameters_[nInputs_]/hyperparameters_[ii];
+        VecUB[count++] = + 5*hyperparameters_[nInputs_]/hyperparameters_[ii];
+      }
+    }
+    if (outputLevel_ > 0) 
+    {
+      for (ii = 0; ii < nhypers; ii++)
+        printf("   Hyperparameter bounds %3d = %12.4e %12.4e\n",ii+1,
+               VecLB[ii],VecUB[ii]);
+    }
+    nSamp = 5;
+    if (nhypers > 51)
+         sampler = SamplingCreateFromID(PSUADE_SAMP_LHS);
+    else sampler = SamplingCreateFromID(PSUADE_SAMP_LPTAU);
+    sampler->setInputBounds(nhypers,VecLB.getDVector(),VecUB.getDVector());
+    sampler->setOutputParams(1);
+    sampler->setSamplingParams(nSamp, 1, 0);
+    sampler->initialize(0);
+    VecIS.setLength(nSamp);
+    VecXS.setLength(nSamp*nhypers);
+    VecYS.setLength(nSamp);
+    sampler->getSamples(nSamp,nhypers,1,VecXS.getDVector(),
+                        VecYS.getDVector(), VecIS.getIVector());
+    delete sampler;
+    for (ii = 0; ii < nhypers; ii++) VecXS[ii] = hyperparameters_[ii];
+ 
+    int      nUOA=nSamp, nPts, pLevel=5555, maxfun=1000;
+    double   tol=1e-5, rhobeg, rhoend;
 
-  constructCMatrix(CMatrix_, hyperparameters_.getDVector());
+    nPts = (nhypers + 1) * (nhypers + 2) / 2;
+    jj = (nPts+13) * (nPts+nhypers) + 3*nhypers*(nhypers+3)/2;
+    kk = (nPts+5)*(nPts+nhypers)+3*nInputs_*(nhypers+5)/2+1;
+    if (jj > kk) VecW.setLength(jj);
+    else         VecW.setLength(jj);
+    rhobeg = VecUB[0] - VecLB[0];
+    for (ii = 1; ii < nhypers; ii++)
+    {
+      dtemp = VecUB[ii] - VecLB[ii];
+      if (dtemp < rhobeg) rhobeg = dtemp;
+    }
+    rhobeg *= 0.5;
+    rhoend = rhobeg * tol;
+
+    its = 0;
+    GP3_OptY = 1e35;
+    if (GP3Obj != NULL) delete GP3Obj;
+    GP3Obj = new GP3(nInputs_, nSamples_);
+    GP3Obj->XDataN_ = XDataN_;
+    GP3Obj->YData_ = YData_;
+    GP3Obj->XDistances_ = XDistances_;
+
+    if (outputLevel_ > 0) printf("GP3 NEWUOA optimization (%d):\n",nUOA);
+    for (ii = 0; ii < nUOA; ii++)
+    {
+      if (outputLevel_ > 0 && nUOA > 1 && ii > 0) 
+        printf("GP3 WLS sample %d (%ld)\n",ii+1, nUOA);
+      for (jj = 0; jj < nhypers; jj++) VecPVals[jj] = VecXS[ii*nhypers+jj];
+      if (outputLevel_ > 0) 
+      {
+        printf("   GP3 initial hyperparameter values:\n");
+        for (jj = 0; jj < VecPVals.length(); jj++) 
+          printf("   Hyperparameter %2d = %e\n",jj+1,VecPVals[jj]);
+      }
+      newuoa_(&nhypers,&nPts,VecPVals.getDVector(),&rhobeg,&rhoend,&pLevel,
+              &maxfun, VecW.getDVector());
+      hyperparameters_ = GP3_OptX;
+      //THIS NEEDS DEBUGGED
+      if (outputLevel_ > 0) 
+      {
+        printf("   GP3 final hyperparameter values:\n");
+        for (jj = 0; jj < VecPVals.length(); jj++) 
+          printf("   Hyperparameter %2d = %e\n",jj+1,
+                 VecPVals[jj]);
+        printf("   Best objective function so far = %e\n",GP3_OptY);
+      }
+    }
+    delete GP3Obj;
+    GP3Obj = NULL;
+    if (outputLevel_ > 0) 
+    {
+      printf("GP3 very final hyperparameter values:\n");
+      for (ii = 0; ii < hyperparameters_.length(); ii++) 
+        printf("   Hyperparameter %2d = %24.16e\n",ii+1,
+               hyperparameters_[ii]);
+      printf("   Best objective function = %e\n",GP3_OptY);
+    }
+  }
+
+  constructCMatrix(CMatrix_, hyperparameters_);
   CMatrix_.LUDecompose();
   CInvY_.setLength(nSamples_);
   YT.setLength(nSamples_);
@@ -758,7 +906,7 @@ int GP3::train()
   if (psGMMode_ == 1)
   { 
     psMatrix CMatrix;
-    constructCMatrix(CMatrix, hyperparameters_.getDVector());
+    constructCMatrix(CMatrix, hyperparameters_);
     FILE *fp = fopen("Cmat.m", "w");
     fprintf(fp, "A = [\n");
     for (ii = 0; ii < nSamples_; ii++) 
@@ -782,51 +930,79 @@ int GP3::train()
 }
 
 // ************************************************************************
-// compute log likelihood value
+// compute log likelihood value (called directly from external)
 // ------------------------------------------------------------------------
-double GP3::computeLikelihood(double *params)
+double GP3::computeLikelihood(psVector VecXD,psVector VecYN,psVector VecP)
 {
-  int    jj, status;
-  double likelihood, sqrt2pi=sqrt(2*3.1415928), ddata;
-  psMatrix CMatrix;
-  psVector YVec, YT;
+  int    ii, jj, kk, status, count;
+  double likelihood, sqrt2pi=sqrt(2*3.1415928), ddata, fudge, *arrayC;
+  double dist;
+  psMatrix MatC, MatCI;
+  psVector VecY, VecCIY;
 
   if (outputLevel_ > 3) 
   {
     printf("computeLikelihood:\n");
-    for (jj = 0; jj < hyperparameters_.length(); jj++)
-      printf("  hyperparameter %3d = %e\n", jj+1, params[jj]);
+    for (jj = 0; jj < VecP.length(); jj++)
+      printf("  hyperparameter %3d = %e\n", jj+1, VecP[jj]);
   }
-  constructCMatrix(CMatrix, params);
+  MatC.setDim(nSamples_, nSamples_);
+  arrayC = MatC.getMatrix1D();
+  count = 0;
+  fudge = sqrt(nSamples_);
+  for (jj = 0; jj < nSamples_; jj++)
+  {
+    arrayC[jj*nSamples_+jj] = exp(VecP[nInputs_]) +
+                fudge*exp(VecP[nInputs_+1]) + exp(VecP[nInputs_+3]);
+    for (kk = jj+1; kk < nSamples_; kk++)
+    {
+      dist = 0.0;
+      for (ii = 0; ii < nInputs_; ii++)
+        dist += pow(VecXD[count*nInputs_+ii],2.0)/
+                exp(2.0*VecP[ii]);
+      dist *= 0.5;
+      dist = exp(VecP[nInputs_]) * exp(-dist);
+      if (dist < 1.0e-50) dist = 0;
+      arrayC[jj*nSamples_+kk] = dist + exp(VecP[nInputs_+1]);
+      arrayC[kk*nSamples_+jj] = dist + exp(VecP[nInputs_+1]);
+      count++;
+    }
+  }
 
-  status = CMatrix.CholDecompose();
+  status = MatC.computeInverse(MatCI);
   if (status != 0)
   {
-    printf("GP3 ERROR (1): failed in linear system factorization.\n");
-    for (jj = 0; jj < hyperparameters_.length(); jj++)
-      printf("  hyperparameter %3d = %e\n", jj+1, params[jj]);
+    printf("GP3 ERROR (1): failed in matrix inversion (%d).\n",status);
+    for (jj = 0; jj < VecP.length(); jj++)
+      printf("  hyperparameter %3d = %e\n", jj+1, VecP[jj]);
     return 1e35;
   }
-  YVec.setLength(nSamples_);
+  VecY.setLength(nSamples_);
   for (jj = 0; jj < nSamples_; jj++) 
-    YVec[jj] = YData_[jj] - params[nInputs_+2];
-  YT.setLength(nSamples_);
-  status = CMatrix.CholSolve(YVec, YT);
-  if (status != 0)
-  {
-    printf("GP3 ERROR (1): failed in linear system solve.\n");
-    return 1e35;
-  }
+    VecY[jj] = VecYN[jj] - VecP[nInputs_+2];
+  VecCIY.setLength(nSamples_);
+  MatCI.matvec(VecY, VecCIY, 0);
 
+  int errCount=0;
+  psMatrix MatEVecs;
+  psVector VecEVals;
+  MatC.eigenSolve(MatEVecs, VecEVals, 1);
   likelihood = 0.0;
-  for (jj = 0; jj < nSamples_; jj++) 
-    likelihood += YT[jj] * YVec[jj];
-  likelihood *= 0.5;
-  for (jj = 0; jj < nSamples_; jj++) 
+  for (jj = 0; jj < nSamples_; jj++)
   {
-    ddata = CMatrix.getEntry(jj, jj);
-    likelihood += log(ddata*sqrt2pi+1e-50);
+    ddata = VecEVals[jj];
+    if (ddata <= 0) errCount++;
+    if (ddata != 0)
+      likelihood += log(sqrt(PABS(ddata))*sqrt2pi+1e-50);
   }
+  if (errCount > 0)
+  {
+    if (outputLevel_ > 0)
+      printf("GP3 WARNING: Covariance Matrix not positive definite\n");
+  }
+  for (jj = 0; jj < nSamples_; jj++)
+    likelihood += 0.5 * (VecCIY[jj] * VecY[jj]);
+  if (likelihood < 0) likelihood = - likelihood;
   if (outputLevel_ > 3) 
     printf("   computeLikelihood: Likelihood = %e\n", likelihood);
   return likelihood;
@@ -835,7 +1011,8 @@ double GP3::computeLikelihood(double *params)
 // ************************************************************************
 // compute gradients of log likelihood 
 // ------------------------------------------------------------------------
-double GP3::computeGradients(double *params, double *grads, int &retstat)
+double GP3::computeGradients(psVector VecHypers, psVector &VecGrads, 
+                             int &retstat)
 {
   int    jj, kk, ii, ll, status, count;
   double ddata, *TMat,likelihood,sqrt2pi=sqrt(2*3.1415928),dist;
@@ -846,35 +1023,39 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
   if (outputLevel_ > 2) 
   {
     printf("computeGradients:\n");
-    for (jj = 0; jj < hyperparameters_.length(); jj++)
-      printf("  hyperparameter %3d = %e\n", jj+1, params[jj]);
+    for (jj = 0; jj < VecHypers.length(); jj++)
+      printf("  hyperparameter %3d = %e\n", jj+1, VecHypers[jj]);
   }
-  constructCMatrix(CMatrix, params);
+  constructCMatrix(CMatrix, VecHypers);
 
-  for (ii = 0; ii < hyperparameters_.length(); ii++)
+  if (XHighs_.length() == VecHypers.length())
   {
-    if (params[ii] > XHighs_[ii]) XHighs_[ii] = params[ii]; 
-    if (params[ii] < XLows_[ii])  XLows_[ii]  = params[ii]; 
+    for (ii = 0; ii < VecHypers.length(); ii++)
+    {
+      if (VecHypers[ii] > XHighs_[ii]) XHighs_[ii] = VecHypers[ii]; 
+      if (VecHypers[ii] < XLows_[ii])  XLows_[ii]  = VecHypers[ii]; 
+    }
   }
 
+  VecGrads.setLength(VecHypers.length());
   status = CMatrix.computeInverse(CInverse);
   if (status != 0)
   {
-    printf("GP3 ERROR (1): failed in matrix factorization (%d).\n",
-           status);
-    for (jj = 0; jj < hyperparameters_.length(); jj++)
-      printf("  hyperparameter %3d = %e\n", jj+1, params[jj]);
-    for (jj = 0; jj < hyperparameters_.length(); jj++) grads[jj] = 100;
+    printf("GP3 ERROR (1): failed in matrix inversion (%d).\n",status);
+    for (jj = 0; jj < VecHypers.length(); jj++)
+      printf("  hyperparameter %3d = %e\n", jj+1, VecHypers[jj]);
+    for (jj = 0; jj < VecHypers.length(); jj++) VecGrads[jj] = 100;
     return 1e35;
   }
   YVec.setLength(nSamples_);
   for (jj = 0; jj < nSamples_; jj++) 
-    YVec[jj] = YData_[jj] - params[nInputs_+2];
+    YVec[jj] = YData_[jj] - VecHypers[nInputs_+2];
   CInvY.setLength(nSamples_);
   CInverse.matvec(YVec, CInvY, 0);
 
   YT.setLength(nSamples_);
-  TMat = new double[nSamples_*nSamples_];
+  CPrime.setDim(nSamples_, nSamples_);
+  TMat = CPrime.getMatrix1D();
   for (ll = 0; ll < nInputs_; ll++)
   {
     count = 0;
@@ -886,29 +1067,28 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
         dist = 0.0;
         for (ii = 0; ii < nInputs_; ii++)
           dist += pow(XDistances_[count*nInputs_+ii],2.0)/
-                  exp(2.0*params[ii]);
+                  exp(2.0*VecHypers[ii]);
         dist *= 0.5;
-        dist = exp(params[nInputs_]) * exp(-dist);
+        dist = exp(VecHypers[nInputs_]) * exp(-dist);
         ddata = pow(XDistances_[count*nInputs_+ll]/
-                exp(2.0*params[ll]),2.0);
-        ddata = ddata * exp(2.0*params[ll]);
+                exp(2.0*VecHypers[ll]),2.0);
+        ddata = ddata * exp(2.0*VecHypers[ll]);
         dist *= ddata;
         TMat[jj*nSamples_+kk] = dist;
         TMat[kk*nSamples_+jj] = dist;
         count++;
       }
     }
-    CPrime.load(nSamples_, nSamples_, TMat);
     CPrime.matvec(CInvY, YT, 0);
     ddata = 0.0;
     for (jj = 0; jj < nSamples_; jj++) ddata += YT[jj] * CInvY[jj];
-    grads[ll] = - ddata;
+    VecGrads[ll] = - ddata;
     ddata = 0.0;
     for (ii = 0; ii < nSamples_; ii++)
       for (jj = 0; jj < nSamples_; jj++) 
         ddata += CPrime.getEntry(ii, jj) * CInverse.getEntry(ii, jj);
-    grads[ll] += ddata;
-    grads[ll] *= 0.5;
+    VecGrads[ll] += ddata;
+    VecGrads[ll] *= 0.5;
   }
 
   count = 0;
@@ -920,7 +1100,7 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
       dist = 0.0;
       for (ii = 0; ii < nInputs_; ii++)
         dist += pow(XDistances_[count*nInputs_+ii],2.0)/
-                exp(2.0*params[ii]);
+                exp(2.0*VecHypers[ii]);
       dist = exp(-0.5 * dist);
       if (dist < 1.0e-50) dist = 0;
       TMat[jj*nSamples_+kk] = dist;
@@ -928,43 +1108,42 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
       count++;
     }
   }
-  CPrime.load(nSamples_, nSamples_, TMat);
   CPrime.matvec(CInvY, YT, 0);
   ddata = 0.0;
   for (jj = 0; jj < nSamples_; jj++) ddata += YT[jj] * CInvY[jj];
-  grads[nInputs_] = - ddata;
+  VecGrads[nInputs_] = - ddata;
   ddata = 0.0;
   for (ii = 0; ii < nSamples_; ii++) 
     for (jj = 0; jj < nSamples_; jj++) 
       ddata += CInverse.getEntry(ii, jj) * CPrime.getEntry(ii, jj);
-  grads[nInputs_] += ddata;
-  grads[nInputs_] *= 0.5 * exp(params[nInputs_]);
+  VecGrads[nInputs_] += ddata;
+  VecGrads[nInputs_] *= 0.5 * exp(VecHypers[nInputs_]);
 
   fudge = sqrt(1.0 * nSamples_);
   ddata = 0.0;
   for (jj = 0; jj < nSamples_; jj++) ddata += CInvY[jj];
-  grads[nInputs_+1] = - ddata * ddata - (fudge - 1.0) * ddata;
+  VecGrads[nInputs_+1] = - ddata * ddata - (fudge - 1.0) * ddata;
   ddata = 0.0;
   for (ii = 0; ii < nSamples_; ii++)
     for (jj = 0; jj < nSamples_; jj++) 
       ddata += CInverse.getEntry(ii, jj);
-  grads[nInputs_+1] += ddata;
-  ddata = exp(params[nInputs_+1]);
-  grads[nInputs_+1] *= 0.5 * ddata;
+  VecGrads[nInputs_+1] += ddata;
+  ddata = exp(VecHypers[nInputs_+1]);
+  VecGrads[nInputs_+1] *= 0.5 * ddata;
 
   //*/ compute: - 1' * C' * C^{-1} (Y - mu)
   ddata = 0.0;
   for (jj = 0; jj < nSamples_; jj++) ddata += CInvY[jj];
-  grads[nInputs_+2] = - ddata;
+  VecGrads[nInputs_+2] = - ddata;
 
   ddata = 0.0;
   for (jj = 0; jj < nSamples_; jj++) ddata += CInvY[jj] * CInvY[jj];
-  grads[nInputs_+3] = - ddata;
+  VecGrads[nInputs_+3] = - ddata;
   ddata = 0.0;
   for (ii = 0; ii < nSamples_; ii++) 
     ddata += CInverse.getEntry(ii, ii);
-  grads[nInputs_+3] += ddata;
-  grads[nInputs_+3] *= 0.5 * exp(params[nInputs_+3]);
+  VecGrads[nInputs_+3] += ddata;
+  VecGrads[nInputs_+3] *= 0.5 * exp(VecHypers[nInputs_+3]);
 
   int errCount=0;
   CMatrix.eigenSolve(CT, YT, 1);
@@ -987,15 +1166,15 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
       if (outputLevel_ > 2)
       {
         for (jj = 0; jj < nInputs_; jj++)
-          printf("   hyperparameter %2d = %e\n",jj+1,params[jj]);
+          printf("   hyperparameter %2d = %e\n",jj+1,VecHypers[jj]);
         printf("   hyperparameter %2d = %e\n",
-               nInputs_+1,params[nInputs_]);
+               nInputs_+1,VecHypers[nInputs_]);
         printf("   hyperparameter %2d = %e\n",
-               nInputs_+2,params[nInputs_+1]);
+               nInputs_+2,VecHypers[nInputs_+1]);
         printf("   hyperparameter %2d = %e\n",
-               nInputs_+3,params[nInputs_+2]);
+               nInputs_+3,VecHypers[nInputs_+2]);
         printf("   hyperparameter %2d = %e\n",
-               nInputs_+4,params[nInputs_+3]);
+               nInputs_+4,VecHypers[nInputs_+3]);
       }
     }
     if (psGMMode_ == 1)
@@ -1019,12 +1198,12 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
       fprintf(fp, "];\n");
       fprintf(fp, "H = [\n");
       for (jj = 0; jj < nInputs_; jj++)
-        fprintf(fp, "%e\n", exp(2.0*params[jj]));
+        fprintf(fp, "%e\n", exp(2.0*VecHypers[jj]));
       fprintf(fp, "];\n");
-      fprintf(fp, "%e\n", exp(params[nInputs_]));
-      fprintf(fp, "%e\n", exp(params[nInputs_+1]));
-      fprintf(fp, "%e\n", params[nInputs_+2]);
-      fprintf(fp, "%e\n", exp(params[nInputs_+3]));
+      fprintf(fp, "%e\n", exp(VecHypers[nInputs_]));
+      fprintf(fp, "%e\n", exp(VecHypers[nInputs_+1]));
+      fprintf(fp, "%e\n", VecHypers[nInputs_+2]);
+      fprintf(fp, "%e\n", exp(VecHypers[nInputs_+3]));
       fprintf(fp, "count = 0;\n");
       fprintf(fp, "for ii = 1 : n\n");
       fprintf(fp, "  B(ii,ii) = H(4) + ll * H(5) + H(7);\n");
@@ -1048,7 +1227,6 @@ double GP3::computeGradients(double *params, double *grads, int &retstat)
     likelihood += 0.5 * (CInvY[jj] * YVec[jj]);
   if (outputLevel_ > 2) 
     printf("   computeGradients: Likelihood = %e\n", likelihood);
-  delete [] TMat;
   return likelihood;
 }
 
@@ -1126,15 +1304,14 @@ int GP3::interpolate(int npts, double *XX, double *Y, double *Ystds)
     if (Ystds != NULL)
     {
       Ystds[nn] = 0.0;
-#if 1
       ddata = exp(hyperparameters_[nInputs_]) + 
               exp(hyperparameters_[nInputs_+1]) +
               exp(hyperparameters_[nInputs_+3]);
       CMatrix_.LUSolve(YT, YT2);
       for (kk = 0; kk < nSamples_; kk++)
         ddata -= YT[kk] * YT2[kk];
+      if (ddata < 0) ddata = - ddata;
       Ystds[nn] = ddata;
-#endif
     }
   }
   return 0;
@@ -1143,43 +1320,39 @@ int GP3::interpolate(int npts, double *XX, double *Y, double *Ystds)
 // ************************************************************************
 // construct C matrix
 // ------------------------------------------------------------------------
-void GP3::constructCMatrix(psMatrix &CMatrix, double *params)
+void GP3::constructCMatrix(psMatrix &CMatrix, psVector VecP)
 {
-  int    jj, kk, ii, count, status, offset;
-  double dist, *TMat, likelihood, sqrt2pi=sqrt(2*3.1415928);
-  double ddata, fudge;
-  psMatrix CPrime, CT;
-  psVector YVec, CInvY, YT;
+  int    ii, jj, kk, count;
+  double dist, ddata, *TMat, fudge;
 
   if (outputLevel_ > 3) 
   {
     printf("Construct CMatrix:\n");
-    for (jj = 0; jj < hyperparameters_.length(); jj++)
-      printf("  hyperparameter %3d = %e\n", jj+1, params[jj]);
+    for (jj = 0; jj < VecP.length(); jj++)
+      printf("  hyperparameter %3d = %e\n", jj+1, VecP[jj]);
   }
-  TMat = new double[nSamples_*nSamples_];
+  CMatrix.setDim(nSamples_, nSamples_);
+  TMat = CMatrix.getMatrix1D();
   fudge = sqrt(nSamples_);
   count = 0;
   for (jj = 0; jj < nSamples_; jj++)
   {
-    TMat[jj*nSamples_+jj] = exp(params[nInputs_]) + 
-                fudge*exp(params[nInputs_+1]) + exp(params[nInputs_+3]);
+    TMat[jj*nSamples_+jj] = exp(VecP[nInputs_]) + 
+                fudge*exp(VecP[nInputs_+1]) + exp(VecP[nInputs_+3]);
     for (kk = jj+1; kk < nSamples_; kk++)
     {
       dist = 0.0;
       for (ii = 0; ii < nInputs_; ii++)
         dist += pow(XDistances_[count*nInputs_+ii],2.0)/
-                exp(2.0*params[ii]);
+                exp(2.0*VecP[ii]);
       dist *= 0.5;
-      dist = exp(params[nInputs_]) * exp(-dist);
+      dist = exp(VecP[nInputs_]) * exp(-dist);
       if (dist < 1.0e-50) dist = 0;
-      TMat[jj*nSamples_+kk] = dist + exp(params[nInputs_+1]);
-      TMat[kk*nSamples_+jj] = dist + exp(params[nInputs_+1]);
+      TMat[jj*nSamples_+kk] = dist + exp(VecP[nInputs_+1]);
+      TMat[kk*nSamples_+jj] = dist + exp(VecP[nInputs_+1]);
       count++;
     }
   }
-  CMatrix.load(nSamples_, nSamples_, TMat);
-  delete [] TMat;
   return;
 }
 
@@ -1312,46 +1485,7 @@ void GP3::genCode()
   fprintf(fp,"    LUSolve(yt, zt);\n");
   fprintf(fp,"    for (kk = 0; kk < nSamples; kk++)\n");
   fprintf(fp,"      ddata -= yt[kk] * zt[kk];\n");
-  fprintf(fp,"    YStds[ss] = sqrt(ddata); */\n");
-  fprintf(fp,"  }\n");
-  fprintf(fp,"  free(xt);\n");
-  fprintf(fp,"  free(yt);\n");
-  fprintf(fp,"  free(zt);\n");
-  fprintf(fp,"}\n");
-  fprintf(fp,"/* ==========================================*/\n");
-  fprintf(fp,"int LUSolve(double *X,double *Y){\n");
-  fprintf(fp,"  int ii, jj, iOne=1, status, M;\n");
-  fprintf(fp,"  char   trans='N';\n");
-  fprintf(fp,"  M = nSamples;\n");
-  fprintf(fp,"  for (ii = 0; ii < nSamples; ii++) Y[ii] = X[ii];\n");
-  fprintf(fp,"  /*dgetrs_(&trans,&M,&iOne,CMat,&M,pivs,Y,&M,&status);*/\n");
-  fprintf(fp,"}\n");
-  fprintf(fp,"/* ==========================================*/\n");
-  fprintf(fp,"int initialize() {\n");
-  fprintf(fp,"  int    ii, jj;\n");
-  fprintf(fp,"  double ddata;\n");
-  fprintf(fp,"  char   line[1001], word[1001];\n");
-  fprintf(fp,"  FILE *fp = fopen(\"psuade_rs.info\", \"r\");\n");
-  fprintf(fp,"  if (fp == NULL){\n");
-  fprintf(fp,"     printf(\"Data file (psuade_rs.info) not found.\\n\");\n");
-  fprintf(fp,"     exit(1);\n");
-  fprintf(fp,"  }\n");
-  fprintf(fp,"  while (1) {\n");
-  fprintf(fp,"    fgets(line, 500, fp);\n");
-  fprintf(fp,"    sscanf(line, \"%%s\",word);\n");
-  fprintf(fp,"    if (!strcmp(word, \"PSUADE_BEGIN\")) break;\n");
-  fprintf(fp,"  }\n");
-  fprintf(fp,"  fscanf(fp, \"%%d %%d\", &nSamples, &nInps);\n");
-  fprintf(fp,"  XMeans = (double *) malloc(nInps*sizeof(double));\n");
-  fprintf(fp,"  XStds  = (double *) malloc(nInps*sizeof(double));\n");
-  fprintf(fp,"  Thetas = (double *) malloc((nInps+4)*sizeof(double));\n");
-  fprintf(fp,"  for (ii = 0; ii < nInps; ii++) {\n");
-  fprintf(fp,"    fscanf(fp, \"%%lg\", &ddata);\n");
-  fprintf(fp,"    XMeans[ii] = ddata;\n");
-  fprintf(fp,"    fscanf(fp, \"%%lg\", &ddata);\n");
-  fprintf(fp,"    XStds[ii] = ddata;\n");
-  fprintf(fp,"  }\n");
-  fprintf(fp,"  fscanf(fp, \"%%lg %%lg\", &YMean, &YStd);\n");
+  fprintf(fp,"    YStd);\n");
   fprintf(fp,"  fscanf(fp, \"%%d\", &nParams);\n");
   fprintf(fp,"  for (ii = 0; ii < nParams; ii++) {\n");
   fprintf(fp,"    fscanf(fp, \"%%lg\", &ddata);\n");
@@ -1386,19 +1520,12 @@ void GP3::genCode()
   printf("FILE psuade_rs.info contains the GP interpolator.\n");
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// ************************************************************************
+// get hyperparameters 
+// ------------------------------------------------------------------------
+void GP3::getHyperparameters(psVector &inhyper)
+{
+  inhyper = hyperparameters_;
+}
 
 

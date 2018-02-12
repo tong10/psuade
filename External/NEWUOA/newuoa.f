@@ -52,6 +52,9 @@ C
       ELSEIF (IPRINT .EQ. 6666) THEN
          NFMODE = 6666
          IPRINT = 0;
+      ELSEIF (IPRINT .EQ. 5555) THEN
+         NFMODE = 5555
+         IPRINT = 0;
       ENDIF
       NP=N+1
       NPTM=NPT-NP

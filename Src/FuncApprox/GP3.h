@@ -37,6 +37,7 @@
 // ************************************************************************
 class GP3 : public FuncApprox 
 {
+public:
    int      optLinTerm_;
    psVector hyperparameters_;
    psVector CInvY_;
@@ -67,14 +68,15 @@ public:
    double evaluatePoint(int, double *, double *);
    double evaluatePointFuzzy(double *, double &);
    double evaluatePointFuzzy(int, double *, double *, double *);
+   void   getHyperparameters(psVector &);
+   double computeLikelihood(psVector, psVector, psVector);
+   double computeGradients(psVector, psVector &, int &);
 
 private:
    int    train();
-   double computeLikelihood(double *);
    int    computeDistances();
-   double computeGradients(double *, double *, int &);
    int    interpolate(int, double *, double *, double *);
-   void   constructCMatrix(psMatrix &, double *);
+   void   constructCMatrix(psMatrix &, psVector);
    void   genCode();
 };
 

@@ -115,7 +115,8 @@ MRBF::MRBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     if (ddata < 0 || ddata > 0.4)
     {
       ddata = 0.1;
-      printf("Degree of overlap set to default = 0.1\n");
+      printf("ERROR: Degree of overlap should be > 0 and <= 0.4.\n");
+      printf("INFO:  Degree of overlap set to default = 0.1\n");
     }
     for (ii = 0; ii < nInputs_; ii++) Xd_[ii] = ddata;
     printf("You can decide the sample size of each partition.\n");
@@ -132,6 +133,12 @@ MRBF::MRBF(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     {
       sscanf(strPtr, "%s %s %d", winput, equal, &idata);
       if (idata >= 100) partSize_ = idata;
+      else
+      {
+        printf("MRBF INFO: config parameter setting not done.\n");
+        printf("           max_samples_per_group %d too small.\n",idata);
+        printf("           max_samples_per_group should be >= 100.\n");
+      }
     }
   }
   nPartitions_ = (nSamples + partSize_/2) / partSize_;
@@ -272,6 +279,7 @@ int MRBF::initialize(double *X, double *Y)
             boxes_[jj]->lBounds_[ii], boxes_[jj]->uBounds_[ii]);
     }
   }
+
   double dcheck1=0, dcheck2=0;
   for (jj = 0; jj < nPartitions_; jj++)
   {
@@ -283,7 +291,8 @@ int MRBF::initialize(double *X, double *Y)
   dcheck1 = 1;
   for (ii = 0; ii < nInputs_; ii++)
     dcheck1 *= (upperBounds_[ii] - lowerBounds_[ii]);
-  printf("Coverage check: %e (sum) ?= %e (orig)\n", dcheck1, dcheck2);
+  printf("MRBF: Partition coverage check: %e (sum) ?= %e (orig)\n", 
+         dcheck1, dcheck2);
 
   int total=0;
   YY = new double[nSamples_];
@@ -309,7 +318,7 @@ int MRBF::initialize(double *X, double *Y)
         samCnt++;
       }
     }
-    if (outputLevel_ >= 0) 
+    if (outputLevel_ > 0) 
       printf("Partition %d has %d sample points.\n",ii+1,samCnt);
     if (samCnt == 0)
     {
@@ -326,7 +335,14 @@ int MRBF::initialize(double *X, double *Y)
     total += samCnt;
   }
   if (outputLevel_ >= 0) 
-    printf("Total number of sample points in all partitions = %d\n",total);
+  {
+    printf("Original sample size = %d\n",nSamples_);
+    printf("Total sample sizes from all partitions = %d\n",total);
+    printf("INFO: Total from all partitions may be larger than original\n"); 
+    printf("      sample due to overlap. If the total is too large so\n");
+    printf("      that it is close to the original size, partitioning\n"); 
+    printf("      is not worthwhile -> you may want to reduce overlap.\n");
+  }
   delete [] vces;
   delete [] indices;
   delete [] YY;
@@ -786,6 +802,7 @@ double MRBF::evaluatePoint(int nPts, double *X, double *Y)
     if (count == 0)
     {
       printf("MRBF evaluate ERROR: sample point outside range.\n");
+      printf("INFO: this may happen during cross validation.\n"); 
       for (ii = 0; ii < nInputs_; ii++)
         printf("Input %d = %e (in [%e, %e]?)\n",ii+1,
            X[ss*nInputs_+ii],lowerBounds_[ii],upperBounds_[ii]);
