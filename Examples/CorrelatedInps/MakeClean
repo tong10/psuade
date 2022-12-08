@@ -1,0 +1,3 @@
+clean:
+	rm -f RSSample largeSample* simulator *.m *.sci constrData constraint psuadeData
+

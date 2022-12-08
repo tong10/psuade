@@ -24,16 +24,19 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2012
 // ************************************************************************
+//**/using namespace std;
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "LSASampling.h"
+#include "Psuade.h"
 
 // ************************************************************************
 // constructor 
 // ------------------------------------------------------------------------
 LSASampling::LSASampling() : Sampling()
 {
-   samplingID_ = PSUADE_SAMP_LSA;
+  samplingID_ = PSUADE_SAMP_LSA;
+  nPtsPerInput_ = 1;
 }
 
 // ************************************************************************
@@ -48,49 +51,102 @@ LSASampling::~LSASampling()
 // ------------------------------------------------------------------------
 int LSASampling::initialize(int initLevel)
 {
-   int    ii, ss;
-   double ddata;
+  int    ii, ss;
+  double ddata;
+  char   pString[1000];
 
-   if (nSamples_ == 0)
-   {
-      printf("LSASampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("LSASampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+    printf("LSASampling::initialize ERROR - nSamples = 0.\n");
+    exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+    printf("LSASampling::initialize ERROR - input not set up.\n");
+    exit(1);
+  }
+  if (psConfig_.SamExpertModeIsOn() && psConfig_.InteractiveIsOn())
+  {
+    printf("LSASampling: useful for local sensitivity analysis.\n");
+    printf("The default pattern consists of one sample ");
+    printf("point at the midpoint\n");
+    printf("of the parameter space and one sample point on ");
+    printf("one of the 2 faces\n");
+    printf("for each input. So the default nSamples = nInputs + 1.\n");
+    printf("However, you can define more points per input dimension.\n");
+    sprintf(pString,"How many points per input dimension (default=1)? ");
+    nPtsPerInput_ = getInt(1,10000,pString);
+  }
+  nSamples_ = nPtsPerInput_ * nInputs_ + 1;
 
-   if (printLevel_ > 4)
-   {
-      printf("LSASampling::initialize: nSamples = %d\n", nSamples_);
-      printf("LSASampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("LSASampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (ii = 0; ii < nInputs_; ii++)
-         printf("    LSASampling input %3d = [%e %e]\n", ii+1,
-                lowerBounds_[ii], upperBounds_[ii]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("LSASampling::initialize: nSamples = %d\n", nSamples_);
+    printf("LSASampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("LSASampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (ii = 0; ii < nInputs_; ii++)
+      printf("    LSASampling input %3d = [%e %e]\n", ii+1,
+             vecLBs_[ii], vecUBs_[ii]);
+  }
 
-   deleteSampleData();
-   if (initLevel != 0) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ sanitize and set parameters
+  //**/ ----------------------------------------------------------------
+  if (initLevel != 0) return 0;
 
-   nSamples_ = nInputs_ + 1;
-   allocSampleData();
-   for (ss = 0; ss < nSamples_; ss++)
-   { 
+  //**/ ----------------------------------------------------------------
+  //**/ generate samples
+  //**/ ----------------------------------------------------------------
+  allocSampleData();
+  for (ii = 0; ii < nInputs_; ii++) 
+    vecSamInps_[ii] = 0.5*(vecUBs_[ii]+vecLBs_[ii]);
+  if (nPtsPerInput_ == 1)
+  {
+    for (ss = 1; ss < nSamples_; ss++)
+    {
       for (ii = 0; ii < nInputs_; ii++) 
-         sampleMatrix_[ss][ii] = 0.5*(upperBounds_[ii]+lowerBounds_[ii]);
-      if (ss > 0)
+        vecSamInps_[ss*nInputs_+ii] = 0.5*(vecUBs_[ii]+vecLBs_[ii]);
+      ddata = PSUADE_drand();
+      if (ddata >= 0.5) ddata = 1.0;
+      else              ddata = 0.0;
+      vecSamInps_[ss*nInputs_+ss-1] = vecLBs_[ss-1] + ddata *
+                              (vecUBs_[ss-1] - vecLBs_[ss-1]);
+    }
+  }
+  else
+  {
+    int n1 = nPtsPerInput_ / 2;
+    int n2 = nPtsPerInput_ - n1;
+    int cnt = 1;
+    for (ss = 0; ss < nSamples_; ss++)
+    {
+      for (ii = 0; ii < nInputs_; ii++) 
+        vecSamInps_[ss*nInputs_+ii] = 0.5*(vecUBs_[ii]+vecLBs_[ii]);
+    }
+    for (ii = 0; ii < nInputs_; ii++) 
+    {
+      for (ss = 0; ss < n1; ss++)
       {
-         ddata = PSUADE_drand();
-         if (ddata >= 0.5) ddata = 1.0;
-         else              ddata = 0.0;
-         sampleMatrix_[ss][ss-1] = lowerBounds_[ss-1] + ddata *
-                (upperBounds_[ss-1] - lowerBounds_[ss-1]);
+        ddata = ss*(vecUBs_[ii]-vecLBs_[ii])/(2.0*n1) + vecLBs_[ii];  
+        vecSamInps_[cnt*nInputs_+ii] = ddata;
+        cnt++;
       }
-   }
-   return 0;
+      for (ss = 1; ss <= n2; ss++)
+      {
+        ddata = ss*(vecUBs_[ii]-vecLBs_[ii])/(2.0*n2)+
+                0.5*(vecLBs_[ii] + vecUBs_[ii]);  
+        vecSamInps_[cnt*nInputs_+ii] = ddata;
+        cnt++;
+      }
+    }
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -98,8 +154,8 @@ int LSASampling::initialize(int initLevel)
 // ------------------------------------------------------------------------
 int LSASampling::refine(int, int, double, int, double *)
 {
-   printf("LSASampling ERROR - refine not available.\n");
-   return -1;
+  printf("LSASampling ERROR - refine not available.\n");
+  return -1;
 }
 
 // ************************************************************************
@@ -107,8 +163,8 @@ int LSASampling::refine(int, int, double, int, double *)
 // ------------------------------------------------------------------------
 LSASampling& LSASampling::operator=(const LSASampling &)
 {
-   printf("LSASampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("LSASampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

@@ -544,42 +544,43 @@ c
       close(9)
       return                                                               23
       end                                                                  24
-      subroutine plot (m,x,fm,im,ngc,ngs,icx,nc,crv,ns,srf,sp,mm)          25
-      integer im(*),mm(*)                                                  26
-      real x(*),fm(*),crv(*),srf(*),sp(*)                                  27
-      if(m .ne. 1) go to 1                                                 28
-      call plotl(im(3),im(4),x,im(5),im(im(7)),im(im(8)),im(im(9)),im(im   29
-     1(10)),  fm(im(12)),fm(im(15)),ngc,ngs,icx,nc,crv,ns,srf,sp,mm)       30
-      return                                                               31
-    1 call plotc(im(3),im(4),x,im(5),im(im(7)),im(im(8)),im(im(9)),im(im   32
-     1(10)),  fm(im(14)),fm(im(15)),ngc,ngs,icx,nc,crv,ns,srf,sp,mm)       33
-      return                                                               34
-      end                                                                  35
-      subroutine catprt (m,fm,im,sp,mm)                                    36
-      integer im(*),mm(*)                                                  37
-      real fm(*),sp(*)                                                     38
-      call ctprt1(m,im(5),im(im(7)),im(im(8)),fm(im(12)),fm(im(15)),fm(i   39
-     1m(14)),sp,mm)                                                        40
-      return                                                               41
-      end                                                                  42
-      subroutine slice (flg,xs,x,fm,im,fmn,imn,sp,mm)                      43
-      integer im(*),imn(*),mm(*)                                           44
-      real xs(*),x(*),fm(*),fmn(*),sp(*)                                   45
-      do 1 i=1,15                                                          46
-      imn(i)=im(i)                                                         47
-    1 continue                                                             48
-      i=im(15)                                                             49
-      go to 3                                                              50
-    2 i=i+1                                                                51
-    3 if((i).gt.(im(1))) go to 4                                           52
-      fmn(i)=fm(i)                                                         53
-      go to 2                                                              54
-    4 call slice1(flg,xs,im(3),im(4),x,im(5),fm(im(11)),fm(im(12)),fm(im   55
-     1(15)),  im(im(7)),im(im(8)),im(im(9)),im(im(10)),fm(im(13)),fm(im(   56
-     114)),  fmn(im(11)),fmn(im(12)),imn(im(7)),imn(im(8)),imn(im(9)),im   57
-     1n(im(10)),  fmn(im(13)),fmn(im(14)),sp,mm)                           58
-      return                                                               59
-      end                                                                  60
+cCHARLES - commented out because plotc calls fun (compile error)
+c     subroutine plot (m,x,fm,im,ngc,ngs,icx,nc,crv,ns,srf,sp,mm)          25
+c     integer im(*),mm(*)                                                  26
+c     real x(*),fm(*),crv(*),srf(*),sp(*)                                  27
+c     if(m .ne. 1) go to 1                                                 28
+c     call plotl(im(3),im(4),x,im(5),im(im(7)),im(im(8)),im(im(9)),im(im   29
+c    1(10)),  fm(im(12)),fm(im(15)),ngc,ngs,icx,nc,crv,ns,srf,sp,mm)       30
+c     return                                                               31
+c   1 call plotc(im(3),im(4),x,im(5),im(im(7)),im(im(8)),im(im(9)),im(im   32
+c    1(10)),  fm(im(14)),fm(im(15)),ngc,ngs,icx,nc,crv,ns,srf,sp,mm)       33
+c     return                                                               34
+c     end                                                                  35
+c     subroutine catprt (m,fm,im,sp,mm)                                    36
+c     integer im(*),mm(*)                                                  37
+c     real fm(*),sp(*)                                                     38
+c     call ctprt1(m,im(5),im(im(7)),im(im(8)),fm(im(12)),fm(im(15)),fm(i   39
+c    1m(14)),sp,mm)                                                        40
+c     return                                                               41
+c     end                                                                  42
+c     subroutine slice (flg,xs,x,fm,im,fmn,imn,sp,mm)                      43
+c     integer im(*),imn(*),mm(*)                                           44
+c     real xs(*),x(*),fm(*),fmn(*),sp(*)                                   45
+c     do 1 i=1,15                                                          46
+c     imn(i)=im(i)                                                         47
+c   1 continue                                                             48
+c     i=im(15)                                                             49
+c     go to 3                                                              50
+c   2 i=i+1                                                                51
+c   3 if((i).gt.(im(1))) go to 4                                           52
+c     fmn(i)=fm(i)                                                         53
+c     go to 2                                                              54
+c   4 call slice1(flg,xs,im(3),im(4),x,im(5),fm(im(11)),fm(im(12)),fm(im   55
+c    1(15)),  im(im(7)),im(im(8)),im(im(9)),im(im(10)),fm(im(13)),fm(im(   56
+c    114)),  fmn(im(11)),fmn(im(12)),imn(im(7)),imn(im(8)),imn(im(9)),im   57
+c    1n(im(10)),  fmn(im(13)),fmn(im(14)),sp,mm)                           58
+c     return                                                               59
+c     end                                                                  60
       subroutine fmod (m,n,x,fm,im,f,sp)                                   61
       integer im(*)                                                        62
       real x(*),fm(*),f(*),sp(*)                                           63
@@ -590,13 +591,14 @@ c
      1  fm(im(13)),fm(im(14)),f,sp)                                        68
       return                                                               69
       end                                                                  70
-      subroutine print(it)                                                 71
-      call printm(it)                                                      72
-      call printg(it)                                                      73
-      call printc(it)                                                      74
-      call prtslc(it)                                                      75
-      return                                                               76
-      end                                                                  77
+cCHARLES - commented out because printg calls other func compile err
+c     subroutine print(it)                                                 71
+c     call printm(it)                                                      72
+c     call printg(it)                                                      73
+c     call printc(it)                                                      74
+c     call prtslc(it)                                                      75
+c     return                                                               76
+c     end                                                                  77
       subroutine setint(i,j,k)                                             78
       parameter(mlist=1000)                                                79
       integer m(2,mlist)                                                   80
@@ -780,388 +782,388 @@ c
    14 format(/' piecewise-cubic logistic gcv =',g12.4,'   ave var =',g12  258
      1.4)                                                                 259
       end                                                                 260
-      subroutine plotc (n,p,x,nk,kp,kv,lp,lv,tc,cm,ngc,ngs,icx,nc,crv,ns  261
-     1,srf,sp,mm)                                                         262
-      integer p,kp(5,*),kv(2,*),lp(3,*),lv(*),mm(*)                       263
-      real x(n,p),tb(5,nk),tc(*),cm(*),crv(ngc,2,*),srf(ngs,ngs,*),sp(*)  264
-     1,zl(2),zu(2)                                                        265
-      data big,it /1.e30,6/                                               266
-      if(it.gt.0) write(9 ,'(/'' mars graphics (piecewise-cubic):'',/)')  267
-      jnt=2                                                               268
-      go to 1                                                             269
-      entry plotl (n,p,x,nk,kp,kv,lp,lv,tb,cm,ngc,ngs,icx,nc,crv,ns,srf,  270
-     1sp,mm)                                                              271
-      if(it.gt.0) write(9 ,'(/'' mars graphics (piecewise-linear):'',/)'  272
-     1)                                                                   273
-      jnt=1                                                               274
-    1 ngsq=ngs**2                                                         275
-      iz=2*ngsq                                                           276
-      d=1.0/(ngs-1)                                                       277
-      dc=1.0/(ngc-1)                                                      278
-      ll=1                                                                279
-      nc=0                                                                280
-      ns=nc                                                               281
-    2 if(kp(1,ll).lt.0) go to 36                                          282
-      if(kp(3,ll) .gt. 0) go to 3                                         283
-      ll=ll+1                                                             284
-      go to 2                                                             285
-    3 nf=kp(3,ll)                                                         286
-      k4=kp(4,ll)-1                                                       287
-      k1=kp(1,ll)                                                         288
-      k2=kp(2,ll)                                                         289
-      if(it .le. 0) go to 7                                               290
-      if(k1 .ne. 0) go to 4                                               291
-      write(9 ,'('' pure ordinal contribution:'')')                       292
-      go to 7                                                             293
-    4 write(9 ,'('' categorical - ordinal interaction:'')')               294
-      do 6 i=1,k1                                                         295
-      jj=kv(1,k2+i-1)                                                     296
-      j=iabs(jj)                                                          297
-      k=kv(2,k2+i-1)                                                      298
-      ncx=int(cm(2*j+1)+.1)-int(cm(2*j)+.1)+1                             299
-      do 5 l=1,ncx                                                        300
-      mm(l)=cm(k+l)+.1                                                    301
-      if(jj.lt.0) mm(l)=mod(mm(l)+1,2)                                    302
-    5 continue                                                            303
-      write(9 ,'('' x('',i3,'') ='',70i1/80i1)') j,(mm(l),l=1,ncx)        304
-    6 continue                                                            305
-    7 do 35 k=1,nf                                                        306
-      l=lp(1,k+k4)                                                        307
-      if(l.gt.2) go to 35                                                 308
-      ko=lp(2,k+k4)                                                       309
-      if(l .ne. 1) go to 17                                               310
-      j=0                                                                 311
-      jv=lv(ko)                                                           312
-      do 9 m=k,nf                                                         313
-      l1=lp(1,m+k4)                                                       314
-      if(l1.eq.1) go to 9                                                 315
-      l2=lp(2,m+k4)-1                                                     316
-      do 8 i=1,l1                                                         317
-      if(jv.eq.lv(l2+i)) j=1                                              318
-    8 continue                                                            319
-      if(j.eq.1) go to 10                                                 320
-    9 continue                                                            321
-   10 if(j.eq.1) go to 35                                                 322
-      nc=nc+1                                                             323
-      zl(1)=big                                                           324
-      zu(1)=-big                                                          325
-      do 11 i=1,n                                                         326
-      r=x(i,jv)                                                           327
-      zl(1)=amin1(zl(1),r)                                                328
-      zu(1)=amax1(zu(1),r)                                                329
-   11 continue                                                            330
-      dl=(zu(1)-zl(1))*dc                                                 331
-      do 12 i=1,ngc                                                       332
-      crv(i,1,nc)=zl(1)+dl*(i-1)                                          333
-   12 continue                                                            334
-      if(jnt .ne. 1) go to 13                                             335
-      call fun(l,jv,ngc,crv(1,1,nc),nk,tb,cm,k1,kv(1,k2),crv(1,2,nc),mm)  336
-      go to 14                                                            337
-   13 call cfun (l,jv,ngc,crv(1,1,nc),nf,lp(1,k4+1),lv,tc(kp(5,ll)),  cr  338
-     1v(1,2,nc),sp,mm)                                                    339
-   14 dl=big                                                              340
-      do 15 i=1,ngc                                                       341
-      dl=amin1(dl,crv(i,2,nc))                                            342
-   15 continue                                                            343
-      fx=0.0                                                              344
-      do 16 i=1,ngc                                                       345
-      crv(i,2,nc)=crv(i,2,nc)-dl                                          346
-      fx=amax1(fx,crv(i,2,nc))                                            347
-   16 continue                                                            348
-      if(it.gt.0) write(9 ,39) nc,jv,fx                                   349
-      go to 35                                                            350
-   17 j=0                                                                 351
-      mm(1)=lv(ko)                                                        352
-      mm(2)=lv(ko+1)                                                      353
-      do 19 m=k,nf                                                        354
-      l1=lp(1,m+k4)                                                       355
-      if(l1.le.2) go to 19                                                356
-      l2=lp(2,m+k4)-1                                                     357
-      do 18 i=1,l1                                                        358
-      if(mm(1).eq.lv(l2+i).or.mm(2).eq.lv(l2+i)) j=1                      359
-   18 continue                                                            360
-      if(j.eq.1) go to 20                                                 361
-   19 continue                                                            362
-   20 if(j.eq.1) go to 35                                                 363
-      ns=ns+1                                                             364
-      zl(1)=big                                                           365
-      zl(2)=zl(1)                                                         366
-      zu(1)=-big                                                          367
-      zu(2)=zu(1)                                                         368
-      do 22 j=1,2                                                         369
-      do 21 i=1,n                                                         370
-      r=x(i,mm(j))                                                        371
-      zl(j)=amin1(zl(j),r)                                                372
-      zu(j)=amax1(zu(j),r)                                                373
-   21 continue                                                            374
-   22 continue                                                            375
-      do 23 j=1,2                                                         376
-      dl=(zu(j)-zl(j))/(ngs-3)                                            377
-      zu(j)=zu(j)+dl                                                      378
-      zl(j)=zl(j)-dl                                                      379
-   23 continue                                                            380
-      ne=0                                                                381
-      d1=d*(zu(1)-zl(1))                                                  382
-      d2=d*(zu(2)-zl(2))                                                  383
-      do 25 j=1,ngs                                                       384
-      do 24 i=1,ngs                                                       385
-      ne=ne+1                                                             386
-      sp(iz+ne)=zl(1)+d1*(i-1)                                            387
-      sp(iz+ngsq+ne)=zl(2)+d2*(j-1)                                       388
-   24 continue                                                            389
-   25 continue                                                            390
-      dl=big                                                              391
-      if(jnt .ne. 1) go to 26                                             392
-      call pair(mm,ngsq,sp(iz+1),nk,tb,cm,k1,kv(1,k2),  srf(1,1,ns),sp,m  393
-     1m(3))                                                               394
-      go to 27                                                            395
-   26 call cpair(mm,ngsq,sp(iz+1),nf,lp(1,k4+1),lv,  tc(kp(5,ll)),srf(1,  396
-     11,ns),sp)                                                           397
-   27 if(icx .le. 0) go to 29                                             398
-      call cvxhul(n,x(1,mm(1)),x(1,mm(2)),big,nh,sp)                      399
-      if(it .le. 0 .or. 3*nh .lt. iz) go to 28                            400
-      nxs=sqrt(float(3*nh)*0.5)+1.1                                       401
-      write(9 ,38) nxs                                                    402
-   28 call hulset(ngsq,sp(iz+1),big,nh,sp,srf(1,1,ns))                    403
-   29 do 31 j=1,ngs                                                       404
-      do 30 i=1,ngs                                                       405
-      if(i.eq.1.or.j.eq.1.or.i.eq.ngs.or.j.eq.ngs.or.srf(i,j,ns).ge.big)  406
-     1 go to 30                                                           407
-      dl=amin1(dl,srf(i,j,ns))                                            408
-   30 continue                                                            409
-   31 continue                                                            410
-      fx=0.0                                                              411
-      do 34 j=1,ngs                                                       412
-      do 33 i=1,ngs                                                       413
-      if((i .ne. 1) .and. ((j .ne. 1) .and. ((i .ne. ngs) .and. ((j .ne.  414
-     1 ngs) .and. (srf(i,j,ns) .lt. big))))) go to 32                     415
-      srf(i,j,ns)=0.0                                                     416
-      go to 33                                                            417
-   32 srf(i,j,ns)=srf(i,j,ns)-dl                                          418
-      fx=amax1(fx,srf(i,j,ns))                                            419
-   33 continue                                                            420
-   34 continue                                                            421
-      if(it.gt.0) write(9 ,40) ns,mm(1),mm(2),fx                          422
-   35 continue                                                            423
-      ll=ll+1                                                             424
-      go to 2                                                             425
-   36 if(it.gt.0) write(9 ,37) nc,ns                                      426
-      return                                                              427
-      entry printg(nal)                                                   428
-      it=nal                                                              429
-      return                                                              430
-   37 format(/,' ',i3,' curves and',i3,' surfaces.'/)                     431
-   38 format(' plot: convex hull too large. increase ngs to',i6)          432
-   39 format('   crv',i3,':  x(',i2,').  max =',g12.4)                    433
-   40 format('   srf',i3,':  x(',i2,'), x(',i2,').  max =',g12.4)         434
-      end                                                                 435
-      subroutine ctprt1 (m,nk,kp,kv,tb,cm,tc,sc,js)                       436
-      integer kp(5,*),kv(2,*),js(*)                                       437
-      real cm(*),tc(*),sc(*)                                              438
-      data big,it /9.9e30,6/                                              439
-      if(it.le.0) return                                                  440
-      nc=ncat(kp)                                                         441
-      if(nc.eq.0) return                                                  442
-      write(9 ,'(/,'' there are'',i3,'' purely categorical basis functio  443
-     1ns.'')') nc                                                         444
-      write(9 ,'('' purely additive and bivariate contributions follow''  445
-     1)')                                                                 446
-      if(m .ne. 1) go to 1                                                447
-      write(9 ,'('' (piecewise-linear fit):'')')                          448
-      go to 2                                                             449
-    1 write(9 ,'('' (piecewise-cubic fit):'')')                           450
-    2 call catv(1,kp,kv,nv,js)                                            451
-      do 8 jj=1,nv                                                        452
-      j=js(jj)                                                            453
-      xm=big                                                              454
-      xx=-big                                                             455
-      nl=int(cm(2*j+1)+.1)-int(cm(2*j)+.1)+1                              456
-      do 3 i=1,nl                                                         457
-      sc(i)=cvlv(m,1,j,i,nk,kp,kv,tb,cm,tc)                               458
-      xm=amin1(xm,sc(i))                                                  459
-      xx=amax1(xx,sc(i))                                                  460
-    3 continue                                                            461
-      px=99.0                                                             462
-      if(nl.gt.26) px=9.0                                                 463
-      rx=xx-xm                                                            464
-      rxp=rx/px                                                           465
-      write(9 ,'(/,'' f( x('',i3,'') ) : scale ='',g12.4)') j,rxp         466
-      if(rxp.le.0.0) go to 8                                              467
-      do 4 i=1,nl                                                         468
-      js(i+nv)=(sc(i)-xm)/rxp+.5                                          469
-    4 continue                                                            470
-      if(nl .gt. 26) go to 5                                              471
-      write(9 ,28) (i,i=1,nl)                                             472
-      write(9 ,28) (js(i+nv),i=1,nl)                                      473
-      go to 8                                                             474
-    5 if(nl .gt. 38) go to 6                                              475
-      write(9 ,29) (i,i=1,nl)                                             476
-      write(9 ,29) (js(i+nv),i=1,nl)                                      477
-      go to 8                                                             478
-    6 if(nl .gt. 78) go to 7                                              479
-      write(9 ,30) (mod(i,10),i=1,nl)                                     480
-      write(9 ,30) (js(i+nv),i=1,nl)                                      481
-      go to 8                                                             482
-    7 write(9 ,37) 78                                                     483
-    8 continue                                                            484
-      call catv(2,kp,kv,nv,js)                                            485
-      do 27 jj=1,nv                                                       486
-      j1=js(2*jj-1)                                                       487
-      j2=js(2*jj)                                                         488
-      xm=big                                                              489
-      xx=-big                                                             490
-      n1=int(cm(2*j1+1)+.1)-int(cm(2*j1)+.1)+1                            491
-      n2=int(cm(2*j2+1)+.1)-int(cm(2*j2)+.1)+1                            492
-      k=0                                                                 493
-      do 10 i=1,n1                                                        494
-      s1=cvlv(m,1,j1,i,nk,kp,kv,tb,cm,tc)                                 495
-      js(2*nv+1)=i                                                        496
-      do 9 j=1,n2                                                         497
-      js(2*nv+2)=j                                                        498
-      k=k+1                                                               499
-      sc(k)=s1+cvlv(m,2,js(2*jj-1),js(2*nv+1),nk,kp,kv,tb,cm,tc)          500
-    9 continue                                                            501
-   10 continue                                                            502
-      do 12 j=1,n2                                                        503
-      s1=cvlv(m,1,j2,j,nk,kp,kv,tb,cm,tc)                                 504
-      do 11 i=1,n1                                                        505
-      k=j+n2*(i-1)                                                        506
-      sc(k)=sc(k)+s1                                                      507
-   11 continue                                                            508
-   12 continue                                                            509
-      k=0                                                                 510
-      do 14 i=1,n1                                                        511
-      do 13 j=1,n2                                                        512
-      k=k+1                                                               513
-      x=sc(k)                                                             514
-      xx=amax1(xx,x)                                                      515
-      xm=amin1(xm,x)                                                      516
-   13 continue                                                            517
-   14 continue                                                            518
-      na=min0(n1,n2)                                                      519
-      nb=max0(n1,n2)                                                      520
-      if(na .ne. n1) go to 15                                             521
-      ja=j1                                                               522
-      jb=j2                                                               523
-      go to 16                                                            524
-   15 ja=j2                                                               525
-      jb=j1                                                               526
-   16 px=99.0                                                             527
-      if(na.gt.25) px=9.0                                                 528
-      rx=xx-xm                                                            529
-      rxp=rx/px                                                           530
-      write(9 ,'(/,'' f( x('',i3,''), x('',i3,'') ) : scale ='',g12.4)')  531
-     1ja,jb,rxp                                                           532
-      if(rxp.le.0.0) go to 27                                             533
-      if(na .le. 75) go to 17                                             534
-      write(9 ,37) 75                                                     535
-      go to 27                                                            536
-   17 if(na .gt. 25) go to 18                                             537
-      write(9 ,34) (i,i=1,na)                                             538
-      go to 20                                                            539
-   18 if(na .gt. 37) go to 19                                             540
-      write(9 ,35) (i,i=1,na)                                             541
-      go to 20                                                            542
-   19 write(9 ,36) (mod(i,10),i=1,na)                                     543
-   20 do 26 j=1,nb                                                        544
-      do 23 i=1,na                                                        545
-      if(na .ne. n1) go to 21                                             546
-      k=j+n2*(i-1)                                                        547
-      go to 22                                                            548
-   21 k=i+n2*(j-1)                                                        549
-   22 js(i+2*nv)=(sc(k)-xm)/rxp+.5                                        550
-   23 continue                                                            551
-      if(na .gt. 25) go to 24                                             552
-      write(9 ,31) j,(js(i+2*nv),i=1,na)                                  553
-      go to 26                                                            554
-   24 if(na .gt. 37) go to 25                                             555
-      write(9 ,32) j,(js(i+2*nv),i=1,na)                                  556
-      go to 26                                                            557
-   25 write(9 ,33) j,(js(i+2*nv),i=1,na)                                  558
-   26 continue                                                            559
-   27 continue                                                            560
-      return                                                              561
-      entry printc(nal)                                                   562
-      it=nal                                                              563
-      return                                                              564
-   28 format(' ',26i3)                                                    565
-   29 format(' ',38i2)                                                    566
-   30 format(' ',78i1)                                                    567
-   31 format(' ',i3,' ',25i3)                                             568
-   32 format(' ',i3,' ',37i2)                                             569
-   33 format(' ',i3,' ',75i1)                                             570
-   34 format('     ',25i3)                                                571
-   35 format('     ',37i2)                                                572
-   36 format('     ',75i1)                                                573
-   37 format(' function not printed (more than',i3,' categorical values)  574
-     1.')                                                                 575
-      end                                                                 576
-      subroutine slice1 (flg,xs,n,p,x,nk,az,tb,cm,kp,kv,lp,lv,bz,tc,azn,  577
-     1tbn,kpn,kvn,  lpn,lvn,bzn,tcn,sp,mm)                                578
-      integer p,kp(5,*),kv(2,*),lp(3,*),lv(*),kpn(5,*),kvn(2,*),lpn(3,*)  579
-     1,lvn(*),mm(*)                                                       580
-      real xs(p),x(n,p),tb(5,nk),cm(*),tc(*),tbn(5,nk),tcn(*),sp(*)       581
-      data it,big /6,9.9e30/                                              582
-      ni=0                                                                583
-      do 1 m=1,nk                                                         584
-      if(tb(1,m).ne.0.0) ni=ni+1                                          585
-    1 continue                                                            586
-      if(ni .ne. 0) go to 3                                               587
-      kpn(1,1)=-1                                                         588
-      lpn(1,1)=0                                                          589
-      do 2 m=1,nk                                                         590
-      tbn(1,m)=0.0                                                        591
-    2 continue                                                            592
-      azn=0.0                                                             593
-      bzn=azn                                                             594
-      if(it.gt.0) write(9 ,'('' slice: original mars model = constant.''  595
-     1)')                                                                 596
-      return                                                              597
-    3 if(it .le. 0) go to 5                                               598
-      write(9 ,'(/,'' sliced mars model: flag ='',g12.4)') flg            599
-      write(9 ,'(/,'' slice:'')')                                         600
-      do 4 j=1,p                                                          601
-      if(xs(j).eq.flg) go to 4                                            602
-      write(9 ,'('' x('',i3,'') ='',g12.4)') j,xs(j)                      603
-    4 continue                                                            604
-    5 i1=2*nk+1                                                           605
-      i2=i1+2*p                                                           606
-      i3=max0(i2+p,i1+nk)                                                 607
-      do 7 j=1,p                                                          608
-      xl=big                                                              609
-      xr=-xl                                                              610
-      do 6 i=1,n                                                          611
-      xl=amin1(xl,x(i,j))                                                 612
-      xr=amax1(xr,x(i,j))                                                 613
-    6 continue                                                            614
-      sp(j+i3-1)=xr-xl                                                    615
-      sp(j+i3-1+p)=xl                                                     616
-    7 continue                                                            617
-      call reducq(flg,xs,nk,tb,cm,tc,kp,kv,lp,lv,sp(i3),sp,sp(i1),sp(i2)  618
-     1)                                                                   619
-      call reducl(flg,xs,nk,az,tb,cm,bz,sp,sp(i3),azn,tbn,bzn,sp(i1))     620
-      ni=0                                                                621
-      do 8 m=1,nk                                                         622
-      if(tbn(1,m).ne.0.0) ni=ni+1                                         623
-    8 continue                                                            624
-      if(ni .ne. 0) go to 10                                              625
-      kpn(1,1)=-1                                                         626
-      lpn(1,1)=0                                                          627
-      do 9 m=1,nk                                                         628
-      tbn(1,m)=0.0                                                        629
-    9 continue                                                            630
-      azn=0.0                                                             631
-      bzn=azn                                                             632
-      if(it.gt.0) write(9 ,'('' sliced mars model = constant.'')')        633
-      return                                                              634
-   10 if(it.gt.0) call slova(nk,it,tbn,ni,lpn,lvn)                        635
-      call ccoll(nk,tbn,cm,kpn,kvn,lpn,lvn,mm)                            636
-      call qslice(p,nk,tbn,cm,sp,kpn,kvn,lpn,lvn,tcn,sp(i3),sp(i1),mm)    637
-      return                                                              638
-      entry prtslc(ig)                                                    639
-      it=ig                                                               640
-      return                                                              641
-      end                                                                 642
+c     subroutine plotc (n,p,x,nk,kp,kv,lp,lv,tc,cm,ngc,ngs,icx,nc,crv,ns  261
+c    1,srf,sp,mm)                                                         262
+c     integer p,kp(5,*),kv(2,*),lp(3,*),lv(*),mm(*)                       263
+c     real x(n,p),tb(5,nk),tc(*),cm(*),crv(ngc,2,*),srf(ngs,ngs,*),sp(*)  264
+c    1,zl(2),zu(2)                                                        265
+c     data big,it /1.e30,6/                                               266
+c     if(it.gt.0) write(9 ,'(/'' mars graphics (piecewise-cubic):'',/)')  267
+c     jnt=2                                                               268
+c     go to 1                                                             269
+c     entry plotl (n,p,x,nk,kp,kv,lp,lv,tb,cm,ngc,ngs,icx,nc,crv,ns,srf,  270
+c    1sp,mm)                                                              271
+c     if(it.gt.0) write(9 ,'(/'' mars graphics (piecewise-linear):'',/)'  272
+c    1)                                                                   273
+c     jnt=1                                                               274
+c   1 ngsq=ngs**2                                                         275
+c     iz=2*ngsq                                                           276
+c     d=1.0/(ngs-1)                                                       277
+c     dc=1.0/(ngc-1)                                                      278
+c     ll=1                                                                279
+c     nc=0                                                                280
+c     ns=nc                                                               281
+c   2 if(kp(1,ll).lt.0) go to 36                                          282
+c     if(kp(3,ll) .gt. 0) go to 3                                         283
+c     ll=ll+1                                                             284
+c     go to 2                                                             285
+c   3 nf=kp(3,ll)                                                         286
+c     k4=kp(4,ll)-1                                                       287
+c     k1=kp(1,ll)                                                         288
+c     k2=kp(2,ll)                                                         289
+c     if(it .le. 0) go to 7                                               290
+c     if(k1 .ne. 0) go to 4                                               291
+c     write(9 ,'('' pure ordinal contribution:'')')                       292
+c     go to 7                                                             293
+c   4 write(9 ,'('' categorical - ordinal interaction:'')')               294
+c     do 6 i=1,k1                                                         295
+c     jj=kv(1,k2+i-1)                                                     296
+c     j=iabs(jj)                                                          297
+c     k=kv(2,k2+i-1)                                                      298
+c     ncx=int(cm(2*j+1)+.1)-int(cm(2*j)+.1)+1                             299
+c     do 5 l=1,ncx                                                        300
+c     mm(l)=cm(k+l)+.1                                                    301
+c     if(jj.lt.0) mm(l)=mod(mm(l)+1,2)                                    302
+c   5 continue                                                            303
+c     write(9 ,'('' x('',i3,'') ='',70i1/80i1)') j,(mm(l),l=1,ncx)        304
+c   6 continue                                                            305
+c   7 do 35 k=1,nf                                                        306
+c     l=lp(1,k+k4)                                                        307
+c     if(l.gt.2) go to 35                                                 308
+c     ko=lp(2,k+k4)                                                       309
+c     if(l .ne. 1) go to 17                                               310
+c     j=0                                                                 311
+c     jv=lv(ko)                                                           312
+c     do 9 m=k,nf                                                         313
+c     l1=lp(1,m+k4)                                                       314
+c     if(l1.eq.1) go to 9                                                 315
+c     l2=lp(2,m+k4)-1                                                     316
+c     do 8 i=1,l1                                                         317
+c     if(jv.eq.lv(l2+i)) j=1                                              318
+c   8 continue                                                            319
+c     if(j.eq.1) go to 10                                                 320
+c   9 continue                                                            321
+c  10 if(j.eq.1) go to 35                                                 322
+c     nc=nc+1                                                             323
+c     zl(1)=big                                                           324
+c     zu(1)=-big                                                          325
+c     do 11 i=1,n                                                         326
+c     r=x(i,jv)                                                           327
+c     zl(1)=amin1(zl(1),r)                                                328
+c     zu(1)=amax1(zu(1),r)                                                329
+c  11 continue                                                            330
+c     dl=(zu(1)-zl(1))*dc                                                 331
+c     do 12 i=1,ngc                                                       332
+c     crv(i,1,nc)=zl(1)+dl*(i-1)                                          333
+c  12 continue                                                            334
+c     if(jnt .ne. 1) go to 13                                             335
+c     call fun(l,jv,ngc,crv(1,1,nc),nk,tb,cm,k1,kv(1,k2),crv(1,2,nc),mm)  336
+c     go to 14                                                            337
+c  13 call cfun (l,jv,ngc,crv(1,1,nc),nf,lp(1,k4+1),lv,tc(kp(5,ll)),  cr  338
+c    1v(1,2,nc),sp,mm)                                                    339
+c  14 dl=big                                                              340
+c     do 15 i=1,ngc                                                       341
+c     dl=amin1(dl,crv(i,2,nc))                                            342
+c  15 continue                                                            343
+c     fx=0.0                                                              344
+c     do 16 i=1,ngc                                                       345
+c     crv(i,2,nc)=crv(i,2,nc)-dl                                          346
+c     fx=amax1(fx,crv(i,2,nc))                                            347
+c  16 continue                                                            348
+c     if(it.gt.0) write(9 ,39) nc,jv,fx                                   349
+c     go to 35                                                            350
+c  17 j=0                                                                 351
+c     mm(1)=lv(ko)                                                        352
+c     mm(2)=lv(ko+1)                                                      353
+c     do 19 m=k,nf                                                        354
+c     l1=lp(1,m+k4)                                                       355
+c     if(l1.le.2) go to 19                                                356
+c     l2=lp(2,m+k4)-1                                                     357
+c     do 18 i=1,l1                                                        358
+c     if(mm(1).eq.lv(l2+i).or.mm(2).eq.lv(l2+i)) j=1                      359
+c  18 continue                                                            360
+c     if(j.eq.1) go to 20                                                 361
+c  19 continue                                                            362
+c  20 if(j.eq.1) go to 35                                                 363
+c     ns=ns+1                                                             364
+c     zl(1)=big                                                           365
+c     zl(2)=zl(1)                                                         366
+c     zu(1)=-big                                                          367
+c     zu(2)=zu(1)                                                         368
+c     do 22 j=1,2                                                         369
+c     do 21 i=1,n                                                         370
+c     r=x(i,mm(j))                                                        371
+c     zl(j)=amin1(zl(j),r)                                                372
+c     zu(j)=amax1(zu(j),r)                                                373
+c  21 continue                                                            374
+c  22 continue                                                            375
+c     do 23 j=1,2                                                         376
+c     dl=(zu(j)-zl(j))/(ngs-3)                                            377
+c     zu(j)=zu(j)+dl                                                      378
+c     zl(j)=zl(j)-dl                                                      379
+c  23 continue                                                            380
+c     ne=0                                                                381
+c     d1=d*(zu(1)-zl(1))                                                  382
+c     d2=d*(zu(2)-zl(2))                                                  383
+c     do 25 j=1,ngs                                                       384
+c     do 24 i=1,ngs                                                       385
+c     ne=ne+1                                                             386
+c     sp(iz+ne)=zl(1)+d1*(i-1)                                            387
+c     sp(iz+ngsq+ne)=zl(2)+d2*(j-1)                                       388
+c  24 continue                                                            389
+c  25 continue                                                            390
+c     dl=big                                                              391
+c     if(jnt .ne. 1) go to 26                                             392
+c     call pair(mm,ngsq,sp(iz+1),nk,tb,cm,k1,kv(1,k2),  srf(1,1,ns),sp,m  393
+c    1m(3))                                                               394
+c     go to 27                                                            395
+c  26 call cpair(mm,ngsq,sp(iz+1),nf,lp(1,k4+1),lv,  tc(kp(5,ll)),srf(1,  396
+c    11,ns),sp)                                                           397
+c  27 if(icx .le. 0) go to 29                                             398
+c     call cvxhul(n,x(1,mm(1)),x(1,mm(2)),big,nh,sp)                      399
+c     if(it .le. 0 .or. 3*nh .lt. iz) go to 28                            400
+c     nxs=sqrt(float(3*nh)*0.5)+1.1                                       401
+c     write(9 ,38) nxs                                                    402
+c  28 call hulset(ngsq,sp(iz+1),big,nh,sp,srf(1,1,ns))                    403
+c  29 do 31 j=1,ngs                                                       404
+c     do 30 i=1,ngs                                                       405
+c     if(i.eq.1.or.j.eq.1.or.i.eq.ngs.or.j.eq.ngs.or.srf(i,j,ns).ge.big)  406
+c    1 go to 30                                                           407
+c     dl=amin1(dl,srf(i,j,ns))                                            408
+c  30 continue                                                            409
+c  31 continue                                                            410
+c     fx=0.0                                                              411
+c     do 34 j=1,ngs                                                       412
+c     do 33 i=1,ngs                                                       413
+c     if((i .ne. 1) .and. ((j .ne. 1) .and. ((i .ne. ngs) .and. ((j .ne.  414
+c    1 ngs) .and. (srf(i,j,ns) .lt. big))))) go to 32                     415
+c     srf(i,j,ns)=0.0                                                     416
+c     go to 33                                                            417
+c  32 srf(i,j,ns)=srf(i,j,ns)-dl                                          418
+c     fx=amax1(fx,srf(i,j,ns))                                            419
+c  33 continue                                                            420
+c  34 continue                                                            421
+c     if(it.gt.0) write(9 ,40) ns,mm(1),mm(2),fx                          422
+c  35 continue                                                            423
+c     ll=ll+1                                                             424
+c     go to 2                                                             425
+c  36 if(it.gt.0) write(9 ,37) nc,ns                                      426
+c     return                                                              427
+c     entry printg(nal)                                                   428
+c     it=nal                                                              429
+c     return                                                              430
+c  37 format(/,' ',i3,' curves and',i3,' surfaces.'/)                     431
+c  38 format(' plot: convex hull too large. increase ngs to',i6)          432
+c  39 format('   crv',i3,':  x(',i2,').  max =',g12.4)                    433
+c  40 format('   srf',i3,':  x(',i2,'), x(',i2,').  max =',g12.4)         434
+c     end                                                                 435
+c     subroutine ctprt1 (m,nk,kp,kv,tb,cm,tc,sc,js)                       436
+c     integer kp(5,*),kv(2,*),js(*)                                       437
+c     real cm(*),tc(*),sc(*)                                              438
+c     data big,it /9.9e30,6/                                              439
+c     if(it.le.0) return                                                  440
+c     nc=ncat(kp)                                                         441
+c     if(nc.eq.0) return                                                  442
+c     write(9 ,'(/,'' there are'',i3,'' purely categorical basis functio  443
+c    1ns.'')') nc                                                         444
+c     write(9 ,'('' purely additive and bivariate contributions follow''  445
+c    1)')                                                                 446
+c     if(m .ne. 1) go to 1                                                447
+c     write(9 ,'('' (piecewise-linear fit):'')')                          448
+c     go to 2                                                             449
+c   1 write(9 ,'('' (piecewise-cubic fit):'')')                           450
+c   2 call catv(1,kp,kv,nv,js)                                            451
+c     do 8 jj=1,nv                                                        452
+c     j=js(jj)                                                            453
+c     xm=big                                                              454
+c     xx=-big                                                             455
+c     nl=int(cm(2*j+1)+.1)-int(cm(2*j)+.1)+1                              456
+c     do 3 i=1,nl                                                         457
+c     sc(i)=cvlv(m,1,j,i,nk,kp,kv,tb,cm,tc)                               458
+c     xm=amin1(xm,sc(i))                                                  459
+c     xx=amax1(xx,sc(i))                                                  460
+c   3 continue                                                            461
+c     px=99.0                                                             462
+c     if(nl.gt.26) px=9.0                                                 463
+c     rx=xx-xm                                                            464
+c     rxp=rx/px                                                           465
+c     write(9 ,'(/,'' f( x('',i3,'') ) : scale ='',g12.4)') j,rxp         466
+c     if(rxp.le.0.0) go to 8                                              467
+c     do 4 i=1,nl                                                         468
+c     js(i+nv)=(sc(i)-xm)/rxp+.5                                          469
+c   4 continue                                                            470
+c     if(nl .gt. 26) go to 5                                              471
+c     write(9 ,28) (i,i=1,nl)                                             472
+c     write(9 ,28) (js(i+nv),i=1,nl)                                      473
+c     go to 8                                                             474
+c   5 if(nl .gt. 38) go to 6                                              475
+c     write(9 ,29) (i,i=1,nl)                                             476
+c     write(9 ,29) (js(i+nv),i=1,nl)                                      477
+c     go to 8                                                             478
+c   6 if(nl .gt. 78) go to 7                                              479
+c     write(9 ,30) (mod(i,10),i=1,nl)                                     480
+c     write(9 ,30) (js(i+nv),i=1,nl)                                      481
+c     go to 8                                                             482
+c   7 write(9 ,37) 78                                                     483
+c   8 continue                                                            484
+c     call catv(2,kp,kv,nv,js)                                            485
+c     do 27 jj=1,nv                                                       486
+c     j1=js(2*jj-1)                                                       487
+c     j2=js(2*jj)                                                         488
+c     xm=big                                                              489
+c     xx=-big                                                             490
+c     n1=int(cm(2*j1+1)+.1)-int(cm(2*j1)+.1)+1                            491
+c     n2=int(cm(2*j2+1)+.1)-int(cm(2*j2)+.1)+1                            492
+c     k=0                                                                 493
+c     do 10 i=1,n1                                                        494
+c     s1=cvlv(m,1,j1,i,nk,kp,kv,tb,cm,tc)                                 495
+c     js(2*nv+1)=i                                                        496
+c     do 9 j=1,n2                                                         497
+c     js(2*nv+2)=j                                                        498
+c     k=k+1                                                               499
+c     sc(k)=s1+cvlv(m,2,js(2*jj-1),js(2*nv+1),nk,kp,kv,tb,cm,tc)          500
+c   9 continue                                                            501
+c  10 continue                                                            502
+c     do 12 j=1,n2                                                        503
+c     s1=cvlv(m,1,j2,j,nk,kp,kv,tb,cm,tc)                                 504
+c     do 11 i=1,n1                                                        505
+c     k=j+n2*(i-1)                                                        506
+c     sc(k)=sc(k)+s1                                                      507
+c  11 continue                                                            508
+c  12 continue                                                            509
+c     k=0                                                                 510
+c     do 14 i=1,n1                                                        511
+c     do 13 j=1,n2                                                        512
+c     k=k+1                                                               513
+c     x=sc(k)                                                             514
+c     xx=amax1(xx,x)                                                      515
+c     xm=amin1(xm,x)                                                      516
+c  13 continue                                                            517
+c  14 continue                                                            518
+c     na=min0(n1,n2)                                                      519
+c     nb=max0(n1,n2)                                                      520
+c     if(na .ne. n1) go to 15                                             521
+c     ja=j1                                                               522
+c     jb=j2                                                               523
+c     go to 16                                                            524
+c  15 ja=j2                                                               525
+c     jb=j1                                                               526
+c  16 px=99.0                                                             527
+c     if(na.gt.25) px=9.0                                                 528
+c     rx=xx-xm                                                            529
+c     rxp=rx/px                                                           530
+c     write(9 ,'(/,'' f( x('',i3,''), x('',i3,'') ) : scale ='',g12.4)')  531
+c    1ja,jb,rxp                                                           532
+c     if(rxp.le.0.0) go to 27                                             533
+c     if(na .le. 75) go to 17                                             534
+c     write(9 ,37) 75                                                     535
+c     go to 27                                                            536
+c  17 if(na .gt. 25) go to 18                                             537
+c     write(9 ,34) (i,i=1,na)                                             538
+c     go to 20                                                            539
+c  18 if(na .gt. 37) go to 19                                             540
+c     write(9 ,35) (i,i=1,na)                                             541
+c     go to 20                                                            542
+c  19 write(9 ,36) (mod(i,10),i=1,na)                                     543
+c  20 do 26 j=1,nb                                                        544
+c     do 23 i=1,na                                                        545
+c     if(na .ne. n1) go to 21                                             546
+c     k=j+n2*(i-1)                                                        547
+c     go to 22                                                            548
+c  21 k=i+n2*(j-1)                                                        549
+c  22 js(i+2*nv)=(sc(k)-xm)/rxp+.5                                        550
+c  23 continue                                                            551
+c     if(na .gt. 25) go to 24                                             552
+c     write(9 ,31) j,(js(i+2*nv),i=1,na)                                  553
+c     go to 26                                                            554
+c  24 if(na .gt. 37) go to 25                                             555
+c     write(9 ,32) j,(js(i+2*nv),i=1,na)                                  556
+c     go to 26                                                            557
+c  25 write(9 ,33) j,(js(i+2*nv),i=1,na)                                  558
+c  26 continue                                                            559
+c  27 continue                                                            560
+c     return                                                              561
+c     entry printc(nal)                                                   562
+c     it=nal                                                              563
+c     return                                                              564
+c  28 format(' ',26i3)                                                    565
+c  29 format(' ',38i2)                                                    566
+c  30 format(' ',78i1)                                                    567
+c  31 format(' ',i3,' ',25i3)                                             568
+c  32 format(' ',i3,' ',37i2)                                             569
+c  33 format(' ',i3,' ',75i1)                                             570
+c  34 format('     ',25i3)                                                571
+c  35 format('     ',37i2)                                                572
+c  36 format('     ',75i1)                                                573
+c  37 format(' function not printed (more than',i3,' categorical values)  574
+c    1.')                                                                 575
+c     end                                                                 576
+c     subroutine slice1 (flg,xs,n,p,x,nk,az,tb,cm,kp,kv,lp,lv,bz,tc,azn,  577
+c    1tbn,kpn,kvn,  lpn,lvn,bzn,tcn,sp,mm)                                578
+c     integer p,kp(5,*),kv(2,*),lp(3,*),lv(*),kpn(5,*),kvn(2,*),lpn(3,*)  579
+c    1,lvn(*),mm(*)                                                       580
+c     real xs(p),x(n,p),tb(5,nk),cm(*),tc(*),tbn(5,nk),tcn(*),sp(*)       581
+c     data it,big /6,9.9e30/                                              582
+c     ni=0                                                                583
+c     do 1 m=1,nk                                                         584
+c     if(tb(1,m).ne.0.0) ni=ni+1                                          585
+c   1 continue                                                            586
+c     if(ni .ne. 0) go to 3                                               587
+c     kpn(1,1)=-1                                                         588
+c     lpn(1,1)=0                                                          589
+c     do 2 m=1,nk                                                         590
+c     tbn(1,m)=0.0                                                        591
+c   2 continue                                                            592
+c     azn=0.0                                                             593
+c     bzn=azn                                                             594
+c     if(it.gt.0) write(9 ,'('' slice: original mars model = constant.''  595
+c    1)')                                                                 596
+c     return                                                              597
+c   3 if(it .le. 0) go to 5                                               598
+c     write(9 ,'(/,'' sliced mars model: flag ='',g12.4)') flg            599
+c     write(9 ,'(/,'' slice:'')')                                         600
+c     do 4 j=1,p                                                          601
+c     if(xs(j).eq.flg) go to 4                                            602
+c     write(9 ,'('' x('',i3,'') ='',g12.4)') j,xs(j)                      603
+c   4 continue                                                            604
+c   5 i1=2*nk+1                                                           605
+c     i2=i1+2*p                                                           606
+c     i3=max0(i2+p,i1+nk)                                                 607
+c     do 7 j=1,p                                                          608
+c     xl=big                                                              609
+c     xr=-xl                                                              610
+c     do 6 i=1,n                                                          611
+c     xl=amin1(xl,x(i,j))                                                 612
+c     xr=amax1(xr,x(i,j))                                                 613
+c   6 continue                                                            614
+c     sp(j+i3-1)=xr-xl                                                    615
+c     sp(j+i3-1+p)=xl                                                     616
+c   7 continue                                                            617
+c     call reducq(flg,xs,nk,tb,cm,tc,kp,kv,lp,lv,sp(i3),sp,sp(i1),sp(i2)  618
+c    1)                                                                   619
+c     call reducl(flg,xs,nk,az,tb,cm,bz,sp,sp(i3),azn,tbn,bzn,sp(i1))     620
+c     ni=0                                                                621
+c     do 8 m=1,nk                                                         622
+c     if(tbn(1,m).ne.0.0) ni=ni+1                                         623
+c   8 continue                                                            624
+c     if(ni .ne. 0) go to 10                                              625
+c     kpn(1,1)=-1                                                         626
+c     lpn(1,1)=0                                                          627
+c     do 9 m=1,nk                                                         628
+c     tbn(1,m)=0.0                                                        629
+c   9 continue                                                            630
+c     azn=0.0                                                             631
+c     bzn=azn                                                             632
+c     if(it.gt.0) write(9 ,'('' sliced mars model = constant.'')')        633
+c     return                                                              634
+c  10 if(it.gt.0) call slova(nk,it,tbn,ni,lpn,lvn)                        635
+c     call ccoll(nk,tbn,cm,kpn,kvn,lpn,lvn,mm)                            636
+c     call qslice(p,nk,tbn,cm,sp,kpn,kvn,lpn,lvn,tcn,sp(i3),sp(i1),mm)    637
+c     return                                                              638
+c     entry prtslc(ig)                                                    639
+c     it=ig                                                               640
+c     return                                                              641
+c     end                                                                 642
       subroutine cmrs (n,x,cm,kp,kv,lp,lv,bz,tc,y,sc)                     643
       integer kp(5,*),kv(2,*),lp(3,*),lv(*)                               644
       real x(n,*),tc(*),cm(*),y(n),sc(n,2)                                645
@@ -3654,15 +3656,15 @@ c
       go to 1                                                            3132
    20 return                                                             3133
       end                                                                3134
-      function cvlv (m,jl,jv,lv,nk,kp,kv,tb,cm,tc)                       3135
-      integer jv(jl),lv(jl),kp(5,*),kv(2,*)                              3136
-      real tb(5,nk),cm(*),tc(*)                                          3137
-      if(m .ne. 1) go to 1                                               3138
-      cvlv=cvll(jl,jv,lv,nk,tb,cm)                                       3139
-      go to 2                                                            3140
-    1 cvlv=cvlq(jl,jv,lv,kp,kv,cm,tc)                                    3141
-    2 return                                                             3142
-      end                                                                3143
+c     function cvlv (m,jl,jv,lv,nk,kp,kv,tb,cm,tc)                       3135
+c     integer jv(jl),lv(jl),kp(5,*),kv(2,*)                              3136
+c     real tb(5,nk),cm(*),tc(*)                                          3137
+c     if(m .ne. 1) go to 1                                               3138
+c     cvlv=cvll(jl,jv,lv,nk,tb,cm)                                       3139
+c     go to 2                                                            3140
+c   1 cvlv=cvlq(jl,jv,lv,kp,kv,cm,tc)                                    3141
+c   2 return                                                             3142
+c     end                                                                3143
       function cvll (jl,jv,lv,nk,tb,cm)                                  3144
       integer jv(jl),lv(jl),iv(2)                                        3145
       real tb(5,nk),cm(*)                                                3146
@@ -4286,75 +4288,76 @@ c
      1,  '   fun      #bsfns      variable(s)')                          3764
     5 format('  ',i3,'         ',i2,'       ',20i4)                      3765
       end                                                                3766
-      subroutine reducq (flg,x,nk,tb,cm,tc,kp,kv,lp,lv,r,td,sc,fc)       3767
-      integer kp(5,*),kv(2,*),lp(3,*),lv(*)                              3768
-      real x(*),tb(5,nk),cm(*),tc(*),r(*),td(2,nk),sc(2,*),fc(*)         3769
-      ll=1                                                               3770
-      la=ll                                                              3771
-      l1=la                                                              3772
-      laa=0                                                              3773
-      do 1 m=1,nk                                                        3774
-      td(1,m)=0.0                                                        3775
-    1 continue                                                           3776
-    2 if(kp(1,ll).lt.0) go to 9                                          3777
-      nv=0                                                               3778
-      if(kp(1,ll) .le. 0) go to 4                                        3779
-      jl=kp(1,ll)                                                        3780
-      do 3 il=1,jl                                                       3781
-      k=kp(2,ll)+il-1                                                    3782
-      nv=nv+1                                                            3783
-      sc(1,nv)=kv(1,k)                                                   3784
-      sc(2,nv)=kv(2,k)                                                   3785
-    3 continue                                                           3786
-      go to 5                                                            3787
-    4 if(kp(3,ll) .gt. 0) go to 5                                        3788
-      ll=ll+1                                                            3789
-      go to 2                                                            3790
-    5 if(kp(3,ll) .gt. 0) go to 6                                        3791
-      m=match(nv,sc,nk,tb,cm,r,0)                                        3792
-      td(1,m)=tc(-kp(3,ll))                                              3793
-      ll=ll+1                                                            3794
-      go to 2                                                            3795
-    6 kp3=kp(3,ll)                                                       3796
-      do 8 k=1,kp3                                                       3797
-      l=lp(1,l1)                                                         3798
-      nt=lp(3,l1)                                                        3799
-      laa=laa+5*l*nt                                                     3800
-      do 7 jp=1,nt                                                       3801
-      call gtrm(1,jp,l,nt,lv(lp(2,l1)),flg,x,nk,tb,tc(la),sc(1,nv+1),fc) 3802
-      m=match(nv+l,sc,nk,tb,cm,r,0)                                      3803
-      td(1,m)=tc(jp+laa)                                                 3804
-      call std(m,flg,x,l,sc(1,nv+1),fc,nk,tb,r,td)                       3805
-    7 continue                                                           3806
-      laa=laa+nt                                                         3807
-      l1=l1+1                                                            3808
-      la=la+nt*(5*l+1)                                                   3809
-    8 continue                                                           3810
-      ll=ll+1                                                            3811
-      go to 2                                                            3812
-    9 return                                                             3813
-      end                                                                3814
-      subroutine gtrm (il,jp,l,nt,jv,flg,x,nk,tb,tc,te,fc)               3815
-      integer jv(l)                                                      3816
-      real x(*),tb(5,nk),tc(nt,*),te(2,*),fc(*)                          3817
-      l2=l+l                                                             3818
-      nf=0                                                               3819
-      l3=l2+l                                                            3820
-      l4=l3+l                                                            3821
-      do 1 k=1,l                                                         3822
-      j=jv(k)                                                            3823
-      jj=j                                                               3824
-      if(tc(jp,k+l).gt.tc(jp,k+l2)) jj=-jj                               3825
-      te(1,k)=jj                                                         3826
-      te(2,k)=tc(jp,k)                                                   3827
-      if(il.eq.2) go to 1                                                3828
-      if(x(j).eq.flg) go to 1                                            3829
-      nf=nf+1                                                            3830
-      fc(nf)=cue(x(j),tc(jp,k+l),tc(jp,k),tc(jp,k+l2),tc(jp,k+l3),tc(jp, 3831
-     1k+l4))                                                             3832
-    1 continue                                                           3833
-      return                                                             3834
-      end                                                                3835
+cCHARLES - commented out to get rid of compile error
+c     subroutine reducq (flg,x,nk,tb,cm,tc,kp,kv,lp,lv,r,td,sc,fc)       3767
+c     integer kp(5,*),kv(2,*),lp(3,*),lv(*)                              3768
+c     real x(*),tb(5,nk),cm(*),tc(*),r(*),td(2,nk),sc(2,*),fc(*)         3769
+c     ll=1                                                               3770
+c     la=ll                                                              3771
+c     l1=la                                                              3772
+c     laa=0                                                              3773
+c     do 1 m=1,nk                                                        3774
+c     td(1,m)=0.0                                                        3775
+c   1 continue                                                           3776
+c   2 if(kp(1,ll).lt.0) go to 9                                          3777
+c     nv=0                                                               3778
+c     if(kp(1,ll) .le. 0) go to 4                                        3779
+c     jl=kp(1,ll)                                                        3780
+c     do 3 il=1,jl                                                       3781
+c     k=kp(2,ll)+il-1                                                    3782
+c     nv=nv+1                                                            3783
+c     sc(1,nv)=kv(1,k)                                                   3784
+c     sc(2,nv)=kv(2,k)                                                   3785
+c   3 continue                                                           3786
+c     go to 5                                                            3787
+c   4 if(kp(3,ll) .gt. 0) go to 5                                        3788
+c     ll=ll+1                                                            3789
+c     go to 2                                                            3790
+c   5 if(kp(3,ll) .gt. 0) go to 6                                        3791
+c     m=match(nv,sc,nk,tb,cm,r,0)                                        3792
+c     td(1,m)=tc(-kp(3,ll))                                              3793
+c     ll=ll+1                                                            3794
+c     go to 2                                                            3795
+c   6 kp3=kp(3,ll)                                                       3796
+c     do 8 k=1,kp3                                                       3797
+c     l=lp(1,l1)                                                         3798
+c     nt=lp(3,l1)                                                        3799
+c     laa=laa+5*l*nt                                                     3800
+c     do 7 jp=1,nt                                                       3801
+c     call gtrm(1,jp,l,nt,lv(lp(2,l1)),flg,x,nk,tb,tc(la),sc(1,nv+1),fc) 3802
+c     m=match(nv+l,sc,nk,tb,cm,r,0)                                      3803
+c     td(1,m)=tc(jp+laa)                                                 3804
+c     call std(m,flg,x,l,sc(1,nv+1),fc,nk,tb,r,td)                       3805
+c   7 continue                                                           3806
+c     laa=laa+nt                                                         3807
+c     l1=l1+1                                                            3808
+c     la=la+nt*(5*l+1)                                                   3809
+c   8 continue                                                           3810
+c     ll=ll+1                                                            3811
+c     go to 2                                                            3812
+c   9 return                                                             3813
+c     end                                                                3814
+c     subroutine gtrm (il,jp,l,nt,jv,flg,x,nk,tb,tc,te,fc)               3815
+c     integer jv(l)                                                      3816
+c     real x(*),tb(5,nk),tc(nt,*),te(2,*),fc(*)                          3817
+c     l2=l+l                                                             3818
+c     nf=0                                                               3819
+c     l3=l2+l                                                            3820
+c     l4=l3+l                                                            3821
+c     do 1 k=1,l                                                         3822
+c     j=jv(k)                                                            3823
+c     jj=j                                                               3824
+c     if(tc(jp,k+l).gt.tc(jp,k+l2)) jj=-jj                               3825
+c     te(1,k)=jj                                                         3826
+c     te(2,k)=tc(jp,k)                                                   3827
+c     if(il.eq.2) go to 1                                                3828
+c     if(x(j).eq.flg) go to 1                                            3829
+c     nf=nf+1                                                            3830
+c     fc(nf)=cue(x(j),tc(jp,k+l),tc(jp,k),tc(jp,k+l2),tc(jp,k+l3),tc(jp, 3831
+c    1k+l4))                                                             3832
+c   1 continue                                                           3833
+c     return                                                             3834
+c     end                                                                3835
       function match (nv,te,nk,tb,cm,r,iz)                               3836
       real te(2,nv),tb(5,nk),cm(*),r(*)                                  3837
       match=0                                                            3838
@@ -4570,79 +4573,80 @@ c
       go to 35                                                           4048
    39 return                                                             4049
       end                                                                4050
-      subroutine qslice (p,nk,tb,cm,td,kp,kv,lp,lv,tc,r,sc,js)           4051
-      integer p,kp(5,*),kv(2,*),lp(3,*),lv(*),js(*)                      4052
-      real tb(5,nk),cm(*),td(2,*),tc(*),r(p,2),sc(2,p)                   4053
-      do 1 j=1,p                                                         4054
-      sc(1,j)=r(j,2)                                                     4055
-      sc(2,j)=sc(1,j)+r(j,1)                                             4056
-    1 continue                                                           4057
-      ll=1                                                               4058
-      la=ll                                                              4059
-      l1=la                                                              4060
-    2 if(kp(1,ll).lt.0) go to 5                                          4061
-      if(kp(3,ll) .gt. 0) go to 3                                        4062
-      kp(5,ll)=0                                                         4063
-      ll=ll+1                                                            4064
-      go to 2                                                            4065
-    3 kp3=kp(3,ll)                                                       4066
-      kp(5,ll)=la                                                        4067
-      do 4 m=1,kp3                                                       4068
-      l=lp(1,l1)                                                         4069
-      nt=lp(3,l1)                                                        4070
-      call knts(l,nt,lv(lp(2,l1)),kp(1,ll),kv(1,kp(2,ll)),nk,tb,cm,tc(la 4071
-     1),js)                                                              4072
-      call side(l,nt,lv(lp(2,l1)),sc,tc(la))                             4073
-      l1=l1+1                                                            4074
-      la=la+nt*(5*l+1)                                                   4075
-    4 continue                                                           4076
-      ll=ll+1                                                            4077
-      go to 2                                                            4078
-    5 le=la-1                                                            4079
-      ll=1                                                               4080
-      la=ll                                                              4081
-      l1=la                                                              4082
-      laa=0                                                              4083
-    6 if(kp(1,ll).lt.0) go to 13                                         4084
-      nv=0                                                               4085
-      if(kp(1,ll) .le. 0) go to 8                                        4086
-      jl=kp(1,ll)                                                        4087
-      do 7 il=1,jl                                                       4088
-      k=kp(2,ll)+il-1                                                    4089
-      nv=nv+1                                                            4090
-      sc(1,nv)=kv(1,k)                                                   4091
-      sc(2,nv)=kv(2,k)                                                   4092
-    7 continue                                                           4093
-      go to 9                                                            4094
-    8 if(kp(3,ll) .gt. 0) go to 9                                        4095
-      ll=ll+1                                                            4096
-      go to 6                                                            4097
-    9 if(kp(3,ll) .gt. 0) go to 10                                       4098
-      m=match(nv,sc,nk,tb,cm,r,0)                                        4099
-      le=le+1                                                            4100
-      kp(3,ll)=-le                                                       4101
-      tc(le)=td(1,m)                                                     4102
-      ll=ll+1                                                            4103
-      go to 6                                                            4104
-   10 kp3=kp(3,ll)                                                       4105
-      do 12 k=1,kp3                                                      4106
-      l=lp(1,l1)                                                         4107
-      nt=lp(3,l1)                                                        4108
-      laa=laa+5*l*nt                                                     4109
-      do 11 jp=1,nt                                                      4110
-      call gtrm(2,jp,l,nt,lv(lp(2,l1)),dum,dum,nk,tb,tc(la),sc(1,nv+1),d 4111
-     1um)                                                                4112
-      m=match(nv+l,sc,nk,tb,cm,r,0)                                      4113
-      tc(jp+laa)=td(1,m)                                                 4114
-   11 continue                                                           4115
-      laa=laa+nt                                                         4116
-      l1=l1+1                                                            4117
-      la=la+nt*(5*l+1)                                                   4118
-   12 continue                                                           4119
-      ll=ll+1                                                            4120
-      go to 6                                                            4121
-   13 return                                                             4122
-      end                                                                4123
+cCHARLES - commented out because it causes compile error
+c     subroutine qslice (p,nk,tb,cm,td,kp,kv,lp,lv,tc,r,sc,js)           4051
+c     integer p,kp(5,*),kv(2,*),lp(3,*),lv(*),js(*)                      4052
+c     real tb(5,nk),cm(*),td(2,*),tc(*),r(p,2),sc(2,p)                   4053
+c     do 1 j=1,p                                                         4054
+c     sc(1,j)=r(j,2)                                                     4055
+c     sc(2,j)=sc(1,j)+r(j,1)                                             4056
+c   1 continue                                                           4057
+c     ll=1                                                               4058
+c     la=ll                                                              4059
+c     l1=la                                                              4060
+c   2 if(kp(1,ll).lt.0) go to 5                                          4061
+c     if(kp(3,ll) .gt. 0) go to 3                                        4062
+c     kp(5,ll)=0                                                         4063
+c     ll=ll+1                                                            4064
+c     go to 2                                                            4065
+c   3 kp3=kp(3,ll)                                                       4066
+c     kp(5,ll)=la                                                        4067
+c     do 4 m=1,kp3                                                       4068
+c     l=lp(1,l1)                                                         4069
+c     nt=lp(3,l1)                                                        4070
+c     call knts(l,nt,lv(lp(2,l1)),kp(1,ll),kv(1,kp(2,ll)),nk,tb,cm,tc(la 4071
+c    1),js)                                                              4072
+c     call side(l,nt,lv(lp(2,l1)),sc,tc(la))                             4073
+c     l1=l1+1                                                            4074
+c     la=la+nt*(5*l+1)                                                   4075
+c   4 continue                                                           4076
+c     ll=ll+1                                                            4077
+c     go to 2                                                            4078
+c   5 le=la-1                                                            4079
+c     ll=1                                                               4080
+c     la=ll                                                              4081
+c     l1=la                                                              4082
+c     laa=0                                                              4083
+c   6 if(kp(1,ll).lt.0) go to 13                                         4084
+c     nv=0                                                               4085
+c     if(kp(1,ll) .le. 0) go to 8                                        4086
+c     jl=kp(1,ll)                                                        4087
+c     do 7 il=1,jl                                                       4088
+c     k=kp(2,ll)+il-1                                                    4089
+c     nv=nv+1                                                            4090
+c     sc(1,nv)=kv(1,k)                                                   4091
+c     sc(2,nv)=kv(2,k)                                                   4092
+c   7 continue                                                           4093
+c     go to 9                                                            4094
+c   8 if(kp(3,ll) .gt. 0) go to 9                                        4095
+c     ll=ll+1                                                            4096
+c     go to 6                                                            4097
+c   9 if(kp(3,ll) .gt. 0) go to 10                                       4098
+c     m=match(nv,sc,nk,tb,cm,r,0)                                        4099
+c     le=le+1                                                            4100
+c     kp(3,ll)=-le                                                       4101
+c     tc(le)=td(1,m)                                                     4102
+c     ll=ll+1                                                            4103
+c     go to 6                                                            4104
+c  10 kp3=kp(3,ll)                                                       4105
+c     do 12 k=1,kp3                                                      4106
+c     l=lp(1,l1)                                                         4107
+c     nt=lp(3,l1)                                                        4108
+c     laa=laa+5*l*nt                                                     4109
+c     do 11 jp=1,nt                                                      4110
+c     call gtrm(2,jp,l,nt,lv(lp(2,l1)),dum,dum,nk,tb,tc(la),sc(1,nv+1),d 4111
+c    1um)                                                                4112
+c     m=match(nv+l,sc,nk,tb,cm,r,0)                                      4113
+c     tc(jp+laa)=td(1,m)                                                 4114
+c  11 continue                                                           4115
+c     laa=laa+nt                                                         4116
+c     l1=l1+1                                                            4117
+c     la=la+nt*(5*l+1)                                                   4118
+c  12 continue                                                           4119
+c     ll=ll+1                                                            4120
+c     go to 6                                                            4121
+c  13 return                                                             4122
+c     end                                                                4123
       function ieq(a,b,r)                                                4124
       ieq=0                                                              4125
       if(abs((a-b)/r).lt.1.e-5) ieq=1                                    4126
@@ -4968,61 +4972,68 @@ c
    10 continue                                                           4443
       return                                                             4444
       end                                                                4445
-      subroutine nest (n,i,j,nv,vals)                                    4446
+cCHARLES - commented out because it causes compile error
+c     subroutine nest (n,i,j,nv,vals)                                    4446
+c     parameter (mlist=200, nlist=2000)                                  4447
+c     real vals(*),vm(nlist),tb(5,*),cm(*),x(n,*),bl(*)                  4448
+c     integer m(4,mlist),p,lx(*)                                         4449
+c     save m,vm                                                          4450
+c     data il,jl /2*0/                                                   4451
+c     if((i .ne. 0) .and. (j .ne. 0)) go to 1                            4452
+c     il=0                                                               4453
+c     jl=il                                                              4454
+c     return                                                             4455
+c   1 if(i.eq.j) return                                                  4456
+c     ig=0                                                               4457
+c     if(nv .le. 0) go to 8                                              4458
+c     k=1                                                                4459
+c     go to 3                                                            4460
+c   2 k=k+1                                                              4461
+c   3 if((k).gt.(il)) go to 4                                            4462
+c     if(m(1,k).eq.i.or.m(1,k).eq.j) return                              4463
+c     go to 2                                                            4464
+c   4 il=il+1                                                            4465
+c     if(il .le. mlist) go to 5                                          4466
+c     write(9,  '('' increase parameter mlist in subroutine nest to grea 4467
+c    1ter than'',               i5,'' and recompile.'')') il             4468
+c     stop                                                               4469
+c   5 m(1,il)=i                                                          4470
+c     m(2,il)=j                                                          4471
+c     m(3,il)=nv                                                         4472
+c     m(4,il)=jl                                                         4473
+c     if(jl+nv .le. nlist) go to 6                                       4474
+c     write(9,  '('' increase parameter nlist in subroutine nest to grea 4475
+c    1ter than'',               i5,'' and recompile.'')') jl+nv          4476
+c     stop                                                               4477
+c   6 do 7 k=1,nv                                                        4478
+c     jl=jl+1                                                            4479
+c     vm(jl)=vals(k)                                                     4480
+c   7 continue                                                           4481
+c     return                                                             4482
+c   8 k=1                                                                4483
+c     go to 10                                                           4484
+c   9 k=k+1                                                              4485
+c  10 if((k).gt.(il)) go to 12                                           4486
+c     if(m(1,k) .ne. i .or. m(2,k) .ne. j) go to 9                       4487
+c     ig=1                                                               4488
+c  12 if(ig.eq.0) return                                                 4489
+c     il=il-1                                                            4490
+c     ll=k                                                               4491
+c     go to 14                                                           4492
+c  13 ll=ll+1                                                            4493
+c  14 if((ll).gt.(il)) go to 16                                          4494
+c     do 15 l=1,4                                                        4495
+c     m(l,ll)=m(l,ll+1)                                                  4496
+c  15 continue                                                           4497
+c     go to 13                                                           4498
+c  16 return                                                             4499
+c     entry nstlst(it)                                                   4500
+      subroutine nstlst(it)                                              4500
       parameter (mlist=200, nlist=2000)                                  4447
       real vals(*),vm(nlist),tb(5,*),cm(*),x(n,*),bl(*)                  4448
       integer m(4,mlist),p,lx(*)                                         4449
       save m,vm                                                          4450
       data il,jl /2*0/                                                   4451
-      if((i .ne. 0) .and. (j .ne. 0)) go to 1                            4452
-      il=0                                                               4453
-      jl=il                                                              4454
-      return                                                             4455
-    1 if(i.eq.j) return                                                  4456
-      ig=0                                                               4457
-      if(nv .le. 0) go to 8                                              4458
-      k=1                                                                4459
-      go to 3                                                            4460
-    2 k=k+1                                                              4461
-    3 if((k).gt.(il)) go to 4                                            4462
-      if(m(1,k).eq.i.or.m(1,k).eq.j) return                              4463
-      go to 2                                                            4464
-    4 il=il+1                                                            4465
-      if(il .le. mlist) go to 5                                          4466
-      write(9,  '('' increase parameter mlist in subroutine nest to grea 4467
-     1ter than'',               i5,'' and recompile.'')') il             4468
-      stop                                                               4469
-    5 m(1,il)=i                                                          4470
-      m(2,il)=j                                                          4471
-      m(3,il)=nv                                                         4472
-      m(4,il)=jl                                                         4473
-      if(jl+nv .le. nlist) go to 6                                       4474
-      write(9,  '('' increase parameter nlist in subroutine nest to grea 4475
-     1ter than'',               i5,'' and recompile.'')') jl+nv          4476
-      stop                                                               4477
-    6 do 7 k=1,nv                                                        4478
-      jl=jl+1                                                            4479
-      vm(jl)=vals(k)                                                     4480
-    7 continue                                                           4481
-      return                                                             4482
-    8 k=1                                                                4483
-      go to 10                                                           4484
-    9 k=k+1                                                              4485
-   10 if((k).gt.(il)) go to 12                                           4486
-      if(m(1,k) .ne. i .or. m(2,k) .ne. j) go to 9                       4487
-      ig=1                                                               4488
-   12 if(ig.eq.0) return                                                 4489
-      il=il-1                                                            4490
-      ll=k                                                               4491
-      go to 14                                                           4492
-   13 ll=ll+1                                                            4493
-   14 if((ll).gt.(il)) go to 16                                          4494
-      do 15 l=1,4                                                        4495
-      m(l,ll)=m(l,ll+1)                                                  4496
-   15 continue                                                           4497
-      go to 13                                                           4498
-   16 return                                                             4499
-      entry nstlst(it)                                                   4500
       if(it.le.0) return                                                 4501
       if(il.eq.0) return                                                 4502
       write(9 ,'(/,'' variable nesting:'',/)')                           4503
@@ -5359,7 +5370,10 @@ c
       lxn(pn)=-1                                                         4834
       xs(pn)=1.0                                                         4835
       xp(j+1)=pn                                                         4836
-      call nest(n,j,pn,1,1.0)                                            4837
+cCHARLES - should not have been called
+      PRINT *, 'MARS: FUNCTION nest SHOULD NOT HAVE BEEN CALLED'
+      stop
+c     call nest(n,j,pn,1,1.0)                                            4837
       if(lx(j).gt.0) ss=s                                                4838
       xp(j+p+1)=ss                                                       4839
       do 6 i=1,n                                                         4840

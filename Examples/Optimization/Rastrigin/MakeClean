@@ -1,0 +1,3 @@
+clean:
+	rm -f psuadeData simulator *.m *.sci psuadeApp* psuadeOpt* .psuade*
+

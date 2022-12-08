@@ -7,9 +7,9 @@ enable_testing ()
 
 set (PROJECT_NAME psuade)
 # The version number.
-set (psuade_VERSION_MAJOR 1)
-set (psuade_VERSION_MINOR 7)
-set (psuade_VERSION_PATCH 10)
+set (psuade_VERSION_MAJOR 2)
+set (psuade_VERSION_MINOR 1)
+set (psuade_VERSION_PATCH 0)
 
 set (PROJECT_INCLUDE_DIR "${PROJECT_BINARY_DIR}/include")
 set (PROJECT_BIN_DIR "${PROJECT_BINARY_DIR}/bin}")
@@ -108,15 +108,21 @@ SET(CMAKE_CXX_FLAGS_NOSSE "-O0 -g -mno-sse")
 SET(CMAKE_C_FLAGS_NOSSE "-O0 -g -mno-sse")
 SET(CMAKE_Fortran_FLAGS_NOSSE "-O0 -g -mno-sse")
 
-#SET(CMAKE_BUILD_TYPE testing)
-SET(CMAKE_CXX_FLAGS_TESTING "-mfpmath=sse -msse2")
-SET(CMAKE_C_FLAGS_TESTING "-mfpmath=sse -msse2")
-SET(CMAKE_Fortran_FLAGS_TESTING "-mfpmath=sse -msse2")
-
 #SET(CMAKE_BUILD_TYPE debug)
 SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -mfpmath=sse -msse2")
 SET(CMAKE_C_FLAGS_DEBUG "-O0 -g -mfpmath=sse -msse2")
 SET(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -mfpmath=sse -msse2")
+
+SET(CMAKE_CXX_FLAGS_OMPDEBUG " -O0 -g -fopenmp -mfpmath=sse -msse2")
+SET(CMAKE_C_FLAGS_OMPDEBUG " -O0 -g -fopenmp -mfpmath=sse -msse2")
+SET(CMAKE_Fortran_FLAGS_OMPDEBUG " -O0 -g -fopenmp -Wreturn-type")
+SET(CMAKE_LD_FLAGS_OMPDEBUG "-fopenmp -mfpmath=sse -msse2")
+
+SET(CMAKE_CXX_FLAGS_OMP " -O2 -fopenmp -mfpmath=sse -msse2")
+SET(CMAKE_C_FLAGS_OMP " -O2 -fopenmp -mfpmath=sse -msse2")
+SET(CMAKE_Fortran_FLAGS_OMP " -O2 -fopenmp -mfpmath=sse -msse2")
+SET(CMAKE_LD_FLAGS_OMP "-fopenmp")
+
  
 SET(CMAKE_CXX_FLAGS_RELEASE "-O2")
 SET(CMAKE_C_FLAGS_RELEASE "-O2")
@@ -133,11 +139,11 @@ include_directories("Src/Samplings")
 include_directories("Src/PDFLib")
 include_directories("Src/Util")
 include_directories("Src/DataIO")
-include_directories("Src/Plot")
 include_directories("Src/Analysis")
 include_directories("Src/FuncApprox")
 include_directories("Src/Comm")
 include_directories("Src/Optimizers")
+include_directories("Src/DA")
 
 set( PDF_SRC 
   "Src/PDFLib/PDFBase.cpp"
@@ -159,7 +165,7 @@ set( PDF_SRC
   "Src/PDFLib/PDFF.cpp"
   "Src/PDFLib/PDFUser.cpp"
   "Src/PDFLib/PDFManager.cpp"
-  "Src/PDFLib/pdfData.cpp"
+# "Src/PDFLib/pdfData.cpp"
   "Src/PDFLib/KSDensity.cpp"
 )
 
@@ -170,12 +176,13 @@ file(GLOB psuade_SRC
   "Src/Util/*.cpp"
   "Src/Util/*.c"
   "Src/DataIO/*.cpp"
-  "Src/Plot/*.cpp"
   "Src/Analysis/*.cpp"
   "Src/FuncApprox/*.cpp"
   "Src/FuncApprox/*.c"
   "Src/Comm/*.cpp"
   "Src/Optimizers/*.cpp"
+  "Src/DA/*.cpp"
+  "Src/DA/*.f"
 )
 
 file(GLOB psuade_HDRS
@@ -183,11 +190,11 @@ file(GLOB psuade_HDRS
   "Src/Samplings/*.h"
   "Src/Util/*.h"
   "Src/DataIO/*.h"
-  "Src/Plot/*.h"
   "Src/Analysis/*.h"
   "Src/FuncApprox/*.h"
   "Src/Comm/*.h"
   "Src/Optimizers/*.h"
+  "Src/DA/*.h"
 )
 
 ###############################################
@@ -289,30 +296,6 @@ if (USE_COBYLA)
   add_definitions(-DHAVE_COBYLA)
 endif (USE_COBYLA)
 
-#EARTH
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/EARTH")
-  option (USE_EARTH
-        "Build and use the EARTH library." OFF)
-endif() 
-if (USE_EARTH)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/EARTH")
-  add_subdirectory (External/EARTH) 
-  set (EXTRA_LIBS  earth ${EXTRA_LIBS})
-  add_definitions(-DHAVE_EARTH)
-endif (USE_EARTH)
-
-#GPMC doesn't work on Windows
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/GPMC" AND NOT MINGW)
-  option (USE_GPMC
-        "Build and use the GPMC library." OFF)
-endif() 
-if (USE_GPMC)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/GPMC")
-  add_subdirectory (External/GPMC) 
-  set (EXTRA_LIBS ${EXTRA_LIBS} gpmc)
-  add_definitions(-DHAVE_GPMC)
-endif (USE_GPMC)
-
 #LINCOA
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/LINCOA")
   option (USE_LINCOA
@@ -326,19 +309,6 @@ if (USE_LINCOA)
   add_definitions(-DHAVE_LINCOA)
 endif (USE_LINCOA)
 
-#NEWUOA
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/NEWUOA")
-  option (USE_NEWUOA
-        "Build and use the NEWUOA library." ON)
-endif() 
-if (USE_NEWUOA)
-  enable_language(Fortran)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/NEWUOA")
-  add_subdirectory (External/NEWUOA) 
-  set (EXTRA_LIBS ${EXTRA_LIBS} newuoa)
-  add_definitions(-DHAVE_NEWUOA)
-endif (USE_NEWUOA)
-
 #LBFGS
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/L-BFGS-B-C")
   option (USE_LBFGS
@@ -350,18 +320,6 @@ if (USE_LBFGS)
   set (EXTRA_LIBS ${EXTRA_LIBS} lbfgs)
   add_definitions(-DHAVE_LBFGS)
 endif (USE_LBFGS)
-
-#NOMAD
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/NOMAD")
-  option (USE_NOMAD
-        "Build and use the NOMAD library." ON)
-endif() 
-if (USE_NOMAD)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/NOMAD")
-  add_subdirectory (External/NOMAD) 
-  set (EXTRA_LIBS ${EXTRA_LIBS} nomad)
-  add_definitions(-DHAVE_NOMAD)
-endif (USE_NOMAD)
 
 #optional libraries, see if dir exists, then see if user wants it.  If both yes, build it.
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/MARS")
@@ -393,90 +351,17 @@ if (USE_METIS)
   add_definitions(-DHAVE_METIS)
 endif (USE_METIS)
 
-#MINPACK
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/MINPACK")
-  option (USE_MINPACK
-        "Build and use the MINPACK library." OFF)
-endif() 
-if (USE_MINPACK)
-  enable_language(Fortran)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/MINPACK/Lib")
-  add_subdirectory (External/MINPACK) 
-  set (EXTRA_LIBS ${EXTRA_LIBS} minpack)
-  add_definitions(-DHAVE_MINPACK)
-endif (USE_MINPACK)
-
-
-#SNNS The version of SNNS currently in PSUADE doesn't actually work.  Needs to be upgraded?
-#if(EXISTS "${PROJECT_SOURCE_DIR}/External/SNNS")
-#  option (USE_SNNS
-#        "Build and use the SNNS library." OFF)
-#endif() 
-#if (USE_SNNS)
-#include_directories ("${PROJECT_SOURCE_DIR}/External/SNNS/kernel/sources")
-#ExternalProject_Add(snns_proj
-#    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/External/SNNS
-#    CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/External/SNNS/configure --prefix=${PROJECT_BINARY_DIR} --enable-enzo
-#    BUILD_COMMAND ${MAKE} compile-kernel
-#    BUILD_IN_SOURCE 1)
-#    set (EXTRA_LIBS ${EXTRA_LIBS} snns)
-#    add_definitions(-DHAVE_SNNS)
-#endif(USE_SNNS)
-
 #SVM 
 if(EXISTS "${PROJECT_SOURCE_DIR}/External/SVM")
   option (USE_SVM
         "Build and use the SVM library." OFF)
 endif() 
 if (USE_SVM)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/SVM/Lib")
+  include_directories ("${PROJECT_SOURCE_DIR}/External/SVM")
   add_subdirectory (External/SVM) 
   set (EXTRA_LIBS ${EXTRA_LIBS} svmlight)
   add_definitions(-DHAVE_SVM)
 endif (USE_SVM)
-
-#TGP  (Apparently an R library)
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/TGP/")
-  option (USE_TGP
-        "Build and use the TGP library." OFF)
-endif() 
-if (USE_TGP)
-  set(USE_R ON)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/TGP/src")
-  include_directories ("${PROJECT_SOURCE_DIR}/External/R-2.4.0/nmath")
-  add_subdirectory (External/TGP/src) 
-  set (EXTRA_LIBS tgp ${EXTRA_LIBS})
-  add_definitions(-DHAVE_TGP)
-else(USE_TGP)
-  set(USE_R OFF)
-endif (USE_TGP)
-
-#TPROS
-if(EXISTS "${PROJECT_SOURCE_DIR}/External/TPROS")
-  option (USE_TPROS
-        "Build and use the TPROS library." OFF)
-endif() 
-if (USE_TPROS)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/TPROS/Lib")
-  add_subdirectory (External/TPROS) 
-  set (EXTRA_LIBS tpros ${EXTRA_LIBS})
-  add_definitions(-DHAVE_TPROS)
-endif (USE_TPROS)
-
-
-#R-2.4.0
-#if(EXISTS "${PROJECT_SOURCE_DIR}/External/R-2.4.0/nmath")
-#  option (USE_NMATH
-#        "Build and use the R-2.4.0 NMATH library." OFF)
-#endif() 
-if (USE_R)
-  include_directories ("${PROJECT_SOURCE_DIR}/External/R-2.4.0/nmath")
-  add_subdirectory (External/R-2.4.0/nmath) 
-  set (EXTRA_LIBS ${EXTRA_LIBS} nmath)
-  add_definitions(-DHAVE_R)
-endif (USE_R)
-
-
 
 ###################################################
 # Lapack and BLAS are weird special cases, because we may find
@@ -486,11 +371,11 @@ endif (USE_R)
 #if the aren't already installed  (Or if we're doing a release. Can't expect users to have them.)
 #(Ordering is a little silly to get the link order right)
 
-
 find_package(LAPACK)
 if(LAPACK_FOUND AND NOT CMAKE_BUILD_TYPE MATCHES Release AND NOT MINGW)
   set (EXTRA_LIBS ${EXTRA_LIBS} ${LAPACK_LIBRARIES}) 
 else()
+  message(STATUS "LaPack included with Psuade will be built instead. Nothing more is required.")
   enable_language(Fortran)
   include_directories ("${PROJECT_SOURCE_DIR}/External/Lapack")
   add_subdirectory (External/Lapack) 
@@ -501,6 +386,7 @@ find_package(BLAS)
 if(BLAS_FOUND AND NOT CMAKE_BUILD_TYPE MATCHES Release AND NOT MINGW) #Build blas for windows and release
   set (EXTRA_LIBS ${EXTRA_LIBS} "${BLAS_LIBRARIES}") 
 else()
+  message(STATUS "BLAS included with Psuade will be built instead. Nothing more is required.")
   enable_language(Fortran)
   include_directories ("${PROJECT_SOURCE_DIR}/External/BLAS")
   add_subdirectory (External/BLAS) 
@@ -567,23 +453,24 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
   SET(CPACK_NSIS_CREATE_ICONS "CreateShortCut '\$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\${PSUADE_NAME}.lnk' '\$INSTDIR\\\\bin\\\\${PSUADE_NAME}.exe'") 
 
 else()
-  SET(CPACK_GENERATOR TGZ STGZ) #DEB and RPM are also options on appropriate systems
+  SET(CPACK_GENERATOR TGZ STGZ) #DEB and RPM are also options on appropriate sysftems
 endif()
 
 include (CPack)
 
-add_subdirectory (Examples/PDFTest) 
-add_subdirectory (Examples/ARSM) 
+#add_subdirectory (Examples/PDFTest) 
+#add_subdirectory (Examples/ARSM) 
 #MARS tests (mostly)
-add_subdirectory (scripts) 
-add_subdirectory (Examples/Bungee) 
-add_subdirectory (Examples/Morris20) 
-add_subdirectory (Examples/MCMCTest) 
+#add_subdirectory (scripts) 
+#add_subdirectory (Examples/Bungee) 
+#add_subdirectory (Examples/Morris20) 
+#add_subdirectory (Examples/MCMCTest) 
 #BOBYQA
-add_subdirectory (Examples/OptRosenbrockM) 
-add_subdirectory (Examples/MOO) 
+#add_subdirectory (Examples/OptRosenbrock) 
+#add_subdirectory (Examples/MOO) 
 
 #C++ tests (using psuade as a library)
+#add_subdirectory (Examples/C++_MOAT)
 
 # enable dashboard scripting
 include (CTest)

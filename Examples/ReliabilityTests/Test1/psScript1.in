@@ -1,0 +1,6 @@
+sys cc -o simulator simulator.c -lm
+run psuade.in
+1.0
+-999
+quit
+

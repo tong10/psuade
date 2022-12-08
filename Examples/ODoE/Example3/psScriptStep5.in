@@ -1,0 +1,15 @@
+# This script takes the posterior from the previous step and
+# evaluates uncertainties for the evaluation set (17,22) so
+# it is effectively computing G/I/D/A/E metrics after all 
+# points 14, 18, 19. 24
+odoeu_bevaln
+y
+RSTrainSample
+3
+0
+odoeu_posterior1
+SelectSet2
+EvalSet
+10
+q
+

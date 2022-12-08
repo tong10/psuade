@@ -1,0 +1,10 @@
+This directory contains the Branin function 
+(see simulator.c)
+
+N = 2
+
+3 global min at 
+(-pi,12.275), (pi,2.275), and (9.42478,2.475)
+
+Compare between SCE and Bobyqa and Cobyla
+

@@ -1,0 +1,9 @@
+sys cc -o simulator simulator.c -lm
+run psuadeMOAT.in
+rename psuadeData psSave
+load psSave
+moat
+y
+1
+quit
+

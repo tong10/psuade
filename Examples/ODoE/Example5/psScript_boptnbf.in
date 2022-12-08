@@ -1,0 +1,19 @@
+# option 2: I-optimal
+# 10000 iterations with 10 restarts
+# parameter 1 and 2 are uncertain
+# evaluation sample = CandidateSet
+# 10 : GP
+printlevel 2
+odoeu_boptnbf
+35
+2
+RSTrainData
+1
+2
+0
+PriorSample
+CandidateSet
+CandidateSet
+10
+q
+

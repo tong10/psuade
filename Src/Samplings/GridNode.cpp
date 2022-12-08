@@ -87,6 +87,7 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
 
    cleanUp();
 
+   //**/ see if my node is already present
    num = sample.length() / nInputs;
    found = 0;
    for (ii = 0; ii < num; ii++) 
@@ -98,6 +99,7 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
    if (found == 1) return -1;
    sample.addElements(nInputs, X);
 
+   //**/ store my node information
    nInputs_      = nInputs;
    leftOrRight_  = leftOrRight;
    myMultiIndex_ = new int[nInputs];
@@ -107,9 +109,11 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
    leftNodes_  = NULL;
    rightNodes_ = NULL;
 
+   //**/ find out my current level 
    level = 1;
    for (ii = 0; ii < nInputs_; ii++) level += myMultiIndex_[ii] - 1;
 
+   //**/ spin off more levels, if needed
    if (level < numLevels)
    {
       leftNodes_  = new GridNode*[nInputs]; 
@@ -117,6 +121,7 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
       for (ii = 0; ii < nInputs_; ii++)
       {
          gridH = 1.0 / pow(2e0, myMultiIndex_[ii]);
+         //**/ generate left branch
          if ((X[ii] - gridH) >= 0.0)
          {
             leftNodes_[ii] = new GridNode();
@@ -135,6 +140,7 @@ int GridNode::createTree(int nInputs, int *multiIndex, int numLevels,
          }
          else leftNodes_[ii] = NULL;
 
+         //**/ generate right branch
          if ((X[ii] + gridH) <= 1.0)
          {
             rightNodes_[ii] = new GridNode();

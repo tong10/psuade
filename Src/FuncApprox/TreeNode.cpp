@@ -32,12 +32,12 @@
 // ------------------------------------------------------------------------
 TreeNode::TreeNode()
 {
-   leftNode_   = NULL;
-   rightNode_  = NULL;
-   cutPoint_   = 0.0;
-   whichInput_ = -1;
-   nodeValue_  = 0.0;
-   nodeStdev_  = 0.0;
+  leftNode_   = NULL;
+  rightNode_  = NULL;
+  cutPoint_   = 0.0;
+  whichInput_ = -1;
+  nodeValue_  = 0.0;
+  nodeStdev_  = 0.0;
 }
 
 // ************************************************************************
@@ -45,7 +45,7 @@ TreeNode::TreeNode()
 // ------------------------------------------------------------------------
 TreeNode::~TreeNode()
 {
-   if (leftNode_  != NULL) delete leftNode_;
-   if (rightNode_ != NULL) delete rightNode_;
+  if (leftNode_  != NULL) delete leftNode_;
+  if (rightNode_ != NULL) delete rightNode_;
 }
 

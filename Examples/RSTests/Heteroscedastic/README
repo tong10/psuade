@@ -1,0 +1,86 @@
+Some applications, e.g. traders models, in addition to have
+homogeneous (or indistinguishable/interchangeable) inputs, 
+may also be nondeterministic, meaning that repeated runs
+on the same input values give different results due to 
+the stochastic nature of the simulation.
+
+The test problem is an agent-based model for equity market
+with 50 traders. The model output in this case is the time 
+it takes for the price to stabilize after some major news
+(the settle time). The fundamental traders all use the same 
+trading algorithm. However, each trader has his own expected 
+fair value for the stock, and he/she initiates a trade based 
+on his own evaluation of the fairness of the offered price. 
+The expected fair values are drawn randomly from a uniform 
+distribution.  The model parameter for this scenario is the 
+lot sizes, which are different for each trader. The data set 
+is given in the file sam50k.psu. The 50k sample points have 
+a replication of 1000, meaning there are only 50 unique 
+sample points, and the 1000 outputs for each unique sample 
+points are different due to the stochastic nature of the 
+simulations.
+
+So, the exercises are:
+
+1. Find a good response surface for output MEAN of this
+   problem. You can use any response surface type, but
+   since it is relatively high dimensional, we will use
+   the homogeneous response surfaces, namely,
+
+   (The model is homogeneous because the model gives the 
+    same output - albeit the stochasticity - even if the 
+    inputs are re-ordered.)
+
+   - homogeneous regression
+   - homogeneous Kriging
+   - homogeneous GP
+
+Step 1: compute averages for unique samples
+
+   - load sam50k.psu
+   - use rm_dup and select AVERAGE for compression
+
+Step 2: now use rscheck and choose the 3 possible 
+        homogeneous response surfaces to compare
+        (for homogeneous regression, try 2nd order
+        or 3rd order)
+
+2. Find a good response surface for output std dev of 
+   this problem. You can use any response surface type, 
+   but again, use the homogeneous version is better.
+
+A. Use kde2 to estimate the standard deviations
+
+   - load sam50k.psu
+   - call kde2 and specify replications=1000
+   - you will now get a sample kde2_results which
+     you can load using read_std and run response
+     surface check on output 2.
+
+B. Use rm_dup and select the STD DEV option.
+
+   - load sam50k.psu
+   - run rm_dup and select std dev option 
+   - after compression, you can write the compressed
+     sample to a file, or run rscheck 
+
+3. Use quantile method:
+  
+   * compute quantile output values at probabilities
+     0.05, 0.25, 0.5, 0.75, and 0.95. You now have
+     5 values, and you can use response surface methods
+     for each quantile.
+
+   i.   load sam50k.psu
+   ii.  use rm_dup and specify option 6 to generate quantiles
+        - say lower and upper probabilities are 0.05 and 0.95
+        - say 5 quantiles at 0.05, 0.25, 0.5, 0.75 and 0.95
+        NOTE: at the end a file called matlab_quantiles.m will 
+              be created for plotting individual distribution 
+              of each of the 50 points.
+   iii. now you have 250 sample points (50 x 5 quantiles), you
+        can use the quantile GP method to do response surface
+        check
+        NOTE: Make sure the number of groups is division by 
+              5 and DO NOT use randomization
+ 

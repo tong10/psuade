@@ -1,0 +1,15 @@
+OBJS = mars36_fort.o
+
+libmars.a: $(OBJS)
+	$(AR) ruv $@ $(OBJS)
+	$(RANLIB) $@
+
+mars36_fort.o: mars36_fort.c
+	$(CC) $(CFLAGS) -O -c mars36_fort.c
+
+clean:
+	rm -f *.o ./libmars.a Makefile
+
+realclean:
+	rm -f *.o ./libmars.a Makefile
+

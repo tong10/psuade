@@ -1,0 +1,3 @@
+clean:
+	rm -f *.m *.sci psuadeData psuadeApp* fail_simulator morris_simulator morris_simulator2
+

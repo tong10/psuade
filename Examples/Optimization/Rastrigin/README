@@ -1,0 +1,7 @@
+A function with many local minima (100) with the global
+one at the origin.
+
+solution: [0, ..0]
+
+min F = 0
+

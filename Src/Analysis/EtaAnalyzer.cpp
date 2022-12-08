@@ -41,11 +41,10 @@
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-EtaAnalyzer::EtaAnalyzer() : Analyzer(), nInputs_(0), dOrder_(0), dRanks_(0),
-                             inputViolations_(0), totalViolation_(0)
+EtaAnalyzer::EtaAnalyzer() : Analyzer(), nInputs_(0), totalViolation_(0)
 {
-   setName("DELTATEST");
-   mode_ = 0;
+  setName("DELTATEST");
+  mode_ = 0;
 }
 
 // ************************************************************************
@@ -53,9 +52,9 @@ EtaAnalyzer::EtaAnalyzer() : Analyzer(), nInputs_(0), dOrder_(0), dRanks_(0),
 // ------------------------------------------------------------------------
 EtaAnalyzer::~EtaAnalyzer()
 {
-   if (dOrder_) delete [] dOrder_;
-   if (dRanks_) delete [] dRanks_;
-   if (inputViolations_) delete [] inputViolations_;
+  VecOrders_.clean();
+  VecRanks_.clean();
+  VecInpViolations_.clean();
 }
 
 // ************************************************************************
@@ -63,588 +62,635 @@ EtaAnalyzer::~EtaAnalyzer()
 // ------------------------------------------------------------------------
 double EtaAnalyzer::analyze(aData &adata)
 {
-   int    printLevel, nSamples, nInputs, nOutputs, outputID, ss, ss2, ii2;
-   int    *inputBins, ii, jj, kk, ii3, info, *indices, ind, nNeighs=3, imax;
-   int    ***minDistIndices, *inputViolations, count;
-   double *X, *Y, dist, *iLowerB, *iUpperB, *rangesInv2, *dRanks, dmax;
-   double ***minDistMap, mean, stdev, dtemp, *minNeighs, *means, *dOrder;
-   double ddata;
-   char   pString[500];
-   FILE   *fp;
+  int    ss, ss2, ii2, ii, jj, kk, ii3, info, ind, nNeighs=5, imax, count;
+  double dist, dmax, ddata, ***minDistMap, mean, stdev, dtemp, *minNeighs;
+  char   pString[500];
+  FILE   *fp;
 
-   printLevel = adata.printLevel_;
-   nSamples   = adata.nSamples_;
-   X          = adata.sampleInputs_;
-   Y          = adata.sampleOutputs_;
-   nInputs    = adata.nInputs_;
-   nInputs_   = nInputs;
-   nOutputs   = adata.nOutputs_;
-   nSamples   = adata.nSamples_;
-   outputID   = adata.outputID_;
-   iLowerB    = adata.iLowerB_;
-   iUpperB    = adata.iUpperB_;
-   if (adata.inputPDFs_ != NULL)
-   {
-      count = 0;
-      for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
-      if (count > 0)
-      {
-         printOutTS(PL_WARN, 
-              "EtaTest INFO: some inputs have non-uniform PDFs, but\n");
-         printOutTS(PL_WARN, 
-              "              they are not relevant in this analysis.\n");
-      }
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ extract data
+  //**/ ---------------------------------------------------------------
+  nInputs_ = adata.nInputs_;
+  int printLevel = adata.printLevel_;
+  int nSamples   = adata.nSamples_;
+  int nInputs    = adata.nInputs_;
+  int nOutputs   = adata.nOutputs_;
+  int outputID   = adata.outputID_;
+  double *XIn    = adata.sampleInputs_;
+  double *YIn    = adata.sampleOutputs_;
+  double *iLowerB = adata.iLowerB_;
+  double *iUpperB = adata.iUpperB_;
+  if (adata.inputPDFs_ != NULL)
+  {
+    count = 0;
+    for (ii = 0; ii < nInputs; ii++) count += adata.inputPDFs_[ii];
+    if (count > 0)
+    {
+      printOutTS(PL_WARN, 
+           "EtaTest INFO: some inputs have non-uniform PDFs, but\n");
+      printOutTS(PL_WARN, 
+           "              they are not relevant in this analysis.\n");
+    }
+  }
 
-   if (nSamples <= 1)
-   {
-      printOutTS(PL_ERROR, "EtaTest INFO: not meaningful to do this");
-      printOutTS(PL_ERROR, "                    test when nSamples < 2.\n");
-      return PSUADE_UNDEFINED;
-   }
-   if (X == NULL || Y == NULL)
-   {
-      printOutTS(PL_ERROR, "EtaTest ERROR: no data.\n");
-      return PSUADE_UNDEFINED;
-   }
-   info = 0;
-   for (ii = 0; ii < nSamples; ii++)
-      if (Y[nOutputs*ii+outputID] == PSUADE_UNDEFINED) info = 1;
-   if (info == 1)
-   {
-      printOutTS(PL_ERROR, "EtaTest: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR, "             Prune the undefined's first.\n");
-      return PSUADE_UNDEFINED;
-   }
-   rangesInv2 = new double[nInputs];
-   checkAllocate(rangesInv2, "rangesInv2 in etaTest::analyze");
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
+  if (nSamples <= 1)
+  {
+    printOutTS(PL_ERROR, "EtaTest INFO: not meaningful to do this");
+    printOutTS(PL_ERROR, "                    test when nSamples < 2.\n");
+    return PSUADE_UNDEFINED;
+  }
+  if (XIn == NULL || YIn == NULL)
+  {
+    printOutTS(PL_ERROR, "EtaTest ERROR: no data.\n");
+    return PSUADE_UNDEFINED;
+  }
+  info = 0;
+  for (ii = 0; ii < nSamples; ii++)
+    if (YIn[nOutputs*ii+outputID] == PSUADE_UNDEFINED) info = 1;
+  if (info == 1)
+  {
+    printOutTS(PL_ERROR, "EtaTest: Some outputs are undefined.\n");
+    printOutTS(PL_ERROR, "         Prune the undefined's first.\n");
+    return PSUADE_UNDEFINED;
+  }
+  
+  psVector vecRangesInv2;
+  vecRangesInv2.setLength(nInputs);
 
-   for (ii = 0; ii < nInputs; ii++) 
-   {
-      if ((iUpperB[ii] - iLowerB[ii]) > 0)
-         rangesInv2[ii] = 1.0 / (iUpperB[ii] - iLowerB[ii]) /
+  for (ii = 0; ii < nInputs; ii++) 
+  {
+    if ((iUpperB[ii] - iLowerB[ii]) > 0)
+      vecRangesInv2[ii] = 1.0 / (iUpperB[ii] - iLowerB[ii]) /
                                 (iUpperB[ii] - iLowerB[ii]);
-      else
-      {
-         printOutTS(PL_ERROR, "EtaTest ERROR: problem with input range.\n");
-         delete [] rangesInv2;
-         return PSUADE_UNDEFINED;
-      }
-   }
+    else
+    {
+      printOutTS(PL_ERROR, "EtaTest ERROR: problem with input range.\n");
+      return PSUADE_UNDEFINED;
+    }
+  }
  
-   if (dOrder_) delete [] dOrder_;
-   if (dRanks_) delete [] dRanks_;
-   if (inputViolations_) delete [] inputViolations_;
-   dOrder_ = NULL;
-   dRanks_ = NULL;
-   inputViolations_ = NULL;
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
+  VecOrders_.clean();
+  VecRanks_.clean();
+  VecInpViolations_.clean();
 
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "EtaTest for variable selection\n");
-   printDashes(PL_INFO, 0);
-   if (psAnaExpertMode_ == 1)
-   {
-      printOutTS(PL_INFO, "EtaTest Option: to use k > 1 neighbors.\n");
+  //**/ ---------------------------------------------------------------
+  //**/ get user information
+  //**/ ---------------------------------------------------------------
+  printAsterisks(PL_INFO, 0);
+  printOutTS(PL_INFO, "EtaTest for variable selection\n");
+  printDashes(PL_INFO, 0);
+  if (psConfig_.AnaExpertModeIsOn())
+  {
+    printOutTS(PL_INFO, "EtaTest Option: to use k > 1 neighbors.\n");
+    printOutTS(PL_INFO, 
+         "The larger k is, the larger the distinguishing power is.\n");
+    printOutTS(PL_INFO, "Default k = 5.\n");
+    sprintf(pString, "k neighbors analysis. What is k (>= 1, <= 20)? ");
+    nNeighs = getInt(1, 20, pString);
+  }
+  if (nNeighs > nSamples/2)
+  {
+    nNeighs = nSamples / 2; 
+    printOutTS(PL_INFO, 
+         "EtaTest INFO: number of neighbors reset to be %d.\n",nNeighs);
+  }  
+  printOutTS(PL_INFO,"EtaTest INFO: number of neighbors = %d.\n",nNeighs);
+  printEquals(PL_INFO, 0);
+
+  //**/ ---------------------------------------------------------------
+  //**/ prepare to run
+  //**/ ---------------------------------------------------------------
+  psIVector vecInpBins;
+  vecInpBins.setLength(nInputs);
+
+  minDistMap = new double**[nSamples];
+  checkAllocate(minDistMap, "minDistMap in etaTest::analyze");
+  for (ii = 0; ii < nSamples; ii++)
+  {
+    minDistMap[ii] = new double*[nInputs];
+    for (jj = 0; jj < nInputs; jj++)
+    {
+      minDistMap[ii][jj] = new double[nNeighs];
+      for (ss = 0; ss < nNeighs; ss++)
+        minDistMap[ii][jj][ss] = 0.0;
+    }
+  }
+
+  psVector vecMinNeighs;
+  vecMinNeighs.setLength(nNeighs);
+
+  VecRanks_.setLength(nInputs_);
+  psVector vecRanks;
+  vecRanks.setLength(nInputs);
+  double *dRanks = vecRanks.getDVector();
+
+  psVector vecMeans;
+  vecMeans.setLength(nInputs);
+
+  psIVector vecInds;
+  vecInds.setLength(nNeighs);
+
+  VecInpViolations_.setLength(nInputs);
+  psIVector vecInpViolate;
+  vecInpViolate.setLength(nInputs);
+  int *inputViolations = vecInpViolate.getIVector();
+
+  VecOrders_.setLength(nInputs_);
+  psVector vecOrders;
+  vecOrders.setLength(nInputs);
+  double *dOrder = vecOrders.getDVector();
+
+  //**/ ---------------------------------------------------------------
+  //**/ search for min distance 
+  //**/ ---------------------------------------------------------------
+  srand(time(NULL));  
+  for (ii = 0; ii < nInputs; ii++)
+  {
+    vecInpBins[ii] = 1;
+    inputViolations[ii] = 0;
+  }
+  for (ss = 0; ss < nSamples; ss++)
+  {
+    if (printLevel > 1)
       printOutTS(PL_INFO, 
-           "The larger k is, the larger the distinguishing power is.\n");
-      sprintf(pString, "k neighbors analysis. What is k (>= 1, <= 20)? ");
-      nNeighs = getInt(1, 20, pString);
-   }
-   if (nNeighs > nSamples/2)
-   {
-      nNeighs = nSamples / 2; 
-      printOutTS(PL_INFO, 
-           "EtaTest INFO: number of neighbors reset to be %d.\n",nNeighs);
-   }  
-   printOutTS(PL_INFO,"EtaTest INFO: number of neighbors = %d.\n",nNeighs);
-   printEquals(PL_INFO, 0);
-
-   inputBins = new int[nInputs];
-   minDistMap = new double**[nSamples];
-   checkAllocate(minDistMap, "minDistMap in etaTest::analyze");
-   for (ii = 0; ii < nSamples; ii++)
-   {
-      minDistMap[ii] = new double*[nInputs];
-      for (jj = 0; jj < nInputs; jj++)
+         "EtaTest: processing sample %5d (of %d)\n",ss+1,nSamples);
+    for (ii = 0; ii < nInputs; ii++)
+    {
+      //**/ reset the current input
+      vecInpBins[ii] = 0;
+      //**/ initialize tracker
+      for (jj = 0; jj < nNeighs; jj++)
       {
-         minDistMap[ii][jj] = new double[nNeighs];
-         for (ss = 0; ss < nNeighs; ss++)
-            minDistMap[ii][jj][ss] = 0.0;
+        vecMinNeighs[jj] = PSUADE_UNDEFINED;
+        vecInds[jj] = -1;
       }
-   }
-   minDistIndices = new int**[nSamples];
-   for (ii = 0; ii < nSamples; ii++)
-   {
-      minDistIndices[ii] = new int*[nInputs];
-      for (jj = 0; jj < nInputs; jj++)
+      //**/ examine with all other sample points
+      for (ss2 = 0; ss2 < nSamples; ss2++)
       {
-         minDistIndices[ii][jj] = new int[nNeighs];
-         for (ss = 0; ss < nNeighs; ss++)
-            minDistIndices[ii][jj][ss] = -1;
+        if (ss != ss2)
+        {
+          //**/ compute distance for all inputs except ii
+          dist = 0.0;
+          for (jj = 0; jj < nInputs; jj++)
+          {
+            if (vecInpBins[jj] == 1)
+            {
+              dtemp = XIn[ss*nInputs+jj] - XIn[ss2*nInputs+jj];
+              dist += dtemp * dtemp * vecRangesInv2[jj];
+            }
+          }
+          //**/ keep the sample ss2 with the largest distances
+          if (dist > 0.0)
+          {
+            //**/ if current distance is smaller than some in store
+            if (dist < vecMinNeighs[0])
+            {
+              //**/ replace the largest with it
+              vecMinNeighs[0] = dist; 
+              vecInds[0] = ss2; 
+              for (jj = 1; jj < nNeighs; jj++)
+              {
+                if (vecMinNeighs[jj] > vecMinNeighs[jj-1])
+                {
+                  dmax = vecMinNeighs[jj];
+                  vecMinNeighs[jj] = vecMinNeighs[jj-1];
+                  vecMinNeighs[jj-1] = dmax;
+                  imax = vecInds[jj];
+                  vecInds[jj] = vecInds[jj-1];
+                  vecInds[jj-1] = imax;
+                }
+              }
+            }
+          }
+        }
       }
-   }
-   minNeighs = new double[nNeighs];
-   dRanks = new double[nInputs];
-   dRanks_ = new double[nInputs_];
-   means = new double[nInputs];
-   indices = new int[nNeighs];
-   inputViolations = new int[nInputs];
-   inputViolations_ = new int[nInputs_];
-   dOrder = new double[nInputs];
-   dOrder_ = new double[nInputs_];
-   checkAllocate(dOrder_, "dOrder in etaTest::analyze");
+      for (jj = 0; jj < nNeighs; jj++) if (vecInds[jj] == -1) break;
+      if (jj != nNeighs)
+      {
+        printOutTS(PL_ERROR, "EtaTest ERROR: cannot find neighbor.\n");
+        printOutTS(PL_ERROR, 
+             "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
+        exit(1);
+      }
+      for (jj = 0; jj < nNeighs; jj++)
+      {
+        ind = vecInds[jj];
+        minDistMap[ss][ii][jj] = 
+           PABS((YIn[ind*nOutputs+outputID]-YIn[ss*nOutputs+outputID]));
+        ddata = PABS((XIn[ind*nInputs]-XIn[ss*nInputs]))/
+                     (iUpperB[0]-iLowerB[0]);
+        if (ii == 0) ddata = 0.0;
+        ii3 = 0;
+        for (kk = 1; kk < nInputs; kk++)
+        {
+          dtemp = PABS((XIn[ind*nInputs+kk]-XIn[ss*nInputs+kk]))/
+                       (iUpperB[kk]-iLowerB[kk]);
+          if (kk != ii && dtemp > ddata)
+          {
+            ddata = dtemp;
+            ii3 = kk;
+          }
+        }
+        dtemp = PABS((XIn[ind*nInputs+ii]-XIn[ss*nInputs+ii]))/
+                     (iUpperB[ii]-iLowerB[ii]);
+        ddata /= dtemp;
+        if (ddata < 1) inputViolations[ii3]++;
+        if (printLevel > 3)
+        {
+          printOutTS(PL_INFO, 
+               "EtaTest: sample %5d, input %3d (%3d), dist = %e\n",
+               ss+1, ii3+1, ii+1, ddata);
+        }
+      }
+      vecInpBins[ii] = 1;
+    }
+  }
 
-   srand(time(NULL));  
-   for (ii = 0; ii < nInputs; ii++)
-   {
-      inputBins[ii] = 1;
-      inputViolations[ii] = 0;
-   }
-   for (ss = 0; ss < nSamples; ss++)
-   {
+  //**/ ---------------------------------------------------------------
+  //**/ process and output the results
+  //**/ ---------------------------------------------------------------
+  for (ii = 0; ii < nInputs; ii++) dRanks[ii] = 0;
+  for (jj = 0; jj < nNeighs; jj++)
+  {
+    for (ii = 0; ii < nInputs; ii++)
+    {
+      mean = stdev = 0.0;
+      for (ss = 0; ss < nSamples; ss++) mean += minDistMap[ss][ii][jj];
+      mean /= (double) (nSamples);
+      for (ss = 0; ss < nSamples; ss++) 
+        stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
+      stdev = sqrt(stdev / nSamples);
+      vecMeans[ii] = mean;
+    }
+    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
+    sortDbleList2(nInputs, vecMeans.getDVector(), dOrder);
+    for (ii = 0; ii < nInputs; ii++)
+    {
+      kk = (int) dOrder[ii];
+      dRanks[kk] += ii;
+    } 
+  }
+  dist = dRanks[0];
+  for (ii = 1; ii < nInputs; ii++) 
+    if (dRanks[ii] > dist) dist = dRanks[ii];
+  if (dist > 0.0) 
+    for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
+  for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
+  sortDbleList2(nInputs, dRanks, dOrder);
+  printOutTS(PL_INFO, 
+      "Order of importance based on %d nearest neighbors single effect:\n",
+      nNeighs);
+  for (ii = 0; ii < nInputs; ii++)
+    printOutTS(PL_INFO, 
+         "(E1)Rank %4d: input %4d (score = %d)\n", ii+1, (int)
+         dOrder[nInputs-ii-1]+1, (int) (dRanks[nInputs-ii-1]*100));
+#if 0
+  printEquals(PL_INFO, 0);
+  kk = 0;
+  for (ii = 0; ii < nInputs; ii++)
+  {
+    printOutTS(PL_INFO, "(E1) input %4d violation score = %5.2f\n", 
+         ii+1, 100.0*inputViolations[ii]/nNeighs/nSamples);
+    kk += inputViolations[ii];
+  }
+  totalViolation_ = 100.0*kk/nSamples/nInputs/nNeighs;
+  printOutTS(PL_INFO, "(E1) Violation score = %5.2f\n",totalViolation_) ;
+#endif
+  printAsterisks(PL_INFO, 0);
+
+  //save results
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    VecOrders_[ii] = dOrder[ii];
+    VecRanks_[ii]  = dRanks[ii];
+    VecInpViolations_[ii] = inputViolations[ii];
+  }
+
+  //**/ ---------------------------------------------------------------
+  //**/ search for min distance: two parameter effect
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.AnaExpertModeIsOn())
+  {
+    printf("Perform second order analysis ? (y or n) ");
+    scanf("%s", pString);
+  }
+  else pString[0] = 'n';
+
+  if (pString[0] == 'y')
+  {
+    for (ii = 0; ii < nInputs; ii++) vecInpBins[ii] = 1;
+    for (ss = 0; ss < nSamples; ss++)
+    {
       for (ii = 0; ii < nInputs; ii++)
       {
-         inputBins[ii] = 0;
-         for (jj = 0; jj < nNeighs; jj++)
-         {
-            minNeighs[jj] = PSUADE_UNDEFINED;
-            indices[jj] = -1;
-         }
-         for (ss2 = 0; ss2 < nSamples; ss2++)
-         {
+        //**/ reset the current input
+        vecInpBins[ii] = 0;
+        for (ii2 = ii+1; ii2 < nInputs; ii2++)
+        {
+          vecInpBins[ii2] = 0;
+          //**/ initialize tracker
+          for (jj = 0; jj < nNeighs; jj++)
+          {
+            vecMinNeighs[jj] = PSUADE_UNDEFINED;
+            vecInds[jj] = -1;
+          }
+          //**/ examine with all other sample points
+          for (ss2 = 0; ss2 < nSamples; ss2++)
+          {
             if (ss != ss2)
             {
-               dist = 0.0;
-               for (jj = 0; jj < nInputs; jj++)
-               {
-                  if (inputBins[jj] == 1)
+              //**/ compute distance
+              dist = 0.0;
+              for (jj = 0; jj < nInputs; jj++)
+              {
+                if (vecInpBins[jj] == 1)
+                {
+                  dtemp = XIn[ss*nInputs+jj] - XIn[ss2*nInputs+jj];
+                  dist += dtemp * dtemp * vecRangesInv2[jj];
+                }
+              }
+              if (dist > 0.0)
+              {
+                //**/ if current distance is < some in store
+                if (dist < vecMinNeighs[0])
+                {
+                  //**/ replace the largest with it
+                  vecMinNeighs[0] = dist; 
+                  vecInds[0] = ss2; 
+                  for (jj = 1; jj < nNeighs; jj++)
                   {
-                     dtemp = X[ss*nInputs+jj] - X[ss2*nInputs+jj];
-                     dist += dtemp * dtemp * rangesInv2[jj];
+                    if (vecMinNeighs[jj] > vecMinNeighs[jj-1])
+                    {
+                      dmax = vecMinNeighs[jj];
+                      vecMinNeighs[jj] = vecMinNeighs[jj-1];
+                      vecMinNeighs[jj-1] = dmax;
+                      imax = vecInds[jj];
+                      vecInds[jj] = vecInds[jj-1];
+                      vecInds[jj-1] = imax;
+                    }
                   }
-               }
-               if (dist > 0.0)
-               {
-                  if (dist < minNeighs[0])
-                  {
-                     minNeighs[0] = dist; 
-                     indices[0] = ss2; 
-                     for (jj = 1; jj < nNeighs; jj++)
-                     {
-                        if (minNeighs[jj] > minNeighs[jj-1])
-                        {
-                           dmax = minNeighs[jj];
-                           minNeighs[jj] = minNeighs[jj-1];
-                           minNeighs[jj-1] = dmax;
-                           imax = indices[jj];
-                           indices[jj] = indices[jj-1];
-                           indices[jj-1] = imax;
-                        }
-                     }
-                  }
-               }
+                }
+              }
             }
-         }
-         for (jj = 0; jj < nNeighs; jj++) if (indices[jj] == -1) break;
-         if (jj != nNeighs)
-         {
+          }
+          for (jj = 0; jj < nNeighs; jj++) if (vecInds[jj] == -1) break;
+          if (jj != nNeighs)
+          {
             printOutTS(PL_ERROR, "EtaTest ERROR: cannot find neighbor.\n");
             printOutTS(PL_ERROR, 
                  "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
             exit(1);
-         }
-         for (jj = 0; jj < nNeighs; jj++)
-         {
-            ind = indices[jj];
-            minDistIndices[ss][ii][jj] = ind;
-            minDistMap[ss][ii][jj] = 
-               PABS((Y[ind*nOutputs+outputID]-Y[ss*nOutputs+outputID]));
-            ddata = PABS((X[ind*nInputs]-X[ss*nInputs]))/
-                         (iUpperB[0]-iLowerB[0]);
-            if (ii == 0) ddata = 0.0;
-            ii3 = 0;
-            for (kk = 1; kk < nInputs; kk++)
-            {
-               dtemp = PABS((X[ind*nInputs+kk]-X[ss*nInputs+kk]))/
-                            (iUpperB[kk]-iLowerB[kk]);
-               if (kk != ii && dtemp > ddata)
-               {
-                  ddata = dtemp;
-                  ii3 = kk;
-               }
-            }
-            dtemp = PABS((X[ind*nInputs+ii]-X[ss*nInputs+ii]))/
-                         (iUpperB[ii]-iLowerB[ii]);
-            ddata /= dtemp;
-            if (ddata < 1) inputViolations[ii3]++;
-            if (printLevel > 3)
-            {
-               printOutTS(PL_INFO, 
-                    "EtaTest: sample %5d, input %3d (%3d), dist = %e\n",
-                    ss+1, ii3+1, ii+1, ddata);
-            }
-         }
-         inputBins[ii] = 1;
+          }
+          for (jj = 0; jj < nNeighs; jj++)
+          {
+            ind = vecInds[jj];
+            minDistMap[ss][ii][jj] += 
+               PABS((YIn[ind*nOutputs+outputID]-YIn[ss*nOutputs+outputID]));
+            minDistMap[ss][ii2][jj] += 
+               PABS((YIn[ind*nOutputs+outputID]-YIn[ss*nOutputs+outputID]));
+          }
+          vecInpBins[ii2] = 1;
+        }
+        vecInpBins[ii] = 1;
       }
-   }
+    }
 
-   for (ii = 0; ii < nInputs; ii++) dRanks[ii] = 0;
-   for (jj = 0; jj < nNeighs; jj++)
-   {
+    //**/ ------------------------------------------------------------
+    //**/ process and output the results
+    //**/ ------------------------------------------------------------
+    for (ii = 0; ii < nInputs; ii++) dRanks[ii] = 0;
+    for (jj = 0; jj < nNeighs; jj++)
+    {
       for (ii = 0; ii < nInputs; ii++)
       {
-         mean = stdev = 0.0;
-         for (ss = 0; ss < nSamples; ss++) mean += minDistMap[ss][ii][jj];
-         mean /= (double) (nSamples);
-         for (ss = 0; ss < nSamples; ss++) 
-            stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
-         stdev = sqrt(stdev / nSamples);
-         means[ii] = mean;
+        mean = stdev = 0.0;
+        for (ss = 0; ss < nSamples; ss++) mean += minDistMap[ss][ii][jj];
+        mean /= (double) (nSamples);
+        for (ss = 0; ss < nSamples; ss++) 
+          stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
+        stdev = sqrt(stdev / nSamples);
+        vecMeans[ii] = mean;
       }
       for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
-      sortDbleList2(nInputs, means, dOrder);
+      sortDbleList2(nInputs, vecMeans.getDVector(), dOrder);
       for (ii = 0; ii < nInputs; ii++)
       {
-         kk = (int) dOrder[ii];
-         dRanks[kk] += ii;
+        kk = (int) dOrder[ii];
+        dRanks[kk] += ii;
       } 
-   }
-   dist = dRanks[0];
-   for (ii = 1; ii < nInputs; ii++) 
+    }
+    dist = dRanks[0];
+    for (ii = 1; ii < nInputs; ii++) 
       if (dRanks[ii] > dist) dist = dRanks[ii];
-   if (dist > 0.0) 
+    if (dist > 0.0) 
       for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
-   for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
-   sortDbleList2(nInputs, dRanks, dOrder);
-   printOutTS(PL_INFO, 
-      "Order of importance based on %d nearest neighbors single effect:\n",
-      nNeighs);
-   for (ii = 0; ii < nInputs; ii++)
-      printOutTS(PL_INFO, 
-           "(E1)Rank %4d: input %4d (score = %d)\n", ii+1, (int)
-           dOrder[nInputs-ii-1]+1, (int) (dRanks[nInputs-ii-1]*100));
-   printEquals(PL_INFO, 0);
-   kk = 0;
-   for (ii = 0; ii < nInputs; ii++)
-   {
-      printOutTS(PL_INFO, "(E1) input %4d violation score = %5.2f\n", 
-           ii+1, 100.0*inputViolations[ii]/nNeighs/nSamples);
-      kk += inputViolations[ii];
-   }
-   totalViolation_ = 100.0*kk/nSamples/nInputs/nNeighs;
-   printOutTS(PL_INFO, "(E1) Violation score = %5.2f\n",totalViolation_) ;
-   printAsterisks(PL_INFO, 0);
+    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
+    sortDbleList2(nInputs, dRanks, dOrder);
+    printOutTS(PL_INFO, 
+       "Order of importance based on %d nearest neighbors twin effect:\n",
+       nNeighs);
+    for (ii = 0; ii < nInputs; ii++)
+      printOutTS(PL_INFO, "(E2)Rank %4d: input %4d (score = %d)\n", ii+1, 
+           (int) dOrder[nInputs-ii-1]+1,(int) (dRanks[nInputs-ii-1]*100));
+    printAsterisks(PL_INFO, 0);
+  }
 
-   //save results
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      dOrder_[ii] = dOrder[ii];
-      dRanks_[ii] = dRanks[ii];
-      inputViolations_[ii] = inputViolations[ii];
-   }
-   if (psAnaExpertMode_ == 1)
-   {
-      printf("Perform second order analysis ? (y or n) ");
-      scanf("%s", pString);
-   }
-   else pString[0] = 'n';
-
-   if (pString[0] == 'y')
-   {
-      for (ii = 0; ii < nInputs; ii++) inputBins[ii] = 1;
-      for (ss = 0; ss < nSamples; ss++)
-      {
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            inputBins[ii] = 0;
-            for (ii2 = ii+1; ii2 < nInputs; ii2++)
-            {
-               inputBins[ii2] = 0;
-               for (jj = 0; jj < nNeighs; jj++)
-               {
-                  minNeighs[jj] = PSUADE_UNDEFINED;
-                  indices[jj] = -1;
-               }
-               for (ss2 = 0; ss2 < nSamples; ss2++)
-               {
-                  if (ss != ss2)
-                  {
-                     dist = 0.0;
-                     for (jj = 0; jj < nInputs; jj++)
-                     {
-                        if (inputBins[jj] == 1)
-                        {
-                           dtemp = X[ss*nInputs+jj] - X[ss2*nInputs+jj];
-                           dist += dtemp * dtemp * rangesInv2[jj];
-                        }
-                     }
-                     if (dist > 0.0)
-                     {
-                        if (dist < minNeighs[0])
-                        {
-                           minNeighs[0] = dist; 
-                           indices[0] = ss2; 
-                           for (jj = 1; jj < nNeighs; jj++)
-                           {
-                              if (minNeighs[jj] > minNeighs[jj-1])
-                              {
-                                 dmax = minNeighs[jj];
-                                 minNeighs[jj] = minNeighs[jj-1];
-                                 minNeighs[jj-1] = dmax;
-                                 imax = indices[jj];
-                                 indices[jj] = indices[jj-1];
-                                 indices[jj-1] = imax;
-                              }
-                           }
-                        }
-                     }
-                  }
-               }
-               for (jj = 0; jj < nNeighs; jj++) if (indices[jj] == -1) break;
-               if (jj != nNeighs)
-               {
-                  printOutTS(PL_ERROR, "EtaTest ERROR: cannot find neighbor.\n");
-                  printOutTS(PL_ERROR, 
-                       "    Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
-                  exit(1);
-               }
-               for (jj = 0; jj < nNeighs; jj++)
-               {
-                  ind = indices[jj];
-                  minDistMap[ss][ii][jj] += 
-                     PABS((Y[ind*nOutputs+outputID]-Y[ss*nOutputs+outputID]));
-                  minDistMap[ss][ii2][jj] += 
-                     PABS((Y[ind*nOutputs+outputID]-Y[ss*nOutputs+outputID]));
-               }
-               inputBins[ii2] = 1;
-            }
-            inputBins[ii] = 1;
-         }
-      }
-
-      for (ii = 0; ii < nInputs; ii++) dRanks[ii] = 0;
-      for (jj = 0; jj < nNeighs; jj++)
-      {
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            mean = stdev = 0.0;
-            for (ss = 0; ss < nSamples; ss++) mean += minDistMap[ss][ii][jj];
-            mean /= (double) (nSamples);
-            for (ss = 0; ss < nSamples; ss++) 
-               stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
-            stdev = sqrt(stdev / nSamples);
-            means[ii] = mean;
-         }
-         for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
-         sortDbleList2(nInputs, means, dOrder);
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            kk = (int) dOrder[ii];
-            dRanks[kk] += ii;
-         } 
-      }
-      dist = dRanks[0];
-      for (ii = 1; ii < nInputs; ii++) 
-         if (dRanks[ii] > dist) dist = dRanks[ii];
-      if (dist > 0.0) 
-         for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
-      for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
-      sortDbleList2(nInputs, dRanks, dOrder);
-      printOutTS(PL_INFO, 
-         "Order of importance based on %d nearest neighbors twin effect:\n",
-         nNeighs);
+  //**/ ---------------------------------------------------------------
+  //**/ search for min distance: triple parameter effect
+  //**/ ---------------------------------------------------------------
+  //if (psConfig_.AnaExpertModeIsOn())
+  //{
+  //  printf("Perform third order analysis ? (y or n) ");
+  //  scanf("%s", pString);
+  //}
+  //else pString[0] = 'n';
+  pString[0] = 'n';
+  if (pString[0] == 'y')
+  {
+    for (ii = 0; ii < nInputs; ii++) vecInpBins[ii] = 1;
+    for (ss = 0; ss < nSamples; ss++)
+    {
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "(E2)Rank %4d: input %4d (score = %d)\n", ii+1, 
-              (int) dOrder[nInputs-ii-1]+1,(int) (dRanks[nInputs-ii-1]*100));
-      printAsterisks(PL_INFO, 0);
-   }
-
-   if (psAnaExpertMode_ == 1)
-   {
-      printf("Perform third order analysis ? (y or n) ");
-      scanf("%s", pString);
-   }
-   else pString[0] = 'n';
-   if (pString[0] == 'y')
-   {
-      for (ii = 0; ii < nInputs; ii++) inputBins[ii] = 1;
-      for (ss = 0; ss < nSamples; ss++)
       {
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            inputBins[ii] = 0;
-            for (ii2 = ii+1; ii2 < nInputs; ii2++)
+        //**/ reset the current input
+        vecInpBins[ii] = 0;
+        for (ii2 = ii+1; ii2 < nInputs; ii2++)
+        {
+          vecInpBins[ii2] = 0;
+          for (ii3 = ii2+1; ii3 < nInputs; ii3++)
+          {
+            vecInpBins[ii3] = 0;
+            //**/ initialize tracker
+            for (jj = 0; jj < nNeighs; jj++)
             {
-               inputBins[ii2] = 0;
-               for (ii3 = ii2+1; ii3 < nInputs; ii3++)
-               {
-                  inputBins[ii3] = 0;
-                  for (jj = 0; jj < nNeighs; jj++)
-                  {
-                     minNeighs[jj] = PSUADE_UNDEFINED;
-                     indices[jj] = -1;
-                  }
-                  for (ss2 = 0; ss2 < nSamples; ss2++)
-                  {
-                     if (ss != ss2)
-                     {
-                        dist = 0.0;
-                        for (jj = 0; jj < nInputs; jj++)
-                        {
-                           if (inputBins[jj] == 1)
-                           {
-                              dtemp = X[ss*nInputs+jj]-X[ss2*nInputs+jj];
-                              dist += dtemp * dtemp * rangesInv2[jj];
-                           }
-                        }
-                        if (dist > 0.0)
-                        {
-                           if (dist < minNeighs[0])
-                           {
-                              minNeighs[0] = dist; 
-                              indices[0] = ss2; 
-                              for (jj = 1; jj < nNeighs; jj++)
-                              {
-                                 if (minNeighs[jj] > minNeighs[jj-1])
-                                 {
-                                    dmax = minNeighs[jj];
-                                    minNeighs[jj] = minNeighs[jj-1];
-                                    minNeighs[jj-1] = dmax;
-                                    imax = indices[jj];
-                                    indices[jj] = indices[jj-1];
-                                    indices[jj-1] = imax;
-                                 }
-                              }
-                           }
-                        }
-                     }
-                  }
-                  for (jj = 0; jj < nNeighs; jj++) 
-                     if (indices[jj] == -1) break;
-                  if (jj != nNeighs)
-                  {
-                     printOutTS(PL_ERROR, 
-                          "EtaTest ERROR: cannot find neighbor.\n");
-                     printOutTS(PL_ERROR, 
-                          "   Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
-                     exit(1);
-                  }
-                  for (jj = 0; jj < nNeighs; jj++)
-                  {
-                     ind = indices[jj];
-                     minDistMap[ss][ii][jj] += 
-                     PABS((Y[ind*nOutputs+outputID]-Y[ss*nOutputs+outputID]));
-                     minDistMap[ss][ii2][jj] += 
-                     PABS((Y[ind*nOutputs+outputID]-Y[ss*nOutputs+outputID]));
-                     minDistMap[ss][ii3][jj] += 
-                     PABS((Y[ind*nOutputs+outputID]-Y[ss*nOutputs+outputID]));
-                  }
-                  inputBins[ii3] = 1;
-               }
-               inputBins[ii2] = 1;
+              vecMinNeighs[jj] = PSUADE_UNDEFINED;
+              vecInds[jj] = -1;
             }
-            inputBins[ii] = 1;
-         }
+            //**/ examine with all other sample points
+            for (ss2 = 0; ss2 < nSamples; ss2++)
+            {
+              if (ss != ss2)
+              {
+                //**/ compute distance
+                dist = 0.0;
+                for (jj = 0; jj < nInputs; jj++)
+                {
+                  if (vecInpBins[jj] == 1)
+                  {
+                    dtemp = XIn[ss*nInputs+jj]-XIn[ss2*nInputs+jj];
+                    dist += dtemp * dtemp * vecRangesInv2[jj];
+                  }
+                }
+                if (dist > 0.0)
+                {
+                  //**/ if current distance is smaller 
+                  if (dist < vecMinNeighs[0])
+                  {
+                    //**/ replace the largest with it
+                    vecMinNeighs[0] = dist; 
+                    vecInds[0] = ss2; 
+                    for (jj = 1; jj < nNeighs; jj++)
+                    {
+                      if (vecMinNeighs[jj] > vecMinNeighs[jj-1])
+                      {
+                        dmax = vecMinNeighs[jj];
+                        vecMinNeighs[jj] = vecMinNeighs[jj-1];
+                        vecMinNeighs[jj-1] = dmax;
+                        imax = vecInds[jj];
+                        vecInds[jj] = vecInds[jj-1];
+                        vecInds[jj-1] = imax;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            for (jj = 0; jj < nNeighs; jj++) 
+              if (vecInds[jj] == -1) break;
+            if (jj != nNeighs)
+            {
+              printOutTS(PL_ERROR, 
+                   "EtaTest ERROR: cannot find neighbor.\n");
+              printOutTS(PL_ERROR, 
+                   "   Sample %d: nNeigh = %d (%d)\n",ss+1,jj,nNeighs);
+              exit(1);
+            }
+            for (jj = 0; jj < nNeighs; jj++)
+            {
+              ind = vecInds[jj];
+              minDistMap[ss][ii][jj] += 
+                PABS((YIn[ind*nOutputs+outputID]-YIn[ss*nOutputs+outputID]));
+              minDistMap[ss][ii2][jj] += 
+                PABS((YIn[ind*nOutputs+outputID]-YIn[ss*nOutputs+outputID]));
+              minDistMap[ss][ii3][jj] += 
+                PABS((YIn[ind*nOutputs+outputID]-YIn[ss*nOutputs+outputID]));
+            }
+            vecInpBins[ii3] = 1;
+          }
+          vecInpBins[ii2] = 1;
+        }
+        vecInpBins[ii] = 1;
       }
+    }
 
-      for (ii = 0; ii < nInputs; ii++) dRanks[ii] = 0;
-      for (jj = 0; jj < nNeighs; jj++)
-      {
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            mean = stdev = 0.0;
-            for (ss = 0; ss < nSamples; ss++) mean += minDistMap[ss][ii][jj];
-            mean /= (double) (nSamples);
-            for (ss = 0; ss < nSamples; ss++) 
-               stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
-            stdev = sqrt(stdev / nSamples);
-            means[ii] = mean;
-         }
-         for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
-         sortDbleList2(nInputs, means, dOrder);
-         for (ii = 0; ii < nInputs; ii++)
-         {
-            kk = (int) dOrder[ii];
-            dRanks[kk] += ii;
-         } 
-      }
-      dist = dRanks[0];
-      for (ii = 1; ii < nInputs; ii++) 
-         if (dRanks[ii] > dist) dist = dRanks[ii];
-      if (dist > 0.0) 
-         for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
-      for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
-      sortDbleList2(nInputs, dRanks, dOrder);
-      printOutTS(PL_INFO, 
-         "Order of importance based on %d nearest neighbors 3-way effect:\n",
-         nNeighs);
+    //**/ ------------------------------------------------------------
+    //**/ process and output the results
+    //**/ ------------------------------------------------------------
+    for (ii = 0; ii < nInputs; ii++) dRanks[ii] = 0;
+    for (jj = 0; jj < nNeighs; jj++)
+    {
       for (ii = 0; ii < nInputs; ii++)
-         printOutTS(PL_INFO, "(E3)Rank %4d: input %4d (score = %d)\n", ii+1, 
-            (int) dOrder[nInputs-ii-1]+1, (int) (dRanks[nInputs-ii-1]*100));
-      printAsterisks(PL_INFO, 0);
-   }
-
-   if (psAnaExpertMode_ == 1)
-   {
-      fp = fopen("psEtaData.m", "w");
-      if (fp != NULL)
       {
-         fprintf(fp, "clf\n");
-         fprintf(fp, "n = %d;\n", nInputs);
-         fprintf(fp, "X = 1:n;\n");
-         for (jj = 0; jj < nNeighs; jj++) 
-         {
-            fprintf(fp, "A%d = [\n", jj+1);
-            for (ss = 0; ss < nSamples; ss++) 
-            {
-               for (ii = 0; ii < nInputs; ii++)
-                  fprintf(fp, "%13.5e ", minDistMap[ss][ii][jj]);
-               fprintf(fp, "\n");
-            }
-            fprintf(fp, "];\n");
-            if (jj % 5 == 0)
-               fprintf(fp, "plot(X,A%d,'bx')\n",jj+1);
-            else if (jj % 5 == 1)
-               fprintf(fp, "plot(X,A%d,'rx')\n",jj+1);
-            else if (jj % 5 == 2)
-               fprintf(fp, "plot(X,A%d,'kx')\n",jj+1);
-            else if (jj % 5 == 3)
-               fprintf(fp, "plot(X,A%d,'gx')\n",jj+1);
-            else if (jj % 5 == 4)
-               fprintf(fp, "plot(X,A%d,'cx')\n",jj+1);
-            fprintf(fp, "hold on;\n");
-            fprintf(fp, "pause\n");
-         }
-         fclose(fp);
-         printOutTS(PL_INFO, 
-              "Use the psEtaData.m file to examine the distributions.\n");
+        mean = stdev = 0.0;
+        for (ss = 0; ss < nSamples; ss++) mean += minDistMap[ss][ii][jj];
+        mean /= (double) (nSamples);
+        for (ss = 0; ss < nSamples; ss++) 
+          stdev += pow(minDistMap[ss][ii][jj]-mean,2.0);
+        stdev = sqrt(stdev / nSamples);
+        vecMeans[ii] = mean;
       }
-   }
-   printAsterisks(PL_INFO, 0);
+      for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
+      sortDbleList2(nInputs, vecMeans.getDVector(), dOrder);
+      for (ii = 0; ii < nInputs; ii++)
+      {
+        kk = (int) dOrder[ii];
+        dRanks[kk] += ii;
+      } 
+    }
+    dist = dRanks[0];
+    for (ii = 1; ii < nInputs; ii++) 
+      if (dRanks[ii] > dist) dist = dRanks[ii];
+    if (dist > 0.0) 
+      for (ii = 0; ii < nInputs; ii++) dRanks[ii] /= dist;
+    for (ii = 0; ii < nInputs; ii++) dOrder[ii] = 1.0 * ii;
+    sortDbleList2(nInputs, dRanks, dOrder);
+    printOutTS(PL_INFO, 
+       "Order of importance based on %d nearest neighbors 3-way effect:\n",
+       nNeighs);
+    for (ii = 0; ii < nInputs; ii++)
+      printOutTS(PL_INFO, "(E3)Rank %4d: input %4d (score = %d)\n", ii+1, 
+          (int) dOrder[nInputs-ii-1]+1, (int) (dRanks[nInputs-ii-1]*100));
+    printAsterisks(PL_INFO, 0);
+  }
+
+  //**/ ---------------------------------------------------------------
+  //**/ create matlab file
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.AnaExpertModeIsOn())
+  {
+    fp = fopen("psEtaData.m", "w");
+    if (fp != NULL)
+    {
+      fprintf(fp, "clf\n");
+      fprintf(fp, "n = %d;\n", nInputs);
+      fprintf(fp, "X = 1:n;\n");
+      for (jj = 0; jj < nNeighs; jj++) 
+      {
+        fprintf(fp, "A%d = [\n", jj+1);
+        for (ss = 0; ss < nSamples; ss++) 
+        {
+          for (ii = 0; ii < nInputs; ii++)
+            fprintf(fp, "%13.5e ", minDistMap[ss][ii][jj]);
+          fprintf(fp, "\n");
+        }
+        fprintf(fp, "];\n");
+        if (jj % 5 == 0)
+          fprintf(fp, "plot(X,A%d,'bx')\n",jj+1);
+        else if (jj % 5 == 1)
+          fprintf(fp, "plot(X,A%d,'rx')\n",jj+1);
+        else if (jj % 5 == 2)
+          fprintf(fp, "plot(X,A%d,'kx')\n",jj+1);
+        else if (jj % 5 == 3)
+          fprintf(fp, "plot(X,A%d,'gx')\n",jj+1);
+        else if (jj % 5 == 4)
+          fprintf(fp, "plot(X,A%d,'cx')\n",jj+1);
+        fprintf(fp, "hold on;\n");
+        fprintf(fp, "pause\n");
+      }
+      fclose(fp);
+      printOutTS(PL_INFO, 
+           "Use the psEtaData.m file to examine the distributions.\n");
+    }
+  }
+  printAsterisks(PL_INFO, 0);
  
-   delete [] inputBins;
-   delete [] minNeighs;
-   for (ii = 0; ii < nSamples; ii++)
-   {
-      for (jj = 0; jj < nInputs; jj++)
-         delete [] minDistMap[ii][jj];
-      delete [] minDistMap[ii];
-   }
-   delete [] minDistMap;
-   for (ii = 0; ii < nSamples; ii++)
-   {
-      for (jj = 0; jj < nInputs; jj++)
-         delete [] minDistIndices[ii][jj];
-      delete [] minDistIndices[ii];
-   }
-   delete [] minDistIndices;
-   delete [] indices;
-   delete [] rangesInv2;
-   delete [] means;
-   delete [] dRanks;
-   delete [] dOrder;
-   delete [] inputViolations;
-   return 0.0;
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
+  for (ii = 0; ii < nSamples; ii++)
+  {
+    for (jj = 0; jj < nInputs; jj++)
+      delete [] minDistMap[ii][jj];
+    delete [] minDistMap[ii];
+  }
+  delete [] minDistMap;
+  return 0.0;
 }
 
 // ************************************************************************
@@ -652,9 +698,9 @@ double EtaAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 EtaAnalyzer& EtaAnalyzer::operator=(const EtaAnalyzer &)
 {
-   printOutTS(PL_ERROR, "EtaTest operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printOutTS(PL_ERROR, "EtaTest operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 
 // ************************************************************************
@@ -662,48 +708,33 @@ EtaAnalyzer& EtaAnalyzer::operator=(const EtaAnalyzer &)
 // ------------------------------------------------------------------------
 int EtaAnalyzer::get_mode()
 {
-   return mode_;
+  return mode_;
 }
 
 int EtaAnalyzer::get_nInputs()
 {
-   return nInputs_;
+  return nInputs_;
 }
 double *EtaAnalyzer::get_dOrder()
 {
-   double* retVal = NULL;
-   if (dOrder_)
-   {
-      retVal = new double[nInputs_];
-      checkAllocate(retVal, "retVal in etaTest::get_dOrder");
-      std::copy(dOrder_, dOrder_+nInputs_+1, retVal);
-   }
-   return retVal;
+  psVector vecDT;
+  vecDT = VecOrders_;
+  return vecDT.takeDVector();
 }
 double *EtaAnalyzer::get_dRanks()
 {
-   double* retVal = NULL;
-   if (dRanks_)
-   {
-      retVal = new double[nInputs_];
-      checkAllocate(retVal, "retVal in etaTest::get_dRanks");
-      std::copy(dRanks_, dRanks_+nInputs_+1, retVal);
-   }
-   return retVal;
+  psVector vecDT;
+  vecDT = VecRanks_;
+  return vecDT.takeDVector();
 }
-double *EtaAnalyzer::get_inputViolations()
+int *EtaAnalyzer::get_inputViolations()
 {
-   double* retVal = NULL;
-   if (inputViolations_)
-   {
-      retVal = new double[nInputs_];
-      checkAllocate(retVal, "retVal in etaTest::get_inputViolations");
-      std::copy(inputViolations_, inputViolations_+nInputs_+1, retVal);
-   }
-   return retVal;
+  psIVector vecIT;
+  vecIT = VecInpViolations_;
+  return vecIT.takeIVector();
 }
 double EtaAnalyzer::get_totalViolation()
 {
-   return totalViolation_;
+  return totalViolation_;
 }
 

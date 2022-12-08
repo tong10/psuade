@@ -42,10 +42,10 @@ extern "C" {
 // ------------------------------------------------------------------------
 LBFGSOptimizer::LBFGSOptimizer()
 {
-  if (isScreenDumpModeOn())
+  if (psConfig_.InteractiveIsOn())
   {
     printAsterisks(PL_INFO, 0);
-    printf("*   LBFGS Optimizer Usage Information\n");
+    printf("*   LBFGS Optimization (Derivative-based)\n");
     printEquals(PL_INFO, 0);
     printf("* - To run this optimizer, first make sure opt_driver has\n");
     printf("*   been initialized to point to your optimization objective\n");
@@ -78,39 +78,40 @@ LBFGSOptimizer::~LBFGSOptimizer()
 void LBFGSOptimizer::optimize(int nInputs, double *XValues, double *lbds,
                               double *ubds, int maxfun, double tol)
 {
-   double *optimalX;
-   if (nInputs <= 0)
-   {
-      printf("LBFGSOptimizer ERROR: nInputs <= 0.\n");
-      exit(1);
-   }
-   oData *odata = new oData();
-   odata->outputLevel_ = 0;
-   odata->nInputs_ = nInputs;
-   optimalX = new double[nInputs];
-   odata->optimalX_ = optimalX;
-   odata->initialX_ = XValues;
-   odata->lowerBounds_ = lbds;
-   odata->upperBounds_ = ubds;
-   odata->tolerance_ = tol;
-   if (odata->tolerance_ <= 0) odata->tolerance_ = 1e-6;
-   odata->nOutputs_ = nInputs + 1;
-   odata->outputID_ = 0;
-   odata->maxFEval_ = maxfun;
-   odata->numFuncEvals_ = 0;
-   odata->tolerance_ = tol;
-   odata->setOptDriver_ = 0;
-   odata->optFunction_ = objFunction_;
-   odata->funcIO_ = NULL;
-   optimize(odata);
-   odata->initialX_ = NULL;
-   odata->lowerBounds_ = NULL;
-   odata->upperBounds_ = NULL;
-   odata->optFunction_ = NULL;
-   for (int ii = 0; ii < nInputs; ii++)
-      XValues[ii] = optimalX_[ii] = odata->optimalX_[ii];
-   delete [] optimalX;
-   odata->optimalX_ = NULL;
+  psVector vecOptX;
+  if (nInputs <= 0)
+  {
+    printf("LBFGSOptimizer ERROR: nInputs <= 0.\n");
+    exit(1);
+  }
+  //**/ create and load up the oData object before calling optimize
+  oData *odata = new oData();
+  odata->outputLevel_ = 0;
+  odata->nInputs_ = nInputs;
+  vecOptX.setLength(nInputs);
+  odata->optimalX_ = vecOptX.getDVector();
+  odata->initialX_ = XValues;
+  odata->lowerBounds_ = lbds;
+  odata->upperBounds_ = ubds;
+  odata->tolerance_ = tol;
+  if (odata->tolerance_ <= 0) odata->tolerance_ = 1e-6;
+  odata->nOutputs_ = nInputs + 1;
+  odata->outputID_ = 0;
+  odata->maxFEval_ = maxfun;
+  odata->tolerance_ = tol;
+  odata->setOptDriver_ = 0;
+  //**/ for this function to work, setObjectiveFunction has to be called
+  //**/ beforehand
+  odata->optFunction_ = objFunction_;
+  odata->funcIO_ = NULL;
+  optimize(odata);
+  odata->initialX_ = NULL;
+  odata->lowerBounds_ = NULL;
+  odata->upperBounds_ = NULL;
+  odata->optFunction_ = NULL;
+  for (int ii = 0; ii < nInputs; ii++)
+    XValues[ii] = VecOptX_[ii] = odata->optimalX_[ii];
+  odata->optimalX_ = NULL;
 }
 
 // ************************************************************************
@@ -119,143 +120,158 @@ void LBFGSOptimizer::optimize(int nInputs, double *XValues, double *lbds,
 void LBFGSOptimizer::optimize(oData *odata)
 {
 #if HAVE_LBFGS
-   int     funcID, ii, kk, nOuts, its, printLevel, nOne=1;
-   double  *XValues, *lbounds, *ubounds, *GValues, FValue, *SValues;
-   integer nInps, iprint=0, itask, *task=&itask, lsave[4], isave[44];
-   integer *iwork, nCorr=5, *nbds, csave[60];
-   double  factr, pgtol, *work, dsave[29]; 
+  int     funcID, ii, kk, its, nOne=1;
+  integer iprint=0, itask, nInps, *task=&itask, lsave[4], isave[44];
+  integer *iwork, nCorr=5, *nbds, csave[60];
+  double  FValue, factr, pgtol, dsave[29]; 
+  psVector vecXVals, vecGVals, vecSVals, vecWT;
 
-   printLevel = odata->outputLevel_;
-   nInps = odata->nInputs_;
-   nOuts = odata->nOutputs_;
-   if (nInps+1 != nOuts)
-   {
-      printf("WARNING: LBFGS optimizer needs nOuts = nInps+1.\n");
-      if (nOuts != 1) exit(1);
+  //**/ ----------------------------------------------------------
+  //**/ ------ fetch sample data ------
+  //**/ ----------------------------------------------------------
+  int printLevel = odata->outputLevel_;
+  nInps = odata->nInputs_;
+  int nOuts = odata->nOutputs_;
+  if (nInps+1 != nOuts)
+  {
+    printf("WARNING: LBFGS optimizer needs nOuts = nInps+1.\n");
+    if (nOuts != 1) exit(1);
+    else            printf("   INFO: will use finite difference.\n");
+  }
+  double *lbounds = odata->lowerBounds_;
+  double *ubounds = odata->upperBounds_;
+  vecXVals.setLength(nInps);
+  for (ii = 0; ii < nInps; ii++) vecXVals[ii] = odata->initialX_[ii];
+  funcID = odata->numFuncEvals_;
+
+  //**/ ----------------------------------------------------------
+  //**/ ------ set up for optimization ------
+  //**/ ----------------------------------------------------------
+  odata->optimalY_ = 1.0e50;
+  if ((odata->setOptDriver_ & 1))
+  {
+     printf("LBFGS: setting optimization simulation driver.\n");
+     psLBCurrDriver_ = odata->funcIO_->getDriver();
+     odata->funcIO_->setDriver(1);
+  }
+  vecGVals.setLength(nInps);
+  vecSVals.setLength(nInps+1);
+  double *SVals = vecSVals.getDVector();
+  for (ii = 0; ii < nInps; ii++) vecGVals[ii] = 0.0;
+  for (ii = 0; ii < nInps+1; ii++) vecSVals[ii] = 0.0;
+  nbds    = new integer[nInps];
+  for (ii = 0; ii < nInps; ii++) nbds[ii] = 2;
+  factr = 1e7;
+  pgtol = 1e-6;
+  kk = (2 * nCorr + 5) * nInps + 11 * nCorr * nCorr + 8 * nCorr;
+  vecWT.setLength(kk);
+  iwork = new integer[3*nInps];
+  *task = (integer) START;
+  its   = 0;
+
+  //**/ ----------------------------------------------------------
+  //**/ ------ run optimization ------
+  //**/ ----------------------------------------------------------
+  while (1)
+  {
+    its++;
+    setulb(&nInps, &nCorr, vecXVals.getDVector(), lbounds, ubounds,
+           nbds, &FValue, vecGVals.getDVector(), &factr, &pgtol, 
+           vecWT.getDVector(), iwork, task, &iprint, csave, lsave, 
+           isave, dsave);
+    if (IS_FG(*task))
+    {
+      if (psConfig_.InteractiveIsOn())
+      {
+        if (printLevel > 1)
+          for (ii = 0; ii < nInps; ii++)
+            printf("   Current Input X %4d = %24.16e\n",ii+1,
+                   vecXVals[ii]);
+      }
+      if (nOuts == (nInps+1))
+      {
+        if (odata->optFunction_ != NULL)
+          //**/ if users have loaded a simulation function, use it
+          odata->optFunction_(nInps, vecXVals.getDVector(), nOuts, 
+                              vecSVals.getDVector());
+        else if (odata->funcIO_ != NULL)
+          //**/ if not, use the simulation function set up in odata
+          odata->funcIO_->evaluate(funcID,nInps,vecXVals.getDVector(),
+                                   nOuts,vecSVals.getDVector(),0);
+        else
+        {
+          printf("LBFGSOptimizer ERROR: no function evaluator.\n");
+          exit(1);
+        }
+        funcID = odata->numFuncEvals_++;
+      }
       else
-         printf("   INFO: will use finite difference.\n");
-   }
-   lbounds = odata->lowerBounds_;
-   ubounds = odata->upperBounds_;
-   XValues = new double[nInps];
-   for (ii = 0; ii < nInps; ii++) XValues[ii] = odata->initialX_[ii];
-   funcID = odata->numFuncEvals_;
-
-   odata->optimalY_ = 1.0e50;
-   if ((odata->setOptDriver_ & 1))
-   {
-      printf("LBFGS: setting optimization simulation driver.\n");
-      psLBCurrDriver_ = odata->funcIO_->getDriver();
-      odata->funcIO_->setDriver(1);
-   }
-   GValues = new double[nInps];
-   SValues = new double[nInps+1];
-   for (ii = 0; ii < nInps; ii++) GValues[ii] = 0.0;
-   for (ii = 0; ii < nInps+1; ii++) SValues[ii] = 0.0;
-   nbds    = new integer[nInps];
-   for (ii = 0; ii < nInps; ii++) nbds[ii] = 2;
-   factr = 1e7;
-   pgtol = 1e-6;
-   kk = (2 * nCorr + 5) * nInps + 11 * nCorr * nCorr + 8 * nCorr;
-   work  = new double[kk];
-   iwork = new integer[3*nInps];
-   *task = (integer) START;
-   its   = 0;
- 
-   while (1)
-   {
-      its++;
-      setulb(&nInps, &nCorr, XValues, lbounds, ubounds, nbds, &FValue,
-          GValues, &factr, &pgtol, work, iwork, task, &iprint, csave,
-          lsave, isave, dsave);
-      if (IS_FG(*task))
       {
-         if (isScreenDumpModeOn())
-         {
-            if (printLevel > 1)
-               for (ii = 0; ii < nInps; ii++)
-                  printf("   Current Input X %4d = %24.16e\n",ii+1,
-                         XValues[ii]);
-         }
-         if (nOuts == (nInps+1))
-         {
-            if (odata->optFunction_ != NULL)
-               odata->optFunction_(nInps, XValues, nOuts, SValues);
-            else if (odata->funcIO_ != NULL)
-               odata->funcIO_->evaluate(funcID,nInps,XValues,nOuts,SValues,0);
-            else
-            {
-               printf("LBFGSOptimizer ERROR: no function evaluator.\n");
-               exit(1);
-            }
-            funcID = odata->numFuncEvals_++;
-         }
-         else
-         {
-            if (odata->optFunction_ != NULL)
-               odata->optFunction_(nInps, XValues, nOne, SValues);
-            else if (odata->funcIO_ != NULL)
-               odata->funcIO_->evaluate(funcID,nInps,XValues,nOne,SValues,0);
-            funcID = odata->numFuncEvals_++;
-            for (ii = 0; ii < nInps; ii++) 
-            {
-               XValues[ii] += 1.0e-8;
-               if (odata->optFunction_ != NULL)
-                  odata->optFunction_(nInps, XValues, nOne, &SValues[ii+1]);
-               else if (odata->funcIO_ != NULL)
-                  odata->funcIO_->evaluate(funcID,nInps,XValues,nOne,
-                                           &SValues[ii+1],0);
-               SValues[ii+1] = 1e8 * (SValues[ii+1] - SValues[0]);
-               XValues[ii] -= 1.0e-8;
-               funcID = odata->numFuncEvals_++;
-            }
-         }
-         FValue = SValues[0];
-         for (ii = 0; ii < nInps; ii++) GValues[ii] = SValues[ii+1];
-         if (odata->outputLevel_ > 4)
-         {
-            printf("LBFGSOptimizer %6d : \n", odata->numFuncEvals_);
-            for (ii = 0; ii < nInps; ii++)
-               printf("    X %6d = %16.8e\n", ii+1, XValues[ii]);
-            printf("    Y = %16.8e\n", FValue);
-            for (ii = 1; ii < nInps; ii++)
-               printf("    dY/dX %6d = %16.8e\n", ii, SValues[ii]);
-         }
+        if (odata->optFunction_ != NULL)
+          odata->optFunction_(nInps, vecXVals.getDVector(), nOne, 
+                              vecSVals.getDVector());
+        else if (odata->funcIO_ != NULL)
+          odata->funcIO_->evaluate(funcID,nInps,vecXVals.getDVector(),nOne,
+                                   vecSVals.getDVector(),0);
+        funcID = odata->numFuncEvals_++;
+        for (ii = 0; ii < nInps; ii++) 
+        {
+          vecXVals[ii] += 1.0e-8;
+          if (odata->optFunction_ != NULL)
+            odata->optFunction_(nInps, vecXVals.getDVector(), nOne, 
+                                &SVals[ii+1]);
+          else if (odata->funcIO_ != NULL)
+            odata->funcIO_->evaluate(funcID,nInps,vecXVals.getDVector(),
+                                     nOne, &SVals[ii+1],0);
+          vecSVals[ii+1] = 1e8 * (vecSVals[ii+1] - vecSVals[0]);
+          vecXVals[ii] -= 1.0e-8;
+          funcID = odata->numFuncEvals_++;
+        }
       }
-      else if (*task != NEW_X)
+      FValue = vecSVals[0];
+      for (ii = 0; ii < nInps; ii++) vecGVals[ii] = vecSVals[ii+1];
+      if (psConfig_.InteractiveIsOn() && odata->outputLevel_ > 1)
       {
-         if (isScreenDumpModeOn())
-         {
-            if (printLevel > 0)
-               for (ii = 0; ii < nInps; ii++)
-                  printf("Final Input X %4d = %24.16e\n", ii+1, XValues[ii]);
-            printf("Final objective function value       = %16.8e\n",FValue);
-            printf("Total number of function evaluations = %d\n", its);
-         }
-         break;
+        printf("LBFGSOptimizer %6d : \n", odata->numFuncEvals_);
+        for (ii = 0; ii < nInps; ii++)
+          printf("    X %6d = %16.8e\n", ii+1, vecXVals[ii]);
+        printf("    Y = %16.8e\n", FValue);
+        for (ii = 1; ii < nInps; ii++)
+          printf("    dY/dX %6d = %16.8e\n", ii, vecSVals[ii]);
       }
-   }
+    }
+    else if (*task != NEW_X)
+    {
+      if (psConfig_.InteractiveIsOn())
+      {
+        if (printLevel > 0)
+          for (ii = 0; ii < nInps; ii++)
+            printf("Final Input X %4d = %24.16e\n", ii+1, vecXVals[ii]);
+        printf("Final objective function value       = %16.8e\n",FValue);
+        printf("Total number of function evaluations = %d\n", its);
+      }
+      break;
+    }
+  }
 
-   if ((odata->setOptDriver_ & 2) && psLBCurrDriver_ >= 0)
-   {
-      printf("LBFGS: setting back to original simulation driver.\n");
-      odata->funcIO_->setDriver(psLBCurrDriver_);
-   }
-   for (ii = 0; ii < nInps; ii++) odata->optimalX_[ii] = XValues[ii];
-   odata->optimalY_ = FValue;
-   if (optimalX_ != NULL) delete [] optimalX_;
-   optimalX_ = new double[nInps];
-   for (ii = 0; ii < nInps; ii++) optimalX_[ii] = XValues[ii];
-   optimalY_ = odata->optimalY_;
-   numEvals_ = odata->numFuncEvals_;
-   delete [] work;
-   delete [] iwork;
-   delete [] nbds;
-   delete [] XValues;
-   delete [] GValues;
+  //**/ ----------------------------------------------------------
+  //**/ ------ set return values and clean up ------
+  //**/ ----------------------------------------------------------
+  if ((odata->setOptDriver_ & 2) && psLBCurrDriver_ >= 0)
+  {
+    printf("LBFGS: setting back to original simulation driver.\n");
+    odata->funcIO_->setDriver(psLBCurrDriver_);
+  }
+  for (ii = 0; ii < nInps; ii++) odata->optimalX_[ii] = vecXVals[ii];
+  odata->optimalY_ = FValue;
+  VecOptX_.setLength(nInps);
+  for (ii = 0; ii < nInps; ii++) VecOptX_[ii] = vecXVals[ii];
+  optimalY_ = odata->optimalY_;
+  delete [] iwork;
+  delete [] nbds;
 #else
-   printf("ERROR : LBFGS optimizer not installed.\n");
-   exit(1);
+  printf("ERROR : LBFGS optimizer not installed.\n");
+  exit(1);
 #endif
 }
 
@@ -264,8 +280,8 @@ void LBFGSOptimizer::optimize(oData *odata)
 // ------------------------------------------------------------------------
 LBFGSOptimizer& LBFGSOptimizer::operator=(const LBFGSOptimizer &)
 {
-   printf("LBFGSOptimizer operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("LBFGSOptimizer operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

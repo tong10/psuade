@@ -24,6 +24,9 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
 // ************************************************************************
+//**/ The data in this file is extracted from the acpo code downloaded from 
+//**/ the Computer Physics Communication Program Library website 
+//**/ (cpc.cs.qub.ac.uk/summaries/ACPO.html). 
 //    The acpo code was authored by
 //    B. Shukhman (GENERATION OF QUASI-RANDOM (LPTAU) VECTORS FOR PARALLEL
 //    COMPUTATION.  B. SHUKHMAN. . IN COMP. PHYS. COMMUN. 78 (1994) 279
@@ -39,16 +42,16 @@
 #include "PsuadeUtil.h"
 #include "LPtauSampling.h"
 
+// ************************************************************************
+// Constructor
 // ------------------------------------------------------------------------
-// local definitions
-// ------------------------------------------------------------------------
-#define  PSUADE_ACPO_MaxDimension  51  
-#define  PSUADE_ACPO_MaxNSamples   1073741823   
-#define  PSUADE_ACPO_QuantityPower 30 
-
-static unsigned long
-PSUADE_ACPO_Directing[PSUADE_ACPO_QuantityPower][PSUADE_ACPO_MaxDimension] =
-{         
+LPtauSampling::LPtauSampling() : Sampling()
+{
+  samplingID_ = PSUADE_SAMP_LPTAU;
+  PS_ACPO_scale = 9.31322574615478516E-10;
+  PS_ACPO_MaskVect = new long[PS_ACPO_MaxDim];
+  unsigned long DummyArray[PS_ACPO_QuantityPower][PS_ACPO_MaxDim] =
+  {
    {536870912,    536870912,    536870912,    536870912,    536870912,
     536870912,    536870912,    536870912,    536870912,    536870912,
     536870912,    536870912,    536870912,    536870912,    536870912,
@@ -408,17 +411,8 @@ PSUADE_ACPO_Directing[PSUADE_ACPO_QuantityPower][PSUADE_ACPO_MaxDimension] =
      989849787,    627400495,    892675125,    260314121,   1041964063,
      531367163,    195776757,    237309785,    949187605,    719002587,
      495745187},                                                       
-};
-
-static long   PSUADE_ACPO_MaskVect[PSUADE_ACPO_MaxDimension];
-static double PSUADE_ACPO_scale=9.31322574615478516E-10;
-                                                                                
-// ************************************************************************
-// Constructor
-// ------------------------------------------------------------------------
-LPtauSampling::LPtauSampling() : Sampling()
-{
-   samplingID_ = PSUADE_SAMP_LPTAU;
+  };
+  memcpy(&PS_ACPO_Directing, &DummyArray, sizeof(PS_ACPO_Directing));
 }
 
 // *******************************************************************
@@ -426,6 +420,7 @@ LPtauSampling::LPtauSampling() : Sampling()
 // -------------------------------------------------------------------
 LPtauSampling::~LPtauSampling()
 {
+  if (PS_ACPO_MaskVect != NULL) delete [] PS_ACPO_MaskVect;
 }
 
 // ************************************************************************
@@ -433,71 +428,82 @@ LPtauSampling::~LPtauSampling()
 // ------------------------------------------------------------------------
 int LPtauSampling::initialize(int initLevel)
 {
-   int    sampleID, inputID;
-   double *ranges, ddata, ddata2, perturb;
+  int    sampleID, inputID;
+  double ddata, ddata2, perturb;
+  psVector vecRanges;
 
-   if (nSamples_ == 0)
-   {
-      printf("LPtauSampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("LPtauSampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+    printf("LPtauSampling::initialize ERROR - nSamples = 0.\n");
+    exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+    printf("LPtauSampling::initialize ERROR - input not set up.\n");
+    exit(1);
+  }
 
-   deleteSampleData();
-   if (nInputs_ > PSUADE_ACPO_MaxDimension)  
-   {
-      printf("LPtauSampling : nInputs must be < %d.\n",
-             PSUADE_ACPO_MaxDimension);
-      exit(1);
-   }
-   if (nSamples_ > PSUADE_ACPO_MaxNSamples)  
-   {
-      printf("LPtauSampling : nSamples too large.\n");
-      exit(1);
-   }
-   if (initLevel != 0) return 0;
-   allocSampleData();
+  //**/ ----------------------------------------------------------------
+  //**/ clean up, initialize internal variables and error checking
+  //**/ ----------------------------------------------------------------
+  if (nInputs_ > PS_ACPO_MaxDim)  
+  {
+    printf("LPtauSampling : nInputs must be < %d.\n", PS_ACPO_MaxDim);
+    exit(1);
+  }
+  if (nSamples_ > PS_ACPO_MaxNSamples)  
+  {
+    printf("LPtauSampling : nSamples too large.\n");
+    exit(1);
+  }
+  if (initLevel != 0) return 0;
+  allocSampleData();
 
-   if (printLevel_ > 4)
-   {
-      printf("LPtauSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("LPtauSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("LPtauSampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    LPtauSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("LPtauSampling::initialize: nSamples = %d\n", nSamples_);
+    printf("LPtauSampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("LPtauSampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    LPtauSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+  }
 
-   ranges = new double[nInputs_];
-   for (inputID = 0;  inputID < nInputs_;  inputID++) 
-      ranges[inputID] = upperBounds_[inputID] - lowerBounds_[inputID];
+  //**/ ----------------------------------------------------------------
+  //**/ preparation for generating the samples
+  //**/ ----------------------------------------------------------------
+  vecRanges.setLength(nInputs_);
+  for (inputID = 0;  inputID < nInputs_;  inputID++) 
+    vecRanges[inputID] = vecUBs_[inputID] - vecLBs_[inputID];
 
-   perturb = 0.0;
-   if (randomize_ != 0)
-      perturb = 0.5 * pow(1.0/(double) nSamples_, 1.0/(double) nInputs_);
-   for (sampleID = 0; sampleID < nSamples_; sampleID++)
-   {
-      genLPtau(sampleID, sampleMatrix_[sampleID]);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         ddata = sampleMatrix_[sampleID][inputID];
-         if (PSUADE_drand() < 0.5) ddata2 = -1;
-         else                      ddata2 = 1;
-         ddata2 *= PSUADE_drand() * perturb;
-         ddata += ddata2;
-         if (ddata > 1.0 || ddata < 0.0) ddata -= 2.0 * ddata2;
-         ddata = ddata * ranges[inputID] + lowerBounds_[inputID];
-         sampleMatrix_[sampleID][inputID] = ddata;
-      }
-   }
-
-
-   delete [] ranges;
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ generate the sample points
+  //**/ ----------------------------------------------------------------
+  perturb = 0.0;
+  if (randomize_ != 0) perturb = 0.001;
+  double *dPtr = vecSamInps_.getDVector();
+  genLPtau(nSamples_, vecSamInps_);
+  for (sampleID = 0; sampleID < nSamples_; sampleID++)
+  {
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      ddata = vecSamInps_[sampleID*nInputs_+inputID];
+      if (PSUADE_drand() < 0.5) ddata2 = -1;
+      else                      ddata2 = 1;
+      ddata2 *= PSUADE_drand() * perturb;
+      ddata += ddata2;
+      if (ddata > 1.0 || ddata < 0.0) ddata -= 2.0 * ddata2;
+      ddata = ddata * vecRanges[inputID] + vecLBs_[inputID];
+      vecSamInps_[sampleID*nInputs_+inputID] = ddata;
+    }
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -506,92 +512,124 @@ int LPtauSampling::initialize(int initLevel)
 int LPtauSampling::refine(int refineRatio, int randomize, double thresh,
                           int nSamples, double *sampleErrors)
 {
-   int    sampleID, inputID, outputID, *newStates, nLevels;
-   double *ranges, ddata, ddata2, perturb, **newSamples, *newOutputs;
+  int    sampleID, inputID, outputID, nLevels;
+  double ddata, ddata2, perturb;
+  psVector  vecRanges, vecNewSamInps, vecNewSamOuts;
+  psIVector vecNewSamStas;
 
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
+  //**/ ----------------------------------------------------------------
+  //**/ unused parameters
+  //**/ ----------------------------------------------------------------
+  (void) thresh;
+  (void) nSamples;
+  (void) sampleErrors;
 
-   nLevels = refineRatio;
-   if (nSamples_*nLevels > PSUADE_ACPO_MaxNSamples)  
-   {
-      printf("LPtauSampling::refine ERROR - nSamples too large.\n");
-      exit(1);
-   } else if (nSamples_*nLevels <= 0){
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  nLevels = refineRatio;
+  if (nSamples_*nLevels > PS_ACPO_MaxNSamples)  
+  {
+    printf("LPtauSampling::refine ERROR - nSamples too large.\n");
+    exit(1);
+  } 
+  else if (nSamples_*nLevels <= 0)
+  {
+    printf("LPtauSampling::refine ERROR - nSamples_*nLevels <= 0. \n");
+    exit(1);
+  }
 
-     printf("LPtauSampling::refine ERROR - nSamples_*nLevels <= 0. \n");
-     exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ allocate space for new sample data
+  //**/ ----------------------------------------------------------------
+  vecNewSamInps.setLength(nSamples_*nLevels*nInputs_);
+  vecNewSamOuts.setLength(nSamples_*nLevels*nOutputs_);
+  vecNewSamStas.setLength(nSamples_*nLevels);
+  for (sampleID = 0;  sampleID < nSamples_*nLevels; sampleID++)
+  {
+    for (outputID = 0; outputID < nOutputs_; outputID++)
+      vecNewSamOuts[sampleID*nOutputs_+outputID] = PSUADE_UNDEFINED;
+  }
 
-   newSamples = new double*[nSamples_*nLevels];
-   for (sampleID = 0;  sampleID < nSamples_*nLevels; sampleID++)
-      newSamples[sampleID] = new double[nInputs_];
-   newOutputs = new double[nSamples_*nLevels*nOutputs_];
-   newStates = new int[nSamples_*nLevels];
-   for (sampleID = 0;  sampleID < nSamples_*nLevels; sampleID++)
-   {
-      newStates[sampleID] = 0;
-      for (outputID = 0; outputID < nOutputs_; outputID++)
-         newOutputs[sampleID*nOutputs_+outputID] = PSUADE_UNDEFINED;
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ copy the old samples
+  //**/ ----------------------------------------------------------------
+  for (sampleID = 0;  sampleID < nSamples_; sampleID++) 
+  {
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      vecNewSamInps[sampleID*nInputs_+inputID] = 
+              vecSamInps_[sampleID*nSamples_+inputID];
+    for (outputID = 0; outputID < nOutputs_; outputID++)
+      vecNewSamOuts[sampleID*nOutputs_+outputID] = 
+                  vecSamOuts_[sampleID*nOutputs_+outputID];
+    vecNewSamStas[sampleID] = vecSamStas_[sampleID];
+  }
 
-   for (sampleID = 0;  sampleID < nSamples_; sampleID++) 
-   {
+  //**/ ----------------------------------------------------------------
+  //**/ preparation for generating the samples
+  //**/ ----------------------------------------------------------------
+  vecRanges.setLength(nInputs_);
+  for (inputID = 0;  inputID < nInputs_;  inputID++) 
+    vecRanges[inputID] = vecUBs_[inputID] - vecLBs_[inputID];
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the sample points
+  //**/ ----------------------------------------------------------------
+  double *dPtr;
+  perturb = 0.0;
+  //**/ -- if randomize flag on, compute perturbation
+  if (randomize != 0)
+    perturb = 0.5 * pow(1.0/(double) nSamples_, 1.0/(double) nInputs_);
+  for (sampleID = 0; sampleID < nSamples_*nLevels; sampleID++)
+  {
+    //**/ the first nSamples have been generated before, repeat here so
+    //**/ that LPtau internal logic will be consistent
+    if (sampleID < nSamples_)
+    {
+      dPtr = vecNewSamInps.getDVector();
+      dPtr = &(dPtr[nSamples_*nInputs_]);
+      genLPtau(sampleID, dPtr);
+    }
+    else
+    {
+      dPtr = vecNewSamInps.getDVector();
+      dPtr = &(dPtr[sampleID*nInputs_]);
+      genLPtau(sampleID, dPtr);
       for (inputID = 0; inputID < nInputs_; inputID++)
-         newSamples[sampleID][inputID] = sampleMatrix_[sampleID][inputID];
-      for (outputID = 0; outputID < nOutputs_; outputID++)
-         newOutputs[sampleID*nOutputs_+outputID] = 
-                    sampleOutput_[sampleID*nOutputs_+outputID];
-      newStates[sampleID] = sampleStates_[sampleID];
-   }
-
-   ranges = new double[nInputs_];
-   for (inputID = 0;  inputID < nInputs_;  inputID++) 
-      ranges[inputID] = upperBounds_[inputID] - lowerBounds_[inputID];
-
-   perturb = 0.0;
-   if (randomize != 0)
-      perturb = 0.5 * pow(1.0/(double) nSamples_, 1.0/(double) nInputs_);
-   for (sampleID = 0; sampleID < nSamples_*nLevels; sampleID++)
-   {
-      if (sampleID < nSamples_)
-         genLPtau(sampleID, newSamples[nSamples_]);
-      else
       {
-         genLPtau(sampleID, newSamples[sampleID]);
-         for (inputID = 0; inputID < nInputs_; inputID++)
-         {
-            ddata = newSamples[sampleID][inputID];
-            if (PSUADE_drand() < 0.5) ddata2 = -1;
-            else                      ddata2 = 1;
-            ddata2 *= PSUADE_drand() * perturb;
-            ddata += ddata2;
-            if (ddata > 1.0 || ddata < 0.0) ddata -= 2.0 * ddata2;
-            ddata = ddata * ranges[inputID] + lowerBounds_[inputID];
-            newSamples[sampleID][inputID] = ddata;
-         }
+        ddata = vecNewSamInps[sampleID*nInputs_+inputID];
+        if (PSUADE_drand() < 0.5) ddata2 = -1;
+        else                      ddata2 = 1;
+        ddata2 *= PSUADE_drand() * perturb;
+        ddata += ddata2;
+        if (ddata > 1.0 || ddata < 0.0) ddata -= 2.0 * ddata2;
+        ddata = ddata * vecRanges[inputID] + vecLBs_[inputID];
+        vecNewSamInps[sampleID*nInputs_+inputID] = ddata;
       }
-   }
+    }
+  }
 
-   deleteSampleData();
-   delete [] ranges;
+  //**/ -------------------------------------------------------------------
+  //**/ revise internal variables
+  //**/ -------------------------------------------------------------------
+  nSamples_ = nSamples_ * nLevels;
+  vecSamInps_ = vecNewSamInps;
+  vecSamOuts_ = vecNewSamOuts;
+  vecSamStas_ = vecNewSamStas;
 
-   nSamples_ = nSamples_ * nLevels;
-   sampleMatrix_ = newSamples;
-   sampleOutput_ = newOutputs;
-   sampleStates_ = newStates;
-
-   if (printLevel_ > 4)
-   {
-      printf("LPtauSampling::refine: nSamples = %d\n", nSamples_);
-      printf("LPtauSampling::refine: nInputs  = %d\n", nInputs_);
-      printf("LPtauSampling::refine: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    LPtauSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("LPtauSampling::refine: nSamples = %d\n", nSamples_);
+    printf("LPtauSampling::refine: nInputs  = %d\n", nInputs_);
+    printf("LPtauSampling::refine: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    LPtauSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -602,31 +640,74 @@ int LPtauSampling::refine(int refineRatio, int randomize, double thresh,
 // ------------------------------------------------------------------------
 int LPtauSampling::genLPtau(int sampleID, double *sampleInputs)
 {
-   int  j,k;
-   long BitString;
+  int  j,k;
+  long BitString;
                                                                                 
-   if (sampleID == 0)
-   {
-      for (j = 0; j < nInputs_; j++) PSUADE_ACPO_MaskVect[j] = 0;
-      for (k=0,BitString=sampleID^sampleID>>1;BitString;BitString>>=1,k++)
+  if (sampleID == 0)
+  {
+    for (j = 0; j < nInputs_; j++) PS_ACPO_MaskVect[j] = 0;
+    for (k=0,BitString=sampleID^sampleID>>1;BitString;BitString>>=1,k++)
+    {
+      if (BitString & 1)
+        for (j = 0; j < nInputs_; j++) 
+          PS_ACPO_MaskVect[j] ^= PS_ACPO_Directing[k][j];
+    }
+    for (j = 0; j < nInputs_; j++)
+      sampleInputs[j] = PS_ACPO_MaskVect[j] * PS_ACPO_scale;
+  }
+  else /* recurrent generation of the sample points */
+  {
+    //**/  k - position of the most right "1" in binary
+    //**/  representation of the number i 
+    for (k=0, BitString=sampleID;(BitString & 1)==0; k++, BitString>>=1);
+    for (j = 0; j < nInputs_; j++)
+    {
+      PS_ACPO_MaskVect[j] ^= PS_ACPO_Directing[k][j];
+      sampleInputs[j] = PS_ACPO_MaskVect[j] * PS_ACPO_scale;
+    }
+  }
+  return 0;
+}
+
+// ************************************************************************
+// generate an LPtau sample 
+// reference : B. Shukhman (GENERATION OF QUASI-RANDOM (LPTAU) VECTORS FOR
+//             PARALLEL COMPUTATION.  B. SHUKHMAN. . IN COMP. PHYS. COMMUN.
+//             78 (1994) 279 (the ACPO code)
+// ------------------------------------------------------------------------
+int LPtauSampling::genLPtau(int nSamples, psVector &vecSamInps)
+{
+  int  jj, kk, ss;
+  long BitString;
+                                                                                
+  for (ss = 0; ss < nSamples; ss++)
+  {
+    if (ss == 0)
+    {
+      for (jj = 0; jj < nInputs_; jj++) PS_ACPO_MaskVect[jj] = 0;
+      for (kk=0,BitString=ss^ss>>1;BitString;BitString>>=1,kk++)
       {
-         if (BitString & 1)
-            for (j = 0; j < nInputs_; j++) 
-               PSUADE_ACPO_MaskVect[j] ^= PSUADE_ACPO_Directing[k][j];
+        if (BitString & 1)
+          for (jj = 0; jj < nInputs_; jj++) 
+            PS_ACPO_MaskVect[jj] ^= PS_ACPO_Directing[kk][jj];
       }
-      for (j = 0; j < nInputs_; j++)
-         sampleInputs[j] = PSUADE_ACPO_MaskVect[j] * PSUADE_ACPO_scale;
+      for (jj = 0; jj < nInputs_; jj++)
+        vecSamInps[ss*nInputs_+jj] = PS_ACPO_MaskVect[jj] * PS_ACPO_scale;
     }
     else /* recurrent generation of the sample points */
     {
-       for (k=0, BitString=sampleID;(BitString & 1)==0; k++, BitString>>=1);
-       for (j = 0; j < nInputs_; j++)
-       {
-          PSUADE_ACPO_MaskVect[j] ^= PSUADE_ACPO_Directing[k][j];
-          sampleInputs[j] = PSUADE_ACPO_MaskVect[j] * PSUADE_ACPO_scale;
-       }
+      //**/  kk - position of the most right "1" in binary
+      //**/  representation of the number i 
+      for (kk=0, BitString=ss;(BitString & 1)==0; kk++, BitString>>=1);
+      if (kk >= PS_ACPO_QuantityPower) printf("ERROR\n");
+      for (jj = 0; jj < nInputs_; jj++)
+      {
+        PS_ACPO_MaskVect[jj] ^= PS_ACPO_Directing[kk][jj];
+        vecSamInps[ss*nInputs_+jj] = PS_ACPO_MaskVect[jj] * PS_ACPO_scale;
+      }
     }
-    return 0;
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -634,8 +715,8 @@ int LPtauSampling::genLPtau(int sampleID, double *sampleInputs)
 // ------------------------------------------------------------------------
 LPtauSampling& LPtauSampling::operator=(const LPtauSampling &)
 {
-   printf("LPtauSampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("LPtauSampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

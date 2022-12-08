@@ -1,0 +1,29 @@
+This test demonstrates how you can fix parameters in the 
+sample that is used to create response surfaces for use 
+in MCMC (that is, freeze some parameters at some values
+so that they do not participate in MCMC, or use some
+parameters as uncertain but not to be calibrated).
+
+The idea is to use an index file to specify which inputs
+are fixed. For example, this example has in 'indexFile'
+
+5
+1 0 0.4
+2 2 0
+3 3 0
+4 4 0
+5 999 1 sample1D
+
+which means that 
+Input 1 is fixed at 0.4 ('0' to indicate fixed, and 0.4 as 
+                         the value)
+Input 2, 3,4 are uncertain/design parameters
+      (2, 3, 4 to indicate as such, and '0' is needed but 
+       will be ignored)
+Input 5 is a uncertain parameter that is not to be calibrated
+      but it has a distribution represented by sample1D.
+
+The optimal answer for Input 2 and 3 should be
+Input 2 = 0.3
+Input 3 = 1.7
+

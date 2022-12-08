@@ -30,6 +30,7 @@
 #include <math.h>
 
 #include "GP3.h"
+#include "HGP3.h"
 #include "MGP3.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -45,26 +46,87 @@
 // ------------------------------------------------------------------------
 MGP3::MGP3(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
-  char *strPtr, winput[1000], equal[100];
-  faID_ = PSUADE_RS_MGP2;
+  int    ii, idata;
+  double ddata;
+  char   *strPtr, winput[1000], equal[100], pString[1000];
+  faID_ = PSUADE_RS_MGP3;
+
+  //**/ =======================================================
+  //**/ set internal parameters and initialize stuff
+  //**/ =======================================================
   nPartitions_ = 0;
-  rsPtrs_ = NULL;
   boxes_ = NULL;
   partSize_ = 500;
-  if (psConfig_ != NULL)
+  useHGP_ = 0;
+
+  //**/ =======================================================
+  // display banner and additional information
+  //**/ =======================================================
+  if (psConfig_.InteractiveIsOn())
   {
-    strPtr = psConfig_->getParameter("MGP_max_samples_per_group");
-    if (strPtr != NULL)
+    printAsterisks(PL_INFO, 0);
+    printOutTS(PL_INFO,
+       "*   Multi-Gaussian Process (MGP3) Analysis\n");
+    printOutTS(PL_INFO,"* Set printlevel to 1-4 to see details.\n");
+    printOutTS(PL_INFO,"* Turn on rs_expert mode to make changes.\n");
+    printEquals(PL_INFO, 0);
+    if (nInputs_ > 30)
     {
-      sscanf(strPtr, "%s %s %d", winput, equal, &partSize_);
-      if (partSize_ < 100) partSize_ = 500;
+      printf("Since nInputs > 30, you may want to consider using HGP3.\n");
+      sprintf(pString, "Use HGP3? (y or n) ");
+      getString(pString, winput);
+      if (winput[0] == 'y') useHGP_ = 1; 
+    }
+  }
+
+  //**/ =======================================================
+  // vecXd contains the amount of overlaps between partitions
+  //**/ =======================================================
+  vecXd_.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++) vecXd_[ii] = 0.05;
+  if (psConfig_.RSExpertModeIsOn() && psConfig_.InteractiveIsOn())
+  {
+    printf("You can improve smoothness across partitions by allowing\n");
+    printf("overlaps. The recommended overlap is 0.1 (or 10%%).\n");
+    sprintf(pString, "Enter the degree of overlap (0 - 0.4) : ");
+    ddata = getDouble(pString);
+    if (ddata < 0 || ddata > 0.4)
+    {
+      ddata = 0.05;
+      printf("ERROR: Degree of overlap should be > 0 and <= 0.4.\n");
+      printf("INFO:  Degree of overlap set to default = 0.05\n");
+    }
+    for (ii = 0; ii < nInputs_; ii++) vecXd_[ii] = ddata;
+    printf("You can decide the sample size of each partition.\n");
+    printf("Larger sample size per partition will take more setup time.\n");
+    printf("The default is 1000 (will have more if there is overlap).\n");
+    sprintf(pString, "Enter the partition sample size (500 - 10000) : ");
+    partSize_ = getInt(200, 20000, pString);
+  }
+
+  //**/ =======================================================
+  // user-adjustable parameters
+  //**/ =======================================================
+  strPtr = psConfig_.getParameter("MGP_max_samples_per_group");
+  if (strPtr != NULL)
+  {
+    sscanf(strPtr, "%s %s %d", winput, equal, &partSize_);
+    if (partSize_ < 200) 
+    {
+      printf("MGP3 INFO: config parameter setting not done.\n");
+      printf("     max_samples_per_group %d too small.\n",partSize_);
+      printf("     max_samples_per_group should be >= 200.\n");
+      partSize_ = 200;
     }
   }
   nPartitions_ = (nSamples + partSize_/2) / partSize_;
-  double ddata = log(1.0*nPartitions_) / log(2.0);
-  int   idata = (int) ddata;
-  if (idata > nInputs_) idata = nInputs_;
+  ddata = log(1.0*nPartitions_) / log(2.0);
+  idata = (int) ddata;
+  //if (idata > nInputs_) idata = nInputs_;
   nPartitions_ = 1 << idata;
+  if (psConfig_.InteractiveIsOn())
+    printf("MGP3: number of partitions = %d (psize=%d)\n", nPartitions_,
+           partSize_);
 }
 
 // ************************************************************************
@@ -72,21 +134,10 @@ MGP3::MGP3(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 MGP3::~MGP3()
 {
-  int ii;
-  if (nPartitions_ > 0 && rsPtrs_ != NULL)
-  {
-    for (ii = 0; ii < nPartitions_; ii++)
-      if (rsPtrs_[ii] != NULL) delete rsPtrs_[ii];
-    delete rsPtrs_;
-    rsPtrs_ = NULL;
-  }
   if (boxes_ != NULL)
   {
-    for (ii = 0; ii < nPartitions_; ii++)
-    {
-      if (boxes_[ii]->lBounds_ != NULL) delete [] boxes_[ii]->lBounds_;
-      if (boxes_[ii]->uBounds_ != NULL) delete [] boxes_[ii]->uBounds_;
-    }
+    for (int ii = 0; ii < nPartitions_; ii++)
+      if (boxes_[ii]->rsPtr_   != NULL) delete boxes_[ii]->rsPtr_;
     delete [] boxes_;
   }
 }
@@ -96,158 +147,246 @@ MGP3::~MGP3()
 // ------------------------------------------------------------------------
 int MGP3::initialize(double *XIn, double *YIn)
 {
-  int    ii, jj, ss, incr, *indices, nSubs, index, samCnt;
-  double *dVec, *vces, *XX, *YY, diff, var, ddata, *ubs, *lbs;
-  MainEffectAnalyzer *me;
-  if (nPartitions_ > 0 && rsPtrs_ != NULL)
-  {
-    for (int ii = 0; ii < nPartitions_; ii++)
-      if (rsPtrs_[ii] != NULL) delete rsPtrs_[ii];
-    delete rsPtrs_;
-    rsPtrs_ = NULL;
-  }
+  int    ii, jj, ss, incr, nSubs, index, samCnt;
+  double diff, var, ddata;
+  psVector  vecVces, vecXX, vecYY;
+  psIVector vecI;
+
+  //**/ ----------------------------------------------------------------
+  //**/ clean up
+  //**/ ----------------------------------------------------------------
   if (boxes_ != NULL)
   {
     for (ii = 0; ii < nPartitions_; ii++)
-    {
-      if (boxes_[ii]->lBounds_ != NULL) delete [] boxes_[ii]->lBounds_;
-      if (boxes_[ii]->uBounds_ != NULL) delete [] boxes_[ii]->uBounds_;
-    }
+      if (boxes_[ii]->rsPtr_   != NULL) delete boxes_[ii]->rsPtr_;
     delete [] boxes_;
   }
+  boxes_ = NULL;
 
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
+  if (VecLBs_.length() == 0)
+  {
+    printOutTS(PL_ERROR,
+         "MGP3 initialize ERROR: sample bounds not set yet.\n");
+    return -1;
+  }
+
+  //**/ ----------------------------------------------------------------
+  //**/ normalize sample values
+  //**/ ----------------------------------------------------------------
   XData_.setLength(nSamples_*nInputs_);
   for (ii = 0; ii < nSamples_*nInputs_; ii++) XData_[ii] = XIn[ii];
   YData_.setLength(nSamples_);
   for (ii = 0; ii < nSamples_; ii++) YData_[ii] = YIn[ii];
    
+  //**/ ----------------------------------------------------------------
+  //**/ divide up into sub-regions
+  //**/ ----------------------------------------------------------------
 
-  me = new MainEffectAnalyzer();
+  //**/ first use main effect analysis to guide which input to divide
+  MainEffectAnalyzer *me = new MainEffectAnalyzer();
+  psConfig_.AnaExpertModeSaveAndReset();
+  psConfig_.RSExpertModeSaveAndReset();
   turnPrintTSOff();
-  vces = new double[nInputs_];
-  XX = XData_.getDVector();
-  YY = YData_.getDVector();
-  me->computeVCECrude(nInputs_,nSamples_,XX,YY,lowerBounds_,
-                      upperBounds_, var, vces);
+  vecVces.setLength(nInputs_);
+  me->computeVCECrude(nInputs_,nSamples_,XIn,YIn,VecLBs_.getDVector(),
+                      VecUBs_.getDVector(), var, vecVces.getDVector());
   delete me;
-  indices = new int[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) indices[ii] = ii;
-  sortDbleList2a(nInputs_, vces, indices);
-  if (outputLevel_ > 1)
+  psConfig_.RSExpertModeRestore();
+  psConfig_.AnaExpertModeRestore();
+  vecI.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++) vecI[ii] = ii;
+  ddata = 0;
+  for (ii = 0; ii < nInputs_; ii++) ddata += vecVces[ii];
+  for (ii = 0; ii < nInputs_; ii++) vecVces[ii] /= ddata;
+  sortDbleList2a(nInputs_, vecVces.getDVector(), vecI.getIVector());
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
   {
     for (ii = 0; ii < nInputs_; ii++)
-      printf("VCE %d = %e\n", indices[ii], vces[ii]);
+      printf("VCE %d = %e\n", vecI[ii], vecVces[ii]);
   }
 
+  //**/ actual division into boxes
   nSubs = int(log(1.0*nPartitions_ + 1.0e-9) / log(2.0));
   boxes_ = new MGP3_Box*[nPartitions_];
   for (ii = 0; ii < nPartitions_; ii++)
   {
     boxes_[ii] = new MGP3_Box();
-    boxes_[ii]->lBounds_ = new double[nInputs_];
-    boxes_[ii]->uBounds_ = new double[nInputs_];
+    boxes_[ii]->vecLBs_.setLength(nInputs_);
+    boxes_[ii]->vecUBs_.setLength(nInputs_);
+    boxes_[ii]->rsPtr_ = NULL;
     for (jj = 0; jj < nInputs_; jj++)
     {
-      boxes_[ii]->lBounds_[jj] = lowerBounds_[jj];
-      boxes_[ii]->uBounds_[jj] = upperBounds_[jj];
+      boxes_[ii]->vecLBs_[jj] = VecLBs_[jj];
+      boxes_[ii]->vecUBs_[jj] = VecUBs_[jj];
     }
   }
   for (ii = 0; ii < nSubs; ii++)
   {
-    index = indices[nInputs_-1];
-    if (outputLevel_ > 0)
+    index = vecI[nInputs_-1];
+    if (psConfig_.InteractiveIsOn() && outputLevel_ > 0)
     {
-      for (jj = 0; jj < nInputs_; jj++)
-        printf("vce %3d = %e\n", indices[jj]+1, vces[jj]);
-      printf("Selected input for partition = %d\n", index+1);
+      if (outputLevel_ > 3)
+      {
+        for (jj = 0; jj < nInputs_; jj++)
+          printf("vce %3d = %e\n", vecI[jj]+1, vecVces[jj]);
+      }
+      printf("Selected input for binary partitioning %d = %d\n",ii+1, 
+             index+1);
     }
     incr = 1 << (nSubs - ii - 1);
     for (jj = 0; jj < nPartitions_; jj++)
     {
       if (((jj / incr) % 2) == 0)
       {
-        boxes_[jj]->uBounds_[index] = 0.5 *
-          (boxes_[jj]->uBounds_[index] + boxes_[jj]->lBounds_[index]);
+        boxes_[jj]->vecUBs_[index] = 0.5 *
+          (boxes_[jj]->vecUBs_[index] + boxes_[jj]->vecLBs_[index]);
       }
       else
       {
-        boxes_[jj]->lBounds_[index] = 0.5 *
-          (boxes_[jj]->uBounds_[index] + boxes_[jj]->lBounds_[index]);
+        boxes_[jj]->vecLBs_[index] = 0.5 *
+          (boxes_[jj]->vecUBs_[index] + boxes_[jj]->vecLBs_[index]);
       }
     }
-    vces[nInputs_-1] *= 0.25;
-    sortDbleList2a(nInputs_, vces, indices);
+    vecVces[nInputs_-1] *= 0.25;
+    sortDbleList2a(nInputs_, vecVces.getDVector(), vecI.getIVector());
   }
-  if (outputLevel_ > 3)
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 3)
   {
     for (jj = 0; jj < nPartitions_; jj++)
     {
       printf("Partition %d:\n", jj);
         for (ii = 0; ii < nInputs_; ii++)
           printf("Input %2d = %12.4e %12.4e\n",ii+1,
-            boxes_[jj]->lBounds_[ii], boxes_[jj]->uBounds_[ii]);
+            boxes_[jj]->vecLBs_[ii], boxes_[jj]->vecUBs_[ii]);
     }
   }
+  //**/ check coverage
   double dcheck1=0, dcheck2=0;
   for (jj = 0; jj < nPartitions_; jj++)
   {
     ddata = 1.0;
     for (ii = 0; ii < nInputs_; ii++)
-      ddata *= (boxes_[jj]->uBounds_[ii]-boxes_[jj]->lBounds_[ii]);
+      ddata *= (boxes_[jj]->vecUBs_[ii]-boxes_[jj]->vecLBs_[ii]);
     dcheck2 += ddata;
   }
   dcheck1 = 1;
   for (ii = 0; ii < nInputs_; ii++)
-    dcheck1 *= (upperBounds_[ii] - lowerBounds_[ii]);
-  if (outputLevel_ > 2)
-    printf("Coverage check: %e (sum) ?= %e (orig)\n",dcheck1,dcheck2);
+    dcheck1 *= (VecUBs_[ii] - VecLBs_[ii]);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 2)
+  {
+    //printf("MGP3: Partition Coverage check: %e (orig) ?= %e (sum)\n",
+    //       dcheck1,dcheck2);
+    if (dcheck2 >= dcheck1) printf("MGP3: Partition Coverage - good\n");
+    else                    
+      printf("MGP3: potential problem with partition coverage.\n");
+  }
 
-  if (outputLevel_ > 1) printf("MGP3 training begins....\n");
+  //**/ count number of samples in each box 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
+    printf("MGP3 training begins....\n");
   int total=0;
-  XX = new double[nSamples_*nInputs_];
-  YY = new double[nSamples_];
-  rsPtrs_ = new GP3*[nPartitions_];
   for (ii = 0; ii < nPartitions_; ii++)
   {
-    lbs = boxes_[ii]->lBounds_;
-    ubs = boxes_[ii]->uBounds_;
+    boxes_[ii]->rsPtr_ = NULL;
+    double *lbs = boxes_[ii]->vecLBs_.getDVector();
+    double *ubs = boxes_[ii]->vecUBs_.getDVector();
+
+    //**/ count the number of samples in this box
     samCnt = 0;
     for (ss = 0; ss < nSamples_; ss++)
     {
       for (jj = 0; jj < nInputs_; jj++)
       {
-        diff = 0.05 * (ubs[jj] - lbs[jj]);
+        diff = vecXd_[jj] * (ubs[jj] - lbs[jj]);
+        ddata = XData_[ss*nInputs_+jj];
+        if (ddata < lbs[jj]-diff || ddata > ubs[jj]+diff) break;
+      }
+      if (jj == nInputs_) samCnt++;
+    }
+    boxes_[ii]->nSamples_ = samCnt;
+
+    //**/ allocate memory
+    if (samCnt > 0) 
+    {
+      boxes_[ii]->vecX_.setLength(samCnt*nInputs_);
+      boxes_[ii]->vecY_.setLength(samCnt);
+    }
+
+    //**/ fill the vecX and vecY vectors
+    samCnt = 0;
+    for (ss = 0; ss < nSamples_; ss++)
+    {
+      for (jj = 0; jj < nInputs_; jj++)
+      {
+        diff = vecXd_[jj] * (ubs[jj] - lbs[jj]);
         ddata = XData_[ss*nInputs_+jj];
         if (ddata < lbs[jj]-diff || ddata > ubs[jj]+diff) break;
       }
       if (jj == nInputs_)
       {
         for (jj = 0; jj < nInputs_; jj++)
-           XX[samCnt*nInputs_+jj] = XData_[ss*nInputs_+jj];
-        YY[samCnt] = YData_[ss];
+          boxes_[ii]->vecX_[samCnt*nInputs_+jj] = XData_[ss*nInputs_+jj];
+        boxes_[ii]->vecY_[samCnt] = YData_[ss];
         samCnt++;
       }
     }
-    if (outputLevel_ > 0)
-    {
-      printf("MGP3: number of partitions = %d\n", nPartitions_);
-      printf("Partition %d has %d sample points.\n",ii+1,samCnt);
-    }
-    rsPtrs_[ii] = new GP3(nInputs_, samCnt);
-    rsPtrs_[ii]->setOutputLevel(0);
-    rsPtrs_[ii]->initialize(XX, YY);
     total += samCnt;
+    if (psConfig_.InteractiveIsOn() && outputLevel_ >= 0)
+    {
+      printf("Partition %d has %d sample points (ovlap=%e).\n",ii+1,
+             samCnt, vecXd_[0]);
+    }
   }
-  if (outputLevel_ >= 0)
-    printf("Total number of sample points in all partitions = %d\n",total);
-  delete [] vces;
-  delete [] indices;
-  delete [] XX;
-  delete [] YY;
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 0)
+  {
+    printf("Sample size = %d\n",nSamples_);
+    printf("Total sample sizes from all partitions = %d\n",total);
+    printf("INFO: Total from all partitions may be larger than original\n");
+    printf("      sample due to overlap. If the total is too large so\n");
+    printf("      that it is close to the original size, partitioning\n");
+    printf("      is not worthwhile -> you may want to reduce overlap.\n");
+  }
+
+  //**/ now set up GP
+  psConfig_.RSExpertModeSaveAndReset();
+
+  char *tArgv[1], pString[1000];
+  strcpy(pString, "no_checking");
+  tArgv[0] = (char *) pString;
+
+#pragma omp parallel private(ii)
+#pragma omp for
+  for (ii = 0; ii < nPartitions_; ii++)
+  {
+    if (boxes_[ii]->nSamples_ > 0)
+    {
+      if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
+        printf("MGP3: processing partition %d (%d)\n",ii+1,nPartitions_);
+      if (useHGP_)
+      { 
+        boxes_[ii]->rsPtr_ = new HGP3(nInputs_, boxes_[ii]->nSamples_);
+        boxes_[ii]->rsPtr_->setParams(1, tArgv);
+      }
+      else
+        boxes_[ii]->rsPtr_ = new GP3(nInputs_, boxes_[ii]->nSamples_);
+      boxes_[ii]->rsPtr_->setOutputLevel(0);
+      boxes_[ii]->rsPtr_->setBounds(boxes_[ii]->vecLBs_.getDVector(),
+                                    boxes_[ii]->vecUBs_.getDVector());
+      boxes_[ii]->rsPtr_->initialize(boxes_[ii]->vecX_.getDVector(),
+                                     boxes_[ii]->vecY_.getDVector());
+      if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
+        printf("MGP3: processing partition %d completed\n",ii+1);
+    }
+  }
+  psConfig_.RSExpertModeRestore();
   turnPrintTSOn();
 
-  if (outputLevel_ > 1) printf("MGP3 training completed.\n");
-  if (psRSCodeGen_ == 1) 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
+    printf("MGP3 training completed.\n");
+  if (psConfig_.InteractiveIsOn() && psConfig_.RSCodeGenIsOn())
     printf("MGP3 INFO: response surface stand-alone code not available.\n");
   return 0;
 }
@@ -255,25 +394,34 @@ int MGP3::initialize(double *XIn, double *YIn)
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MGP3::genNDGridData(double *XIn, double *YIn, int *N, double **X2, 
-                        double **Y2)
+int MGP3::genNDGridData(double *XIn, double *YIn, int *NOut, double **XOut, 
+                        double **YOut)
 {
-  int    totPts;
-  double *XX, *YY;
 
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
   initialize(XIn, YIn);
-  if ((*N) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-  genNDGrid(N, &XX);
-  if ((*N) == 0) return 0;
-  totPts = (*N);
+  //**/ ---------------------------------------------------------------
+  //**/ generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(NOut, XOut);
+  if ((*NOut) == 0) return 0;
+  int totPts = (*NOut);
 
-  if (outputLevel_ >= 1) printf("MGP3 interpolation begins....\n");
-  YY = new double[totPts];
-  evaluatePoint(totPts, XX, YY);
-  if (outputLevel_ >= 1) printf("MGP3 interpolation completed.\n");
-  (*X2) = XX;
-  (*Y2) = YY;
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for the data points and generate them
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation begins....\n");
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  evaluatePoint(totPts, *XOut, *YOut);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation completed.\n");
   return 0;
 }
 
@@ -281,35 +429,48 @@ int MGP3::genNDGridData(double *XIn, double *YIn, int *N, double **X2,
 // Generate 1D results for display
 // ------------------------------------------------------------------------
 int MGP3::gen1DGridData(double *XIn, double *YIn, int ind1,
-                        double *settings, int *n, double **X2, double **Y2)
+                        double *settings, int *NOut, double **XOut, 
+                        double **YOut)
 {
-  int    totPts, ii, kk;
-  double *XX, *YY, HX;
-
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
   initialize(XIn, YIn);
-  if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-  totPts = nPtsPerDim_;
-  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  int totPts = nPtsPerDim_;
+  double HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-  (*X2) = new double[totPts];
-  XX = new double[totPts*nInputs_];
-  checkAllocate(XX, "XX in MGP3::gen1DGrid");
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  psVector vecXT, vecXOut;
+  vecXOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  vecXT.setLength(totPts*nInputs_);
+  for (int ii = 0; ii < nPtsPerDim_; ii++) 
   {
-     for (kk = 0; kk < nInputs_; kk++) 
-        XX[ii*nInputs_+kk] = settings[kk]; 
-     XX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
-     (*X2)[ii] = HX * ii + lowerBounds_[ind1];
+     for (int kk = 0; kk < nInputs_; kk++) 
+        vecXT[ii*nInputs_+kk] = settings[kk]; 
+     vecXT[ii*nInputs_+ind1] = HX * ii + VecLBs_[ind1];
+     (*XOut)[ii] = HX * ii + VecLBs_[ind1];
   }
    
-  YY = new double[totPts];
-  if (outputLevel_ >= 1) printf("MGP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
-  if (outputLevel_ >= 1) printf("MGP3 interpolation completed.\n");
-  (*n) = totPts;
-  (*Y2) = YY;
-  delete [] XX;
+  //**/ ----------------------------------------------------------------
+  //**/ interpolate
+  //**/ ----------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation begins....\n");
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation completed.\n");
+  (*NOut) = totPts;
   return 0;
 }
 
@@ -317,44 +478,58 @@ int MGP3::gen1DGridData(double *XIn, double *YIn, int ind1,
 // Generate 2D results for display
 // ------------------------------------------------------------------------
 int MGP3::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
-                        double *settings, int *n, double **X2, double **Y2)
+                        double *settings, int *NOut, double **XOut, 
+                        double **YOut)
 {
-  int    totPts, ii, jj, kk, index;
-  double *XX, *YY, *HX;
-
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
   initialize(XIn, YIn);
-  if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-  totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  int totPts = nPtsPerDim_ * nPtsPerDim_;
+  psVector vecHX;
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
 
-  XX = new double[totPts*nInputs_];
-  (*X2) = new double[2*totPts];
-  checkAllocate(*X2, "X2 in MGP3::gen2DGrid");
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  int index;
+  psVector vecXOut, vecXT;
+  vecXOut.setLength(totPts*2);
+  (*XOut) = vecXOut.takeDVector();
+  vecXT.setLength(totPts*nInputs_);
+  for (int ii = 0; ii < nPtsPerDim_; ii++) 
   {
-    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    for (int jj = 0; jj < nPtsPerDim_; jj++) 
     {
       index = ii * nPtsPerDim_ + jj;
-      for (kk = 0; kk < nInputs_; kk++) 
-        XX[index*nInputs_+kk] = settings[kk]; 
-      XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-      XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-      (*X2)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-      (*X2)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
+      for (int kk = 0; kk < nInputs_; kk++) 
+        vecXT[index*nInputs_+kk] = settings[kk]; 
+      vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+      vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+      (*XOut)[index*2]   = vecHX[0] * ii + VecLBs_[ind1];
+      (*XOut)[index*2+1] = vecHX[1] * jj + VecLBs_[ind2];
     }
   }
     
-  YY = new double[totPts];
-  if (outputLevel_ >= 1) printf("MGP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
-  if (outputLevel_ >= 1) printf("MGP3 interpolation completed.\n");
-  (*n) = totPts;
-  (*Y2) = YY;
-  delete [] XX;
-  delete [] HX;
+  //**/ ----------------------------------------------------------------
+  //**/ interpolate
+  //**/ ----------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation begins....\n");
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation completed.\n");
+  (*NOut) = totPts;
   return 0;
 }
 
@@ -362,50 +537,64 @@ int MGP3::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2,
 // Generate 3D results for display
 // ------------------------------------------------------------------------
 int MGP3::gen3DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
-                        double *settings, int *n, double **X2, double **Y2)
+                        double *settings, int *NOut, double **XOut, 
+                        double **YOut)
 {
-  int    totPts, ii, jj, kk, ll, index;
-  double *XX, *YY, *HX;
-
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
   initialize(XIn, YIn);
-  if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  int totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  psVector vecHX;
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_-1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_-1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_-1); 
 
-  XX = new double[totPts*nInputs_];
-  (*X2) = new double[3*totPts];
-  checkAllocate(*X2, "X2 in MGP3::gen3DGrid");
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  int index;
+  psVector vecXOut, vecXT;
+  vecXOut.setLength(totPts*3);
+  (*XOut) = vecXOut.takeDVector();
+  vecXT.setLength(totPts*nInputs_);
+  for (int ii = 0; ii < nPtsPerDim_; ii++) 
   {
-    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    for (int jj = 0; jj < nPtsPerDim_; jj++) 
     {
-      for (ll = 0; ll < nPtsPerDim_; ll++) 
+      for (int ll = 0; ll < nPtsPerDim_; ll++) 
       {
         index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-        for (kk = 0; kk < nInputs_; kk++) 
-          XX[index*nInputs_+kk] = settings[kk]; 
-        XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-        XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-        XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-        (*X2)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-        (*X2)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-        (*X2)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
+        for (int kk = 0; kk < nInputs_; kk++) 
+          vecXT[index*nInputs_+kk] = settings[kk]; 
+        vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+        vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+        vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+        (*XOut)[index*3]   = vecHX[0] * ii + VecLBs_[ind1];
+        (*XOut)[index*3+1] = vecHX[1] * jj + VecLBs_[ind2];
+        (*XOut)[index*3+2] = vecHX[2] * ll + VecLBs_[ind3];
       }
     }
   }
     
-  YY = new double[totPts];
-  if (outputLevel_ >= 1) printf("MGP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
-  if (outputLevel_ >= 1) printf("MGP3 interpolation completed.\n");
-  (*n) = totPts;
-  (*Y2) = YY;
-  delete [] XX;
-  delete [] HX;
+  //**/ ----------------------------------------------------------------
+  //**/ interpolate
+  //**/ ----------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation begins....\n");
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation completed.\n");
+  (*NOut) = totPts;
   return 0;
 }
 
@@ -413,58 +602,71 @@ int MGP3::gen3DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
 // Generate 4D results for display
 // ------------------------------------------------------------------------
 int MGP3::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
-                        int ind4, double *settings, int *n, double **X2, 
-                        double **Y2)
+                        int ind4,double *settings,int *NOut,double **XOut, 
+                        double **YOut)
 {
-  int    totPts, ii, jj, kk, ll, mm, index;
-  double *XX, *YY, *HX;
-
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
   initialize(XIn, YIn);
-  if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
  
-  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  int totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  psVector vecHX;
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_-1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_-1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_-1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4]) / (nPtsPerDim_-1); 
 
-  XX = new double[totPts*nInputs_];
-  (*X2) = new double[4*totPts];
-  checkAllocate(*X2, "X2 in MGP3::gen4DGrid");
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  int index;
+  psVector vecXOut, vecXT;
+  vecXOut.setLength(totPts*4);
+  (*XOut) = vecXOut.takeDVector();
+  vecXT.setLength(totPts*nInputs_);
+  for (int ii = 0; ii < nPtsPerDim_; ii++) 
   {
-    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    for (int jj = 0; jj < nPtsPerDim_; jj++) 
     {
-      for (ll = 0; ll < nPtsPerDim_; ll++) 
+      for (int ll = 0; ll < nPtsPerDim_; ll++) 
       {
-        for (mm = 0; mm < nPtsPerDim_; mm++) 
+        for (int mm = 0; mm < nPtsPerDim_; mm++) 
         {
           index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
                   jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-          for (kk = 0; kk < nInputs_; kk++) 
-            XX[index*nInputs_+kk] = settings[kk]; 
-          XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-          XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-          XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-          XX[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
-          (*X2)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-          (*X2)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-          (*X2)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-          (*X2)[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
+          for (int kk = 0; kk < nInputs_; kk++) 
+            vecXT[index*nInputs_+kk] = settings[kk]; 
+          vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+          vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+          vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+          vecXT[index*nInputs_+ind4] = vecHX[3] * mm + VecLBs_[ind4];
+          (*XOut)[index*4]   = vecHX[0] * ii + VecLBs_[ind1];
+          (*XOut)[index*4+1] = vecHX[1] * jj + VecLBs_[ind2];
+          (*XOut)[index*4+2] = vecHX[2] * ll + VecLBs_[ind3];
+          (*XOut)[index*4+3] = vecHX[3] * mm + VecLBs_[ind4];
         }
       }
     }
   }
     
-  YY = new double[totPts];
-  if (outputLevel_ >= 1) printf("MGP3 interpolation begins....\n");
-  evaluatePoint(totPts, XX, YY);
-  if (outputLevel_ >= 1) printf("MGP3 interpolation completed.\n");
-  (*n) = totPts;
-  (*Y2) = YY;
-  delete [] XX;
-  delete [] HX;
+  //**/ ----------------------------------------------------------------
+  //**/ interpolate
+  //**/ ----------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation begins....\n");
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("MGP3 interpolation completed.\n");
+  (*NOut) = totPts;
   return 0;
 }
 
@@ -514,24 +716,22 @@ double MGP3::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystds)
 int MGP3::interpolate(int npts, double *X, double *Y, double *Ystds)
 {
   int    ii, pp, ss, count, highFlag, hasStds=0;
-  double Yt, ddata, diff, *iRanges, *lbs, *ubs;
+  double Yt, ddata, diff, *lbs, *ubs;
 
   if (Ystds != NULL) hasStds = 1;
-  iRanges = new double[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++)
-     iRanges[ii] = 1.0 / (upperBounds_[ii] - lowerBounds_[ii]);
   for (ss = 0; ss < npts; ss++)
   {
     count = 0;
+    //**/ look for a partition
     Yt = 0.0;
     for (pp = 0; pp < nPartitions_; pp++)
     {
-      lbs = boxes_[pp]->lBounds_;
-      ubs = boxes_[pp]->uBounds_;
+      lbs = boxes_[pp]->vecLBs_.getDVector();
+      ubs = boxes_[pp]->vecUBs_.getDVector();
       for (ii = 0; ii < nInputs_; ii++)
       {
-        if (ubs[ii] == upperBounds_[ii]) highFlag = 1;
-        else                             highFlag = 0;
+        if (ubs[ii] == VecUBs_[ii]) highFlag = 1;
+        else                        highFlag = 0;
         ddata = X[ss*nInputs_+ii];
         diff = 0.05 * (ubs[ii] - lbs[ii]);
         if (highFlag == 0)
@@ -546,9 +746,10 @@ int MGP3::interpolate(int npts, double *X, double *Y, double *Ystds)
       if (ii == nInputs_)
       {
         if (hasStds) 
-          Yt += rsPtrs_[pp]->evaluatePointFuzzy(&X[ss*nInputs_],Ystds[ss]);
+          Yt += boxes_[pp]->rsPtr_->evaluatePointFuzzy(&X[ss*nInputs_],
+                                                       Ystds[ss]);
         else
-          Yt += rsPtrs_[pp]->evaluatePoint(&X[ss*nInputs_]);
+          Yt += boxes_[pp]->rsPtr_->evaluatePoint(&X[ss*nInputs_]);
         count++;
       }
     }
@@ -557,12 +758,11 @@ int MGP3::interpolate(int npts, double *X, double *Y, double *Ystds)
       printf("MGP3 evaluate ERROR: sample point outside range.\n");
       for (ii = 0; ii < nInputs_; ii++)
         printf("Input %d = %e (in [%e, %e]?)\n",ii+1,
-           X[ss*nInputs_+ii],lowerBounds_[ii],upperBounds_[ii]);
+               X[ss*nInputs_+ii],VecLBs_[ii],VecUBs_[ii]);
       return 0.0;
     }
     Y[ss] = Yt / (double) count;
   }
-  delete [] iRanges;
   return 0;
 }
 

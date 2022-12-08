@@ -1,0 +1,27 @@
+PSUADE
+INPUT
+   dimension = 4
+   variable   1 X1 = 0  1
+   variable   2 X2 = 0  1
+   variable   3 X3 = 0  1
+   variable   4 X4 = 0  1
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = FACT
+   num_samples = 256
+END
+APPLICATION
+   driver = ./simulator
+   launch_interval = 0
+END
+ANALYSIS
+   analyzer output_id  = 1
+   analyzer rs_index_file = indexFile
+   analyzer rstype = quadratic
+   printlevel 2
+END
+END

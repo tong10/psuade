@@ -1,0 +1,25 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable   1 X = 0  1
+   variable   2 Y = 0  1
+   variable   3 U = 0  1
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 100
+   randomize
+   random_seed = 41491431
+END
+APPLICATION
+   driver = ./simulator
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

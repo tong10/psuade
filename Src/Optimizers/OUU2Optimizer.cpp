@@ -102,16 +102,19 @@ extern "C"
       double ddata;
       oData  *odata;
 
+      //**/ ------ fetch data ------
       odata = (oData *) psOUU2Obj_;
       M1    = psOUU2M1_;
       M2    = psOUU2M2_;
       M3    = psOUU2M3_;
       M     = M1 + M2 + M3;
 
+      //**/ ------ set up to run simulation ------
       funcID = odata->numFuncEvals_;
       for (ii = 0; ii < M2; ii++) psOUU2XValues_[M1+ii] = XValues[ii];
       for (ii = 0; ii < M3; ii++) psOUU2XValues_[M1+M2+ii] = psOUU2WValues_[ii];
 
+      //**/ ------ search to see if it has already been evaluated ------
       found = 0;
       for (ii = 0; ii < psOUU2NSaved_; ii++)
       {
@@ -127,6 +130,7 @@ extern "C"
          }
       }
 
+      //**/ ------ run simulation ------
       if (found == 0)
       {
          odata->funcIO_->evaluate(funcID,M,psOUU2XValues_,iOne,&ddata,0);
@@ -141,6 +145,7 @@ extern "C"
       }
       (*YValue) = ddata;
 
+      //**/ ------ diagnostics ------
       if (ddata < psOUU2OptimalY_)
       {
          psOUU2OptimalY_ = ddata;
@@ -171,12 +176,14 @@ extern "C"
       oData  *odata;
       FILE   *fp=NULL;
 
+      //**/ ------ fetch data (*nInp) = M1 ------
       odata = (oData *) psOUU2Obj_;
       M1    = psOUU2M1_;
       M2    = psOUU2M2_;
       M3    = psOUU2M3_;
       M     = M1 + M2 + M3;
 
+      //**/ ------ set up for ensemble optimization ------
       rhobeg = odata->upperBounds_[M1] - odata->lowerBounds_[M1];
       for (ii = 1; ii < M2; ii++)
       {
@@ -193,6 +200,7 @@ extern "C"
       XLocal = (double *) malloc(M*sizeof(double));
       readys = (int *) malloc(psOUU2nSamples_*sizeof(int));
 
+      //**/ ------ run ensemble optimization ------
       for (ii = 0; ii < M1; ii++) psOUU2XValues_[ii] = XValues[ii];
       for (ii = 0; ii < M2; ii++)
       {
@@ -215,6 +223,7 @@ extern "C"
             psOUU2OptimalY_ = PSUADE_UNDEFINED;
             for (ii = 0; ii < M3; ii++)
                psOUU2WValues_[ii] = psOUU2SamInputs_[ss*M3+ii];
+            //**/ ------ if user does not provide 2nd level optimizer ------
             if (psOUU2UserOpt_ == 0)
             {
                bobyqaFlag = 1111;
@@ -227,6 +236,7 @@ extern "C"
                          ss+1,psOUU2SamOutputs_[ss]); 
             }
             else
+            //**/ ------ if user provides 2nd level optimizer ------
             {
                for (ii = 0; ii < M1; ii++) XLocal[ii] = psOUU2XValues_[ii];
                for (ii = 0; ii < M2; ii++)
@@ -248,6 +258,7 @@ extern "C"
             }
          } 
 
+         //**/ if asynchronous mode is on, additonal processing
          if (psOUU2UserOpt_ == 1 && psOUU2Parallel_ == 1)
          {
             for (ss = 0; ss < psOUU2nSamples_; ss++)
@@ -271,6 +282,7 @@ extern "C"
             }
          }
  
+         //**/ ------ optional: spit out the response surface data ------
          if (psOUU2MasterMode_ == 1)
          {
             fp = fopen("ouu2Sample", "w");
@@ -304,6 +316,7 @@ extern "C"
          odata->funcIO_->ensembleEvaluate(psOUU2nSamples_,M,psOUU2XValues_,
                                           iOne,psOUU2SamOutputs_,funcID);
          odata->numFuncEvals_ += psOUU2nSamples_;
+         //**/ ------ save the data ------
          for (ss = 0; ss < psOUU2nSamples_; ss++)
          {
             if ((psOUU2NSaved_+1)*M < psOUU2MaxSaved_*10)
@@ -317,6 +330,7 @@ extern "C"
          for (ii = 0; ii < M; ii++) psOUU2OptimalX_[ii] = psOUU2XValues_[ii];
       }
 
+      //**/ ------ analyze optimization results ------
       if (psOUU2UseRS_ == 0)
       {
          if (psOUU2Mode_ == 1 || psOUU2Mode_ == 2)
@@ -403,6 +417,7 @@ extern "C"
          }
       }
  
+      //**/ ------ store optimal information ------
       if (mean < odata->optimalY_)
       {
          odata->optimalY_ = mean;
@@ -414,12 +429,14 @@ extern "C"
             if (psOUU2UserOpt_ == 0)
             {
                for (ii = 0; ii < M1+M2; ii++) 
-                  printf("        Input %3d at min = %e\n", ii+1, odata->optimalX_[ii]);
+                  printf("        Input %3d at min = %e\n", ii+1, 
+                         odata->optimalX_[ii]);
             }
          }
       }
       psOUU2Counter_++;
 
+      //**/ ------ clean up and return ------
       free(readys);
       free(XLocal);
       free(workArray);
@@ -468,8 +485,11 @@ void OUU2Optimizer::optimize(oData *odata)
    FILE   *fp=NULL;
    static int currDriver=-1;
 
-   if (psMasterMode_ == 1) psOUU2MasterMode_ = 1;
-   psMasterMode_ = 0;
+   //**/ ----------------------------------------------------------
+   //**/ header and fetch data
+   //**/ ----------------------------------------------------------
+   if (psConfig_.MasterModeIsOn()) psOUU2MasterMode_ = 1;
+   psConfig_.MasterModeOff();
    nInputs = odata->nInputs_;
    printLevel = odata->outputLevel_;
    if (psOUU2M1_+psOUU2M2_+psOUU2M3_ == nInputs && psOUU2M1_ > 0 &
@@ -554,6 +574,9 @@ void OUU2Optimizer::optimize(oData *odata)
       printDashes(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ prepare for optimization 
+   //**/ ----------------------------------------------------------
    for (ii = 0; ii < M1; ii++) odata->optimalX_[ii] = 0.0;
    odata->optimalY_ = 1.0e50;
    XValues = new double[M1+1];
@@ -586,149 +609,155 @@ void OUU2Optimizer::optimize(oData *odata)
    printf("OUU2Optimizer: tolerance  = %e\n", odata->tolerance_);
    printEquals(PL_INFO, 0);
 
+   //**/ ----------------------------------------------------------
+   //**/ set up LH/FACT sample for uncertain parameters
+   //**/ ----------------------------------------------------------
    psOUU2nSamples_ = 100;
    psOUU2UserOpt_ = 0;
    psOUU2UseRS_ = 0;
    method = 1;
-   if (psOptExpertMode_ == 1)
+   if (psConfig_.OptExpertModeIsOn())
    {
-      printEquals(PL_INFO, 0);
-      printf("Select which functional Phi_X3 to use: \n");
-      printf("  1. the mean of G(X1,X2,X3) with respect to X3 (default)\n"); 
-      printf("  2. mean of G(X1,X2,X3) + alpha * std dev of G(X1,X2,X3)\n"); 
-      printf("  3. G(X1,X2,X3*) s.t. Prob(G(X1,X2,X3)>G(X1,X2,X3*)) = epsilon\n");
-      printf("  4. min_X3 G(X1,X2,X3) given X1 and X2\n");
-      sprintf(pString,"Enter your preferred functional (1, 2, 3 or 4) : ");
-      psOUU2Mode_ = getInt(1, 4, pString);
-      if (psOUU2Mode_ == 2)
-      {
-         sprintf(pString,"Enter your desired alpha : ");
-         psOUU2StdevMultiplier_ = getDouble(pString);
-      } 
-      if (psOUU2Mode_ == 3)
-      {
-         psOUU2Percentile_ = 0.0;
-         while (psOUU2Percentile_ <= 0.01 || psOUU2Percentile_ > 0.5) 
-         { 
-            sprintf(pString,"Enter your desired percentile : (0.01 - 0.5)");
-            psOUU2Percentile_ = getDouble(pString);
-         } 
-      }
-      printEquals(PL_INFO, 0);
-      if (psOUU2Mode_ == 1 || psOUU2Mode_ == 2)
-      {
-         printf("OUU2Optimizer uses a sample of X3 to estimate the objective.\n");
-         printf("Default sampling method = Latin hypercube\n");
-         printf("Default sample size     = %d\n",psOUU2nSamples_);
-         printf("Available sampling method: (1) LHS, (2) factorial, (3) your own.\n");
-         sprintf(pString,"Select sampling method (1, 2 or 3) : ");
-         method = getInt(1, 3, pString);
-      }
-      if (psOUU2Mode_ == 3 || psOUU2Mode_ == 4)
-      {
-         printf("OUU2Optimizer uses a sample of X3 to estimate the objective.\n");
-         printf("Default sampling method = Latin hypercube\n");
-         printf("Default sample size     = %d\n",psOUU2nSamples_);
-         printf("Available sampling method: (1) LHS or (2) factorial.\n");
-         sprintf(pString,"Select sampling method (1 or 2) : ");
-         method = getInt(1, 2, pString);
-      }
-      if (method == 1)
-      {
-         sprintf(pString,
-                 "Enter your preferred sample size (>=10, <=1000) : ");
-         psOUU2nSamples_ = getInt(10, 10000, pString);
-      }
-      else if (method == 2)
-      {
-         sprintf(pString,
-                 "Enter number of levels per variable (>=3, <=100) : ");
-         psOUU2nSamples_ = getInt(3, 100, pString);
-         kk = psOUU2nSamples_;
-         for (ii = 1; ii < M3; ii++) psOUU2nSamples_ *= kk;
-         printf("Factorial design has sample size = %d\n", psOUU2nSamples_);  
-      }
-      else if (method == 3)
-      {
-         printf("Data format of user sample:\n");
-         printf("line 1: <nSamples> <nInputs> \n");
-         printf("line 2: <sample 1 input 1> <input 2> ... <probability>\n");
-         printf("line 3: <sample 2 input 1> <input 2> ... <probability>\n");
-         printf("...\n");
-         printf("Enter user sample file name : ");
-         scanf("%s", filename);
-         fp = fopen(filename, "r");
-         if (fp == NULL)
-         {
-            printf("OUU2Optimizer ERROR: user sample file %s not found.\n",
-                   filename);
-            exit(1);
-         }
-         fgets(lineIn, 5000, fp);
-         sscanf(lineIn, "%d %d", &psOUU2nSamples_, &ii);
-         if (psOUU2nSamples_ <= 5)
-         {
-            printf("OUU2Optimizer ERROR: user sample size should be > 5\n");
-            fclose(fp);
-            exit(1);
-         } 
-         if (ii != M3)
-         {
-            printf("OUU2Optimizer ERROR: user sample nInputs %d != %d\n",
-                   ii, M3);
-            fclose(fp);
-            exit(1);
-         } 
-         psOUU2SamInputs_  = new double[psOUU2nSamples_ * M3];
-         psOUU2SamOutputs_ = new double[psOUU2nSamples_];
-         psOUU2SamProbs_ = new double[psOUU2nSamples_];
-         ddata = 0.0;
-         for (ii = 0; ii < psOUU2nSamples_; ii++)
-         {
-            for (kk = 0; kk < M3; kk++)
-               fscanf(fp, "%lg", &psOUU2SamInputs_[ii*M3+kk]);
-            fscanf(fp, "%lg", &psOUU2SamProbs_[ii]);
-            ddata += psOUU2SamProbs_[ii];
-         }
+     printEquals(PL_INFO, 0);
+     printf("Select which functional Phi_X3 to use: \n");
+     printf("  1. the mean of G(X1,X2,X3) with respect to X3 (default)\n"); 
+     printf("  2. mean of G(X1,X2,X3) + alpha * std dev of G(X1,X2,X3)\n"); 
+     printf("  3. G(X1,X2,X3*) s.t. Prob(G(X1,X2,X3)>G(X1,X2,X3*)) = epsilon\n");
+     printf("  4. min_X3 G(X1,X2,X3) given X1 and X2\n");
+     sprintf(pString,"Enter your preferred functional (1, 2, 3 or 4) : ");
+     psOUU2Mode_ = getInt(1, 4, pString);
+     if (psOUU2Mode_ == 2)
+     {
+        sprintf(pString,"Enter your desired alpha : ");
+        psOUU2StdevMultiplier_ = getDouble(pString);
+     } 
+     if (psOUU2Mode_ == 3)
+     {
+       psOUU2Percentile_ = 0.0;
+       while (psOUU2Percentile_ <= 0.01 || psOUU2Percentile_ > 0.5) 
+       { 
+         sprintf(pString,"Enter your desired percentile : (0.01 - 0.5)");
+         psOUU2Percentile_ = getDouble(pString);
+       } 
+     }
+     printEquals(PL_INFO, 0);
+     if (psOUU2Mode_ == 1 || psOUU2Mode_ == 2)
+     {
+       printf("OUU2Optimizer uses a sample of X3 to estimate the objective.\n");
+       printf("Default sampling method = Latin hypercube\n");
+       printf("Default sample size     = %d\n",psOUU2nSamples_);
+       printf("Available sampling method: (1) LHS, (2) factorial, (3) your own.\n");
+       sprintf(pString,"Select sampling method (1, 2 or 3) : ");
+       method = getInt(1, 3, pString);
+     }
+     if (psOUU2Mode_ == 3 || psOUU2Mode_ == 4)
+     {
+       printf("OUU2Optimizer uses a sample of X3 to estimate the objective.\n");
+       printf("Default sampling method = Latin hypercube\n");
+       printf("Default sample size     = %d\n",psOUU2nSamples_);
+       printf("Available sampling method: (1) LHS or (2) factorial.\n");
+       sprintf(pString,"Select sampling method (1 or 2) : ");
+       method = getInt(1, 2, pString);
+     }
+     if (method == 1)
+     {
+       sprintf(pString,
+               "Enter your preferred sample size (>=10, <=1000) : ");
+       psOUU2nSamples_ = getInt(10, 10000, pString);
+     }
+     else if (method == 2)
+     {
+       sprintf(pString,
+               "Enter number of levels per variable (>=3, <=100) : ");
+       psOUU2nSamples_ = getInt(3, 100, pString);
+       kk = psOUU2nSamples_;
+       for (ii = 1; ii < M3; ii++) psOUU2nSamples_ *= kk;
+       printf("Factorial design has sample size = %d\n", psOUU2nSamples_);  
+     }
+     else if (method == 3)
+     {
+       printf("Data format of user sample:\n");
+       printf("line 1: <nSamples> <nInputs> \n");
+       printf("line 2: <sample 1 input 1> <input 2> ... <probability>\n");
+       printf("line 3: <sample 2 input 1> <input 2> ... <probability>\n");
+       printf("...\n");
+       printf("Enter user sample file name : ");
+       scanf("%s", filename);
+       fp = fopen(filename, "r");
+       if (fp == NULL)
+       {
+         printf("OUU2Optimizer ERROR: user sample file %s not found.\n",
+                filename);
+         exit(1);
+       }
+       fgets(lineIn, 5000, fp);
+       sscanf(lineIn, "%d %d", &psOUU2nSamples_, &ii);
+       if (psOUU2nSamples_ <= 5)
+       {
+         printf("OUU2Optimizer ERROR: user sample size should be > 5\n");
          fclose(fp);
-         printf("User sample has %d points\n", psOUU2nSamples_);
-         printf("User sample CDF = %e (should be ~1)\n", ddata);
-      }
-      printEquals(PL_INFO, 0);
-      printf("Use your own optimizer instead of BOBYQA ? (y or n) ");
-      scanf("%s", lineIn);
-      if (lineIn[0] == 'y')
-      {
-         psOUU2UserOpt_ = 1;
-         printf("NOTE: Make sure your optimizer executable has been\n");
-         printf("      assigned to 'opt_driver' and it optimizes with\n");
-         printf("      respect to the %d-th to %d-th parameters.\n", 
-                M1+1, M1+M2);
-      }   
-      if (method != 3)
-      {
-         printEquals(PL_INFO, 0);
-         printf("Use response surface to compute statistics ? (y or n) ");
-         scanf("%s", lineIn);
-         if (lineIn[0] == 'y') psOUU2UseRS_ = 1;
-      }
-      printEquals(PL_INFO, 0);
-      if (psOUU2UserOpt_ == 1)
-      {
-         printf("Use aux opt driver with ensemble run ? (y or n) ");
-         scanf("%s", lineIn);
-         if (lineIn[0] == 'y') psOUU2EnsembleEval_ = 1;
-         printEquals(PL_INFO, 0);
-      }
-      if (psOUU2EnsembleEval_ == 0)
-      {
-         printf("Use synchronous (s) or asynchronous (p) mode for ensemble runs ? (s or p) ");
-         scanf("%s", lineIn);
-         if (lineIn[0] == 'p') psOUU2Parallel_ = 1;
-         printEquals(PL_INFO, 0);
-      }
+         exit(1);
+       } 
+       if (ii != M3)
+       {
+         printf("OUU2Optimizer ERROR: user sample nInputs %d != %d\n",
+                ii, M3);
+         fclose(fp);
+         exit(1);
+       } 
+       psOUU2SamInputs_  = new double[psOUU2nSamples_ * M3];
+       psOUU2SamOutputs_ = new double[psOUU2nSamples_];
+       psOUU2SamProbs_ = new double[psOUU2nSamples_];
+       ddata = 0.0;
+       for (ii = 0; ii < psOUU2nSamples_; ii++)
+       {
+         for (kk = 0; kk < M3; kk++)
+           fscanf(fp, "%lg", &psOUU2SamInputs_[ii*M3+kk]);
+         fscanf(fp, "%lg", &psOUU2SamProbs_[ii]);
+         ddata += psOUU2SamProbs_[ii];
+       }
+       fclose(fp);
+       printf("User sample has %d points\n", psOUU2nSamples_);
+       printf("User sample CDF = %e (should be ~1)\n", ddata);
+     }
+     printEquals(PL_INFO, 0);
+     printf("Use your own optimizer instead of BOBYQA ? (y or n) ");
+     scanf("%s", lineIn);
+     if (lineIn[0] == 'y')
+     {
+       psOUU2UserOpt_ = 1;
+       printf("NOTE: Make sure your optimizer executable has been\n");
+       printf("      assigned to 'opt_driver' and it optimizes with\n");
+       printf("      respect to the %d-th to %d-th parameters.\n", 
+              M1+1, M1+M2);
+     }   
+     if (method != 3)
+     {
+       printEquals(PL_INFO, 0);
+       printf("Use response surface to compute statistics ? (y or n) ");
+       scanf("%s", lineIn);
+       if (lineIn[0] == 'y') psOUU2UseRS_ = 1;
+     }
+     printEquals(PL_INFO, 0);
+     if (psOUU2UserOpt_ == 1)
+     {
+       printf("Use aux opt driver with ensemble run ? (y or n) ");
+       scanf("%s", lineIn);
+       if (lineIn[0] == 'y') psOUU2EnsembleEval_ = 1;
+       printEquals(PL_INFO, 0);
+     }
+     if (psOUU2EnsembleEval_ == 0)
+     {
+       printf("Use synchronous (s) or asynchronous (p) mode for ensemble runs ? (s or p) ");
+       scanf("%s", lineIn);
+       if (lineIn[0] == 'p') psOUU2Parallel_ = 1;
+       printEquals(PL_INFO, 0);
+     }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ generate a sample for computing statistics
+   //**/ ----------------------------------------------------------
    if (printLevel > 2) printf("OUU2Optimizer: generating a sample.\n");
    Sampling *sampler = NULL;
    int *samStates;
@@ -760,6 +789,9 @@ void OUU2Optimizer::optimize(oData *odata)
    psOUU2OptimalX_ = new double[nInputs];
    psOUU2faPtr_ = NULL;
 
+   //**/ ----------------------------------------------------------
+   //**/ set up response surface constructor and large sample
+   //**/ ----------------------------------------------------------
    int        rstype=0, *inputPDFs=NULL;
    double     *inputMeans=NULL, *inputStdevs=NULL;
    PDFManager *pdfman=NULL;
@@ -785,13 +817,12 @@ void OUU2Optimizer::optimize(oData *odata)
          rstype = PSUADE_RS_KR;
          printf("OUU2Optimizer: use Kriging response surface\n");
       }
-      kk = psInteractive_;
-      psInteractive_ = 0;
+      psConfig_.InteractiveSaveAndReset();
       psOUU2faPtr_ = genFA(rstype, M3, -1, psOUU2nSamples_);
       psOUU2faPtr_->setBounds(&(odata->lowerBounds_[M1+M2]),
                               &(odata->upperBounds_[M1+M2]));
       psOUU2faPtr_->setOutputLevel(0);
-      psInteractive_ = kk;
+      psConfig_.InteractiveRestore();
 
       odata->psIO_->getParameter("input_pdfs", pdata);
       inputPDFs = pdata.intArray_;
@@ -872,12 +903,16 @@ void OUU2Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ call optimizer 
+   //**/ ----------------------------------------------------------
    nPts = (M1 + 1) * (M1 + 2) / 2;
    workArray = new double[(nPts+5)*(nPts+M1)+3*M1*(M1+5)/2+1];
    psOUU2Counter_ = 0;
    if (psOUU2Parallel_ == 1) odata->funcIO_->setAsynchronousMode();
 
 #ifdef HAVE_BOBYQA
+   //**/ ----- retrieve history -----
    fp = fopen("psuade_ouu2_history", "r");
    if (fp != NULL)
    {
@@ -908,6 +943,7 @@ void OUU2Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----- run optimizer -----
    for (ii = 0; ii < M1; ii++) 
       printf("OUU2Optimizer initial X %3d = %e\n", ii+1, XValues[ii]);
    bobyqa_(&M1, &nPts, XValues, odata->lowerBounds_,
@@ -916,6 +952,7 @@ void OUU2Optimizer::optimize(oData *odata)
    printf("OUU2Optimizer: total number of evaluations = %d\n",
            odata->numFuncEvals_);
 
+   //**/ ----- save history -----
    if (psOUU2NSaved_ > 0)
    {
       fp = fopen("psuade_ouu2_history","w");
@@ -938,6 +975,9 @@ void OUU2Optimizer::optimize(oData *odata)
 #endif
    if (psOUU2Parallel_ == 1) odata->funcIO_->setSynchronousMode();
 
+   //**/ ----------------------------------------------------------
+   //**/ set return values and clean up 
+   //**/ ----------------------------------------------------------
    if ((odata->setOptDriver_ & 2) && currDriver >= 0)
    {
       printf("OUU2Optimizer INFO: reverting to original simulation driver.\n");

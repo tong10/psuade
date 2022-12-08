@@ -1,0 +1,155 @@
+=============================================================
+Bungee problem
+=============================================================
+To run:
+
+cc -o simulator simulator.c -lm
+psuade psuade.in
+
+This will create a file called called psuadeData with 300
+samples that have already been run. Rename this file to be
+called psSave.
+
+(1) to perform uncertainty analysis on the raw sample
+
+    - psuade
+      > load psSave
+      > ua (or ca)
+
+(2) to perform response surface analysis 
+
+    - psuade
+      > load psSave
+      > rscheck
+      Choose any response surface type
+      Say yes to cross validation with maybe 10 groups and 
+          random pick
+      Afterward you should see a RSFA_CV_err.m file that 
+          you can visualize the CV results (with matlab
+          or scilab - for scilab, issue a 'scilab' command
+          before calling 'rscheck'.
+
+(2) to perform main effect analysis using response surface
+
+    - psuade
+      > load psSave
+      > rssobol1
+      Enter your selected response surfac type
+
+(3) to perform pairwise interaction analysis
+
+    - psuade
+      > load psSave
+      > rssobol2
+
+(4) to perform total order analysis
+
+    - psuade
+      > load psSave
+      > rssoboltsi
+
+(5) to perform group-based order analysis
+
+    - psuade
+      > load psSave
+      > rssobolg
+      Use 'grpfile' to specify groupings
+
+(6) to generate response surface or sample plots
+
+    - psuade
+      > load psSave
+      > <use rs1, rs2, or rs3 for response surfaces, or 
+         iplot1, iplot2 .. for scatter plots>
+
+=============================================================
+To experiment with user regression:
+
+cc -o simulator simulator.c -lm
+psuade psuade.in
+mv psuadeData psSave
+
+psuade
+> load psSave
+> rscheck
+  choose user regression
+
+  enter number of terms = 10 (see user_regression.py file)
+  enter executable = user_regression.py
+
+=============================================================
+To experiment with selective regression:
+
+cc -o simulator simulator.c -lm
+psuade psuade.in
+mv psuadeData psSave
+
+psuade
+> load psSave
+> rscheck
+  choose selective regression
+  (selective_regression_file is needed for this analysis.
+   This file is also present in this directory and will be
+   detected automatically
+
+=============================================================
+To experiment with Legendre regression:
+
+cc -o simulator simulator.c -lm
+psuade psuade.in
+mv psuadeData psSave
+
+psuade
+> load psSave
+> rscheck
+  choose Legendre regression
+  enter order (e.g. 2 or 3)
+
+=============================================================
+To experiment with GradLegendre regression:
+
+cc -o simulator simulator.c -lm
+psuade psuadeDeriv.in
+mv psuadeData psSave
+
+psuade
+> load psSave (This file contains both simulation outputs and
+               3 derivatives with respect to 3 inputs)
+> rscheck
+  Select output 1 (this is supposed to be the main output)
+  choose gradLegendre
+  NO CV is available for this.
+
+=============================================================
+Scripts/psScript.misctest.in - many different tests
+Scripts/psScript.misctest.out - a snippet of outputs
+
+Do: First, copy psScript.misctest.in up one directory
+    Then, psuade < psScript.misctest.in > outfile
+    Compare (values only) outfile psScript.misctest.out
+
+=============================================================
+
+Scripts/psScript.rstest.in - many different response surface tests
+Scripts/psScript.rstest.out - a snippet of outputs
+ 
+Do: First, copy psScript.rstest.in up one directory
+    Then, psuade < psScript.rstest.in > outfile
+    Compare (values only) outfile psScript.rstest.out
+
+=============================================================
+Psuade sends out max_parallel_jobs samples in a single batch
+each time it calls ensemble_simulator (in this case 
+max_parallel_jobs=10 and nSamples=300 so psuade sends 30
+batches of 10 samples each time. Users are expected to
+take the 10 samples and parallelize their runs based on
+the user parallel system configuration).
+-------------------------------------------------------------
+
+Scripts/psScript.ensemble.in  - using ensemble runs
+Scripts/psScript.ensemble.out - a snippet of outputs
+
+Do: First, copy psScript.ensemble.in up one directory
+    psuade < psScript.ensemble.in > outfile
+    Compare (values only) outfile psScript.ensemble.out
+

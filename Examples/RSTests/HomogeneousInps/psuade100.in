@@ -1,0 +1,123 @@
+PSUADE
+INPUT
+   dimension = 100
+   variable 1  X1 =  0.0 1.0
+   variable 2  X2 =  0.0 1.0
+   variable 3  X3 =  0.0 1.0
+   variable 4  X4 =  0.0 1.0
+   variable 5  X5 =  0.0 1.0
+   variable 6  X6 =  0.0 1.0
+   variable 7  X7 =  0.0 1.0
+   variable 8  X8 =  0.0 1.0
+   variable 9  X9 =  0.0 1.0
+   variable 10 XA =  0.0 1.0
+   variable 11 XB =  0.0 1.0
+   variable 12 XC =  0.0 1.0
+   variable 13 XD =  0.0 1.0
+   variable 14 XE =  0.0 1.0
+   variable 15 XF =  0.0 1.0
+   variable 16 XG =  0.0 1.0
+   variable 17 XH =  0.0 1.0
+   variable 18 XI =  0.0 1.0
+   variable 19 XJ =  0.0 1.0
+   variable 20 XK =  0.0 1.0
+   variable 21 YB =  0.0 1.0
+   variable 22 YC =  0.0 1.0
+   variable 23 YD =  0.0 1.0
+   variable 24 YE =  0.0 1.0
+   variable 25 YF =  0.0 1.0
+   variable 26 YG =  0.0 1.0
+   variable 27 YH =  0.0 1.0
+   variable 28 YI =  0.0 1.0
+   variable 29 YJ =  0.0 1.0
+   variable 30 YK =  0.0 1.0
+   variable 31 ZB =  0.0 1.0
+   variable 32 ZC =  0.0 1.0
+   variable 33 ZD =  0.0 1.0
+   variable 34 ZE =  0.0 1.0
+   variable 35 ZF =  0.0 1.0
+   variable 36 ZG =  0.0 1.0
+   variable 37 ZH =  0.0 1.0
+   variable 38 ZI =  0.0 1.0
+   variable 39 ZJ =  0.0 1.0
+   variable 40 ZK =  0.0 1.0
+   variable 41 WB =  0.0 1.0
+   variable 42 WC =  0.0 1.0
+   variable 43 WD =  0.0 1.0
+   variable 44 WE =  0.0 1.0
+   variable 45 WF =  0.0 1.0
+   variable 46 WG =  0.0 1.0
+   variable 47 WH =  0.0 1.0
+   variable 48 WI =  0.0 1.0
+   variable 49 WJ =  0.0 1.0
+   variable 50 WK =  0.0 1.0
+   variable 51 UB =  0.0 1.0
+   variable 52 UC =  0.0 1.0
+   variable 53 UD =  0.0 1.0
+   variable 54 UE =  0.0 1.0
+   variable 55 UF =  0.0 1.0
+   variable 56 UG =  0.0 1.0
+   variable 57 UH =  0.0 1.0
+   variable 58 UI =  0.0 1.0
+   variable 59 UJ =  0.0 1.0
+   variable 60 UK =  0.0 1.0
+   variable 61 VB =  0.0 1.0
+   variable 62 VC =  0.0 1.0
+   variable 63 VD =  0.0 1.0
+   variable 64 VE =  0.0 1.0
+   variable 65 VF =  0.0 1.0
+   variable 66 VG =  0.0 1.0
+   variable 67 VH =  0.0 1.0
+   variable 68 VI =  0.0 1.0
+   variable 69 VJ =  0.0 1.0
+   variable 70 VK =  0.0 1.0
+   variable 71 TB =  0.0 1.0
+   variable 72 TC =  0.0 1.0
+   variable 73 TD =  0.0 1.0
+   variable 74 TE =  0.0 1.0
+   variable 75 TF =  0.0 1.0
+   variable 76 TG =  0.0 1.0
+   variable 77 TH =  0.0 1.0
+   variable 78 TI =  0.0 1.0
+   variable 79 TJ =  0.0 1.0
+   variable 80 TK =  0.0 1.0
+   variable 81 SB =  0.0 1.0
+   variable 82 SC =  0.0 1.0
+   variable 83 SD =  0.0 1.0
+   variable 84 SE =  0.0 1.0
+   variable 85 SF =  0.0 1.0
+   variable 86 SG =  0.0 1.0
+   variable 87 SH =  0.0 1.0
+   variable 88 SI =  0.0 1.0
+   variable 89 SJ =  0.0 1.0
+   variable 90 SK =  0.0 1.0
+   variable 91 RB =  0.0 1.0
+   variable 92 RC =  0.0 1.0
+   variable 93 RD =  0.0 1.0
+   variable 94 RE =  0.0 1.0
+   variable 95 RF =  0.0 1.0
+   variable 96 RG =  0.0 1.0
+   variable 97 RH =  0.0 1.0
+   variable 98 RI =  0.0 1.0
+   variable 99 RJ =  0.0 1.0
+   variable 100 RK =  0.0 1.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LH
+   num_samples = 200
+   num_replications = 1
+   num_refinements = 0
+   random_seed = 47587387
+END
+APPLICATION
+   driver = ./simulator
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 2
+END
+END

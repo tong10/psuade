@@ -1,0 +1,23 @@
+PSUADE
+INPUT
+   dimension = 1
+   variable   1 X   = 0.2  4.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = FACT
+   num_samples = 21
+   random_seed = 1211319841
+END
+APPLICATION
+   driver = ./experiment
+   launch_interval = 0
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

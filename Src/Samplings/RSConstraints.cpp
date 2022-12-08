@@ -43,8 +43,8 @@ RSConstraints::RSConstraints()
   constraintInputIndices_ = NULL;
   constraintInputValues_ = NULL;
   nInputs_ = 0;
-  YLBounds_ = NULL;
-  YUBounds_ = NULL;
+  vecLBounds_.clean();
+  vecUBounds_.clean();
 }
    
 // ************************************************************************
@@ -75,8 +75,8 @@ RSConstraints::~RSConstraints()
         delete [] constraintInputValues_[ii];
     delete [] constraintInputValues_;
   }
-  if (YLBounds_ != NULL) delete [] YLBounds_;
-  if (YUBounds_ != NULL) delete [] YUBounds_;
+  vecLBounds_.clean();
+  vecUBounds_.clean();
 }
 
 // ************************************************************************
@@ -92,12 +92,12 @@ int RSConstraints::getNumConstraints()
 // ------------------------------------------------------------------------
 int RSConstraints::genConstraints(PsuadeData *psuadeIO)
 {
-  int        printLevel, ii, jj, status, *sortArray, nInputsChk;
-  double     *filterLBounds, *filterUBounds;
+  int        printLevel, ii, jj, status, nInputsChk;
   char       **filterIndexFiles, **filterDataFiles;
   FILE       *fp;
   pData      pPtr, flbPtr, fubPtr, fdfPtr, fifPtr;
   PsuadeData *pIO;
+  psIVector  vecSortArray;
 
   psuadeIO->getParameter("input_ninputs", pPtr);
   nInputs_ = pPtr.intData_;
@@ -109,14 +109,12 @@ int RSConstraints::genConstraints(PsuadeData *psuadeIO)
   {
     if (printLevel > 0)
       printf("RSConstraints: number of filters = %d\n", nConstraints_);
+
     psuadeIO->getParameter("ana_rsfilterlbounds", flbPtr);
-    filterLBounds = flbPtr.dbleArray_;
-    YLBounds_ = new double[nConstraints_];
-    for (ii = 0; ii < nConstraints_; ii++) YLBounds_[ii] = filterLBounds[ii];
+    vecLBounds_.load(nConstraints_, flbPtr.dbleArray_);
     psuadeIO->getParameter("ana_rsfilterubounds", fubPtr);
-    filterUBounds = fubPtr.dbleArray_;
-    YUBounds_ = new double[nConstraints_];
-    for (ii = 0; ii < nConstraints_; ii++) YUBounds_[ii] = filterUBounds[ii];
+    vecUBounds_.load(nConstraints_, fubPtr.dbleArray_);
+
     psuadeIO->getParameter("ana_rsfilterdatafile", fdfPtr);
     filterDataFiles = fdfPtr.strArray_;
     psuadeIO->getParameter("ana_rsfilterindexfile", fifPtr);
@@ -205,19 +203,18 @@ int RSConstraints::genConstraints(PsuadeData *psuadeIO)
               exit(1);
             }
           }
-          sortArray = new int[constraintNInputs_[ii]];
+          vecSortArray.setLength(constraintNInputs_[ii]);
           for (jj = 0; jj < constraintNInputs_[ii]; jj++)
-            sortArray[jj] = constraintInputIndices_[ii][jj];
-          sortIntList(constraintNInputs_[ii], sortArray);
+            vecSortArray[jj] = constraintInputIndices_[ii][jj];
+          sortIntList(constraintNInputs_[ii], vecSortArray.getIVector());
           for (jj = 1; jj < constraintNInputs_[ii]; jj++)
           {
-            if (sortArray[jj] >= 0 && sortArray[jj] == sortArray[jj-1])
+            if (vecSortArray[jj] >= 0 && vecSortArray[jj]==vecSortArray[jj-1])
             {
               printf("RSConstraints WARNING: filter has duplicate");
-              printf(" input %d.\n", sortArray[jj]+1);
+              printf(" input %d.\n", vecSortArray[jj]+1);
             }
           }
-          delete [] sortArray;
           fclose(fp);
         }
         else
@@ -229,7 +226,8 @@ int RSConstraints::genConstraints(PsuadeData *psuadeIO)
         printf("RSConstraints INFO: creating filter response surface %d (%d)\n",
                ii+1, nConstraints_);
         constraintFAs_[ii] = new FuncApproxFilter(filterDataFiles[ii]);
-        constraintFAs_[ii]->setYBounds(filterLBounds[ii],filterUBounds[ii]);
+        constraintFAs_[ii]->setYBounds(flbPtr.dbleArray_[ii],
+                                       fubPtr.dbleArray_[ii]);
       }
     }
   }
@@ -243,7 +241,8 @@ double RSConstraints::evaluate(double *sampleInputs, double sampleOutput,
                                int &flag)
 {
   int    ii, jj, status=1, numFailed;
-  double dtemp=0.0, *filterSamplePt;
+  double dtemp=0.0;
+  psVector vecSamplePt;
 
   if (nConstraints_ <= 0) 
   {
@@ -255,27 +254,29 @@ double RSConstraints::evaluate(double *sampleInputs, double sampleOutput,
   {
     if (constraintFAs_[ii] != NULL)
     {
-      filterSamplePt = new double[constraintNInputs_[ii]];
+      vecSamplePt.setLength(constraintNInputs_[ii]);
       for (jj = 0; jj < constraintNInputs_[ii]; jj++)
       {
         if (constraintInputIndices_[ii][jj] == -1)
-          filterSamplePt[jj] = constraintInputValues_[ii][jj];
+          vecSamplePt[jj] = constraintInputValues_[ii][jj];
         if (constraintInputIndices_[ii][jj] != -1)
-          filterSamplePt[jj]=sampleInputs[constraintInputIndices_[ii][jj]];
+          vecSamplePt[jj]=sampleInputs[constraintInputIndices_[ii][jj]];
       }
-      dtemp = constraintFAs_[ii]->evaluatePoint(filterSamplePt,status);
-      delete [] filterSamplePt;
+      dtemp = constraintFAs_[ii]->evaluatePoint(vecSamplePt.getDVector(),status);
       if (status == 0) numFailed++;
     }
     else
     {
-      if (sampleOutput < YLBounds_[ii] || sampleOutput > YUBounds_[ii])
+      if (sampleOutput < vecLBounds_[ii] || sampleOutput > vecUBounds_[ii])
         numFailed++;
     }
   }
   flag = 1;
-  if (psConstraintSetOp_ == 0 && numFailed > 0) flag = 0;
-  if (psConstraintSetOp_ == 1 && numFailed == nConstraints_) flag = 0;
+  //**/ set intersection 
+  if (psConfig_.RSConstraintSetOp_ == 0 && numFailed > 0) flag = 0;
+  //**/ set union 
+  if (psConfig_.RSConstraintSetOp_ == 1 && numFailed == nConstraints_) 
+    flag = 0;
   return dtemp;
 }
 

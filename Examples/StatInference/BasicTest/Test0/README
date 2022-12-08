@@ -1,0 +1,36 @@
+To begin:  
+- Read the simulator.c file.
+  * This program outputs the differences between the simulator
+    outputs and data Y (so both simulation and data are embedded
+    in simulator.c. This is the reason to use zero mean in the
+    experimental file - mcmcFile)
+
+- read the mcmcFile
+  mcmcFile contains the data:
+  * (1 1 0) means 1 experimental data set, 1 outputs, and no 
+    design parameter
+  * line 2: exp number, out 1 mean, out 1 std dev
+  * experimental data enclosed by PSUADE_BEGIN and PSUADE_END 
+
+** PSUADE takes the 4 outputs (differences between observations 
+   and simulation) and creates a likelihood function using 
+   information in mcmcFile.
+
+** The priors have been prescribed in psuadeRS.in as uniform
+   in [0,1] (implicitly) for both parameters
+** PSUADE runs MCMC given priors and the likelihood function.
+
+** to run:
+
+- create simulator: cc -c simulator simulator.c -lm
+- run psuade: psuade psuadeRS.in
+- rename psuade output file: mv psuadeData simdata
+- launch psuade without any argument
+  psuade
+  > load psData
+  > rsmcmc
+  ...
+  enter: mcmcFile
+  > quit
+- Use matlab to view matlabmcmc2.m
+

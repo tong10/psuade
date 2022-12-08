@@ -1,0 +1,16 @@
+# unweighted scheme (option 1 after odoe_mmd), use global optimizer
+sys cc -o simulator simulator.c -lm
+run psuade.in
+sys mv psuadeData Sample
+load Sample
+odoe_mmd
+y
+1
+2
+5
+0
+100
+10000
+
+q
+

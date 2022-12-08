@@ -60,6 +60,7 @@ int Analyzer::setName(const char *name)
    strncpy(analyzerName_, name, 100);
 
 #ifdef HAVE_PYTHON
+   //**/ Translate the analyser name to a python string, store it, release it
    PyObject* s = PyString_FromString(name);
    PyDict_SetItemString(AnalysisDataDict, "name", s);
    Py_DECREF(s);
@@ -82,8 +83,6 @@ double Analyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 int Analyzer::setParams(int, char **)
 {
-   printf("Analyzer::setParams ERROR: should not be called.\n");
-   exit(1);
-   return 0;
+   return -1;
 }
 

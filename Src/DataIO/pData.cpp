@@ -33,16 +33,16 @@
 // ------------------------------------------------------------------------ 
 pData::pData()
 {
-   intData_   = 0;
-   dbleData_  = 0.0;
-   nInts_     = 0;
-   nDbles_    = 0;
-   nStrings_  = 0;
-   intArray_  = NULL;
-   dbleArray_ = NULL;
-   strArray_  = NULL;
-   dbleArray2D_ = NULL;
-   psObject_ = NULL;
+  intData_   = 0;
+  dbleData_  = 0.0;
+  nInts_     = 0;
+  nDbles_    = 0;
+  nStrings_  = 0;
+  intArray_  = NULL;
+  dbleArray_ = NULL;
+  strArray_  = NULL;
+  dbleArray2D_ = NULL;
+  psObject_ = NULL;
 }
 
 // ************************************************************************
@@ -50,20 +50,7 @@ pData::pData()
 // ------------------------------------------------------------------------ 
 pData::~pData()
 { 
-   int ii;
-
-   if (intArray_  != NULL) delete [] intArray_;
-   if (dbleArray_ != NULL) delete [] dbleArray_;
-   if (strArray_  != NULL)
-   {
-      for (ii = 0; ii < nStrings_; ii++) delete [] strArray_[ii];
-      delete [] strArray_;
-   } 
-   if (dbleArray2D_ != NULL)
-   {
-      for (ii = 0; ii < nInts_; ii++) 
-         if (dbleArray2D_[ii] != NULL) delete [] dbleArray2D_[ii];
-   }
+  clean();
 }
 
 // ************************************************************************
@@ -71,27 +58,27 @@ pData::~pData()
 // ------------------------------------------------------------------------ 
 void pData::clean()
 { 
-   int ii;
-   if (intArray_  != NULL) delete [] intArray_;
-   if (dbleArray_ != NULL) delete [] dbleArray_;
-   if (strArray_  != NULL)
-   {
-      for (ii = 0; ii < nStrings_; ii++) delete [] strArray_[ii];
-      delete [] strArray_;
-   } 
-   if (dbleArray2D_ != NULL)
-   {
-      for (ii = 0; ii < nInts_; ii++) 
-         if (dbleArray2D_[ii] != NULL) delete [] dbleArray2D_[ii];
-   }
-   intArray_  = NULL;
-   dbleArray_ = NULL;
-   strArray_  = NULL;
-   intData_   = 0;
-   dbleData_  = 0.0;
-   nInts_     = 0;
-   nDbles_    = 0;
-   nStrings_  = 0;
-   dbleArray2D_ = NULL;
+  int ii;
+  if (intArray_  != NULL) delete [] intArray_;
+  if (dbleArray_ != NULL) delete [] dbleArray_;
+  if (strArray_  != NULL)
+  {
+    for (ii = 0; ii < nStrings_; ii++) delete [] strArray_[ii];
+    delete [] strArray_;
+  } 
+  if (dbleArray2D_ != NULL)
+  {
+    for (ii = 0; ii < nInts_; ii++) 
+      if (dbleArray2D_[ii] != NULL) delete [] dbleArray2D_[ii];
+  }
+  intArray_  = NULL;
+  dbleArray_ = NULL;
+  strArray_  = NULL;
+  intData_   = 0;
+  dbleData_  = 0.0;
+  nInts_     = 0;
+  nDbles_    = 0;
+  nStrings_  = 0;
+  dbleArray2D_ = NULL;
 }
 

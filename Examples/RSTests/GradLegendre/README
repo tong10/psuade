@@ -1,0 +1,19 @@
+Derivate-based RS methods
+
+Test: simple sum of squares function
+   cc -o simulator simulator1.c -lm
+   psuade psuade1.in
+   mv psuadeData psdata
+   psuade
+   > load psdata
+   > rscheck
+     <choose output 1>
+
+* RESULT:
+* Mean     =   4.0000e+00
+* Variance =   4.2667e+00
+* Conditional variance    1 =   1.4222e+00
+* Conditional variance    2 =   1.4222e+00
+* Conditional variance    3 =   1.4222e+00
+
+

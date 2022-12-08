@@ -1,0 +1,31 @@
+Test problem:
+
+minimize 2 X1^2 + X2^2
+Constraint: X1+X2=-1
+Solution: X1 = -0.33333
+          X2 = -0.66666
+
+How to run:
+I. first need to provide a file called psuade_lincoa_constraints 
+   to specify constraints
+
+  For example, in the following:
+
+PSUADE_BEGIN
+1 2
+1 1 1 -1
+PSUADE_END
+
+The line '1 2' means 1 constraint involving 2 variables.
+
+The first 1 in the '1 1 1 -1' line means:
++ the first '1' : constraint 1
++ the second and third '1' : coefficients for X1 and X2
+        1 * X1 + 1 * X2
++ the fourth '-1' :  the right hand side
+        1 * X1 + 1 * X2 = -1
+
+II. compile simulator.c : cc -o simulator simulator.c -lm
+
+III. run psuade: psuade psuadeLincoa.in 
+

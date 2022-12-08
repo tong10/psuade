@@ -1,0 +1,35 @@
+#
+# makefile for svm_light 
+#
+# Thorsten Joachims, 2002
+#
+# Thanks to Ralf Herbrich for the initial version.
+#
+
+LIB = libsvmlight.a
+OBJ = svm_learn_main.o svm_learn.o svm_common.o svm_classify.o svm_hideo.o
+
+$(LIB): $(OBJ)
+	$(AR) ruv $@ $(OBJ)
+	$(RANLIB) $@
+
+svm_hideo.o: svm_hideo.c
+	$(CC) $(CFLAG) -c -O svm_hideo.c -o svm_hideo.o 
+
+svm_common.o: svm_common.c svm_common.h kernel.h
+	$(CC) $(CFLAG) -c -O svm_common.c -o svm_common.o 
+
+svm_learn.o: svm_learn.c svm_common.h
+	$(CC) $(CFLAG) -c -O svm_learn.c -o svm_learn.o 
+
+svm_learn_main.o: svm_learn_main.c svm_learn.h svm_common.h
+	$(CC) $(CFLAG) -c -O svm_learn_main.c -o svm_learn_main.o 
+
+svm_classify.o: svm_classify.c svm_common.h kernel.h
+	$(CC) $(CFLAG) -c -O svm_classify.c -o svm_classify.o
+
+clean:
+	rm -f *.o *.a
+                                                                                
+
+

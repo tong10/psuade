@@ -1,0 +1,28 @@
+This example shows how to evaluate a response 
+surface with reduced number of inputs.
+
+The function is
+
+   Y = X1 + X2 + X3 + X4 * X4
+
+===============================================
+To run:
+                                                                                
+cd to this directory
+
+(1) cc -o simulator simulator.c -lm
+(2) psuade psuade4.in
+    (This step creates a sample of 4 inputs)
+(3) rename psuadeData psData4.256 and make sure
+    this file has an rs_index_file = indexFile:
+    * indexFile has set the first 3 inputs to be used
+    * indexFile has set the 4th input to default=2
+(4) psuade psuade3.in
+    * You may change rstype too (default = MARS)
+    * What this does is to evaluate another sample
+      using the 4-input response surface created
+      from psData4.256 with input 4 fixed at 2
+      and compute sensitivity indices on the 3 
+      inputs.
+
+

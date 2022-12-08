@@ -1,0 +1,42 @@
+Both examples ((2sdata1a 2sdata1b) and (2sdata2a 2sdata2b)
+are obtained from the website:
+
+http://www.physics.csbsju.edu/stats/KS-test.html
+
+The t-test example shows that large non-normality causes problems 
+for t-test even for large sample.  In this case K-S does fine.
+
+1. use 2stest: try t-test and KS test
+   
+   data set: 2sdata1a, 2sdata1b 
+             This data set is non-normal and their means differ
+             significantly, but t-test does not work well (it accepts
+             the NULL hypothesis). KS works better (it rejects H0).
+
+   data set: 2sdata2a, 2sdata2b 
+             This data set is non-normal and their means differ
+             significantly, but t-test does not work well (it accepts
+             the NULL hypothesis) even though the sample size is quite
+             large. KS works better (it rejects H0).
+
+2. use 1stest
+
+a. distribution fit: 
+   * gauss1a: use normal with mean = 0.1, std = 2
+   * gauss1b: use normal with mean = 0.1, std = 2
+
+b. chi-squared or distribution fit (normal)
+   * gauss1c 
+     mean = 0.1, std = 2
+
+3. You can also create your own sample for test
+
+   E.g. use gendist 
+   * gendist with 10000 points and, say, normal
+   * at the end a file sample1D will have been created
+   * cut out the first column, say, by using 
+         cat sample1D | cut -c11-1000 > abc
+         mv abc sample1D
+         Change the first line of sample1D to 10000
+   * now you can use sample1D for 1stest
+

@@ -1,0 +1,24 @@
+From "Error Estimation Approaches for Progressive Response Surfaces-
+More Results" by V. Romero, R. Slepoy, L. Swiler, and A. Giunta
+T. Krishnamurthy
+
+2D test function
+
+F(x1,x2) = [0.8R + 0.35 sin(2.4 pi R / sqrt(2))] (1.5 * sin(1.3 theta))
+
+where R = sqrt(x1*x1 + x2*x2) 
+      theta = arctan(x2/x1) on 0 <= x1, x2 <= 1.
+
+Sampling-based reliability analysis (no RS used, although one can
+use a response surface in place of the simulator)
+- use adaptive sampling 
+
+example upper bounds for safety = 1.5 (Rel = 0.9758)
+                                  1.0 (Rel = 0.9015)
+                                  0.5 (Rel = 0.4471)
+                                  0.2 (Rel = 0.1291)
+
+psScript1.in runs the reliability analysis using upper bound = 1
+psScript2.in runs the same reliability analysis but use response
+             surface
+

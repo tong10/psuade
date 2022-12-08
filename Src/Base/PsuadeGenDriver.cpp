@@ -42,71 +42,71 @@
 // ------------------------------------------------------------------------
 int PsuadeBase::setupGuide()
 {
-   printOutTS(PL_INFO, 
-      "Suppose you have an application and you would like to use \n");
-   printOutTS(PL_INFO, 
-      "PSUADE to perform UQ on it. In the following you will find a\n");
-   printOutTS(PL_INFO, 
-      "short guide on how to do it:\n");
-   printOutTS(PL_INFO, 
-      "(0) Suppose the name of your application is called FOO and\n");
-   printOutTS(PL_INFO, 
-      "    it takes its input from a file called FOO.in using the\n");
-   printOutTS(PL_INFO,"    following command:\n");
-   printOutTS(PL_INFO,"       srun -n 4 /home/me/FOO FOO.in\n");
-   printOutTS(PL_INFO, 
-      "    and the parameters you will vary live in FOO.in.\n");
-   printOutTS(PL_INFO, 
-      "(1) First create a driver (say, FOOdriver.py) using the\n");
-   printOutTS(PL_INFO, 
-      "    `gendriver' command. This driver will be called PSUADE\n");
-   printOutTS(PL_INFO, 
-      "    to set up and to run your application code. PSUADE will,\n");
-   printOutTS(PL_INFO, 
-      "    for each sample point, outputs a parameter file called\n");
-   printOutTS(PL_INFO, 
-      "    'psuadeApps_ct.in.x', then calls FOOdriver.py with\n");
-   printOutTS(PL_INFO, 
-      "        FOOdriver.py psuadeApps_ct.in.x psuadeApps_ct.out.x\n");
-   printOutTS(PL_INFO, 
-      "    and expects the outputs to be written to psuadeApps_ct.out.x\n");
-   printOutTS(PL_INFO,"    So FOOdriver.py is expected to do 4 things:\n");
-   printOutTS(PL_INFO,"    (a) take the inputs from 'psuadeApps_ct.in.x'\n");
-   printOutTS(PL_INFO,"    (b) insert the input values into FOO.in\n");
-   printOutTS(PL_INFO, 
-      "    (c) run the application code and extract the desired outputs\n");
-   printOutTS(PL_INFO,"    (d) write the output to 'psuadeApps_ct.out.x'\n");
-   printOutTS(PL_INFO, 
-      "    Again, the python template for this step can be accessed via\n");
-   printOutTS(PL_INFO,"    the 'gendriver' command.\n");
-   printOutTS(PL_INFO, 
-      "(2) Then use 'geninputfile' to create a PSUADE input file (say \n");
-   printOutTS(PL_INFO, 
-      "    psuade.in).  This file specifies the number and names of \n");
-   printOutTS(PL_INFO, 
-      "    inputs/outputs, sets up the sampling and analysis methods, \n");
-   printOutTS(PL_INFO, 
-      "    and set up a link to the driver created in step (1).\n");
-   printOutTS(PL_INFO, 
-      "(3) Optionally, use 'genbatchfile' to create a batch file.\n");
-   printOutTS(PL_INFO,"    (If you run the jobs on LLNL's machines).\n");
-   printOutTS(PL_INFO, 
-      "(4) Once these files have been created, run PSUADE on your\n");
-   printOutTS(PL_INFO,"    application just by typing:\n");
-   printOutTS(PL_INFO,"         psuade psuade.in\n");
-   printOutTS(PL_INFO, 
-      "    This is done when the run time is relatively short, no more\n");
-   printOutTS(PL_INFO, 
-      "    than a few minutes. If the run time is long, you may want to\n");
-   printOutTS(PL_INFO,"    break up this step into a few tasks: \n");
-   printOutTS(PL_INFO,"    (a) create all the parameter files first\n");
-   printOutTS(PL_INFO, 
-      "        (use 'gen_inputfile_only' in the psuade.in file)\n");
-   printOutTS(PL_INFO,"    (b) launch the jobs in whatever way you desire\n");
-   printOutTS(PL_INFO,
-      "    (c) run postprocessing to generate all output files\n");
-   printOutTS(PL_INFO,"    (d) run PSUADE to collect all output files\n");
-   return 0;
+  printOutTS(PL_INFO, 
+     "Suppose you have an application and you would like to use \n");
+  printOutTS(PL_INFO, 
+     "PSUADE to perform UQ on it. In the following you will find a\n");
+  printOutTS(PL_INFO, 
+     "short guide on how to do it:\n");
+  printOutTS(PL_INFO, 
+     "(0) Suppose the name of your application is called FOO and\n");
+  printOutTS(PL_INFO, 
+     "    it takes its input from a file called FOO.in using the\n");
+  printOutTS(PL_INFO,"    following command:\n");
+  printOutTS(PL_INFO,"       srun -n 4 /home/me/FOO FOO.in\n");
+  printOutTS(PL_INFO, 
+     "    and the parameters you will vary live in FOO.in.\n");
+  printOutTS(PL_INFO, 
+     "(1) First create a driver (say, FOOdriver.py) using the\n");
+  printOutTS(PL_INFO, 
+     "    `gendriver' command. This driver will be called PSUADE\n");
+  printOutTS(PL_INFO, 
+     "    to set up and to run your application code. PSUADE will,\n");
+  printOutTS(PL_INFO, 
+     "    for each sample point, outputs a parameter file called\n");
+  printOutTS(PL_INFO, 
+     "    'psuadeApps_ct.in.x', then calls FOOdriver.py with\n");
+  printOutTS(PL_INFO, 
+     "        FOOdriver.py psuadeApps_ct.in.x psuadeApps_ct.out.x\n");
+  printOutTS(PL_INFO, 
+     "    and expects the outputs to be written to psuadeApps_ct.out.x\n");
+  printOutTS(PL_INFO,"    So FOOdriver.py is expected to do 4 things:\n");
+  printOutTS(PL_INFO,"    (a) take the inputs from 'psuadeApps_ct.in.x'\n");
+  printOutTS(PL_INFO,"    (b) insert the input values into FOO.in\n");
+  printOutTS(PL_INFO, 
+     "    (c) run the application code and extract the desired outputs\n");
+  printOutTS(PL_INFO,"    (d) write the output to 'psuadeApps_ct.out.x'\n");
+  printOutTS(PL_INFO, 
+     "    Again, the python template for this step can be accessed via\n");
+  printOutTS(PL_INFO,"    the 'gendriver' command.\n");
+  printOutTS(PL_INFO, 
+     "(2) Then use 'geninputfile' to create a PSUADE input file (say \n");
+  printOutTS(PL_INFO, 
+     "    psuade.in).  This file specifies the number and names of \n");
+  printOutTS(PL_INFO, 
+     "    inputs/outputs, sets up the sampling and analysis methods, \n");
+  printOutTS(PL_INFO, 
+     "    and set up a link to the driver created in step (1).\n");
+  printOutTS(PL_INFO, 
+     "(3) Optionally, use 'genbatchfile' to create a batch file.\n");
+  printOutTS(PL_INFO,"    (If you run the jobs on LLNL's machines).\n");
+  printOutTS(PL_INFO, 
+     "(4) Once these files have been created, run PSUADE on your\n");
+  printOutTS(PL_INFO,"    application just by typing:\n");
+  printOutTS(PL_INFO,"         psuade psuade.in\n");
+  printOutTS(PL_INFO, 
+     "    This is done when the run time is relatively short, no more\n");
+  printOutTS(PL_INFO, 
+     "    than a few minutes. If the run time is long, you may want to\n");
+  printOutTS(PL_INFO,"    break up this step into a few tasks: \n");
+  printOutTS(PL_INFO,"    (a) create all the parameter files first\n");
+  printOutTS(PL_INFO, 
+     "        (use 'gen_inputfile_only' in the psuade.in file)\n");
+  printOutTS(PL_INFO,"    (b) launch the jobs in whatever way you desire\n");
+  printOutTS(PL_INFO,
+     "    (c) run postprocessing to generate all output files\n");
+  printOutTS(PL_INFO,"    (d) run PSUADE to collect all output files\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -117,6 +117,9 @@ int PsuadeBase::genBatchFile(int genFlag)
   char batchName[200], dirName[200], pString[501];
   FILE *fp;
 
+  //**/ ----------------------------------------------------------------
+  //**/ ask for file type
+  //**/ ----------------------------------------------------------------
   printOutTS(PL_INFO, 
      "INFO: your specified batch file will be appended with .Tmplt.\n");
   sprintf(pString, "Enter the name of the batch file: ");
@@ -131,8 +134,12 @@ int PsuadeBase::genBatchFile(int genFlag)
   sprintf(pString,
       "Enter the absolute path of the run directory (no / at end): ");
   getString(pString, dirName);
+  dirName[strlen(dirName)-1] = '\0';
 
+  fprintf(fp,"###=================================================\n");
   fprintf(fp,"###Modify the following lines as deemed necesaary\n");
+  fprintf(fp,"###to set machine parameter\n");
+  fprintf(fp,"###=================================================\n");
   fprintf(fp,"#MSUB -s /bin/csh\n");
   fprintf(fp,"#MSUB -b <bankName>\n");
   fprintf(fp,"#MSUB -c <machine>\n");
@@ -140,18 +147,25 @@ int PsuadeBase::genBatchFile(int genFlag)
   fprintf(fp,"#MSUB -ln <numNodes>\n");
   fprintf(fp,"#MSUB -x\n\n");
 
+  fprintf(fp,"###=================================================\n");
   fprintf(fp,"###The following lines are used for daisy-chain mode\n");
   fprintf(fp,"###available on LLNL Livermore Computing (LC) systems.\n");
   fprintf(fp,"###Replace the keyword PSUB_JOBID with the correct one.\n");
   fprintf(fp,"###This assumes that your work directory is workdir.<num>\n");
-  fprintf(fp,"###cd %s/workdir.PSUADE_NEXT\n", dirName);
-  fprintf(fp,"###/usr/bin/msub -d PSUB_JOBID %s.PSUADE_NEXT\n\n",batchName);
+  fprintf(fp,"###=================================================\n");
+  fprintf(fp,"##cd %s/workdir.PSUADE_NEXT\n", dirName);
+  fprintf(fp,"##/usr/bin/msub -d PSUB_JOBID %s.PSUADE_NEXT\n\n",batchName);
 
-  fprintf(fp, "date\n\n");
+  fprintf(fp,"###=================================================\n");
   fprintf(fp,"###The following line is running your job \n");
+  fprintf(fp,"###PSUADE_COUNTER to be replaced with the sample number\n");
+  fprintf(fp,"###=================================================\n");
   fprintf(fp,"cd %s/workdir.PSUADE_COUNTER\n\n", dirName);
-  fprintf(fp,"###Replace the following line with the calling sequence\n");
-  fprintf(fp,"###srun -n 1 <executable code> <input decks> <options>\n");
+  fprintf(fp,"###=================================================\n");
+  fprintf(fp,"###Modify the following line to actually run your \n");
+  fprintf(fp,"###simulation (srun is a special command on LC)\n");
+  fprintf(fp,"###=================================================\n");
+  fprintf(fp,"##srun -n 1 <executable code> <input decks> <options>\n");
   fprintf(fp, "\ndate\n");
   fclose(fp);
   return 0;
@@ -168,6 +182,9 @@ int PsuadeBase::genDriver(int genFlag)
   char driverName[200], winput[501], pString[501];
   FILE *fp, *dfp;
 
+  //**/ ----------------------------------------------------------------
+  //**/ ask for file type
+  //**/ ----------------------------------------------------------------
   sprintf(pString,"(1) C or (2) Python driver (1 or 2) ? ");
   driverID = getInt(1, 2, pString);
   if (genFlag == 1)
@@ -187,6 +204,9 @@ int PsuadeBase::genDriver(int genFlag)
     driverName[strlen(driverName)-1] = '\0';
   }
 
+  //**/ ----------------------------------------------------------------
+  //**/ check the driver file
+  //**/ ----------------------------------------------------------------
   dfp = fopen(driverName, "r");
   if (dfp != NULL)
   {
@@ -196,7 +216,7 @@ int PsuadeBase::genDriver(int genFlag)
       dfp = fopen(driverName, "w");
       if (dfp == NULL)
       {
-        printOutTS(PL_ERROR,"ERRPR: Cannot open file %s. \n", driverName);
+        printOutTS(PL_ERROR,"ERROR: Cannot open file %s. \n", driverName);
         return 1;
       }
     }
@@ -226,6 +246,9 @@ int PsuadeBase::genDriver(int genFlag)
     }
   }
 
+  //**/ ----------------------------------------------------------------
+  //**/ create C driver file
+  //**/ ----------------------------------------------------------------
   if (driverID == 1)
   {
     fprintf(dfp,"/***************************************************\n");
@@ -273,6 +296,9 @@ int PsuadeBase::genDriver(int genFlag)
     return 0;
   }
       
+  //**/ ----------------------------------------------------------------
+  //**/ look for python
+  //**/ ----------------------------------------------------------------
   printEquals(PL_INFO, 0);
   printOutTS(PL_INFO,"Begin creating a Python-based application driver.\n");
   strcpy(pythonDir, "/usr/local/bin/python");
@@ -296,6 +322,9 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp, "import string\n"); 
   fprintf(dfp, "import shutil\n"); 
 
+  //**/ ----------------------------------------------------------------
+  //**/ create user specific section 
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# BEGIN USER SPECIFIC SECTION\n");
   fprintf(dfp,"#======================================================\n\n");
@@ -409,7 +438,7 @@ int PsuadeBase::genDriver(int genFlag)
     getString(pString, response);
     response[strlen(response)-1] = '/';
     response[strlen(response)] = '\0';
-    fprintf(dfp,"batchDir = \"%s\"", response);
+    fprintf(dfp,"batchDir = \"%s\"\n", response);
     sprintf(pString,"What is the name of your batch template file? ");
     getString(pString, response);
     response[strlen(response)-1] = '\0';
@@ -461,6 +490,9 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"# END USER SPECIFIC SECTION\n");
   fprintf(dfp,"#######################################################\n\n");
 
+  //**/ ----------------------------------------------------------------
+  //**/ write the get input data function
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# Function to get input data from PSUADE-generated\n");
   fprintf(dfp,"# parameter files (standard format, do not change). \n");
@@ -470,15 +502,18 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"   inFile  = open(inFileName, \"r\")\n");
   fprintf(dfp,"   lineIn  = inFile.readline()\n");
   fprintf(dfp,"   nCols   = lineIn.split()\n");
-  fprintf(dfp,"   nInputs = eval(nCols[0])\n");
+  fprintf(dfp,"   nInputs = int(nCols[0])\n");
   fprintf(dfp,"   inputData = range(nInputs)\n");
   fprintf(dfp,"   for ind in range(nInputs):\n");
   fprintf(dfp,"      lineIn  = inFile.readline()\n");
   fprintf(dfp,"      nCols   = lineIn.split()\n");
-  fprintf(dfp,"      inputData[ind] = eval(nCols[0])\n");
+  fprintf(dfp,"      inputData[ind] = float(nCols[0])\n");
   fprintf(dfp,"   inFile.close()\n");
   fprintf(dfp,"   return inputData\n\n");
 
+  //**/ ----------------------------------------------------------------
+  //**/ write generate application input file function
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# Function to generate input file\n");
   fprintf(dfp,"# Given an application input template file which has\n");
@@ -514,6 +549,9 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"   outfile.close()\n");
   fprintf(dfp,"   return\n\n");
                                                                                
+  //**/ ----------------------------------------------------------------
+  //**/ write generate application batch file function
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# Function to generate batch file\n");
   fprintf(dfp,"# If you submit a job via a batch file, this is the\n");
@@ -556,6 +594,9 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"   outfile.close()\n");
   fprintf(dfp,"   return\n\n");
 
+  //**/ ----------------------------------------------------------------
+  //**/ write generate function to run batch file
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# Function to run batch file\n");
   fprintf(dfp,"# This function submits the batch job using psub.\n");
@@ -565,8 +606,10 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"def runApplication(executable):\n");
   fprintf(dfp,"   sysComm = \"/usr/gapps/XXXX/mach/xxxx.dev -r + \"\n");
 #if 0
+  //**/ use srun
   fprintf(dfp,"#  sysComm = \"/usr/bin/srun -n 1 -N 1 -ppdebug + ");
   fprintf(dfp,"#executable inputdeck\n");
+  //**/ use psub or msub with dependency
   fprintf(dfp,"#  tagString = os.path.splitext(executable)[1]\n");
   fprintf(dfp,"#  stringLen = len(tagString)\n");
   fprintf(dfp,"#  runNumber = eval(tagString[1:stringLen])\n");
@@ -588,6 +631,7 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"#     statFile.close()\n");
   fprintf(dfp,"#  sysComm = \"/usr/local/bin/psub \" + dependString + ");
   fprintf(dfp,"executable\n");
+  //**/ use psub or msub with wait
   fprintf(dfp, "def runApplication(executable):\n");
   fprintf(dfp, "   runComm  = \"/usr/bin/msub \" + batchFile\n");
   fprintf(dfp, "   os.system(statComm)\n");
@@ -614,6 +658,9 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"   os.system(sysComm)\n");
   fprintf(dfp,"   return\n\n");
 
+  //**/ ----------------------------------------------------------------
+  //**/ write generate output file function
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# Function to generate output file \n");
   fprintf(dfp,"# This function writes the output data (which should\n");
@@ -628,6 +675,9 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"   outfile.close()\n");
   fprintf(dfp,"   return\n\n");
                                                                                 
+  //**/ ----------------------------------------------------------------
+  //**/ write main program
+  //**/ ----------------------------------------------------------------
   fprintf(dfp,"#######################################################\n");
   fprintf(dfp,"# Main program file \n");
   fprintf(dfp,"#######################################################\n\n");
@@ -651,7 +701,7 @@ int PsuadeBase::genDriver(int genFlag)
   fprintf(dfp,"#======================================================\n\n");
   fprintf(dfp,"tagString = os.path.splitext(inputfileName)[1]\n");
   fprintf(dfp,"stringLen = len(tagString)\n");
-  fprintf(dfp,"fileTag   = eval(tagString[1:stringLen])\n\n");
+  fprintf(dfp,"fileTag   = int(tagString[1:stringLen])\n\n");
 
   fprintf(dfp,"#======================================================\n");
   fprintf(dfp,"# check whether the working directory exists or not\n");
@@ -755,19 +805,22 @@ int PsuadeBase::genDriver(int genFlag)
 
 // ************************************************************************
 // interpret command from interactive session
+// genFlag = 0 (regular)
+// genFlag = 1 (Bungee problem)
+// genFlag = 2 (for SDoE input file setup)
 // ------------------------------------------------------------------------
 int PsuadeBase::genSetup(int genFlag, char *filename)
 {
   int    nInputs, iInd, nOutputs, samplingMethod, nSamples, nReps, ii;
   int    randomize = 0, jj, oInd;
-  double *iLowerB, *iUpperB;
   char   dataFile[500], pString[500], **inputNames=NULL;
   char   **outputNames=NULL, winput[500];
+  FILE   *fp, *fp2;
   pData  pPtr, pINames, pLower, pUpper, pONames;
   PsuadeData psuadeIO;
-  FILE   *fp, *fp2;
+  psVector vecLBs, vecUBs;
 
-  if (genFlag == 0)
+  if (genFlag == 0 || genFlag == 2)
   {
     sprintf(pString,"Enter the name of the PSUADE input file : ");
     getString(pString, dataFile);
@@ -787,25 +840,26 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     strcpy(dataFile, "psuade.in");
     nInputs = 3;
   }
-  iLowerB = new double[nInputs];
-  iUpperB = new double[nInputs];
+  vecLBs.setLength(nInputs);
+  vecUBs.setLength(nInputs);
   inputNames = new char*[nInputs];
-  for (iInd = 0; iInd < nInputs; iInd++) inputNames[iInd] = new char[200];
-  if (genFlag == 0)
+  for (iInd = 0; iInd < nInputs; iInd++) 
+    inputNames[iInd] = new char[200];
+  if (genFlag == 0 || genFlag == 2)
   {
     for (iInd = 0; iInd < nInputs; iInd++)
     {
       sprintf(pString, "name for input %d ? ", iInd+1);
       getString(pString, inputNames[iInd]);
       inputNames[iInd][strlen(inputNames[iInd])-1] = '\0';
-      iLowerB[iInd] = iUpperB[iInd] = 0.0;
-      while (iLowerB[iInd] >= iUpperB[iInd])
+      vecLBs[iInd] = vecUBs[iInd] = 0.0;
+      while (vecLBs[iInd] >= vecUBs[iInd])
       {
         sprintf(pString, "lower bound for input %d ? ", iInd+1);
-        iLowerB[iInd] = getDouble(pString);
+        vecLBs[iInd] = getDouble(pString);
         sprintf(pString,"upper bound for input %d (> lower bound)? ",
                 iInd+1);
-        iUpperB[iInd] = getDouble(pString);
+        vecUBs[iInd] = getDouble(pString);
       }
     }
   }
@@ -814,9 +868,9 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     strcpy(inputNames[0], "H0");
     strcpy(inputNames[1], "M");
     strcpy(inputNames[2], "S");
-    iLowerB[0] = 40.0; iUpperB[0] = 60.0;
-    iLowerB[1] = 67.0; iUpperB[1] = 74.0;
-    iLowerB[2] = 20.0; iUpperB[2] = 40.0;
+    vecLBs[0] = 40.0; vecUBs[0] = 60.0;
+    vecLBs[1] = 67.0; vecUBs[1] = 74.0;
+    vecLBs[2] = 20.0; vecUBs[2] = 40.0;
   }
   if (genFlag == 0)
   {
@@ -836,12 +890,12 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
        outputNames[oInd][strlen(outputNames[oInd])-1] = '\0';
     }
   }
-  else
+  else 
   {
     nOutputs = 1;
     outputNames = new char*[nOutputs];
     outputNames[0] = new char[200];
-    strcpy(outputNames[0], "H");
+    strcpy(outputNames[0], "Y");
   }
   if (genFlag == 0)
   {
@@ -942,7 +996,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
   else
   {
     samplingMethod = 0;
-    nSamples = 1000;
+    nSamples = 1;
     nReps = 1;
   }
   fp = fopen(dataFile, "w");
@@ -959,7 +1013,7 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     fprintf(fp, "   dimension = %d\n", nInputs);
     for (iInd = 0; iInd < nInputs; iInd++) 
        fprintf(fp, "   variable %3d %s = %16.8e %16.8e\n", iInd+1,
-               inputNames[iInd],iLowerB[iInd],iUpperB[iInd]);
+               inputNames[iInd],vecLBs[iInd],vecUBs[iInd]);
     fprintf(fp, "END\n");
     fprintf(fp, "OUTPUT\n");
     fprintf(fp, "   dimension = %d\n", nOutputs);
@@ -985,7 +1039,12 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     fprintf(fp, "END\n");
     fprintf(fp, "APPLICATION\n");
     fp2 = NULL;
-    if (genFlag == 1)
+    if (genFlag == 2)
+    {
+      fprintf(fp, "   driver = PSUADE_LOCAL\n");
+      fprintf(fp, "   opt_driver = PSUADE_LOCAL\n");
+    }
+    else if (genFlag == 1)
     {
       fprintf(fp, "   driver = ./simulator\n");
       fprintf(fp, "#  driver = ./simulator.py\n");
@@ -994,14 +1053,15 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     {
       while (fp2 == NULL)
       {
-         printf("Enter the absolute path for the following.\n");
-         sprintf(pString,
-                 "Driver program name : (enter NONE if not needed) ");
-         getString(pString, winput);
-         winput[strlen(winput)-1] = '\0';
-         if (!strcmp(winput, "NONE")) break;
-         fp2 = fopen(winput, "r");
-         if (fp2 == NULL) printOutTS(PL_ERROR,"file %s not found.\n",winput);
+        printf("Enter the absolute path for the following.\n");
+        sprintf(pString,
+                "Driver program name : (enter NONE if not needed) ");
+        getString(pString, winput);
+        winput[strlen(winput)-1] = '\0';
+        if (!strcmp(winput, "NONE")) break;
+        fp2 = fopen(winput, "r");
+        if (fp2 == NULL) 
+          printOutTS(PL_ERROR,"file %s not found.\n",winput);
       } 
       if (fp2 != NULL) fclose(fp2);
       fprintf(fp, "   driver = %s\n", winput);
@@ -1015,17 +1075,18 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     }
     fprintf(fp, "END\n");
     fprintf(fp, "ANALYSIS\n");
-    fprintf(fp, "#  for analyzer and optimization options, consult manual\n");
+    fprintf(fp, "#  for analyzer/optimization options, consult manual\n");
     fprintf(fp, "#  analyzer method = Moment\n");
     fprintf(fp, "#  analyzer method = MainEffect\n");
     fprintf(fp, "#  analyzer rstype = MARS\n");
+    if (genFlag == 2)
+      fprintf(fp, "   optimization method = sce\n");
     fprintf(fp, "   diagnostics 1\n");
     fprintf(fp, "END\n");
     fprintf(fp, "END\n");
     fclose(fp); 
   }
-  if (genFlag == 0)
-    printOutTS(PL_INFO,"PSUADE: the PSUADE input file is in %s.\n",dataFile);
+  printOutTS(PL_INFO,"PSUADE: the PSUADE input file is in %s.\n",dataFile);
   if (inputNames != NULL)
   {
     for (ii = 0; ii < nInputs; ii++) delete [] inputNames[ii];
@@ -1036,17 +1097,298 @@ int PsuadeBase::genSetup(int genFlag, char *filename)
     for (ii = 0; ii < nOutputs; ii++) delete [] outputNames[ii];
     delete [] outputNames;
   }
-  delete [] iLowerB;
-  delete [] iUpperB;
   strcpy(filename, dataFile);
   return 0;
 }
 
 // ************************************************************************
-// interpret command from interactive session
+// a function to create Python script for computing MCMC likelihood
 // ------------------------------------------------------------------------
-int PsuadeBase::genWorkFlow()
+int PsuadeBase::genKPCAMcmcWorkflow()
 {
-   return 0;
+  char pString[2000], filename[2000], pythonDir[2000], expFile[2000];
+  char simulator[2000], simOutFile[2000], kpcaModel[2000], psuadeExe[2000];
+  FILE *fp, *dfp;
+  //**/ ----------------------------------------------------------------
+  //**/ ask for name of Python file
+  //**/ ----------------------------------------------------------------
+  strcpy(pString,"Specify a file name for the likelihood function: ");
+  getString(pString, filename);
+  filename[strlen(filename)-1] = '\0';
+  dfp = fopen(filename, "w");
+  if (dfp == NULL)
+  {
+    printOutTS(PL_ERROR,"ERROR: Cannot open file %s. \n",filename);
+    return 1;
+  }
+
+  //**/ ----------------------------------------------------------------
+  //**/ look for python
+  //**/ ----------------------------------------------------------------
+  printEquals(PL_INFO, 0);
+  printOutTS(PL_INFO,"Begin creating a Python-based likelihood driver.\n");
+  strcpy(pythonDir, "/usr/local/bin/python");
+  fp = fopen(pythonDir, "r");
+  if (fp != NULL) fclose(fp);
+  else
+  {
+    strcpy(pythonDir, "/usr/bin/python");
+    fp = fopen(pythonDir, "r");
+    if (fp != NULL) fclose(fp);
+    else
+    {
+      printOutTS(PL_INFO, 
+         "Python not found in /usr/bin nor /usr/local/bin.\n");
+      printOutTS(PL_INFO, "You will have to edit the driver later.\n");
+     }
+  }
+
+  //**/ ----------------------------------------------------------------
+  //**/ ask for simulator
+  //**/ ----------------------------------------------------------------
+  strcpy(pString,"Specify the simulator (with absolute path): ");
+  getString(pString, simulator);
+  simulator[strlen(simulator)-1] = '\0';
+  fp = fopen(simulator, "r");
+  if (fp == NULL)
+    printOutTS(PL_ERROR,"WARNING: Cannot open file %s. \n",simulator);
+  else fclose(fp);
+
+  //**/ ----------------------------------------------------------------
+  //**/ ask for simulation output file
+  //**/ ----------------------------------------------------------------
+  strcpy(pString,
+     "Specify name of the simulation output file for creating L(D|X): ");
+  getString(pString, simOutFile);
+  simOutFile[strlen(simOutFile)-1] = '\0';
+
+  //**/ ----------------------------------------------------------------
+  //**/ ask for experimental file
+  //**/ ----------------------------------------------------------------
+  printf("Experimental file should be in the format of floating point\n");
+  printf("data values having the same size as the simulation output\n");
+  strcpy(pString,"Specify the name of the experimental file: ");
+  getString(pString, expFile);
+  expFile[strlen(expFile)-1] = '\0';
+  fp = fopen(expFile, "r");
+  if (fp == NULL)
+    printOutTS(PL_ERROR,"WARNING: Cannot open file %s. \n",expFile);
+  else fclose(fp);
+
+  //**/ ----------------------------------------------------------------
+  //**/ ask for kpca model 
+  //**/ ----------------------------------------------------------------
+  strcpy(pString, "Specify the name of KPCA model file (or none) : ");
+  getString(pString, kpcaModel);
+  kpcaModel[strlen(kpcaModel)-1] = '\0';
+  if (strcmp(kpcaModel, "none"))
+  {
+    fp = fopen(kpcaModel, "r");
+    if (fp == NULL)
+      printOutTS(PL_ERROR,"WARNING: Cannot open file %s. \n",kpcaModel);
+    else fclose(fp);
+  }
+
+  //**/ ----------------------------------------------------------------
+  //**/ ask for psuade executable 
+  //**/ ----------------------------------------------------------------
+  if (strcmp(kpcaModel, "none"))
+  {
+    printf("This likelihood function is tightly coupled to the use of\n");
+    printf("createKPCA, inverseKPCA, and mcmc_with_dr. To do this, \n");
+    printf("need direct access to the PSUADE executable.\n");
+    strcpy(pString,
+      "Specify the name of the PSUADE executable (with absolute path): ");
+    getString(pString, psuadeExe);
+    psuadeExe[strlen(psuadeExe)-1] = '\0';
+    fp = fopen(psuadeExe, "r");
+    if (fp == NULL)
+      printOutTS(PL_ERROR,"WARNING: Cannot open file %s. \n",psuadeExe);
+    else fclose(fp);
+  }
+  else strcpy(psuadeExe, "none");
+
+  //**/ ----------------------------------------------------------------
+  //**/ create the function
+  //**/ ----------------------------------------------------------------
+  fprintf(dfp,"#!%s\n", pythonDir);
+  fprintf(dfp,"# NOTE: Make sure the above Python path is correct.\n"); 
+  fprintf(dfp,"import os\n"); 
+  fprintf(dfp,"import sys\n"); 
+  fprintf(dfp,"import string\n"); 
+  fprintf(dfp,"import shutil\n"); 
+  fprintf(dfp,"import math\n"); 
+  fprintf(dfp,"import numpy as np\n"); 
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"# USER SPECIFIC SECTION \n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"modelFile   = \"%s\"\n", kpcaModel);
+  fprintf(dfp,"simulator   = \"%s\"\n", simulator);
+  fprintf(dfp,"expDataFile = \"%s\"\n", expFile);
+  fprintf(dfp,"simOutFile  = \"%s\"\n", simOutFile);
+  fprintf(dfp,"psuadeExe   = \"%s\"\n", psuadeExe);
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"# NOTE: The following file is for storing the inputs\n"); 
+  fprintf(dfp,"#       to the simulation (maybe high-dimensional) and\n");
+  fprintf(dfp,"#       after dimension recovery from calibration inputs.\n");
+  fprintf(dfp,"postXFile   = \"PosteriorX\"\n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"# NOTE: The following file is for storing the simulation\n"); 
+  fprintf(dfp,"#       outputs every time it is run (each line contains\n");
+  fprintf(dfp,"#       outputs for one simulation.\n");
+  fprintf(dfp,"postYFile   = \"PosteriorY\"\n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"# NOTE: The following flag specifies whether postXFile\n");
+  fprintf(dfp,"#       and postYFile will be written to (default 1). \n");
+  fprintf(dfp,"postFlag = 1\n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"# END USER SPECIFIC SECTION \n");
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"# Obtain field dimension and reduced dimension \n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"def getInfoFromModel():\n");
+  fprintf(dfp,"   if modelFile != \"none\":\n");
+  fprintf(dfp,"      infile = open(modelFile, \"r\")\n");
+  fprintf(dfp,"      lineIn = infile.readline()\n");
+  fprintf(dfp,"      lineIn = infile.readline()\n");
+  fprintf(dfp,"      nCols = lineIn.split()\n");
+  fprintf(dfp,"      fieldDim = eval(nCols[0])\n");
+  fprintf(dfp,"      rdim = 0\n");
+  fprintf(dfp,"      while 1:\n");
+  fprintf(dfp,"         lineIn  = infile.readline()\n");
+  fprintf(dfp,"         if lineIn == \"\":\n");
+  fprintf(dfp,"            break\n");
+  fprintf(dfp,"         nCols = lineIn.split()\n");
+  fprintf(dfp,"         if (len(nCols) > 2):\n");
+  fprintf(dfp,"            if nCols[0] == \"rdim\":\n");
+  fprintf(dfp,"               rdim = eval(nCols[2])\n");
+  fprintf(dfp,"      infile.close()\n");
+  fprintf(dfp,"   else:\n");
+  fprintf(dfp,"      fieldDim = 0\n");
+  fprintf(dfp,"      rdim = 0\n");
+  fprintf(dfp,"   return [fieldDim, rdim]\n");
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"# perform KPCA inversion \n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"def performInversion(inpFileName,outFileName,fieldDim):\n");
+  fprintf(dfp,"   outfile = open(\"ps.script\", \"w\")\n");
+  fprintf(dfp,"   outfile.write(\"InverseKPCA\\n\")\n");
+  fprintf(dfp,"   outfile.write(\"%%s\\n\" %% modelFile)\n");
+  fprintf(dfp,"   outfile.write(\"%%s\\n\" %% inpFileName)\n");
+  fprintf(dfp,"   outfile.write(\"psTmp\\n\")\n");
+  fprintf(dfp,"   outfile.write(\"%%d\\n\" %% fieldDim)\n");
+  fprintf(dfp,"   outfile.write(\"q\\n\")\n");
+  fprintf(dfp,"   outfile.close()\n");
+  fprintf(dfp,"   sysCmd = psuadeExe\n");
+  fprintf(dfp,"   sysCmd = sysCmd + \" < ps.script > log\"\n");
+  fprintf(dfp,"   os.system(sysCmd)\n");
+  fprintf(dfp,"   os.remove(\"log\")\n");
+  fprintf(dfp,"   os.remove(\"ps.script\")\n");
+  fprintf(dfp,"   infile  = open(\"psTmp\", \"r\")\n");
+  fprintf(dfp,"   outfile = open(outFileName, \"w\")\n");
+  fprintf(dfp,"   outX    = open(\"PosteriorX\", \"a\")\n");
+  fprintf(dfp,"   while 1:\n");
+  fprintf(dfp,"      lineIn  = infile.readline()\n");
+  fprintf(dfp,"      if lineIn == \"\":\n");
+  fprintf(dfp,"         break\n");
+  fprintf(dfp,"      nCols = lineIn.split()\n");
+  fprintf(dfp,"      if len(nCols) == 1:\n");
+  fprintf(dfp,"         ddata = float(nCols[0])\n");
+  fprintf(dfp,"         ddata = np.exp(ddata)\n");
+  fprintf(dfp,"         outfile.write(\"%%e\\n\" %% ddata)\n");
+  fprintf(dfp,"         outX.write(\"%%e \" %% ddata)\n");
+  fprintf(dfp,"      else:\n");
+  fprintf(dfp,"         for ii in range(len(nCols)):\n");
+  fprintf(dfp,"            ddata = float(nCols[ii])\n");
+  fprintf(dfp,"            ddata = np.exp(ddata)\n");
+  fprintf(dfp,"            outfile.write(\"%%e\\n\" %% ddata)\n");
+  fprintf(dfp,"            outX.write(\"%%e \" %% ddata)\n");
+  fprintf(dfp,"         break\n");
+  fprintf(dfp,"   infile.close()\n");
+  fprintf(dfp,"   outfile.close()\n");
+  fprintf(dfp,"   outX.close()\n");
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"# run application program \n");
+  fprintf(dfp,"# NOTE: make sure the simulation call sequence is right\n");
+  fprintf(dfp,"#       for your application.\n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"def runSimulation(pFile):\n");
+  fprintf(dfp,"   sysCmd = simulator + ' ' + pFile + ' '\n");
+  fprintf(dfp,"   sysCmd = sysCmd + expDataFile + \" > log\"\n");
+  fprintf(dfp,"   os.system(sysCmd)\n");
+  fprintf(dfp,"   return\n");
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"# create likelihood \n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"def genOutputFile(outFileName, likelihood):\n");
+  fprintf(dfp,"   print(\"     COST = %%e\" %% likelihood)\n");
+  fprintf(dfp,"   oFile = open(outFileName, \"w\")\n");
+  fprintf(dfp,"   oFile.write(\"%%e\\n\" %% likelihood)\n");
+  fprintf(dfp,"   oFile.close()\n");
+  fprintf(dfp,"   if (postFlag == 1): \n");
+  fprintf(dfp,"      aFile = open(postXFile, \"a\")\n");
+  fprintf(dfp,"      ddata = - 2.0 * math.log(likelihood)\n");
+  fprintf(dfp,"      aFile.write(\"%%e\\n\" %% ddata)\n");
+  fprintf(dfp,"      aFile.close()\n");
+  fprintf(dfp,"   return\n");
+  fprintf(dfp,"#######################################################\n");
+  fprintf(dfp,"# MAIN \n");
+  fprintf(dfp,"#======================================================\n");
+  fprintf(dfp,"if len(sys.argv) < 3:\n");
+  fprintf(dfp,"   print(\"This script requires 2 parameters: \")\n");
+  fprintf(dfp,"   print(\"(1) the sample in U space\")\n");
+  fprintf(dfp,"   print(\"(2) the file to which likelihood is written\")\n");
+  fprintf(dfp,"   exit()\n\n");
+  fprintf(dfp,"# NOTE: The following line is application specific.\n");
+  fprintf(dfp,"#       fieldDim is just the dimension of the inputs.\n");
+  fprintf(dfp,"#       rdim is the dimension of the reduced space.\n");
+  fprintf(dfp,"fieldDim, rdim = getInfoFromModel()\n");
+  fprintf(dfp,"# input file has sample from inference (in reduced space)\n");
+  fprintf(dfp,"inpFile = sys.argv[1]\n\n");
+  fprintf(dfp,"# perform inversion (from reduced to physical space)\n");
+  fprintf(dfp,"if fieldDim != 0 and rdim != 0 and fieldDim > rdim:\n");
+  fprintf(dfp,"   simInpFile = \"reconstructedDataFile\"\n");
+  fprintf(dfp,"   performInversion(inpFile, simInpFile, fieldDim)\n\n");
+  fprintf(dfp,"else:\n");
+  fprintf(dfp,"   simInpFile = inpFile\n");
+  fprintf(dfp,"# run simulation\n");
+  fprintf(dfp,"runSimulation(simInpFile)\n\n");
+  fprintf(dfp,"# compute likelihood\n");
+  fprintf(dfp,"infile1 = open(simOutFile, \"r\")\n");
+  fprintf(dfp,"infile2 = open(expDataFile, \"r\")\n");
+  fprintf(dfp,"if (postFlag == 1): \n");
+  fprintf(dfp,"   outfile = open(postYFile, \"a\")\n");
+  fprintf(dfp,"rmsErr = 0;\n");
+  fprintf(dfp,"# NOTE: it is assume simulation output and measurement\n");
+  fprintf(dfp,"#       files have the same length.\n");
+  fprintf(dfp,"while 1:\n");
+  fprintf(dfp,"   lineIn = infile1.readline()\n");
+  fprintf(dfp,"   if lineIn == \"\":\n");
+  fprintf(dfp,"      break\n");
+  fprintf(dfp,"   nCols  = lineIn.split()\n");
+  fprintf(dfp,"   ddata  = eval(nCols[0])\n");
+  fprintf(dfp,"   if (postFlag == 1): \n");
+  fprintf(dfp,"      outfile.write(\"%%e \" %% ddata)\n");
+  fprintf(dfp,"   lineIn = infile2.readline()\n");
+  fprintf(dfp,"   nCols  = lineIn.split()\n");
+  fprintf(dfp,"   ddata  = ddata - eval(nCols[0])\n");
+  fprintf(dfp,"   rmsErr = rmsErr + ddata * ddata\n");
+  fprintf(dfp,"rmsErr = 0.5 * rmsErr\n");
+  fprintf(dfp,"infile1.close()\n");
+  fprintf(dfp,"infile2.close()\n");
+  fprintf(dfp,"if (postFlag == 1): \n");
+  fprintf(dfp,"  outfile.write(\"\\n\")\n");
+  fprintf(dfp,"  outfile.close()\n");
+  fprintf(dfp,"print(\"rms = \", rmsErr)\n");
+  fprintf(dfp,"likelihood = math.exp(-rmsErr)\n\n");
+  fprintf(dfp,"costFileName = sys.argv[2]\n");
+  fprintf(dfp,"genOutputFile(costFileName, likelihood)\n\n");
+  fclose(dfp);
+  printf("KPCA-based MCMC likelihood script is ready.\n");
+  printf("     Please go into the file and make edits suitable.\n");
+  printf("     for your application. Specifically, search for NOTE\n");
+  printf("     in the file and follow the advices.\n");
+  return 0;
 }
 

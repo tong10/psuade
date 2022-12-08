@@ -26,6 +26,7 @@
 // DATE   : 2005
 // ************************************************************************
 #include <stdio.h>
+//**/using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -36,7 +37,7 @@
 // ------------------------------------------------------------------------
 BoxBehnkenSampling::BoxBehnkenSampling() : Sampling()
 {
-   samplingID_ = PSUADE_SAMP_BBD;
+  samplingID_ = PSUADE_SAMP_BBD;
 }
 
 // ************************************************************************
@@ -53,300 +54,311 @@ int BoxBehnkenSampling::initialize(int initLevel)
 {
    int inputID, sampleID, inputID2;
 
-   if (nSamples_ == 0)
-   {
-      printf("BoxBehnkenSampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("BoxBehnkenSampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
-   if (nInputs_ < 2)
-   {
-      printf("BoxBehnkenSampling::initialize ERROR - nInputs < 2.\n");
-      printf("                    nInputs should be [2,7].\n");
-      exit(1);
-   }
-   if (nInputs_ > 7)
-   {
-      printf("BoxBehnkenSampling::initialize ERROR - nInputs > 7.\n");
-      printf("                    nInputs should be [2,7].\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+     printf("BoxBehnkenSampling::initialize ERROR - nSamples = 0.\n");
+     exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+    printf("BoxBehnkenSampling::initialize ERROR - input not set up.\n");
+    exit(1);
+  }
+  if (nInputs_ < 2)
+  {
+    printf("BoxBehnkenSampling::initialize ERROR - nInputs < 2.\n");
+    printf("                    nInputs should be [2,7].\n");
+    exit(1);
+  }
+  if (nInputs_ > 7)
+  {
+    printf("BoxBehnkenSampling::initialize ERROR - nInputs > 7.\n");
+    printf("                    nInputs should be [2,7].\n");
+    exit(1);
+  }
    
-   deleteSampleData();
-   if (initLevel == 1) return 0;
-   if      (nInputs_ == 2) nSamples_ = 5;
-   else if (nInputs_ == 3) nSamples_ = 13;
-   else if (nInputs_ == 4) nSamples_ = 25;
-   else if (nInputs_ == 5) nSamples_ = 41;
-   else if (nInputs_ == 6) nSamples_ = 48;
-   else if (nInputs_ == 7) nSamples_ = 57;
-   allocSampleData();
+  //**/ ----------------------------------------------------------------
+  //**/ clean up and allocate new storage
+  //**/ ----------------------------------------------------------------
+  if (initLevel == 1) return 0;
+  if      (nInputs_ == 2) nSamples_ = 5;
+  else if (nInputs_ == 3) nSamples_ = 13;
+  else if (nInputs_ == 4) nSamples_ = 25;
+  else if (nInputs_ == 5) nSamples_ = 41;
+  else if (nInputs_ == 6) nSamples_ = 48;
+  else if (nInputs_ == 7) nSamples_ = 57;
+  allocSampleData();
 
-   if (printLevel_ > 4)
-   {
-      printf("BoxBehnkenSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("BoxBehnkenSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("BoxBehnkenSampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    BoxBehnkenSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics 
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("BoxBehnkenSampling::initialize: nSamples = %d\n", nSamples_);
+    printf("BoxBehnkenSampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("BoxBehnkenSampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    BoxBehnkenSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+  }
 
-   for (sampleID = 0; sampleID < nSamples_; sampleID++)
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         sampleMatrix_[sampleID][inputID] = 
-                0.5 * (lowerBounds_[inputID] + upperBounds_[inputID]);
-   if (nInputs_ >= 2 && nInputs_ <= 5)
-   {
-      sampleID = 0;
-      for (inputID = 0; inputID < nInputs_; inputID++)
+  //**/ ----------------------------------------------------------------
+  //**/ generate sample
+  //**/ ----------------------------------------------------------------
+  for (sampleID = 0; sampleID < nSamples_; sampleID++)
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      vecSamInps_[sampleID*nInputs_+inputID] = 
+                0.5 * (vecLBs_[inputID] + vecUBs_[inputID]);
+  if (nInputs_ >= 2 && nInputs_ <= 5)
+  {
+    sampleID = 0;
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      for (inputID2 = inputID+1; inputID2 < nInputs_; inputID2++)
       {
-         for (inputID2 = inputID+1; inputID2 < nInputs_; inputID2++)
-         {
-            sampleMatrix_[sampleID][inputID]  = lowerBounds_[inputID];
-            sampleMatrix_[sampleID][inputID2] = lowerBounds_[inputID2];
-            sampleMatrix_[sampleID+1][inputID]  = lowerBounds_[inputID];
-            sampleMatrix_[sampleID+1][inputID2] = upperBounds_[inputID2];
-            sampleMatrix_[sampleID+2][inputID]  = upperBounds_[inputID];
-            sampleMatrix_[sampleID+2][inputID2] = lowerBounds_[inputID2];
-            sampleMatrix_[sampleID+3][inputID]  = upperBounds_[inputID];
-            sampleMatrix_[sampleID+3][inputID2] = upperBounds_[inputID2];
-            sampleID += 4;
-         }
+        vecSamInps_[sampleID*nInputs_+inputID]  = vecLBs_[inputID];
+        vecSamInps_[sampleID*nInputs_+inputID2] = vecLBs_[inputID2];
+        vecSamInps_[(sampleID+1)*nInputs_+inputID]  = vecLBs_[inputID];
+        vecSamInps_[(sampleID+1)*nInputs_+inputID2] = vecUBs_[inputID2];
+        vecSamInps_[(sampleID+2)*nInputs_+inputID]  = vecUBs_[inputID];
+        vecSamInps_[(sampleID+2)*nInputs_+inputID2] = vecLBs_[inputID2];
+        vecSamInps_[(sampleID+3)*nInputs_+inputID]  = vecUBs_[inputID];
+        vecSamInps_[(sampleID+3)*nInputs_+inputID2] = vecUBs_[inputID2];
+        sampleID += 4;
       }
-   }
-   if (nInputs_ == 6)
-   {
-      sampleID = 0;
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         sampleMatrix_[sampleID][inputID] = lowerBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID][inputID2]  = lowerBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID][inputID2] = lowerBounds_[inputID2];
-         sampleMatrix_[sampleID+1][inputID] = lowerBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+1][inputID2]  = lowerBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+1][inputID2] = upperBounds_[inputID2];
-         sampleMatrix_[sampleID+2][inputID] = lowerBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+2][inputID2]  = upperBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+2][inputID2] = lowerBounds_[inputID2];
-         sampleMatrix_[sampleID+3][inputID] = lowerBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+3][inputID2]  = upperBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+3][inputID2] = upperBounds_[inputID2];
+    }
+  }
+  if (nInputs_ == 6)
+  {
+    sampleID = 0;
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      vecSamInps_[sampleID*nInputs_+inputID]      = vecLBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[sampleID*nInputs_+inputID2]     = vecLBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[sampleID*nInputs_+inputID2]     = vecLBs_[inputID2];
+      vecSamInps_[(sampleID+1)*nInputs_+inputID]  = vecLBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+1)*nInputs_+inputID2] = vecLBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+1)*nInputs_+inputID2] = vecUBs_[inputID2];
+      vecSamInps_[(sampleID+2)*nInputs_+inputID]  = vecLBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+2)*nInputs_+inputID2] = vecUBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+2)*nInputs_+inputID2] = vecLBs_[inputID2];
+      vecSamInps_[(sampleID+3)*nInputs_+inputID]  = vecLBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+3)*nInputs_+inputID2] = vecUBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+3)*nInputs_+inputID2] = vecUBs_[inputID2];
 
-         sampleMatrix_[sampleID+4][inputID] = upperBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+4][inputID2]  = lowerBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+4][inputID2] = lowerBounds_[inputID2];
-         sampleMatrix_[sampleID+5][inputID] = upperBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+5][inputID2]  = lowerBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+5][inputID2] = upperBounds_[inputID2];
-         sampleMatrix_[sampleID+6][inputID] = upperBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+6][inputID2]  = upperBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+6][inputID2] = lowerBounds_[inputID2];
-         sampleMatrix_[sampleID+7][inputID] = upperBounds_[inputID];
-         inputID2 = (inputID + 1) % nInputs_;
-         sampleMatrix_[sampleID+7][inputID2]  = upperBounds_[inputID2];
-         inputID2 = (inputID + 3) % nInputs_;
-         sampleMatrix_[sampleID+7][inputID2] = upperBounds_[inputID2];
-         sampleID += 8;
-      }
-   }
-   if (nInputs_ == 7)
-   {
-      sampleID = 0;
-      sampleMatrix_[sampleID][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+1][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+1][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+1][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+2][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+2][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+2][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+3][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+3][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+3][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+4][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+4][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+4][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+5][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+5][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+5][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+6][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+6][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+6][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+7][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+7][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+7][5] = upperBounds_[5];
+      vecSamInps_[(sampleID+4)*nInputs_+inputID]  = vecUBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+4)*nInputs_+inputID2] = vecLBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+4)*nInputs_+inputID2] = vecLBs_[inputID2];
+      vecSamInps_[(sampleID+5)*nInputs_+inputID]  = vecUBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+5)*nInputs_+inputID2] = vecLBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+5)*nInputs_+inputID2] = vecUBs_[inputID2];
+      vecSamInps_[(sampleID+6)*nInputs_+inputID]  = vecUBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+6)*nInputs_+inputID2] = vecUBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+6)*nInputs_+inputID2] = vecLBs_[inputID2];
+      vecSamInps_[(sampleID+7)*nInputs_+inputID]  = vecUBs_[inputID];
+      inputID2 = (inputID + 1) % nInputs_;
+      vecSamInps_[(sampleID+7)*nInputs_+inputID2] = vecUBs_[inputID2];
+      inputID2 = (inputID + 3) % nInputs_;
+      vecSamInps_[(sampleID+7)*nInputs_+inputID2] = vecUBs_[inputID2];
       sampleID += 8;
-      sampleMatrix_[sampleID][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+1][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+1][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+1][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+2][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+2][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+2][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+3][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+3][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+3][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+4][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+4][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+4][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+5][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+5][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+5][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+6][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+6][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+6][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+7][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+7][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+7][6] = upperBounds_[6];
-      sampleID += 8;
-      sampleMatrix_[sampleID][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+1][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+1][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+1][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+2][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+2][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+2][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+3][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+3][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+3][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+4][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+4][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+4][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+5][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+5][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+5][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+6][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+6][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+6][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+7][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+7][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+7][6] = upperBounds_[6];
-      sampleID += 8;
-      sampleMatrix_[sampleID][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+1][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+1][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+1][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+2][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+2][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+2][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+3][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+3][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+3][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+4][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+4][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+4][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+5][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+5][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+5][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+6][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+6][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+6][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+7][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+7][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+7][3] = upperBounds_[3];
-      sampleID += 8;
-      sampleMatrix_[sampleID][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+1][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+1][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+1][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+2][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+2][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+2][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+3][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+3][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+3][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+4][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+4][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+4][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+5][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+5][3] = lowerBounds_[3];
-      sampleMatrix_[sampleID+5][6] = upperBounds_[6];
-      sampleMatrix_[sampleID+6][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+6][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+6][6] = lowerBounds_[6];
-      sampleMatrix_[sampleID+7][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+7][3] = upperBounds_[3];
-      sampleMatrix_[sampleID+7][6] = upperBounds_[6];
-      sampleID += 8;
-      sampleMatrix_[sampleID][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+1][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+1][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+1][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+2][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+2][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+2][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+3][0] = lowerBounds_[0];
-      sampleMatrix_[sampleID+3][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+3][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+4][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+4][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+4][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+5][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+5][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+5][4] = upperBounds_[4];
-      sampleMatrix_[sampleID+6][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+6][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+6][4] = lowerBounds_[4];
-      sampleMatrix_[sampleID+7][0] = upperBounds_[0];
-      sampleMatrix_[sampleID+7][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+7][4] = upperBounds_[4];
-      sampleID += 8;
-      sampleMatrix_[sampleID][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+1][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+1][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+1][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+2][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+2][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+2][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+3][1] = lowerBounds_[1];
-      sampleMatrix_[sampleID+3][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+3][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+4][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+4][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+4][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+5][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+5][2] = lowerBounds_[2];
-      sampleMatrix_[sampleID+5][5] = upperBounds_[5];
-      sampleMatrix_[sampleID+6][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+6][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+6][5] = lowerBounds_[5];
-      sampleMatrix_[sampleID+7][1] = upperBounds_[1];
-      sampleMatrix_[sampleID+7][2] = upperBounds_[2];
-      sampleMatrix_[sampleID+7][5] = upperBounds_[5];
-   }
-   return 0;
+    }
+  }
+  if (nInputs_ == 7)
+  {
+    sampleID = 0;
+    vecSamInps_[(sampleID)*nInputs_+3]   = vecLBs_[3];
+    vecSamInps_[(sampleID)*nInputs_+4]   = vecLBs_[4];
+    vecSamInps_[(sampleID)*nInputs_+5]   = vecLBs_[5];
+    vecSamInps_[(sampleID+1)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+1)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+1)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+2)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+2)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+2)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+3)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+3)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+3)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+4)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+4)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+4)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+5)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+5)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+5)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+6)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+6)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+6)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+7)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+7)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+7)*nInputs_+5] = vecUBs_[5];
+    sampleID += 8;
+    vecSamInps_[(sampleID)*nInputs_+0]   = vecLBs_[0];
+    vecSamInps_[(sampleID)*nInputs_+5]   = vecLBs_[5];
+    vecSamInps_[(sampleID)*nInputs_+6]   = vecLBs_[6];
+    vecSamInps_[(sampleID+1)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+1)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+1)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+2)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+2)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+2)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+3)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+3)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+3)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+4)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+4)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+4)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+5)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+5)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+5)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+6)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+6)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+6)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+7)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+7)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+7)*nInputs_+6] = vecUBs_[6];
+    sampleID += 8;
+    vecSamInps_[(sampleID)*nInputs_+1]   = vecLBs_[1];
+    vecSamInps_[(sampleID)*nInputs_+4]   = vecLBs_[4];
+    vecSamInps_[(sampleID)*nInputs_+6]   = vecLBs_[6];
+    vecSamInps_[(sampleID+1)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+1)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+1)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+2)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+2)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+2)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+3)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+3)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+3)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+4)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+4)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+4)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+5)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+5)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+5)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+6)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+6)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+6)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+7)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+7)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+7)*nInputs_+6] = vecUBs_[6];
+    sampleID += 8;
+    vecSamInps_[(sampleID)*nInputs_+0]   = vecLBs_[0];
+    vecSamInps_[(sampleID)*nInputs_+1]   = vecLBs_[1];
+    vecSamInps_[(sampleID)*nInputs_+3]   = vecLBs_[3];
+    vecSamInps_[(sampleID+1)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+1)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+1)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+2)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+2)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+2)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+3)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+3)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+3)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+4)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+4)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+4)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+5)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+5)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+5)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+6)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+6)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+6)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+7)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+7)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+7)*nInputs_+3] = vecUBs_[3];
+    sampleID += 8;
+    vecSamInps_[(sampleID)*nInputs_+2]   = vecLBs_[2];
+    vecSamInps_[(sampleID)*nInputs_+3]   = vecLBs_[3];
+    vecSamInps_[(sampleID)*nInputs_+6]   = vecLBs_[6];
+    vecSamInps_[(sampleID+1)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+1)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+1)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+2)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+2)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+2)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+3)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+3)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+3)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+4)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+4)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+4)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+5)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+5)*nInputs_+3] = vecLBs_[3];
+    vecSamInps_[(sampleID+5)*nInputs_+6] = vecUBs_[6];
+    vecSamInps_[(sampleID+6)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+6)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+6)*nInputs_+6] = vecLBs_[6];
+    vecSamInps_[(sampleID+7)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+7)*nInputs_+3] = vecUBs_[3];
+    vecSamInps_[(sampleID+7)*nInputs_+6] = vecUBs_[6];
+    sampleID += 8;
+    vecSamInps_[(sampleID)*nInputs_+0]   = vecLBs_[0];
+    vecSamInps_[(sampleID)*nInputs_+2]   = vecLBs_[2];
+    vecSamInps_[(sampleID)*nInputs_+4]   = vecLBs_[4];
+    vecSamInps_[(sampleID+1)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+1)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+1)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+2)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+2)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+2)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+3)*nInputs_+0] = vecLBs_[0];
+    vecSamInps_[(sampleID+3)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+3)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+4)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+4)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+4)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+5)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+5)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+5)*nInputs_+4] = vecUBs_[4];
+    vecSamInps_[(sampleID+6)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+6)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+6)*nInputs_+4] = vecLBs_[4];
+    vecSamInps_[(sampleID+7)*nInputs_+0] = vecUBs_[0];
+    vecSamInps_[(sampleID+7)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+7)*nInputs_+4] = vecUBs_[4];
+    sampleID += 8;
+    vecSamInps_[(sampleID)*nInputs_+1]   = vecLBs_[1];
+    vecSamInps_[(sampleID)*nInputs_+2]   = vecLBs_[2];
+    vecSamInps_[(sampleID)*nInputs_+5]   = vecLBs_[5];
+    vecSamInps_[(sampleID+1)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+1)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+1)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+2)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+2)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+2)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+3)*nInputs_+1] = vecLBs_[1];
+    vecSamInps_[(sampleID+3)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+3)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+4)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+4)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+4)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+5)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+5)*nInputs_+2] = vecLBs_[2];
+    vecSamInps_[(sampleID+5)*nInputs_+5] = vecUBs_[5];
+    vecSamInps_[(sampleID+6)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+6)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+6)*nInputs_+5] = vecLBs_[5];
+    vecSamInps_[(sampleID+7)*nInputs_+1] = vecUBs_[1];
+    vecSamInps_[(sampleID+7)*nInputs_+2] = vecUBs_[2];
+    vecSamInps_[(sampleID+7)*nInputs_+5] = vecUBs_[5];
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -354,9 +366,9 @@ int BoxBehnkenSampling::initialize(int initLevel)
 // ------------------------------------------------------------------------
 int BoxBehnkenSampling::refine(int, int, double, int, double *)
 {
-   printf("BoxBehnkenSampling::refine ERROR - not available.\n");
-   exit(1);
-   return 0;
+  printf("BoxBehnkenSampling::refine ERROR - not available.\n");
+  exit(1);
+  return 0;
 }
 
 // ************************************************************************
@@ -364,8 +376,8 @@ int BoxBehnkenSampling::refine(int, int, double, int, double *)
 // ------------------------------------------------------------------------
 BoxBehnkenSampling& BoxBehnkenSampling::operator=(const BoxBehnkenSampling &)
 {
-   printf("BoxBehnkenSampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("BoxBehnkenSampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

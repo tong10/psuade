@@ -41,10 +41,10 @@
 // ------------------------------------------------------------------------
 FORMAnalyzer::FORMAnalyzer() : Analyzer()
 {
-   setName("FORM");
-   rsType_ = PSUADE_RS_MARS; /* default is MARS */
-   printOutTS(PL_ERROR, "FORMAnalyzer currently not supported.\n");
-   exit(1);
+  setName("FORM");
+  rsType_ = PSUADE_RS_MARS; /* default is MARS */
+  printOutTS(PL_ERROR, "FORMAnalyzer currently not supported.\n");
+  exit(1);
 }
 
 // ************************************************************************
@@ -59,139 +59,156 @@ FORMAnalyzer::~FORMAnalyzer()
 // ------------------------------------------------------------------------
 double FORMAnalyzer::analyze(aData &adata)
 {
-   int        nInputs, nOutputs, nSamples, outputID, sInd, ii, status;
-   int        nPtsPerDim=64, wgtID, iter, printLevel, iOne=1;
-   double     *X, *Y, *xLower, *xUpper, *YY, *wgts=NULL, *currZ, beta;
-   double     ddata, gdata, Ldata, oldbeta, *alphas, thresh;
-   FuncApprox *fa;
+  int    sInd, ii, status, nPtsPerDim=64, iter, iOne=1;
+  double beta, ddata, gdata, Ldata, oldbeta;
+  FuncApprox *fa;
 
-   printLevel = adata.printLevel_;
-   nInputs    = adata.nInputs_;
-   nOutputs   = adata.nOutputs_;
-   nSamples   = adata.nSamples_;
-   xLower     = adata.iLowerB_;
-   xUpper     = adata.iUpperB_;
-   X          = adata.sampleInputs_;
-   Y          = adata.sampleOutputs_;
-   outputID   = adata.outputID_;
-   wgtID      = adata.regWgtID_;
-   thresh     = adata.analysisThreshold_;
-   if (adata.inputPDFs_ != NULL)
-   {
-      printOutTS(PL_WARN, 
-           "FORM INFO: some inputs have non-uniform PDFs, but\n");
-      printOutTS(PL_WARN, 
-           "           they will not be relevant in this analysis.\n");
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ extract data
+  //**/ ---------------------------------------------------------------
+  int printLevel = adata.printLevel_;
+  int nInputs    = adata.nInputs_;
+  int nOutputs   = adata.nOutputs_;
+  int nSamples   = adata.nSamples_;
+  double *xLower = adata.iLowerB_;
+  double *xUpper = adata.iUpperB_;
+  double *X      = adata.sampleInputs_;
+  double *Y      = adata.sampleOutputs_;
+  int outputID   = adata.outputID_;
+  int wgtID      = adata.regWgtID_;
+  double thresh  = adata.analysisThreshold_;
+  if (adata.inputPDFs_ != NULL)
+  {
+    printOutTS(PL_WARN, 
+         "FORM INFO: some inputs have non-uniform PDFs, but\n");
+    printOutTS(PL_WARN, 
+         "           they will not be relevant in this analysis.\n");
+  }
 
-   if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
-   {
-      printOutTS(PL_ERROR, "FORMAnalyzer ERROR: invalid arguments.\n");
-      printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
-      printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
-      printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
-      return PSUADE_UNDEFINED;
-   } 
-   if (printLevel > 0)
-   {
-      printAsterisks(PL_INFO, 0);
-      printThisFA(rsType_);
-      printEquals(PL_INFO, 0);
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ error checking and diagnostics
+  //**/ ---------------------------------------------------------------
+  if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
+  {
+    printOutTS(PL_ERROR, "FORMAnalyzer ERROR: invalid arguments.\n");
+    printOutTS(PL_ERROR, "    nInputs  = %d\n", nInputs);
+    printOutTS(PL_ERROR, "    nOutputs = %d\n", nOutputs);
+    printOutTS(PL_ERROR, "    nSamples = %d\n", nSamples);
+    return PSUADE_UNDEFINED;
+  } 
+  if (printLevel > 0)
+  {
+    printAsterisks(PL_INFO, 0);
+    printThisFA(rsType_);
+    printEquals(PL_INFO, 0);
+  }
    
-   YY = new double[nSamples];
-   checkAllocate(YY, "YY in FORM::analyze");
-   for (sInd = 0; sInd < nSamples; sInd++)
-      YY[sInd] = Y[sInd*nOutputs+outputID];
-   if (wgtID >= 0)
-   {
-      wgts = new double[nSamples];
-      checkAllocate(wgts, "wgts in FORM::analyze");
-      for (sInd = 0; sInd < nSamples; sInd++)
-         wgts[sInd] = Y[sInd*nOutputs+wgtID];
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ copy the selected output data to a new array 
+  //**/ ---------------------------------------------------------------
+  psVector vecYY, vecWgts;;
+  vecYY.setLength(nSamples);
+  for (sInd = 0; sInd < nSamples; sInd++)
+    vecYY[sInd] = Y[sInd*nOutputs+outputID];
+  if (wgtID >= 0)
+  {
+    vecWgts.setLength(nSamples);
+    for (sInd = 0; sInd < nSamples; sInd++)
+      vecWgts[sInd] = Y[sInd*nOutputs+wgtID];
+  }
 
-   fa = genFA(rsType_, nInputs, iOne=1, nSamples);
-   if (fa == NULL)
-   {
-      printOutTS(PL_INFO,"FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
-      delete [] YY;
-      delete fa;
-      if (wgts != NULL) delete [] wgts;
-      return 1.0e12;
-   }
-   fa->setNPtsPerDim(nPtsPerDim);
-   fa->setBounds(xLower, xUpper);
-   fa->setOutputLevel(0);
-   if (wgtID >= 0)
-   {
-      fa->loadWeights(nSamples, wgts);
-      delete [] wgts;
-   }
-   status = fa->initialize(X, YY);
-   if (status != 0)
-   {
+  //**/ ---------------------------------------------------------------
+  //**/ generate response surface 
+  //**/ ---------------------------------------------------------------
+  fa = genFA(rsType_, nInputs, iOne=1, nSamples);
+  if (fa == NULL)
+  {
+    printOutTS(PL_INFO,"FORMAnalyzer ERROR: FuncApprox returns NULL.\n");
+    delete fa;
+    return 1.0e12;
+  }
+  fa->setNPtsPerDim(nPtsPerDim);
+  fa->setBounds(xLower, xUpper);
+  fa->setOutputLevel(0);
+  if (wgtID >= 0) fa->loadWeights(nSamples, vecWgts.getDVector());
+
+  status = fa->initialize(X, vecYY.getDVector());
+  if (status != 0)
+  {
+    printOutTS(PL_INFO, 
+         "FORMAnalyzer ERROR: FuncApprox returns error.\n");
+    delete fa;
+    return 1.0e12;
+  }
+
+  //**/ ---------------------------------------------------------------
+  //**/ skip the transformation for now
+  //**/ ---------------------------------------------------------------
+
+  //**/ ---------------------------------------------------------------
+  //**/ set initial guess and initialize
+  //**/ ---------------------------------------------------------------
+  psVector vecCurrZ, vecAlphas;
+  vecCurrZ.setLength(nInputs);
+  for (ii = 0; ii < nInputs; ii++)
+    vecCurrZ[ii] = 0.5 * (xUpper[ii] + xLower[ii]);
+  vecAlphas.setLength(nInputs);
+  beta = 0.0;
+  for (ii = 0; ii < nInputs; ii++) beta += vecCurrZ[ii] * vecCurrZ[ii];
+  beta = sqrt(beta);
+
+  //**/ ---------------------------------------------------------------
+  //**/ iterate (beta = sqrt(Z'*Z), iter = 1) 
+  //**/    compute alpha = partial(F(Z))/partial(Z)
+  //**/    compute F(Z) 
+  //**/    compute Z = - alpha (beta + F(Z)/L)
+  //**/    update beta
+  //**/    check whether beta has stabilized
+  //**/ ---------------------------------------------------------------
+  iter = 1;
+  while (iter < 1000)
+  {
+    gdata = fa->evaluatePoint(vecCurrZ.getDVector()) - thresh;
+    for (ii = 0; ii < nInputs; ii++)
+    {
+      vecCurrZ[ii] += 1.0e-5;
+      ddata = fa->evaluatePoint(vecCurrZ.getDVector()) - thresh;
+      vecCurrZ[ii] -= 1.0e-5;
+      vecAlphas[ii] = (ddata - gdata) * 1.0e5;
+    }
+    Ldata = 0.0;
+    for (ii = 0; ii < nInputs; ii++) 
+      Ldata += vecAlphas[ii] * vecAlphas[ii];
+    Ldata = sqrt(Ldata);
+    for (ii = 0; ii < nInputs; ii++) vecAlphas[ii] /= Ldata;
+    if (Ldata < 1.0e-12) break;
+    for (ii = 0; ii < nInputs; ii++) 
+      vecCurrZ[ii] = - vecAlphas[ii] * (beta + gdata / Ldata);
+    oldbeta = beta;
+    beta = 0.0;
+    for (ii = 0; ii < nInputs; ii++) beta += vecCurrZ[ii] * vecCurrZ[ii];
+    beta = sqrt(beta);
+    if (printLevel > 1)
       printOutTS(PL_INFO, 
-           "FORMAnalyzer ERROR: FuncApprox returns error.\n");
-      delete [] YY;
-      delete fa;
-      return 1.0e12;
-   }
+           "FORM analyze: beta at iter %4d = %12.4e(%12.4e)\n",iter,
+           beta, oldbeta);
+    if (PABS((beta-oldbeta)/(beta+oldbeta)) < 1.0e-4) break;
+    iter++;
+  }
+  if (printLevel > 1)
+  {
+    printOutTS(PL_INFO, "FORMAnalyzer: optimal point = \n");
+    for (ii = 0; ii < nInputs; ii++) 
+      printOutTS(PL_INFO, "\t X[%3d] = %12.4e\n",ii+1,vecCurrZ[ii]);
+    printOutTS(PL_INFO, "optimal distance = %12.4e\n",beta);
+    printOutTS(PL_INFO, "number of iterations = %d\n",iter);
+  }
 
-
-   currZ = new double[nInputs];
-   checkAllocate(currZ, "currZ in FORM::analyze");
-   for (ii = 0; ii < nInputs; ii++)
-      currZ[ii] = 0.5 * (xUpper[ii] + xLower[ii]);
-   alphas = new double[nInputs];
-   checkAllocate(alphas, "alphas in FORM::analyze");
-   beta = 0.0;
-   for (ii = 0; ii < nInputs; ii++) beta += currZ[ii] * currZ[ii];
-   beta = sqrt(beta);
-
-   iter = 1;
-   while (iter < 1000)
-   {
-      gdata = fa->evaluatePoint(currZ) - thresh;
-      for (ii = 0; ii < nInputs; ii++)
-      {
-         currZ[ii] += 1.0e-5;
-         ddata = fa->evaluatePoint(currZ) - thresh;
-         currZ[ii] -= 1.0e-5;
-         alphas[ii] = (ddata - gdata) * 1.0e5;
-      }
-      Ldata = 0.0;
-      for (ii = 0; ii < nInputs; ii++) Ldata += alphas[ii] * alphas[ii];
-      Ldata = sqrt(Ldata);
-      for (ii = 0; ii < nInputs; ii++) alphas[ii] /= Ldata;
-      if (Ldata < 1.0e-12) break;
-      for (ii = 0; ii < nInputs; ii++) 
-         currZ[ii] = - alphas[ii] * (beta + gdata / Ldata);
-      oldbeta = beta;
-      beta = 0.0;
-      for (ii = 0; ii < nInputs; ii++) beta += currZ[ii] * currZ[ii];
-      beta = sqrt(beta);
-      if (printLevel > 1)
-         printOutTS(PL_INFO, 
-              "FORM analyze: beta at iter %4d = %12.4e(%12.4e)\n",iter,
-              beta, oldbeta);
-      if (PABS((beta-oldbeta)/(beta+oldbeta)) < 1.0e-4) break;
-      iter++;
-   }
-   if (printLevel > 1)
-   {
-      printOutTS(PL_INFO, "FORMAnalyzer: optimal point = \n");
-      for (ii = 0; ii < nInputs; ii++) 
-         printOutTS(PL_INFO, "\t X[%3d] = %12.4e\n",ii+1,currZ[ii]);
-      printOutTS(PL_INFO, "optimal distance = %12.4e\n",beta);
-      printOutTS(PL_INFO, "number of iterations = %d\n",iter);
-   }
-
-   delete fa;
-   delete [] currZ;
-   delete [] alphas;
-   delete [] YY;
-   return 0.0;
+  //**/ ---------------------------------------------------------------
+  //**/ clean up 
+  //**/ ---------------------------------------------------------------
+  delete fa;
+  return 0.0;
 }
 
 // ************************************************************************ 
@@ -199,20 +216,20 @@ double FORMAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 int FORMAnalyzer::setParams(int argc, char **argv)
 {
-   char  *request = (char *) argv[0];
-   Analyzer::setParams(argc, argv);
-   if (!strcmp(request, "rstype"))
-   {
-      if (argc != 2) printOutTS(PL_INFO,"FORMAnalyzer WARNING: setParams.\n");
-      rsType_ = *(int *) argv[1];
-      if (rsType_ < 0 || rsType_ >= PSUADE_NUM_RS) rsType_ = 0;
-   }
-   else
-   {
-      printOutTS(PL_ERROR, "FORMAnalyzer ERROR: setParams not valid.\n");
-      exit(1);
-   }
-   return 0;
+  char  *request = (char *) argv[0];
+  Analyzer::setParams(argc, argv);
+  if (!strcmp(request, "rstype"))
+  {
+    if (argc != 2) printOutTS(PL_INFO,"FORMAnalyzer WARNING: setParams.\n");
+    rsType_ = *(int *) argv[1];
+    if (rsType_ < 0 || rsType_ >= PSUADE_NUM_RS) rsType_ = 0;
+  }
+  else
+  {
+    printOutTS(PL_ERROR, "FORMAnalyzer ERROR: setParams not valid.\n");
+    exit(1);
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -220,9 +237,9 @@ int FORMAnalyzer::setParams(int argc, char **argv)
 // ------------------------------------------------------------------------
 FORMAnalyzer& FORMAnalyzer::operator=(const FORMAnalyzer &)
 {
-   printOutTS(PL_ERROR, 
-        "FORMAnalyzer operator= ERROR: operation not allowed.\n");
-   exit(1);
+  printOutTS(PL_ERROR, 
+       "FORMAnalyzer operator= ERROR: operation not allowed.\n");
+  exit(1);
    return (*this);
 }
 

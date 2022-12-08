@@ -1,0 +1,3 @@
+clean:
+	rm -f *.m *.sci subsystem fullsystem *.psu psuadeData MCMCPostSample .psuade_mars
+

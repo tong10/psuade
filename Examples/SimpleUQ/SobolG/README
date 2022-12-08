@@ -1,0 +1,60 @@
+The Sobol g-function
+
+f = product_i^n g_i(x_i)
+
+where
+
+g_i = (| 4 x_i - 2 | + a_i ) / (1 + a_i)
+
+n = 8
+
+0 <= x_i <= 1
+
+a[1-8] = [0, 1, 4.5, 9, 99, 99, 99, 99]
+
+mean     = 1
+variance = 0.4652
+
+sensitivity coefficients VCE(i)/V
+X1          0.7165
+X2          0.1791
+X3          0.0237
+X4          0.0072
+X5-8        0.0001
+
+===================================================
+Two approaches to compute sensitivity coefficients:
+
+1. LH-based main effect
+
+cc -o simulator simulator.c -lm
+psuade psuadeLH.in
+
+2. FAST-based main effect
+
+cc -o simulator simulator.c -lm
+psuade psuadeFAST.in
+
+3. LH-based main effect with sampling refinement
+   (This method begins with 200 sample points, and
+   refinements and main effect analysis will be
+   performed after each refinement. Observe the
+   changes in the VCE indices - should be more
+   accurate with more refinements)
+
+cc -o simulator simulator.c -lm
+psuade psuadeRLH.in
+
+4. RS-based main effect or pairwise effect based on 
+   integration
+
+   first, run: psuade psuadeRS.in
+   then, move psuadeData to psData
+   finally, run: psuade psuadeRSME.in or psuadeRSIE.in 
+
+5. RS-based main effect based on RLH on RS
+
+   first, run: psuade psuadeRSRLH.in
+   then, move psuadeData to psData
+   finally, run: psuade psuadeRSRLH.in 
+   

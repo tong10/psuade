@@ -1,0 +1,24 @@
+# create a training sample and rename it RSSample
+sys cc -o simulator simulator.c -lm
+run psuadeRS.in
+rename psuadeData RSSample
+# create a large sample for propagating sensitivities
+run psuadeGenLargeSample.in
+rename psuadeData largeSample
+# set the driver field of large sample to be RSSample
+load largeSample
+setdriver
+1
+RSSample
+write largeSample
+# run the large sample with response surface
+run largeSample
+rename psuadeData largeSample
+# run main effect analysis
+load largeSample
+me
+y
+1
+q
+
+

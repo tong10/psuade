@@ -1,0 +1,16 @@
+A function with many local minima.
+
+solution: [0, ..0]
+
+min F = 0
+
+To run:
+    cc -o simulator simulator.c -lm
+    psuade psuade.in
+
+Or,
+    psuade < psScript.in
+
+To clean up:
+    make -f MakeClean
+

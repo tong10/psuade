@@ -1,0 +1,92 @@
+============================================================
+Uncertainty and sensitivity aalysis using Ishigami function
+============================================================
+
+Y = sin(X_1) + A sin^2(X_2) + B X_3^4 sin(X_1)
+
+X_i = U[-pi, pi]
+
+A = 7
+B = 0.1
+
+mean = 3.5
+variance = 0.1 pi^4 / 5 + 0.1^2 pi^8/18 + 1/2 + 49/8 = 13.8445
+
+sensitivity coefficient VCE(X_i)/V
+X1 = 0.3139
+X2 = 0.4424
+X3 = 0
+
+============================================================
+To run:
+------------------------------------------------------------
+cc -o simulator simulator.c -lm
+psuade psuade.in
+mv psuadeData sample.psu
+
+============================================================
+To perform uncertainty analysis on the raw data (mean, std) 
+------------------------------------------------------------
+psuade
+> load sample.psu
+> ua
+
+============================================================
+To perform response surface analysis 
+------------------------------------------------------------
+psuade
+> load sample.psu
+> rscheck
+  <select response surface method>
+  <select output>
+  <say yes to cross validation>
+  use 10 (or any other choice of) groups
+  yes to random selection
+> quit
+
+use matlab to view the RSFA_CV_err.m file.
+The plot on the left shows the distribution of prediction 
+errors.
+The plot on the right shows actual versus predicted values. 
+The closer all 'x' lie on the diagonal, the more accurate 
+the predictions. 
+
+============================================================
+To perform main effect analysis using response surface 
+------------------------------------------------------------
+psuade
+> load sample.psu
+> rssobol1
+Use response surface you found out from response surface
+analysis
+
+============================================================
+To perform pairwise interaction effect sensitivity analysis  
+(main effect + two-way effect)
+------------------------------------------------------------
+psuade
+> load sample.psu
+> rssobolt2
+
+============================================================
+To perform total effect sensitivity analysis using response
+surfaces 
+------------------------------------------------------------
+psuade
+> load sample.psu
+> rssoboltsi
+Try different response surfaces
+
+============================================================
+To perform group sensitivity analysis  
+Group 1: parameter 1 and 2
+Group 2: parameter 3
+These information have been defined in the 'group' file
+------------------------------------------------------------
+psuade
+> load sample.psu
+> rssobolg
+  group
+
+
+

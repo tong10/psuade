@@ -1,0 +1,21 @@
+main: altmov.o bobyqa.o bobyqb.o calfun.o main.o prelim.o rescue.o trsbox.o update.o
+	ifort -g altmov.o bobyqa.o bobyqb.o calfun.o main.o prelim.o rescue.o trsbox.o update.o
+altmov.o: altmov.f
+	ifort -g  -c altmov.f
+bobyqa.o: bobyqa.f
+	ifort -g  -c bobyqa.f
+bobyqb.o: bobyqb.f
+	ifort -g  -c bobyqb.f
+calfun.o: calfun.f
+	ifort -g  -c calfun.f
+main.o: main.f
+	ifort -g  -c main.f
+prelim.o: prelim.f
+	ifort -g  -c prelim.f
+rescue.o: rescue.f
+	ifort -g  -c rescue.f
+trsbox.o: trsbox.f
+	ifort -g  -c trsbox.f
+update.o: update.f
+	ifort -g  -c update.f
+

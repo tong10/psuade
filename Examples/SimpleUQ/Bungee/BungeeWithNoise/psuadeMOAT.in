@@ -1,0 +1,63 @@
+PSUADE
+INPUT
+   dimension = 40
+   variable   1 H   = 40  60
+   variable   2 M   = 67  74
+   variable   3 sig = 20  40
+   variable   4 X   = 0   1
+   variable   5 X   = 0   1
+   variable   6 X   = 0   1
+   variable   7 X   = 0   1
+   variable   8 X   = 0   1
+   variable   9 X   = 0   1
+   variable  10 X   = 0   1
+   variable  11 X   = 0   1
+   variable  12 X   = 0   1
+   variable  13 X   = 0   1
+   variable  14 XE =  0   1.0
+   variable  15 XF =  0   1.0
+   variable  16 XG =  0   1.0
+   variable  17 XH =  0   1.0
+   variable  18 XI =  0   1.0
+   variable  19 XJ =  0   1.0
+   variable  20 XK =  0   1.0
+   variable  21 X   = 0   1
+   variable  22 X   = 0   1
+   variable  23 X   = 0   1
+   variable  24 XE =  0   1.0
+   variable  25 XF =  0   1.0
+   variable  26 XG =  0   1.0
+   variable  27 XH =  0   1.0
+   variable  28 XI =  0   1.0
+   variable  29 XJ =  0   1.0
+   variable  30 XK =  0   1.0
+   variable  31 X   = 0   1
+   variable  32 X   = 0   1
+   variable  33 X   = 0   1
+   variable  34 XE =  0   1.0
+   variable  35 XF =  0   1.0
+   variable  36 XG =  0   1.0
+   variable  37 XH =  0   1.0
+   variable  38 XI =  0   1.0
+   variable  39 XJ =  0   1.0
+   variable  40 XK =  0   1.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = GMOAT
+   num_samples = 410
+END
+APPLICATION
+   driver = ./simulator
+#  max_parallel_jobs = 2
+#  launch_interval = 0
+END
+ANALYSIS
+   analyzer method = MOAT
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

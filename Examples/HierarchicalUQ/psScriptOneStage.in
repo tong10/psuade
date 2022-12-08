@@ -1,0 +1,40 @@
+# create a sample for the 2 parameters ==> prior2Inps.psu
+run psuadeGenSample2.in
+sys mv psuadeData prior2Inps.psu
+# prepare the full system model
+sys cc -o fullsystem fullsystem.c -lm
+# run the full system model for RS creation
+run psuadeFullSysRS.in
+sys mv psuadeData fullsys.psu
+# load fullsys.psu
+load fullsys.psu
+# set rstype to GP
+set_rstype
+10
+# write back to fullsys.psu
+write fullsys.psu
+# load prior2Inps.psu
+load prior2Inps.psu
+# setdriver to point to fullsys.psu to be used as RS
+setdriver
+1
+./fullsys.psu
+# update prior2Inps.psu with driver
+write prior2Inps.psu
+# run prior2Inps.psu with RS
+run prior2Inps.psu
+# move the results back to prior2Inps.psu 
+sys mv psuadeData prior2Inps.psu
+# ana_expert off
+ana_expert off
+# load prior2Inps.psu
+load prior2Inps.psu
+# perform UA and main effect analysis
+ua
+y
+1
+me
+y
+1
+q
+

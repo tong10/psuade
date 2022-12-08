@@ -1,0 +1,35 @@
+# This script first creates CandidateSet1 (25 points
+# minus 14 and 19) and then perform ODOE to find the
+# next 2 points (based on odoeu_posterior for 14,19).
+setranseed 11111111
+read_std CandidateSet0
+sdelete
+y
+2
+14
+19
+0
+iwrite CandidateSet1
+# run ODOE with odoeu_posterior and CandidateSet1
+odoeu_boptn
+y
+1
+23
+2
+5000
+y
+10
+RSTrainSample
+3
+0
+odoeu_posterior
+CandidateSet1
+CandidateSet1
+0
+# the result should be that 17 and 22 will be selected next
+# (17 and 23 == 18 and 24 in the original 25-candidate set)
+# This search is somewhat artificial because the sce method
+# uses initial guess of (17,22). Otherwise, it lands on
+# (17,23) although the minimum is at (17,22)
+q
+

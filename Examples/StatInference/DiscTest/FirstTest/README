@@ -1,0 +1,127 @@
+==================================================================
+This example compares the 3 options:
+1. MCMC with discrepancy (built wrt the design parameter X1)
+2. MCMC without discrepancy
+which shows that option 3 gives the smallest posterior uncertainty.
+==================================================================
+Problem definition:
+
+Let X1 be a design parameter.
+X2 is an uncertain parameter.
+0.6 <= X1 <= 0.9
+0   <= X2 <= 1
+
+******************************************************************
+Problem:
+------------------------------------------------------------------
+The true model is
+
+Ye = X1 + X2 + X2 * X1 
+
+where the uncertain (calibration) parameter is X2 (true value=0.9)
+
+so true experimental Y is given by
+
+Y_e = X1 + 0.9 + 0.9 * X1 = 1.9 * X1 + 0.9
+------------------------------------------------------------------
+The simulation model is (so there is a missing term X1*X2: 
+
+Y_s = X1 + X2
+
+------------------------------------------------------------------
+Discrepancy function: (set X2 to mid point to avoid confounding)
+
+d1 = Y_e - Y_s 
+   = 1.9 * X1 + 0.9 - X1 - X2
+   = 0.9 * X1 + 0.9 - X2
+
+Set X2 at midpoint = 0.5
+
+d1 = 0.9 * X1 + 0.4
+
+------------------------------------------------------------------
+add d1 to Y_s gives
+
+hat(Ys) = Y_s + d1 
+        = X1 + X2 + 0.9 * X1 + 0.4 
+        = 1.9 * X1 + X2 + 0.4
+
+If the posterior of X2 centers around 0.5, then 
+
+hat(Ys) = 1.9 * X1 + 0.9 (= true model: X1+X2+X1*X2 with X2=0.5)
+
+******************************************************************
+                 Steps
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+A. Run with discrepancy (psScript1a.in and psScript1b.in)
+------------------------------------------------------------------
+1. run psuade < psScript1a.in
+   After it is completed, 3 files have been created:
+   (1) DiscrepancyModel1 - the sample file for the discrepancy model
+   (2) MCMCPostSample - a sample drawn from the posterior of the
+                        calibration parameter. The first parameter
+                        in the file is the design parameter X1.
+   (3) matlabmcmc2.m - for displaying the posteriors (parameter 2)
+
+2. uncertainty analysis based on the posterior
+    (The following is captured in psScript1b.in so you can do
+     psuade < psScript1b.in instead)
+
+    psuade
+    > load simdata (which is a sample from the simulator)
+    > mcmcpredict
+      choose quadratic (option 2)
+      Discrepancy file: DiscrepancyModel
+      response surface option: 2 (quadratic)
+      Sample file: MCMCPostSample
+      evaluation file: evaldata
+
+evaldata has X1=0.5, so substitute it into the formula
+the predicted output should be = 1.9 * 0.5 + 0.5 + 0.4
+                               = 1.85
+
+After running mcmc_predict, it should display something like:
+
+** Sample mean  = 1.8497383953136191e+00
+** Sample stdev = 2.1996303299434066e-02
+True mean = 1.85
+
+------------------------------------------------------------------
+B. Run without discrepancy (psScript2a.in and psScript2b.in)
+------------------------------------------------------------------
+1. now run psuade < psScript2a.in (run with no discrepancy)
+    After it is completed, 3 files have been created:
+    (1) MCMCPostSample - a sample drawn from the posterior of the
+                        calibration parameter. The first parameter
+                        in the file is some design parameter X1.
+    (2) matlabmcmc2.m - for displaying the posteriors (parameter 2)
+
+2. uncertainty analysis based on the posterior
+    (The following is captured in psScript1b.in, so you can do
+     psuade < psScript2b.in instead)
+
+    psuade
+    > load simdata
+    > mcmcpredict
+      choose quadratic (option 2)
+      Discrepancy file: none
+      Sample file: MCMCPostSample
+      evaluation file: evaldata
+
+Since the posterior mean for X2 is 1, the predicted output '
+should be = X1 + X2 = 0.5 + 1 = 1.5
+
+After running mcmc_predict, it should display something like:
+
+** Sample mean  = 1.4991396305403102e+00
+** Sample stdev = 8.3089043513667293e-04
+
+but the true mean should be 1.5 and the stdev is misleading.
+So small sample standard deviation does not mean much here.
+You can view the posterior plots and observe that the distribution
+is skewed toward the end of the spectrum and the negative log
+likelihood is around 700 (the ideal is 0 in the with discrepancy
+case above).
+

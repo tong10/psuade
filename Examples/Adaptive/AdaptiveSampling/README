@@ -1,0 +1,25 @@
+This example shows how to perform one step of adaptive 
+refinement. There are two possible cases:
+
+(1) if the initial sample is a METIS sample, then
+    one can use the arefine_metis command for one
+    step of refinement.
+(1) if the initial sample is not a METIS sample, 
+    then one can use the arefine command.
+
+Running with psScript1.in, the result (by adding 
+10 new points) will create a new sample file
+that has 110 points (100 initial + 10 new).
+
+The psScript2.in will take this file, run simulation
+on the unevaluated points, and perform another step
+of adaptive refinement and give the sam120.psu file.
+
+You may use iplot2 on sam120.psu to view the distribution 
+of adaptively generated sample points using Matlab.
+
+IMPORTANT: while you are performing these operations,
+   do not delete or change the psuadeMetisInfo file,
+   which contains pertinent information for refinement
+   to succeed.
+

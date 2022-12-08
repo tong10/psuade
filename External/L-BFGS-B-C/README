@@ -1,0 +1,3 @@
+Sept 2020
+- take out the statics so that this can be run in parallel with OpenMP
+

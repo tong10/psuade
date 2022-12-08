@@ -49,12 +49,8 @@ extern "C"
 CSRegression::CSRegression(int nInputs,int nSamples):
                     FuncApprox(nInputs,nSamples)
 {
-   faID_ = PSUADE_RS_CSREG;
-   numTerms_  = 0;
-   termOrders_ = NULL;
-   regCoeffs_ = NULL;
-   regStdevs_ = NULL;
-   fuzzyC_    = NULL;
+  faID_ = PSUADE_RS_CSREG;
+  numTerms_  = 0;
 }
 
 // ************************************************************************
@@ -62,7 +58,6 @@ CSRegression::CSRegression(int nInputs,int nSamples):
 // ------------------------------------------------------------------------
 CSRegression::~CSRegression()
 {
-   cleanUp();
 }
 
 // ************************************************************************
@@ -70,243 +65,289 @@ CSRegression::~CSRegression()
 // ------------------------------------------------------------------------
 int CSRegression::initialize(double *X, double *Y)
 {
-   int status, ii;
- 
-   cleanUp();
-   
-   status = analyze(X, Y);
-   if (status != 0)
-   {
-      printf("CSRegression: ERROR detected in regression analysis.\n");
-      return -1;
-   }
-   return 0;
+  //**/ ---------------------------------------------------------------
+  //**/ launch regression 
+  //**/ ---------------------------------------------------------------
+  int status = analyze(X, Y);
+  if (status != 0)
+  {
+    printf("CSRegression: ERROR detected in regression analysis.\n");
+    return -1;
+  }
+  return 0;
 }
 
 // ************************************************************************
 // Generate lattice data based on the input set
 // ------------------------------------------------------------------------
-int CSRegression::genNDGridData(double *X, double *Y, int *NN, double **XX, 
-                                double **YY)
+int CSRegression::genNDGridData(double *XIn, double *YIn, int *NOut, 
+                                double **XOut, double **YOut)
 {
-   int mm, totPts;
+  int mm, totPts;
 
-   if (initialize(X,Y) != 0)
-   {
-      printf("CSRegression: ERROR detected in regression analysis.\n");
-      (*NN) = 0;
-      return -1;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  if (initialize(XIn,YIn) != 0)
+  {
+    printf("CSRegression: ERROR detected in regression analysis.\n");
+    (*NOut) = 0;
+    return -1;
+  }
 
-   if ((*NN) == -999) return 0;
+  //**/ ---------------------------------------------------------------
+  //**/ return if there is no request to create lattice points
+  //**/ ---------------------------------------------------------------
+  if ((*NOut) == -999) return 0;
 
-   genNDGrid(NN, XX);
-   if ((*NN) == 0) return 0;
-   totPts = (*NN);
+  //**/ ---------------------------------------------------------------
+  //**/ generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(NOut, XOut);
+  if ((*NOut) == 0) return 0;
+  totPts = (*NOut);
 
-   (*YY) = new double[totPts];
-   checkAllocate(*YY, "YY in CSRegression::genNDGrid");
-   (*NN) = totPts;
-   for (mm = 0; mm < totPts; mm++)
-      (*YY)[mm] = evaluatePoint(&((*XX)[mm*nInputs_]));
-   return 0;
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for the data points and generate them
+  //**/ ---------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  (*NOut) = totPts;
+  for (mm = 0; mm < totPts; mm++)
+    (*YOut)[mm] = evaluatePoint(&((*XOut)[mm*nInputs_]));
+  return 0;
 }
 
 // ************************************************************************
 // Generate 1D mesh results (setting others to some nominal values) 
 // ------------------------------------------------------------------------
-int CSRegression::gen1DGridData(double *X, double *Y, int ind1,
-                                double *settings, int *NN, 
-                                double **XX, double **YY)
+int CSRegression::gen1DGridData(double *XIn, double *YIn, int ind1,
+                                double *settings, int *NOut, 
+                                double **XOut, double **YOut)
 {
-   int    totPts, mm, nn;
-   double HX, *Xloc;
+  int    totPts, mm, nn;
+  double HX;
+  psVector vecXT;
 
-   if (initialize(X,Y) != 0)
-   {
-      printf("CSRegression: ERROR detected in regression analysis.\n");
-      (*NN) = 0;
-      return -1;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  if (initialize(XIn,YIn) != 0)
+  {
+    printf("CSRegression: ERROR detected in regression analysis.\n");
+    (*NOut) = 0;
+    return -1;
+  }
 
-   totPts = nPtsPerDim_;
-   HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_;
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-   (*NN) = totPts;
-   (*XX) = new double[totPts];
-   (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   checkAllocate(Xloc, "Xloc in CSRegression::gen1DGrid");
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
-   for (mm = 0; mm < nPtsPerDim_; mm++) 
-   {
-      Xloc[ind1] = HX * mm + lowerBounds_[ind1];
-      (*XX)[mm] = Xloc[ind1];
-      (*YY)[mm] = evaluatePoint(Xloc);
-   }
-
-   delete [] Xloc;
-   return 0;
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
+  for (mm = 0; mm < nPtsPerDim_; mm++) 
+  {
+    vecXT[ind1] = HX * mm + VecLBs_[ind1];
+    (*XOut)[mm] = vecXT[ind1];
+    (*YOut)[mm] = evaluatePoint(vecXT.getDVector());
+  }
+  return 0;
 }
 
 // ************************************************************************
 // Generate 2D mesh results (setting others to some nominal values) 
 // ------------------------------------------------------------------------
-int CSRegression::gen2DGridData(double *X, double *Y, int ind1,
-                                int ind2, double *settings, int *NN, 
-                                double **XX, double **YY)
+int CSRegression::gen2DGridData(double *XIn, double *YIn, int ind1,
+                                int ind2, double *settings, int *NOut, 
+                                double **XOut, double **YOut)
 {
-   int    totPts, mm, nn, ind;
-   double *HX, *Xloc;
+  int totPts, mm, nn, ind;
+  psVector vecHX, vecXT;
 
-   if (initialize(X,Y) != 0)
-   {
-      printf("CSRegression: ERROR detected in regression analysis.\n");
-      (*NN) = 0;
-      return -1;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  if (initialize(XIn,YIn) != 0)
+  {
+    printf("CSRegression: ERROR detected in regression analysis.\n");
+    (*NOut) = 0;
+    return -1;
+  }
 
-   totPts = nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[2];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
 
-   (*NN) = totPts;
-   (*XX) = new double[totPts * 2];
-   (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   checkAllocate(Xloc, "Xloc in CSRegression::gen2DGrid");
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*2);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
-   for (mm = 0; mm < nPtsPerDim_; mm++) 
-   {
-      for (nn = 0; nn < nPtsPerDim_; nn++)
-      {
-         ind = mm * nPtsPerDim_ + nn;
-         Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-         Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-         (*XX)[ind*2]   = Xloc[ind1];
-         (*XX)[ind*2+1] = Xloc[ind2];
-         (*YY)[ind] = evaluatePoint(Xloc);
-      }
-   }
-
-   delete [] Xloc;
-   delete [] HX;
-   return 0;
+  for (mm = 0; mm < nPtsPerDim_; mm++) 
+  {
+    for (nn = 0; nn < nPtsPerDim_; nn++)
+    {
+      ind = mm * nPtsPerDim_ + nn;
+      vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+      vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+      (*XOut)[ind*2]   = vecXT[ind1];
+      (*XOut)[ind*2+1] = vecXT[ind2];
+      (*YOut)[ind] = evaluatePoint(vecXT.getDVector());
+    }
+  }
+  return 0;
 }
 
 // ************************************************************************
 // Generate 3D mesh results (setting others to some nominal values) 
 // ------------------------------------------------------------------------
-int CSRegression::gen3DGridData(double *X, double *Y, int ind1,
+int CSRegression::gen3DGridData(double *XIn, double *YIn, int ind1,
                                 int ind2, int ind3, double *settings, 
-                                int *NN, double **XX, double **YY)
+                                int *NOut, double **XOut, double **YOut)
 {
-   int    totPts, mm, nn, pp, ind;
-   double *HX, *Xloc;
+  int totPts, mm, nn, pp, ind;
+  psVector vecHX, vecXT;
 
-   if (initialize(X,Y) != 0)
-   {
-      printf("CSRegression: ERROR detected in regression analysis.\n");
-      (*NN) = 0;
-      return -1;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  if (initialize(XIn,YIn) != 0)
+  {
+    printf("CSRegression: ERROR detected in regression analysis.\n");
+    (*NOut) = 0;
+    return -1;
+  }
 
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[3];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
 
-   (*NN) = totPts;
-   (*XX) = new double[totPts * 3];
-   (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   checkAllocate(Xloc, "Xloc in CSRegression::gen3DGrid");
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*3);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
-   for (mm = 0; mm < nPtsPerDim_; mm++) 
-   {
-      for (nn = 0; nn < nPtsPerDim_; nn++)
+  for (mm = 0; mm < nPtsPerDim_; mm++) 
+  {
+    for (nn = 0; nn < nPtsPerDim_; nn++)
+    {
+      for (pp = 0; pp < nPtsPerDim_; pp++)
       {
-         for (pp = 0; pp < nPtsPerDim_; pp++)
-         {
-            ind = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
-            Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-            Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-            Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-            (*XX)[ind*3]   = Xloc[ind1];
-            (*XX)[ind*3+1] = Xloc[ind2];
-            (*XX)[ind*3+2] = Xloc[ind3];
-            (*YY)[ind] = evaluatePoint(Xloc);
-         }
+        ind = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
+        vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+        vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+        vecXT[ind3] = vecHX[2] * pp + VecLBs_[ind3];
+        (*XOut)[ind*3]   = vecXT[ind1];
+        (*XOut)[ind*3+1] = vecXT[ind2];
+        (*XOut)[ind*3+2] = vecXT[ind3];
+        (*YOut)[ind] = evaluatePoint(vecXT.getDVector());
       }
-   }
-
-   delete [] Xloc;
-   delete [] HX;
-   return 0;
+    }
+  }
+  return 0;
 }
 
 // ************************************************************************
 // Generate 4D mesh results (setting others to some nominal values) 
 // ------------------------------------------------------------------------
-int CSRegression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
+int CSRegression::gen4DGridData(double *XIn, double *YIn,int ind1,int ind2,
                                 int ind3, int ind4, double *settings, 
-                                int *NN, double **XX, double **YY)
+                                int *NOut, double **XOut, double **YOut)
 {
-   int    totPts, mm, nn, pp, qq, ind;
-   double *HX, *Xloc;
+  int totPts, mm, nn, pp, qq, ind;
+  psVector vecHX, vecXT;
 
-   if (initialize(X,Y) != 0)
-   {
-      printf("CSRegression: ERROR detected in regression analysis.\n");
-      (*NN) = 0;
-      return -1;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  if (initialize(XIn,YIn) != 0)
+  {
+    printf("CSRegression: ERROR detected in regression analysis.\n");
+    (*NOut) = 0;
+    return -1;
+  }
  
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[4];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-   HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4]) / (nPtsPerDim_ - 1); 
 
-   (*NN) = totPts;
-   (*XX) = new double[totPts * 4];
-   (*YY) = new double[totPts];
-   Xloc  = new double[nInputs_];
-   checkAllocate(Xloc, "Xloc in CSRegression::gen4DGrid");
-   for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*4);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
-   for (mm = 0; mm < nPtsPerDim_; mm++) 
-   {
-      for (nn = 0; nn < nPtsPerDim_; nn++)
+  for (mm = 0; mm < nPtsPerDim_; mm++) 
+  {
+    for (nn = 0; nn < nPtsPerDim_; nn++)
+    {
+      for (pp = 0; pp < nPtsPerDim_; pp++)
       {
-         for (pp = 0; pp < nPtsPerDim_; pp++)
-         {
-            for (qq = 0; qq < nPtsPerDim_; qq++)
-            {
-               ind = mm*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
-                       nn*nPtsPerDim_*nPtsPerDim_ + pp*nPtsPerDim_ + qq;
-               Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-               Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-               Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-               Xloc[ind4] = HX[3] * qq + lowerBounds_[ind4];
-               (*XX)[ind*4]   = Xloc[ind1];
-               (*XX)[ind*4+1] = Xloc[ind2];
-               (*XX)[ind*4+2] = Xloc[ind3];
-               (*XX)[ind*4+3] = Xloc[ind4];
-               (*YY)[ind] = evaluatePoint(Xloc);
-            }
-         }
+        for (qq = 0; qq < nPtsPerDim_; qq++)
+        {
+          ind = mm*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
+                nn*nPtsPerDim_*nPtsPerDim_ + pp*nPtsPerDim_ + qq;
+          vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+          vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+          vecXT[ind3] = vecHX[2] * pp + VecLBs_[ind3];
+          vecXT[ind4] = vecHX[3] * qq + VecLBs_[ind4];
+          (*XOut)[ind*4]   = vecXT[ind1];
+          (*XOut)[ind*4+1] = vecXT[ind2];
+          (*XOut)[ind*4+2] = vecXT[ind3];
+          (*XOut)[ind*4+3] = vecXT[ind4];
+          (*YOut)[ind] = evaluatePoint(vecXT.getDVector());
+        }
       }
-   }
-
-   delete [] Xloc;
-   delete [] HX;
-   return 0;
+    }
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -314,26 +355,27 @@ int CSRegression::gen4DGridData(double *X, double *Y, int ind1, int ind2,
 // ------------------------------------------------------------------------
 double CSRegression::evaluatePoint(double *X)
 {
-   int    mm, nn;
-   double Xdata, Xdata2, Y;
+  int    mm, nn;
+  double Xdata, Xdata2, Y;
 
-   if (regCoeffs_ == NULL)
-   {
-      printf("CSRegression ERROR: need to call initialize first.\n");
-      return 0.0;
-   }
-   Y = regCoeffs_[0];
-   for (mm = 1; mm < numTerms_; mm++)
-   {
-      Xdata = 0.0;
-      for (nn = 0; nn < nInputs_; nn++)
-      {
-         Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-         Xdata += pow(Xdata2, 1.0*termOrders_[mm][nn]);
-      }
-      Y += regCoeffs_[mm] * Xdata;
-   }
-   return Y;
+  if (VecRegCoeffs_.length() == 0)
+  {
+    printf("CSRegression ERROR: need to call initialize first.\n");
+    return 0.0;
+  }
+  Y = VecRegCoeffs_[0];
+  for (mm = 1; mm < numTerms_; mm++)
+  {
+    Xdata = 0.0;
+    for (nn = 0; nn < nInputs_; nn++)
+    {
+      Xdata2 = (X[nn] - VecXMeans_[nn]) / VecXStds_[nn]; 
+      Xdata += pow(Xdata2, 1.0*MatTermOrders_.getEntry(mm,nn));
+    }
+    Y += VecRegCoeffs_[mm] * Xdata;
+  }
+  Y = Y * YStd_ + YMean_;
+  return Y;
 }
 
 // ************************************************************************
@@ -341,9 +383,9 @@ double CSRegression::evaluatePoint(double *X)
 // ------------------------------------------------------------------------
 double CSRegression::evaluatePoint(int npts, double *X, double *Y)
 {
-   for (int kk = 0; kk < npts; kk++)
-      Y[kk] = evaluatePoint(&X[kk*nInputs_]);
-   return 0.0;
+  for (int kk = 0; kk < npts; kk++)
+    Y[kk] = evaluatePoint(&X[kk*nInputs_]);
+  return 0.0;
 }
 
 // ************************************************************************
@@ -351,45 +393,37 @@ double CSRegression::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double CSRegression::evaluatePointFuzzy(double *X, double &std)
 {
-   int    mm, nn, cc, nTimes=100;
-   double accum, *Ys, mean, stds, Xdata, Xdata2;
+  int    mm, nn;
+  double YOut, Xdata, Xdata2, stdev, ddata;
+  psVector vecXs;
 
-   if (regCoeffs_ == NULL)
-   {
-      printf("CSRegression ERROR: initialize has not been called.\n");
-      exit(1);
-   }
- 
-   Ys = new double[nTimes];
-   checkAllocate(Ys, "Ys in CSRegression::evaluatePointFuzzy");
+  //**/ evaluate mean 
+  vecXs.setLength(nInputs_+1);
+  vecXs[0] = 1;
+  for (nn = 0; nn < nInputs_; nn++)
+    vecXs[nn] = (X[nn] - VecXMeans_[nn]) / VecXStds_[nn]; 
 
-   mean = 0.0;
-   for (cc = 0; cc < nTimes; cc++)
-   {
-      accum = fuzzyC_[0][cc];
-      for (mm = 1; mm < numTerms_; mm++)
-      {
-         Xdata = 0.0;
-         for (nn = 0; nn < nInputs_; nn++)
-         {
-            Xdata2 = (X[nn] - XMeans_[nn]) / XStds_[nn]; 
-            Xdata += pow(Xdata2, 1.0*termOrders_[mm][nn]);
-         }
-         accum += fuzzyC_[mm][cc] * Xdata;
-      }
-      Ys[cc] = accum;
-      mean += accum;
-   }
-   mean /= (double) nTimes;
-   stds = 0.0;
-   for (cc = 0; cc < nTimes; cc++)
-      stds += (Ys[cc] - mean) * (Ys[cc] - mean);
-   stds = sqrt(stds / (nTimes - 1));
-   delete [] Ys;
-   std = stds; 
-   mean = mean * YStd_ + YMean_;
-   std  = std * YStd_;
-   return mean;
+  YOut = VecRegCoeffs_[0];
+  for (mm = 1; mm < numTerms_; mm++)
+  {
+    Xdata = 0.0;
+    for (nn = 0; nn < nInputs_; nn++)
+      Xdata += pow(vecXs[nn], 1.0*MatTermOrders_.getEntry(mm,nn));
+    YOut += VecRegCoeffs_[mm] * Xdata;
+  }
+  YOut = YOut * YStd_ + YMean_;
+
+  //**/ evaluate standard deviation
+  stdev = 0.0;
+  for (mm = 0; mm < numTerms_; mm++)
+  {
+    ddata = 0.0;
+    for (nn = 0; nn < numTerms_; nn++)
+      ddata += invCovMat_.getEntry(mm,nn) * vecXs[nn];
+    stdev += ddata * vecXs[mm];
+  }
+  stdev = sqrt(stdev) * YStd_;
+  return YOut;
 }
 
 // ************************************************************************
@@ -398,14 +432,16 @@ double CSRegression::evaluatePointFuzzy(double *X, double &std)
 double CSRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
                                         double *Ystd)
 {
-   if (regCoeffs_ == NULL)
-   {
-      printf("CSRegression ERROR: initialize has not been called.\n");
-      exit(1);
-   }
-   for (int kk = 0; kk < npts; kk++)
-      Y[kk] = evaluatePointFuzzy(&(X[kk*nInputs_]), Ystd[kk]);
-   return 0.0;
+  //**/ if no coefficient, flag error
+  if (VecRegCoeffs_.length() == 0)
+  {
+    printf("CSRegression ERROR: initialize has not been called.\n");
+    exit(1);
+  }
+  //**/ evaluate one point at a time
+  for (int kk = 0; kk < npts; kk++)
+    Y[kk] = evaluatePointFuzzy(&(X[kk*nInputs_]), Ystd[kk]);
+  return 0.0;
 }
 
 // ************************************************************************
@@ -413,420 +449,309 @@ double CSRegression::evaluatePointFuzzy(int npts, double *X, double *Y,
 // ------------------------------------------------------------------------
 int CSRegression::analyze(double *Xin, double *Y)
 {
-   int    M, N, ii, mm, nn, status;
-   double *B, *XX, SSresid, SStotal, R2, *XTX, var, *Bstd, *X;
-   double enorm, ymax, dtemp;
+  psVector VecX, VecY;
+  VecX.load(nSamples_*nInputs_, Xin);
+  VecY.load(nSamples_, Y);
+  return analyze(VecX, VecY);
+}
 
-   if (nInputs_ <= 0 || nSamples_ <= 0)
-   {
-      printf("CSRegression ERROR: consult PSUADE developers.\n");
-      exit( 1 );
-   } 
+// ************************************************************************
+// perform regression analysis
+// ------------------------------------------------------------------------
+int CSRegression::analyze(psVector VecXin, psVector VecYin)
+{
+  int    ii, mm, nn, status;
+  double SSresid, SStotal, R2, var, enorm, ymax, dtemp, *arrayXX;
+  psVector vecXT;
+  psMatrix matXX, matXTX;
+
+  //**/ =================================================================
+  //**/ preliminary error checking
+  //**/ =================================================================
+  if (nInputs_ <= 0 || nSamples_ <= 0)
+  {
+    printf("CSRegression ERROR: consult PSUADE developers.\n");
+    exit( 1 );
+  } 
    
-   if (outputLevel_ >= 0)
-   {
-      printAsterisks(PL_INFO, 0);
-      printf("*               Compressed Sensing Regression Analysis\n");
-      printf("* R-squared gives a measure of the goodness of the model.\n");
-      printf("* R-squared should be close to 1 if it is a good model.\n");
-      printDashes(PL_INFO, 0);
-   }
+  //**/ =================================================================
+  //**/ print linear, quadratic, cubic, or quartic regression analysis
+  //**/ =================================================================
+  if (outputLevel_ >= 0)
+  {
+    printAsterisks(PL_INFO, 0);
+    printf("*         Compressed Sensing Regression Analysis\n");
+    printf("* R-squared gives a measure of the goodness of the model.\n");
+    printf("* R-squared should be close to 1 if it is a good model.\n");
+    printDashes(PL_INFO, 0);
+  }
 
-   X = new double[nSamples_*nInputs_];
-   checkAllocate(X, "X in CSRegression::analyze");
-   if (psMasterMode_ == 1) 
-   {
-      printf("* CSRegression INFO: scaling turned off.\n");
-      printf("*              To turn on scaling, use rs_expert mode.\n");
-      initInputScaling(Xin, X, 0);
-   }
-   else initInputScaling(Xin, X, 1);
+  //**/ =================================================================
+  //**/ optional scaling of the sample matrix
+  //**/ =================================================================
+  vecXT.setLength(nSamples_*nInputs_);
+  if (psConfig_.MasterModeIsOn())
+  {
+    printf("* CSRegression INFO: scaling turned off.\n");
+    printf("*              To turn on scaling, use rs_expert mode.\n");
+    initInputScaling(VecXin.getDVector(), vecXT.getDVector(), 0);
+  }
+  else initInputScaling(VecXin.getDVector(), vecXT.getDVector(), 1);
 
-   status = optimize(X, Y);
-   if (status < 0)
-   {
-      printf("* CSRegression ERROR: error in compression.\n");
-      exit(1);
-   }   
+  //**/ =================================================================
+  //**/ further modify the polynomial order based on number of terms
+  //**/ =================================================================
+  status = optimize(vecXT, VecYin);
+  if (status < 0)
+  {
+    printf("* CSRegression ERROR: error in compression.\n");
+    exit(1);
+  }   
 
-   loadXMatrix(X, &XX);
-   N = numTerms_;
-   M = nSamples_;
+  //**/ =================================================================
+  //**/ load matrix based on orders
+  //**/ =================================================================
+  loadXMatrix(vecXT, matXX);
 
-   enorm = ymax = 0.0;
-   for (mm = 0; mm < M; mm++)
-   {
-      dtemp = 0.0;
-      for (nn = 0; nn < N; nn++) 
-         dtemp += XX[mm+nn*nSamples_] * regCoeffs_[nn];
-      dtemp -= Y[mm];
-      enorm = enorm + dtemp * dtemp;
-      if (PABS(Y[mm]) > ymax) ymax = PABS(Y[mm]);
-   }
-   enorm /= (double) nSamples_;
-   enorm = sqrt(enorm);
-   if (outputLevel_ > 1)
-      printf("* CSRegression: interpolation RMS error = %11.4e (Ymax=%9.2e)\n",
-             enorm, ymax); 
+  //**/ =================================================================
+  //**/ perform SVD 
+  //**/ =================================================================
+  arrayXX = matXX.getMatrix1D();
+  enorm = ymax = 0.0;
+  for (mm = 0; mm < nSamples_; mm++)
+  {
+    dtemp = 0.0;
+    for (nn = 0; nn < numTerms_; nn++) 
+      dtemp += arrayXX[mm+nn*nSamples_] * VecRegCoeffs_[nn];
+    dtemp -= VecYin[mm];
+    enorm = enorm + dtemp * dtemp;
+    if (PABS(VecYin[mm]) > ymax) ymax = PABS(VecYin[mm]);
+  }
+  enorm /= (double) nSamples_;
+  enorm = sqrt(enorm);
+  if (outputLevel_ > 1)
+    printf("* CSRegression: interpolation RMS error = %11.4e (Ymax=%9.2e)\n",
+           enorm, ymax); 
 
-   computeSS(N, XX, Y, regCoeffs_, SSresid, SStotal);
-   R2 = 1.0;
-   if (SStotal != 0.0) R2  = 1.0 - SSresid / SStotal;
-   if (nSamples_ > N) var = SSresid / (double) (nSamples_ - N);
-   else               var = 0.0;
-   if (var < 0)
-   { 
-      if (PABS(var) > 1.0e-12)
-           printf("CSRegression WARNING: var < 0.\n");
-      else var = 0;
-   }
+  //**/ =================================================================
+  //**/ form compute SS statistics 
+  //**/ =================================================================
+  computeSS(matXX, VecYin, VecRegCoeffs_, SSresid, SStotal);
+  R2 = 1.0;
+  if (SStotal != 0.0) R2  = 1.0 - SSresid / SStotal;
+  if (nSamples_ > numTerms_) 
+       var = SSresid / (double) (nSamples_ - numTerms_);
+  else var = 0.0;
+  if (var < 0)
+  { 
+    if (PABS(var) > 1.0e-12)
+         printf("CSRegression WARNING: var < 0.\n");
+    else var = 0;
+  }
 
-   Bstd = new double[N];
-   checkAllocate(Bstd, "Bstd in CSRegression::analyze");
-   computeXTX(N, XX, &XTX);
-   computeCoeffVariance(N, XTX, var, Bstd);
-   regStdevs_ = Bstd;
+  //**/ =================================================================
+  //**/ find variance of each coefficient 
+  //**/ =================================================================
+  VecRegStdevs_.setLength(numTerms_);
+  computeXTX(matXX, matXTX);
+  computeCoeffVariance(matXTX, var, VecRegStdevs_);
 
-   PDFManager *pdfman = new PDFManager();
-   int    cc, nTimes=100;
-   int    *inPDFs = new int[N];
-   double *inMeans = new double[N];
-   double *inStds = new double[N];
-   double *inUppers = new double[N];
-   double *inLowers = new double[N];
-   checkAllocate(inLowers, "inLowers in CSRegression::analyze");
-   for (nn = 0; nn < N; nn++)
-   {
-      inPDFs[nn] = PSUADE_PDF_NORMAL;
-      inMeans[nn] = regCoeffs_[nn];
-      inStds[nn] = regStdevs_[nn];
-      inUppers[nn] = inMeans[nn] + 4.0 * inStds[nn];
-      inLowers[nn] = inMeans[nn] - 4.0 * inStds[nn];
-      if (inUppers[nn] == inLowers[nn])
-      {
-         if (inUppers[nn] > 0) inUppers[nn] *= (1.0 + 1.0e-14);
-         else                  inUppers[nn] *= (1.0 - 1.0e-14);
-         if (inLowers[nn] > 0) inLowers[nn] *= (1.0 - 1.0e-14);
-         else                  inLowers[nn] *= (1.0 + 1.0e-14);
-         if (inUppers[nn] == 0.0) inUppers[nn] = 1e-14;
-         if (inLowers[nn] == 0.0) inLowers[nn] = -1e-14;
-      }
-   }
-   pdfman->initialize(N,inPDFs,inMeans,inStds,covMatrix_,NULL,NULL);
-   psVector vLower, vUpper, vOut;
-   vLower.load(N, inLowers);
-   vUpper.load(N, inUppers);
-   vOut.setLength(N*nTimes);
-   pdfman->genSample(nTimes, vOut, vLower, vUpper);
-   fuzzyC_ = new double*[N];
-   for (nn = 0; nn < N; nn++)
-   {
-      fuzzyC_[nn] = new double[nTimes];
-      for (cc = 0; cc < nTimes; cc++)
-         fuzzyC_[nn][cc] = vOut[cc*N+nn];
-   }
-   checkAllocate(fuzzyC_[N-1], "FuzzyC in CSRegression::analyze");
-   delete pdfman;
-   delete [] inPDFs;
-   delete [] inStds;
-   delete [] inMeans;
-   delete [] inLowers;
-   delete [] inUppers;
-
-   if (outputLevel_ >= 0)
-   {
-      B = regCoeffs_;
-      Bstd = regStdevs_;
-      printRC(N, B, Bstd, XX, Y);
-      //printCoefs(N, B);
-      printf("* CSRegression R-square = %12.4e ", R2);
-      printf("(SSresid,SStotal=%10.2e,%10.2e)\n", SSresid, SStotal);
-      if ((M - N - 1) > 0)
-         printf("* adjusted   R-square = %12.4e\n",
-                1.0 - (1.0 - R2) * ((M - 1) / (M - N - 1)));
-   }
-
-   numTerms_  = N;
-   delete [] XX;
-   delete [] XTX;
-   return 0;
+  //**/ =================================================================
+  //**/ print out regression coefficients 
+  //**/ =================================================================
+  if (outputLevel_ >= 0)
+  {
+    if (outputLevel_ > 0) printRC();
+    printf("* CSRegression R-square = %12.4e ", R2);
+    printf("(SSresid,SStotal=%10.2e,%10.2e)\n", SSresid, SStotal);
+    if ((nSamples_ - numTerms_ - 1) > 0)
+      printf("* adjusted   R-square = %12.4e\n",
+             1.0 - (1.0-R2)*((nSamples_-1)/(nSamples_-numTerms_-1)));
+  }
+  return 0;
 }
 
 // *************************************************************************
 // load the X matrix
 // -------------------------------------------------------------------------
-int CSRegression::loadXMatrix(double *X, double **XXOut)
+int CSRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
-   int    M, N=0, mm, nn, ii;
-   double *XX=NULL, dtemp, dprod;
+  int    mm, nn, ii;
+  double dtemp, dprod;
+  psVector vecXX;
 
-   (*XXOut) = NULL;
-
-   M = nSamples_;
-   XX = new double[M*N];
-   checkAllocate(XX, " CSRegression XX");
-
-   for (mm = 0; mm < M; mm++) XX[mm] = 1.0;
-   for (nn = 1; nn < numTerms_; nn++)
-   {
-      for (mm = 0; mm < M; mm++)
+  vecXX.setLength(nSamples_*numTerms_);
+  for (mm = 0; mm < nSamples_; mm++) vecXX[mm] = 1.0;
+  for (nn = 1; nn < numTerms_; nn++)
+  {
+    for (mm = 0; mm < nSamples_; mm++)
+    {
+      dprod = 1.0;
+      for (ii = 0; ii < nInputs_; ii++)
       {
-         dprod = 1.0;
-         for (ii = 0; ii < nInputs_; ii++)
-         {
-            dtemp = X[mm*nInputs_+ii];
-            dprod *= pow(dtemp, 1.0*termOrders_[nn][ii]);
-         }
-         XX[M*(nn+1)+mm] = dprod;
+        dtemp = VecX[mm*nInputs_+ii];
+        dprod *= pow(dtemp, 1.0*MatTermOrders_.getEntry(nn,ii));
       }
-   }
-   (*XXOut) = XX;
-   return 0;
+      vecXX[nSamples_*nn+mm] = dprod;
+    }
+  }
+  MatXX.setFormat(PS_MAT1D);
+  MatXX.load(nSamples_, numTerms_, vecXX.getDVector());
+  return 0;
 }
 
 // *************************************************************************
 // form X^T X 
 // -------------------------------------------------------------------------
-int CSRegression::computeXTX(int N, double *X, double **XXOut)
+int CSRegression::computeXTX(psMatrix matX, psMatrix &MatXTX)
 {
-   int    nn, nn2, mm;
-   double *XX, coef;
+  double   coef, *arrayX;
+  psVector vecXX;
 
-   XX = new double[nSamples_*N];
-   checkAllocate(XX, " CSRegression XX");
-   for (nn = 0; nn < N; nn++)
-   {
-      for (nn2 = 0; nn2 < N; nn2++)
-      {
-         coef = 0.0;
-         for (mm = 0; mm < nSamples_; mm++)
-            coef += X[nn*nSamples_+mm] * weights_[mm] * X[nn2*nSamples_+mm];
-         XX[nn*N+nn2] = coef;
-      }
-   }
-   (*XXOut) = XX;
-   return 0;
+  arrayX = matX.getMatrix1D();
+  vecXX.setLength(numTerms_*numTerms_);
+  for (int nn = 0; nn < numTerms_; nn++)
+  {
+    for (int nn2 = 0; nn2 < numTerms_; nn2++)
+    {
+      coef = 0.0;
+      for (int mm = 0; mm < nSamples_; mm++)
+        coef += arrayX[nn*nSamples_+mm]*VecWghts_[mm]*
+                arrayX[nn2*nSamples_+mm];
+      vecXX[nn*numTerms_+nn2] = coef;
+    }
+  }
+  MatXTX.setFormat(PS_MAT1D);
+  MatXTX.load(numTerms_, numTerms_, vecXX.getDVector());
+  return 0;
 }
 
 // *************************************************************************
 // compute SS (sum of squares) statistics
 // -------------------------------------------------------------------------
-int CSRegression::computeSS(int N, double *XX, double *Y,
-                          double *B, double &SSresid, double &SStotal)
+int CSRegression::computeSS(psMatrix MatXX, psVector VecYin, psVector VecB,
+                            double &SSresid, double &SStotal)
 {
-   int    nn, mm;
-   double rdata, ymean, SSreg, ddata, SSresidCheck;
+  int    nn, mm;
+  double rdata, ymean, SSreg, ddata, SSresidCheck, *arrayXX;
 
-   SSresid = SSresidCheck = SStotal = SSreg = ymean = 0.0;
-   for (mm = 0; mm < nSamples_; mm++) ymean += sqrt(weights_[mm]) * Y[mm];
-   ymean /= (double) nSamples_;
-   for (mm = 0; mm < nSamples_; mm++)
-   {
-      ddata = 0.0;
-      for (nn = 0; nn < N; nn++) ddata += (XX[mm+nn*nSamples_] * B[nn]);
-      rdata = Y[mm] - ddata;
-      SSresidCheck += rdata * rdata * weights_[mm];
-      SSresid += rdata * Y[mm] * weights_[mm];
-      SSreg += (ddata - ymean) * (ddata - ymean);
-   }
-   for (mm = 0; mm < nSamples_; mm++)
-      SStotal += weights_[mm] * (Y[mm] - ymean) * (Y[mm] - ymean);
-   if (outputLevel_ > 0)
-   {
-      printf("* CSRegression: SStot  = %24.16e\n", SStotal);
-      printf("* CSRegression: SSreg  = %24.16e\n", SSreg);
-      printf("* CSRegression: SSres  = %24.16e\n", SSresid);
-      printf("* CSRegression: SSres  = %24.16e (true)\n", SSresidCheck);
-   }
-   SSresid = SSresidCheck;
-   if (outputLevel_ > 0 && nSamples_ != N)
-   {
-      printf("* CSRegression: eps(Y) = %24.16e\n",
-             SSresidCheck/(nSamples_-N));
-   }
-   return 0;
+  arrayXX = MatXX.getMatrix1D();
+  SSresid = SSresidCheck = SStotal = SSreg = ymean = 0.0;
+  for (mm = 0; mm < nSamples_; mm++) 
+    ymean += sqrt(VecWghts_[mm]) * VecYin[mm];
+  ymean /= (double) nSamples_;
+  for (mm = 0; mm < nSamples_; mm++)
+  {
+    ddata = 0.0;
+    for (nn = 0; nn < numTerms_; nn++) 
+      ddata += (arrayXX[mm+nn*nSamples_] * VecB[nn]);
+    rdata = VecYin[mm] - ddata;
+    SSresidCheck += rdata * rdata * VecWghts_[mm];
+    SSresid += rdata * VecYin[mm] * VecWghts_[mm];
+    SSreg += (ddata - ymean) * (ddata - ymean);
+  }
+  for (mm = 0; mm < nSamples_; mm++)
+    SStotal += VecWghts_[mm] * (VecYin[mm] - ymean) * (VecYin[mm] - ymean);
+  if (outputLevel_ > 0)
+  {
+    printf("* CSRegression: SStot  = %24.16e\n", SStotal);
+    printf("* CSRegression: SSreg  = %24.16e\n", SSreg);
+    printf("* CSRegression: SSres  = %24.16e\n", SSresid);
+    printf("* CSRegression: SSres  = %24.16e (true)\n", SSresidCheck);
+  }
+  SSresid = SSresidCheck;
+  if (outputLevel_ > 0 && nSamples_ != numTerms_)
+  {
+    printf("* CSRegression: eps(Y) = %24.16e\n",
+           SSresidCheck/(nSamples_-numTerms_));
+  }
+  return 0;
 }
 
 // *************************************************************************
 // compute coefficient variances (diagonal of sigma^2 (X' X)^(-1))
 // -------------------------------------------------------------------------
-int CSRegression::computeCoeffVariance(int N,double *XX,double var,double *B)
+int CSRegression::computeCoeffVariance(psMatrix MatXTX, double var,
+                                       psVector VecB)
 {
-   int    nn, nn2, lwork, iOne=1, info, errCnt=0;
-   double *B2, *work, *XT;
-   char   trans[1];
+  int    nn, nn2, lwork, info;
+  double ddata, ddata2, *arrayXTX;
+  psVector  vecW, vecInvA;
+  psIVector vecIPiv;
 
-   (*trans) = 'N';
-   B2 = new double[N];
-   XT = new double[N*N];
-   lwork = 2 * N * N;
-   work  = new double[lwork];
-   checkAllocate(work, " CSRegression work");
+  //**/ compute inverse of MatXTX
+  arrayXTX = MatXTX.getMatrix1D();
+  vecIPiv.setLength(numTerms_+1);
+  lwork = 2 * numTerms_ * numTerms_;
+  vecInvA.setLength(lwork);
+  for (nn = 0; nn < numTerms_*numTerms_; nn++) 
+    vecInvA[nn] = arrayXTX[nn];
+  dgetrf_(&numTerms_, &numTerms_, vecInvA.getDVector(), &numTerms_, 
+          vecIPiv.getIVector(), &info);
+  if (info != 0)
+    printf("CSRegression WARNING: dgels returns error %d.\n",info);
 
-   for (nn = 0; nn < N; nn++)
-   {
-      for (nn2 = 0; nn2 < N*N; nn2++) XT[nn2] = XX[nn2];
-      for (nn2 = 0; nn2 < N; nn2++) B2[nn2] = 0.0;
-      B2[nn] = var;
-      dgels_(trans, &N, &N, &iOne, XT, &N, B2, &N, work, &lwork, &info);
-      if (info != 0)
-         printf("CSRegression WARNING: dgels returns error %d.\n",info);
-      if (B2[nn] < 0) errCnt++;
-      if (B2[nn] < 0) B[nn] = sqrt(-B2[nn]);
-      else            B[nn] = sqrt(B2[nn]);
-   }
-   if (errCnt > 0)
-   {
-      printf("* CSRegression WARNING: some of the coefficient variances\n");
-      printf("*            are < 0. May spell trouble but will\n");
-      printf("*            proceed anyway (%d).\n", errCnt);
-   }
-   delete [] B2;
-   delete [] XT;
-
-   int    *ipiv = new int[N+1];
-   double *invA = new double[lwork];
-   checkAllocate(invA, " CSRegression invA");
-   double ddata, ddata2;
-   FILE   *fp;
-   for (nn = 0; nn < N*N; nn++) invA[nn] = XX[nn];
-   dgetrf_(&N, &N, invA, &N, ipiv, &info);
-   if (info != 0)
-      printf("CSRegression WARNING: dgels returns error %d.\n",info);
-   dgetri_(&N, invA, &N, ipiv, work, &lwork, &info);
-   covMatrix_.setDim(N,N);
-   for (nn = 0; nn < N; nn++)
-   {
-      for (nn2 = 0; nn2 < N; nn2++)
-      {
-         ddata = invA[nn*N+nn2] * var;
-         covMatrix_.setEntry(nn,nn2,ddata);
-      }
-   }
-   for (nn = 0; nn < N; nn++)
-   {
-      ddata = covMatrix_.getEntry(nn,nn);
-      ddata = sqrt(ddata);
-      for (nn2 = 0; nn2 < N; nn2++)
-      {
-         if (nn != nn2)
-         {
-            ddata2 = covMatrix_.getEntry(nn,nn2);
-            if (ddata != 0) ddata2 /= ddata;
-            covMatrix_.setEntry(nn,nn2,ddata2);
-         }
-      }
-   }
-   for (nn2 = 0; nn2 < N; nn2++)
-   {
-      ddata = covMatrix_.getEntry(nn2,nn2);
-      ddata = sqrt(ddata);
-      for (nn = 0; nn < N; nn++)
-      {
-         if (nn != nn2)
-         {
-            ddata2 = covMatrix_.getEntry(nn,nn2);
-            if (ddata != 0) ddata2 /= ddata;
-            covMatrix_.setEntry(nn,nn2,ddata2);
-         }
-      }
-   }
-   ddata = 1.0;
-   for (nn = 0; nn < N; nn++) covMatrix_.setEntry(nn,nn,ddata);
-   for (nn = 0; nn < N; nn++)
-   {
-      for (nn2 = 0; nn2 < nn; nn2++)
-      {
-         ddata  = covMatrix_.getEntry(nn,nn2);
-         ddata2 = covMatrix_.getEntry(nn2,nn);
-         ddata  = 0.5 * (ddata + ddata2);
-         covMatrix_.setEntry(nn,nn2,ddata);
-         covMatrix_.setEntry(nn2,nn,ddata);
-      }
-   }
-   
-   errCnt = 0;
-   for (nn = 0; nn < N; nn++)
-   {
-      for (nn2 = 0; nn2 < N; nn2++)
-      {
-         ddata = covMatrix_.getEntry(nn,nn2);
-         if (nn != nn2 && (ddata >=1 || ddata <= -1))
-         {
-            errCnt++;
-            covMatrix_.setEntry(nn,nn2,0.0);
-         }
-      }
-   }
-   char inStr[1001];
-   if (errCnt > 0)
-   {
-      printf("CSRegression WARNING:\n");
-      printf("  Correlation matrix has invalid entries (%d out of %d).\n",
-             errCnt, N*(N-1));
-      printf("  EVALUATION MAY BE INCORRECT.\n");
-      printf("  CONTINUE ANYWAY (will set them to zeros)? (y or n)");
-      scanf("%s", inStr);
-      if (inStr[0] != 'y') exit(1);
-      fgets(inStr, 100, stdin);
-   }
-   delete [] work;
-   delete [] ipiv;
-   delete [] invA;
-   return info;
+  vecW.setLength(lwork);
+  dgetri_(&numTerms_,vecInvA.getDVector(),&numTerms_,vecIPiv.getIVector(), 
+          vecW.getDVector(), &lwork, &info);
+  invCovMat_.setDim(numTerms_,numTerms_);
+  for (nn = 0; nn < numTerms_; nn++)
+  {
+    for (nn2 = 0; nn2 < numTerms_; nn2++)
+    {
+      ddata = vecInvA[nn*numTerms_+nn2] * var;
+      invCovMat_.setEntry(nn,nn2,ddata);
+    }
+  }
+  //**/ symmetrizing the scaled inverse covariance matrix
+  for (nn = 0; nn < numTerms_; nn++)
+  {
+    for (nn2 = 0; nn2 < nn; nn2++)
+    {
+      ddata  = invCovMat_.getEntry(nn,nn2);
+      ddata2 = invCovMat_.getEntry(nn2,nn);
+      ddata  = 0.5 * (ddata + ddata2);
+      invCovMat_.setEntry(nn,nn2,ddata);
+      invCovMat_.setEntry(nn2,nn,ddata);
+    }
+  }
+  return info;
 }
 
 // *************************************************************************
 // print statistics
 // -------------------------------------------------------------------------
-int CSRegression::printRC(int N,double *B,double *Bvar,double *XX,double *Y)
+int CSRegression::printRC()
 {
-   int mm, ii;
-   printEquals(PL_INFO, 0);
-   printf("*** Note: these coefficients may not be true coefficients due\n");
-   printf("***       to sample matrix scaling (i.e., they may be scaled).\n");
-   printDashes(PL_INFO, 0);
-   printf("* ");
-   for (ii = 0; ii < nInputs_; ii++) printf("   ");
-   printf("  coefficient   std. error   t-value\n");
-   printDashes(PL_INFO, 0);
-   for (mm = 0; ii < numTerms_; ii++)
-   {
-      for (ii = 0; ii < nInputs_; ii++)
-         printf(" %d ", termOrders_[mm][ii]);
-      printf("= %12.4e %12.4e %12.4e\n", B[mm], Bvar[mm], B[ii]/Bvar[mm]);
-   }
-   printDashes(PL_INFO, 0);
-   return 0;
-}
-
-// ************************************************************************
-// clean up
-// ------------------------------------------------------------------------
-void CSRegression::cleanUp()
-{
-   int ii;
-   if (termOrders_ != NULL) 
-   {
-      for (ii = 1; ii < numTerms_; ii++) delete [] termOrders_[ii];
-      delete [] termOrders_;
-   }
-   if (regCoeffs_ != NULL) delete [] regCoeffs_;
-   if (regStdevs_ != NULL) delete [] regStdevs_;
-   if (fuzzyC_ != NULL)
-   {
-      for (ii = 0; ii < numTerms_; ii++) delete [] fuzzyC_[ii];
-      delete [] fuzzyC_;
-   }
+  int mm, ii;
+  double bstd;
+  printEquals(PL_INFO, 0);
+  printf("*** Note: these coefficients may not be true coefficients due\n");
+  printf("***       to sample matrix scaling (i.e., they may be scaled).\n");
+  printDashes(PL_INFO, 0);
+  printf("* ");
+  for (ii = 0; ii < nInputs_; ii++) printf("   ");
+  printf("  coefficient   std. error   t-value\n");
+  printDashes(PL_INFO, 0);
+  //**/ ------ print out the scaled linear coefficients -----------
+  for (mm = 0; mm < numTerms_; mm++)
+  {
+    for (ii = 0; ii < nInputs_; ii++)
+      printf(" %d ", MatTermOrders_.getEntry(mm,ii));
+    bstd = invCovMat_.getEntry(mm, mm);
+    printf("= %12.4e %12.4e %12.4e\n", VecRegCoeffs_[mm], bstd, 
+           VecRegCoeffs_[mm]/bstd);
+  }
+  printDashes(PL_INFO, 0);
+  return 0;
 }
 
 // *************************************************************************
 // optimize 
 // -------------------------------------------------------------------------
-int CSRegression::optimize(double *X, double *Y)
+int CSRegression::optimize(psVector VecX, psVector VecY)
 {
-   printf("* CSRegression ERROR: CSRegression not implemented yet.\n");
-   return -1;
+  printf("* CSRegression ERROR: CSRegression not implemented yet.\n");
+  return -1;
 }
-
 

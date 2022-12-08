@@ -31,25 +31,23 @@
 #include "Psuade.h"
 #include "FuncApprox.h"
 #include "Mars.h"
-#include "Earth.h"
 #include "GP1.h"
-#include "GP2.h"
 #include "GP3.h"
 #include "MGP3.h"
 #include "TBGP.h"
+#include "MTGP.h"
 #include "SVM.h"
 #include "SelectiveRegression.h"
 #include "UserRegression.h"
 #include "LegendreRegression.h"
 #include "Regression.h"
-#include "Ann.h"
+#include "DNN.h"
 #include "PWLinear.h"
 #include "MarsBagg.h"
 #include "SumOfTrees.h"
 #include "SGRegression.h"
 #include "GradLegendreRegression.h"
 #include "Kriging.h"
-#include "NPLearning.h"
 #include "Splines.h"
 #include "KNN.h"
 #include "RBF.h"
@@ -58,8 +56,13 @@
 #include "Acosso.h"
 #include "BSSAnova.h"
 #include "PsuadeRegression.h"
+#include "HomLegendreRegression.h"
+#include "HGP3.h"
+#include "HKriging.h"
 #include "PLS.h"
 #include "MMars.h"
+#include "HybridGP.h"
+#include "QGP.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "PDFBase.h"
@@ -67,6 +70,17 @@
 #include "PsuadeData.h"
 
 #define PABS(x) (((x) > 0.0) ? (x) : -(x))
+
+// ************************************************************************
+// constructor 
+// ------------------------------------------------------------------------
+FuncApprox::FuncApprox()
+{
+  outputLevel_ = 0;
+  nPtsPerDim_  = 10;
+  YMean_ = 0.0;
+  YStd_ = 1.0;
+}
 
 // ************************************************************************
 // constructor 
@@ -84,21 +98,13 @@ FuncApprox::FuncApprox(int nInputs, int nSamples)
   nSamples_    = nSamples;
   nInputs_     = nInputs;
   nPtsPerDim_  = 10;
-  lowerBounds_ = new double[nInputs_];
-  upperBounds_ = new double[nInputs_];
-  for (int ii = 0 ; ii < nInputs_; ii++)
-    lowerBounds_[ii] = upperBounds_[ii] = 0.0;
-  weights_ = new double[nSamples_];;
-  for (int jj = 0 ; jj < nSamples_; jj++) weights_[jj] = 1.0;
-  XMeans_ = new double[nInputs_];
-  XStds_ = new double[nInputs_];
-  checkAllocate(XStds_, "XStds_ in FuncApprox::constructor");
-
-  for (int ii = 0; ii < nInputs_; ii++)
-  {
-    XMeans_[ii] = 0.0;
-    XStds_[ii] = 1.0;
-  }
+  VecLBs_.setLength(nInputs_);
+  VecUBs_.setLength(nInputs_);
+  VecWghts_.setLength(nSamples_);
+  for (int jj = 0 ; jj < nSamples_; jj++) VecWghts_[jj] = 1.0;
+  VecXMeans_.setLength(nInputs_);
+  VecXStds_.setLength(nInputs_);
+  for (int ii = 0; ii < nInputs_; ii++) VecXStds_[ii] = 1.0;
   YMean_ = 0.0;
   YStd_ = 1.0;
 }
@@ -113,17 +119,13 @@ FuncApprox::FuncApprox(const FuncApprox & fa)
   nInputs_ = fa.nInputs_;
   nPtsPerDim_ = fa.nPtsPerDim_;
   faID_ = fa.faID_;
-  lowerBounds_ = new double[nInputs_];
-  upperBounds_ = new double[nInputs_];
-  weights_     = new double[nSamples_];
-  checkAllocate(weights_, "weights_ in FuncApprox::constructor");
- 
-  for(int ii = 0; ii < nInputs_; ii++)
-  {
-    lowerBounds_[ii] = fa.lowerBounds_[ii];
-    upperBounds_[ii] = fa.upperBounds_[ii];
-  }
-  for(int ii = 0; ii < nSamples_; ii++) weights_[ii] = fa.weights_[ii];
+  VecLBs_ = fa.VecLBs_;
+  VecUBs_ = fa.VecUBs_;
+  VecWghts_ = fa.VecWghts_;
+  VecXMeans_ = fa.VecXMeans_;
+  VecXStds_ = fa.VecXStds_;
+  YMean_ = fa.YMean_;
+  YStd_ = fa.YStd_;
 }
 
 // ************************************************************************
@@ -132,27 +134,19 @@ FuncApprox::FuncApprox(const FuncApprox & fa)
 FuncApprox & FuncApprox::operator=(const FuncApprox & fa)
 {
   if(this == &fa)  return *this;
-  // free lowerBounds_, upperBounds_, and weights_
-  delete [] lowerBounds_;
-  delete [] upperBounds_;
-  delete [] weights_;
   
   outputLevel_ = fa.outputLevel_;
   nSamples_ = fa.nSamples_;
   nInputs_ = fa.nInputs_;
   nPtsPerDim_ = fa.nPtsPerDim_;
   faID_ = fa.faID_;
-  lowerBounds_ = new double[nInputs_];
-  upperBounds_ = new double[nInputs_];
-  weights_     = new double[nSamples_];
-  checkAllocate(weights_, "weights_ in FuncApprox::operator=");
-
-  for (int ii = 0; ii < nInputs_; ii++)
-  {
-    lowerBounds_[ii] = fa.lowerBounds_[ii];
-    upperBounds_[ii] = fa.upperBounds_[ii];
-  }
-  for(int ii = 0; ii < nSamples_; ii++) weights_[ii] = fa.weights_[ii];
+  VecLBs_ = fa.VecLBs_;
+  VecUBs_ = fa.VecUBs_;
+  VecWghts_ = fa.VecWghts_;
+  VecXMeans_ = fa.VecXMeans_;
+  VecXStds_ = fa.VecXStds_;
+  YMean_ = fa.YMean_;
+  YStd_ = fa.YStd_;
   return *this;
 }
 
@@ -161,11 +155,6 @@ FuncApprox & FuncApprox::operator=(const FuncApprox & fa)
 // ------------------------------------------------------------------------
 FuncApprox::~FuncApprox()
 {
-  if (lowerBounds_ != NULL) delete [] lowerBounds_;
-  if (upperBounds_ != NULL) delete [] upperBounds_;
-  if (weights_     != NULL) delete [] weights_;
-  if (XMeans_      != NULL) delete [] XMeans_;
-  if (XStds_       != NULL) delete [] XStds_;
 }
 
 // ************************************************************************
@@ -186,15 +175,26 @@ int FuncApprox::setOutputLevel(int level)
 }
 
 // ************************************************************************
-// Set bounds for object class FuncApprox
+// Set input bounds for object class FuncApprox
 // ------------------------------------------------------------------------
-int FuncApprox::setBounds( double *lower, double *upper )
+int FuncApprox::setBounds(double *lower, double *upper)
 {
-  for (int ii=0 ; ii<nInputs_; ii++) 
+  for (int ii = 0 ; ii < nInputs_; ii++) 
   {
-    lowerBounds_[ii] = lower[ii];
-    upperBounds_[ii] = upper[ii];
+    VecLBs_[ii] = lower[ii];
+    VecUBs_[ii] = upper[ii];
   }
+  return 0;
+}
+
+// ************************************************************************
+// Reset sample size 
+// ------------------------------------------------------------------------
+int FuncApprox::setSampleSize(int newSize)
+{
+  nSamples_ = newSize;
+  VecWghts_.setLength(nSamples_);
+  for (int jj = 0 ; jj < nSamples_; jj++) VecWghts_[jj] = 1.0;
   return 0;
 }
 
@@ -208,8 +208,7 @@ int FuncApprox::loadWeights(int n, double *wgts)
     printf("FuncApprox::loadWeights ERROR : invalid length %d.\n",n);
     exit(1);
   }
-  if (weights_ != NULL) delete [] weights_;
-  weights_ = NULL;
+  VecWghts_.clean();
   for (int ii = 0 ; ii < n; ii++) 
   {
     if (wgts[ii] < 0.0)
@@ -218,9 +217,8 @@ int FuncApprox::loadWeights(int n, double *wgts)
       return 0;
     }
   }
-  weights_ = new double[nSamples_];
-  checkAllocate(weights_, "weights_ in FuncApprox::loadWeights");
-  for (int jj = 0 ; jj < n; jj++) weights_[jj] = wgts[jj];
+  VecWghts_.setLength(nSamples_);
+  for (int jj = 0 ; jj < n; jj++) VecWghts_[jj] = wgts[jj];
   return 0;
 }
 
@@ -249,10 +247,10 @@ int FuncApprox::genNDGridData(double*,double*,int*,double**,double**)
 }
 
 // ************************************************************************
-// generate 1 dimensional data
+// generate 1-dimensional data
 // ------------------------------------------------------------------------
 int FuncApprox::gen1DGridData(double*,double*,int,double*,int*,double**,
-                              double**) 
+                              double**)
 {
   return -1;
 }
@@ -320,63 +318,54 @@ double FuncApprox::setParams(int, char **)
 // ------------------------------------------------------------------------
 int FuncApprox::initInputScaling(double *XIn, double *XOut, int flag)
 {
-  int    ii, jj;
+  int    ii, jj, kk;
   double ddata;
   char   pString[500], response[100];
                                                                                 
-  if (XMeans_ != NULL) delete [] XMeans_;
-  if (XStds_  != NULL) delete [] XStds_;
-  XMeans_ = new double[nInputs_];
-  XStds_ = new double[nInputs_];
-  checkAllocate(XStds_, "XStds_ in FuncApprox::initInputScaling");
+  VecXMeans_.setLength(nInputs_);
+  VecXStds_.setLength(nInputs_);
   for (ii = 0; ii < nInputs_; ii++)
   {
-    XMeans_[ii] = 0.0;
-    XStds_[ii] = 1.0;
+    VecXMeans_[ii] = 0.0;
+    VecXStds_[ii]  = 1.0;
   }
   for (ii = 0; ii < nInputs_*nSamples_; ii++) XOut[ii] = XIn[ii];
-  if (flag == 1)
+
+  response[0] = 'n';
+  if (flag != 1 && psConfig_.RSExpertModeIsOn())
+  {
+    sprintf(pString, "Scale the sample matrix ? (y or n) ");
+    getString(pString, response);
+  }
+  if (flag == 1 || response[0] == 'y')
   {
     for (ii = 0; ii < nInputs_; ii++)
     {
       ddata = 0.0;
       for (jj = 0; jj < nSamples_; jj++) ddata += XIn[jj*nInputs_+ii];
-      XMeans_[ii] = ddata / (double) nSamples_;
+      VecXMeans_[ii] = ddata / (double) nSamples_;
       ddata = 0.0;
       for (jj = 0; jj < nSamples_; jj++)
-        ddata += pow(XIn[jj*nInputs_+ii] - XMeans_[ii], 2.0);
-      XStds_[ii] = sqrt(ddata / (double) (nSamples_ - 1));
-      if (XStds_[ii] == 0.0) XStds_[ii] = 1.0;
-      for (jj = 0; jj < nSamples_; jj++)
-        XOut[jj*nInputs_+ii] = (XIn[jj*nInputs_+ii]-XMeans_[ii])/
-                                XStds_[ii];
-      if (outputLevel_ > 3)
-        printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
-                XMeans_[ii], XStds_[ii]);
-    }
-  }
-  else if (psRSExpertMode_ == 1)
-  {
-    sprintf(pString, "Scale the sample matrix ? (y or n) ");
-    getString(pString, response);
-    if (response[0] == 'y')
-    {
-      for (ii = 0; ii < nInputs_; ii++)
+        ddata += pow(XIn[jj*nInputs_+ii] - VecXMeans_[ii], 2.0);
+      VecXStds_[ii] = sqrt(ddata / (double) (nSamples_ - 1));
+      if (VecXStds_[ii] == 0.0) 
       {
-        ddata = 0.0;
-        for (jj = 0; jj < nSamples_; jj++) ddata += XIn[jj*nInputs_+ii];
-        XMeans_[ii] = ddata / (double) nSamples_;
-        ddata = 0.0;
+        printf("FuncApprox ERROR: input %d has 0 variance.\n", ii+1);
+        VecXStds_[ii] = 1.0;
         for (jj = 0; jj < nSamples_; jj++)
-          ddata += pow(XIn[jj*nInputs_+ii] - XMeans_[ii], 2.0);
-        XStds_[ii] = sqrt(ddata / (double) (nSamples_ - 1));
-        if (XStds_[ii] == 0.0) XStds_[ii] = 1.0;
-        for (jj = 0; jj < nSamples_; jj++)
-          XOut[jj*nInputs_+ii] = (XIn[jj*nInputs_+ii]-XMeans_[ii])/
-                                  XStds_[ii];
-        printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
-               XMeans_[ii], XStds_[ii]);
+        {
+          printf("Sample %d: \n   Inputs = ",jj+1);
+          for (kk = 0; kk < nInputs_; kk++)
+            printf("%12.4e ",XIn[jj*nInputs_+kk]);
+          printf("\n");
+        }
       }
+      for (jj = 0; jj < nSamples_; jj++)
+        XOut[jj*nInputs_+ii] = (XIn[jj*nInputs_+ii]-VecXMeans_[ii])/
+                                VecXStds_[ii];
+      if (outputLevel_ > 3 || psConfig_.RSExpertModeIsOn())
+        printf("Input %d scaling info : mean, std = %e %e\n",ii+1,
+                VecXMeans_[ii], VecXStds_[ii]);
     }
   }
   return 0;
@@ -409,8 +398,11 @@ int FuncApprox::initOutputScaling(double *YIn, double *YOut)
 int FuncApprox::genNDGrid(int *nPts, double **XOut) 
 {
   int    ii, mm, totPts;
-  double *HX, *Xloc;
+  psVector vecHX, vecXT, vecXOut;
 
+  //**/ ---------------------------------------------------------------
+  //**/ nInputs > 21 not supported
+  //**/ ---------------------------------------------------------------
   if (nInputs_ > 21)
   {
     printf("FuncApprox genNDGrid INFO: nInputs > 21 not supported.\n");
@@ -419,6 +411,9 @@ int FuncApprox::genNDGrid(int *nPts, double **XOut)
     return 0;
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
   if (nInputs_ == 21 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
   if (nInputs_ == 20 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
   if (nInputs_ == 19 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
@@ -429,45 +424,44 @@ int FuncApprox::genNDGrid(int *nPts, double **XOut)
   if (nInputs_ == 14 && nPtsPerDim_ >    2) nPtsPerDim_ =  2;
   if (nInputs_ == 13 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
   if (nInputs_ == 12 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-  if (nInputs_ == 11 && nPtsPerDim_ >    3) nPtsPerDim_ =  3;
-  if (nInputs_ == 10 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
-  if (nInputs_ ==  9 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
-  if (nInputs_ ==  8 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
-  if (nInputs_ ==  7 && nPtsPerDim_ >    8) nPtsPerDim_ =  8;
-  if (nInputs_ ==  6 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
-  if (nInputs_ ==  5 && nPtsPerDim_ >   16) nPtsPerDim_ = 16;
-  if (nInputs_ ==  4 && nPtsPerDim_ >   32) nPtsPerDim_ = 32;
-  if (nInputs_ ==  3 && nPtsPerDim_ >   64) nPtsPerDim_ = 64;
-  if (nInputs_ ==  2 && nPtsPerDim_ > 1024) nPtsPerDim_ = 1024;
-  if (nInputs_ ==  1 && nPtsPerDim_ > 8192) nPtsPerDim_ = 8192;
+  if (nInputs_ == 11 && nPtsPerDim_ >    4) nPtsPerDim_ =  4;
+  if (nInputs_ == 10 && nPtsPerDim_ >    5) nPtsPerDim_ =  5;
+  if (nInputs_ ==  9 && nPtsPerDim_ >    6) nPtsPerDim_ =  6;
+  if (nInputs_ ==  8 && nPtsPerDim_ >    7) nPtsPerDim_ =  7;
+  if (nInputs_ ==  7 && nPtsPerDim_ >   10) nPtsPerDim_ = 10;
+  if (nInputs_ ==  6 && nPtsPerDim_ >   14) nPtsPerDim_ = 14;
+  if (nInputs_ ==  5 && nPtsPerDim_ >   24) nPtsPerDim_ = 24;
+  if (nInputs_ ==  4 && nPtsPerDim_ >   50) nPtsPerDim_ = 50;
+  if (nInputs_ ==  3 && nPtsPerDim_ >  200) nPtsPerDim_ = 200;
+  if (nInputs_ ==  2 && nPtsPerDim_ > 3000) nPtsPerDim_ = 3000;
+  if (nInputs_ ==  1 && nPtsPerDim_ > 8000000) 
+    nPtsPerDim_ = 8000000;
   totPts = nPtsPerDim_;
   for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-  HX = new double[nInputs_];
+  vecHX.setLength(nInputs_);
   for (ii = 0; ii < nInputs_; ii++)
-    HX[ii] = (upperBounds_[ii] - lowerBounds_[ii]) /
-             (double) (nPtsPerDim_ - 1);
+    vecHX[ii] = (VecUBs_[ii] - VecLBs_[ii])/(double) (nPtsPerDim_ - 1);
 
-  (*XOut) = new double[nInputs_ * totPts];
-  (*nPts) = totPts;
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in FuncApprox::genNDGrid");
-
-  for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for the data points and generate them
+  //**/ ---------------------------------------------------------------
+  vecXOut.setLength(nInputs_ * totPts);
+  vecXT = VecLBs_;
 
   for (mm = 0; mm < totPts; mm++)
   {
-    for (ii = 0; ii < nInputs_; ii++ ) (*XOut)[mm*nInputs_+ii] = Xloc[ii];
+    for (ii = 0; ii < nInputs_; ii++ ) 
+      vecXOut[mm*nInputs_+ii] = vecXT[ii];
     for (ii = 0; ii < nInputs_; ii++ )
     {
-      Xloc[ii] += HX[ii];
-      if (Xloc[ii] < upperBounds_[ii] ||
-           PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-      else Xloc[ii] = lowerBounds_[ii];
+      vecXT[ii] += vecHX[ii];
+      if (vecXT[ii] < VecUBs_[ii] ||
+          PABS(vecXT[ii] - VecUBs_[ii]) < 1.0E-7) break;
+      else vecXT[ii] = VecLBs_[ii];
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
+  (*XOut) = vecXOut.takeDVector();
+  (*nPts) = totPts;
   return 0;
 }
 
@@ -487,17 +481,12 @@ int getFAType(char *pString)
   if (faType == PSUADE_RS_MARSB) faType = -1;
   if (faType == PSUADE_RS_MMARS) faType = -1;
 #endif
-#ifndef HAVE_SNNS
-  if (faType == 5) faType = -1;
-#endif
 #ifndef HAVE_TPROS
-  if (faType == PSUADE_RS_GP1) faType = PSUADE_RS_GP2;
+  //**/ if TPROS is not available, use resident GP
+  if (faType == PSUADE_RS_GP1) faType = PSUADE_RS_GP3;
 #endif
 #ifndef HAVE_SVM
   if (faType == PSUADE_RS_SVM) faType = -1;
-#endif
-#ifndef HAVE_EARTH
-  if (faType == PSUADE_RS_EARTH) faType = -1;
 #endif
 #ifndef HAVE_TGP
   if (faType == PSUADE_RS_TGP) faType = -1;
@@ -534,29 +523,23 @@ void printThisFA(int faType)
     case PSUADE_RS_REGR4: 
          printf("Quartic regression model\n"); 
          break;
-#ifdef HAVE_SNNS
     case PSUADE_RS_ANN: 
          printf("Artificial neural network model\n"); 
          break;
-#else
-    case PSUADE_RS_ANN: 
-         printf("Artificial neural network model (not installed)\n"); 
-         break;
-#endif
     case PSUADE_RS_REGRS: 
          printf("User-defined regression model\n"); 
          break;
 #ifdef HAVE_TPROS
     case PSUADE_RS_GP1: 
-         printf("Gaussian process (MacKay) model\n"); 
+         printf("Gaussian Process (MacKay) model\n"); 
          break;
 #else
     case PSUADE_RS_GP1: 
-         printf("Gaussian process (MacKay) model (not installed)\n");
+         printf("Gaussian Process (MacKay) model (not installed)\n");
          break;
 #endif
-    case PSUADE_RS_GP2: 
-         printf("Gaussian process (Tong) model\n"); 
+    case PSUADE_RS_GP3: 
+         printf("Gaussian Process (Tong) model\n"); 
          break;
 #ifdef HAVE_SVM
     case PSUADE_RS_SVM: 
@@ -568,7 +551,7 @@ void printThisFA(int faType)
          break;
 #endif
     case PSUADE_RS_REGRGL: 
-         printf("Derivative-based Legendre polynomial regression\n"); 
+         printf("Derivative-based Legendre Polynomial Regression\n"); 
          break;
 #ifdef HAVE_TGP
     case PSUADE_RS_TGP: 
@@ -588,26 +571,17 @@ void printThisFA(int faType)
          printf("MARS with bagging model (not installed)\n");
          break;
 #endif
-#ifdef HAVE_EARTH
-    case PSUADE_RS_EARTH: 
-         printf("Earth model\n"); 
-         break;
-#else
-    case PSUADE_RS_EARTH: 
-         printf("Earth model (not installed)\n"); 
-         break;
-#endif
     case PSUADE_RS_SOTS: 
          printf("Sum-of-trees model\n"); 
          break;
     case PSUADE_RS_REGRL: 
-         printf("Legendre polynomial regression\n"); 
+         printf("Legendre Polynomial Regression\n"); 
          break;
     case PSUADE_RS_REGRU: 
-         printf("User-defined (nonpolynomial) regression\n"); 
+         printf("User-defined (nonpolynomial) Regression\n"); 
          break;
     case PSUADE_RS_REGSG: 
-         printf("Sparse Grid polynomial regression\n"); 
+         printf("Sparse Grid Polynomial Regression\n"); 
          break;
     case PSUADE_RS_KR: 
          printf("Kriging\n"); 
@@ -627,9 +601,20 @@ void printThisFA(int faType)
     case PSUADE_RS_MRBF: 
          printf("Multi-Radial Basis Function\n"); 
          break;
-    case PSUADE_RS_MGP2: 
-         printf("Multi-Gaussian process (Tong)\n"); 
+    case PSUADE_RS_MGP3: 
+         printf("Multi-Gaussian Process (Tong)\n"); 
          break;
+    case PSUADE_RS_HLEG: 
+         printf("Homogeneous Legendre Regression\n"); 
+         break;
+    case PSUADE_RS_HGP3: 
+         printf("Homogeneous Gaussian Process\n"); 
+         break;
+    case PSUADE_RS_HYGP: 
+         printf("Hybrid Homogeneous Gaussian Process\n"); 
+         break;
+    case PSUADE_RS_QGP: 
+         printf("Quantile Homogeneous Gaussian Process\n"); 
 #ifdef HAVE_MARS
     case PSUADE_RS_MMARS: 
          printf("Multiple MARS model\n");
@@ -637,6 +622,15 @@ void printThisFA(int faType)
 #else
     case PSUADE_RS_MMARS: 
          printf("Multiple MARS model (MARS not installed)\n");
+         break;
+#endif
+#ifdef HAVE_TGP
+    case PSUADE_RS_MTGP: 
+         printf("Multiple Tree-based Gaussian Process\n"); 
+         break;
+#else
+    case PSUADE_RS_MTGP: 
+         printf("Multiple Tree-based Gaussian Process (not installed)\n");
          break;
 #endif
   }
@@ -651,101 +645,163 @@ int writeFAInfo(int level)
   printDashes(PL_INFO, 0);
   printf("Available response surface tools: \n");
   printDashes(PL_INFO, 0);
-  if (level > 0)
+  if (level > 3)
   {
    printf("Expert advices: \n");
 #ifdef HAVE_MARS
-   printf(" MARS - may have accuracy problem near domain boundary. Use\n"); 
-   printf("   this option if sample size is sufficiently large (>100).\n"); 
+   printf(" MARS - may have accuracy problem near domain boundary. Use\n");
+   printf("   this option if sample size is sufficiently large (>100).\n");
 #endif
    printf(" LINEAR, QUADRATIC, CUBIC, QUARTIC - good for small sample\n");
-   printf("   sizes; and when the function is sufficiently smooth.\n");
-   printf("   For higher than fourth order, use LEGENDRE (option 15) with\n");
+   printf("   sizes; and when the function is sufficiently smooth. For\n");
+   printf("   higher than fourth order, use LEGENDRE (option 15) with\n");
    printf("   response surface expert mode turned on to select order.\n");
-#ifdef HAVE_SNNS
-   printf(" ANN - supported but currently not maintained.\n");
-#endif
-   printf(" SELECTIVE POLYNOMIAL REGRESSION - for high order polynomials\n");
-   printf("   but your sample size is too small. (So you select certain\n");
-   printf("   terms, provided you know which ones.)\n");
+   printf(" ANN - artificial neural network.\n");
+   printf(" SELECTIVE POLYNOMIAL REGRESSION - if you desire to include\n");
+   printf("   some higher order regression terms (provided you know\n");
+   printf("   which ones.)\n");
 
    printf(" GAUSSIAN PROCESS - may  encounter non-definite covariance\n");
-   printf("   matrix problem. However, if no such problem appears, it\n");
-   printf("   especially good for small samples (a few to a few tens).\n");
-   printf("   GP is relatively slow, so for sample sizes of more than a\n");
-   printf("   few hundred, be patiet. For nonsmooth functions, try TGP.\n");
+   printf("   matrix problem. If no such problem occurs, it is very\n");
+   printf("   good for small samples (a few to a few tens). GP is\n");
+   printf("   relatively slow, so for sample sizes of more than a few\n");
+   printf("   hundred, be patient. For nonsmooth functions, try TGP.\n");
 #ifdef HAVE_SVM
-   printf(" SVM - provides 3 options: turn on rs_expert to select. Also,\n");
-   printf("   use svmfind to search for best settings.\n");
+   printf(" SVM - provides 3 options: turn on rs_expert to select.\n");
+   printf("   Also, use svmfind to search for best settings.\n");
 #endif
-   printf(" BOOTSTRAPPED MARS - intended to be used with adaptive sample\n");
-   printf("   refinement, which adds more sample points near the boundary\n");
-   printf("   of the parameter space.\n");
+   printf(" BOOTSTRAPPED MARS - more expensive than MARS but provide\n");
+   printf("   prediction uncertainty information (useful for, for.\n");
+   printf("   example, adaptive sample refinement.)\n");
    printf(" SUM-OF-TREES REGRESSION - usually gives non-smooth response\n");
-   printf("   responses. It is provided here for completeness, but is not\n");
-   printf("   generally recommended.\n");
-   printf(" SPARSE GRID REGRESSION - has to use sparse grid designs. Also,\n");
-   printf("   you cannot use cross validation on sparse grid regression.\n");
-   printf("   Use a test set (rstest) to validate your response surface.\n");
+   printf("   surfaces. It is provided here for completeness, but is\n");
+   printf("   not generally recommended (except for very large sample).\n");
+   printf(" SPARSE GRID REGRESSION - has to use sparse grid designs. \n");
+   printf("   Also, you cannot use CV on sparse grid regression. Use\n");
+   printf("   a holdout set (rstest) to validate your response surface.\n");
    printf(" KRIGING - This is another form of the Gaussian process which\n");
-   printf("   uses deterministic optimization to compute hyperparameters.\n");
-   printf("   This method is good for up to about 2000 sample points;\n");
-   printf("   otherwise it may be computationally expensive.\n");
+   printf("   does not have as many hyperparameters. This method is good\n");
+   printf("   for up to about 2000 sample points; otherise is may be\n");
+   printf("   computationally too expensive.\n");
    printf(" SPLINES - currently only supports 1D, 2D, or 3D. This method\n");
-   printf("   works only with full factorial designs. Also, you cannot use\n");
-   printf("   cross validation with this method.\n");
-   printf("   Use a test set (rstest) to validate your response surface.\n");
+   printf("   works only with full factorial designs. Also, you cannot\n");
+   printf("   use cross validation with this method. Instead, use a\n");
+   printf("   holdout set (rstest) to validate your response surface.\n");
    printf(" K-NEAREST NEIGHBOR - for large data set when data points are\n");
-   printf("   relatively close to one another, this may be useful.\n");
+   printf("   relatively close to one another, this may work well.\n");
    printf(" RBF  - for small to medium data set (too expensive otherwise).\n");
    printf(" MRBF - for larger data set (> 2000).\n");
-   printf(" MGP2 - (Gaussian process) for larger data set (> 2000).\n");
+   printf(" MGP3 - (Gaussian process) for larger data set (> 2000).\n");
+   printf(" MTGP - (multiple TGP) for larger data set (> 2000).\n");
    printf(" MMARS - (multiple MARS) for even larger data set (> 20000).\n");
+   printf(" HLR - Legendre polynomial for homogeneous (isotropic) inputs\n");
+   printf(" HGP - GP for isotropic inputs (optional: last input quantile)\n");
+   printf(" HKR - Kriging for isotropic inputs (last input quantile)\n");
+   printf(" HYGP - Legendre-GP for isotropic inputs (with quantile input)\n");
+   printf(" QGP - Quantile GP for isotropic/anisotropic inputs with\n");
+   printf("     isotropic case akin to HGP but different implementation.\n");
   }
 #ifdef HAVE_MARS
   printDashes(PL_INFO, 0);
-  printf("0. MARS \n");
+  printf("0.  MARS (Friedman's multivariate splines method)\n");
 #endif
-  printf("1. Linear regression \n");
-  printf("2. Quadratic regression \n");
-  printf("3. Cubic regression \n");
-  printf("4. Quartic regression \n");
-#ifdef HAVE_SNNS
-  printf("5. Artificial neural network \n");
-#endif
-  printf("6. Selective polynomial regression \n");
+  if (level > 3)
+    printf("==> Linear/nonlinear polynomial regression methods:\n");
+  printf("1.  Linear regression \n");
+  printf("2.  Quadratic regression \n");
+  printf("3.  Cubic regression \n");
+  printf("4.  Quartic regression (may be unstable)\n");
+  printf("5.  Selective polynomial regression (user selects terms to use)\n");
+  printf("6.  Derivative-based Legendre polynomial regression\n");
+  if (level > 3)
+   printf("    - need 2 samples: the second one with nInputs derivatives.\n");
+  printf("7.  Legendre polynomial regression\n");
+  printf("8.  User-defined regression (user provides basis functions)\n");
+  if (level > 3) printf("==> Other response surface methods: \n");
 #ifdef HAVE_TPROS
-  printf("7. Gaussian process (MacKay)\n");
+  printf("9.  Gaussian process (MacKay's implementation)\n");
 #endif
-  printf("8. Gaussian process (Tong)\n");
-#ifdef HAVE_SVM
-  printf("9. SVM-light (Joachims)\n");
-#endif
-  printf("10. Derivative-based Legendre polynomial regression\n");
+  printf("10. Gaussian process (Tong's implementation)\n");
+  printf("11. Kriging\n"); 
+  printf("12. Radial Basis Function\n");
+  printf("13. Sum-of-trees model\n");
+  printf("14. K nearest neighbors \n");
+  if (level > 3)
+    printf("    - needs large samples to improve prediction accuracy\n"); 
+  printf("15. Artificial neural network\n");
 #ifdef HAVE_TGP
-  printf("11. Tree-based Gaussian Process\n");
+  printf("16. Tree-based Gaussian Process (Gramacy and Lee)\n");
 #endif
-#ifdef HAVE_MARS
-  printf("12. MARS with bootstrap aggregating (bagging)\n");
+#ifdef HAVE_SVM
+  printf("17. SVM-light (Joachims)\n");
 #endif
-#ifdef HAVE_EARTH
-  printf("13. Earth (another MARS)\n");
-#endif
-  printf("14. Sum-of-trees model\n");
-  printf("15. Legendre polynomial regression\n");
-  printf("16. User-defined (nonpolynomial) regression\n");
-  printf("17. Sparse Grid polynomial regression\n"); 
-  printf("18. Kriging\n"); 
+  printf("18. Sparse Grid polynomial regression\n"); 
+  if (level > 3)
+    printf("    - Works only with sparse grid sampling design.\n");
   printf("19. Splines on regular grid (1D, 2D, or 3D only)\n");
-  printf("20. K nearest neighbors \n");
-  printf("21. Radial Basis Function\n");
-  printf("22. Acosso (by Storlie, LANL. Need R to run)\n");
-  printf("23. BSSAnova (by Storlie, LANL. Need R to run)\n");
+  if (level > 3)
+    printf("    - Works only with factorial designs in 1-3D.\n");
+  printf("20. Acosso (by Storlie, LANL. Need R to run)\n");
+  printf("21. BSSAnova (by Storlie, LANL. Need R to run)\n");
+  printf("22. Partial Least Squares Linear Regression (PLS)\n");
+  if (level > 3)
+  {
+    printf("    - Linear regression but geared toward the most\n");
+    printf("      eigenvectors.\n");
+    printf("==> Methods based on bootstrapped aggregation:\n");
+  }
+#ifdef HAVE_MARS
+  printf("23. MARS with bootstrap aggregating (bagging)\n");
+#endif
   printf("24. Radial Basis Function with bagging\n");
-  printf("25. Partial Least Squares Linear Regression (PLS)\n");
-  printf("26. Multi-Radial Basis Function (for large samples)\n");
-  printf("27. Multi-Gaussian process (Tong, for large samples)\n");
-  printf("28. Multi-MARS (for large samples)\n");
+  if (level > 3)
+  {
+    printf("==> Domain (input space) decomposition-based methods:\n");
+    printf(" - Idea: Divide input space into subdomains to reduce cost\n");
+    printf("         since each domain has a small sample size.\n");
+    printf(" - Binary partitioning along most sensitive dimensioins\n");
+  }
+  printf("25. Multi-Radial Basis Function (for large samples)\n");
+  printf("26. Multi-Gaussian process (Tong, for large samples)\n");
+  printf("27. Multi-MARS (for large samples)\n");
+  printf("28. Multi-Treed Gaussian process (for large samples)\n");
+  if (level > 3)
+    printf("==> Homogeneous and quantile-based methods:\n");
+  printf("29. Homogeneous Legendre regression (HLR)\n");
+  if (level > 3)
+    printf("    This method is for homogeneous inputs (same bounds).\n");
+  printf("30. Homogeneous GP (HGP)\n");
+  if (level > 3)
+  {
+    printf("  This method is for either:\n");
+    printf("    a. All inputs are homogeneous (and same bounds too).\n");
+    printf("    b. Only the last input is nonhomogeneous (quantile).\n");
+    printf("       Different sample points can have different quantiles.\n");
+  }
+  printf("31. Homogeneous Kriging (all homogeneous inputs: same bounds)\n");
+  printf("32. Hybrid Homogeneous GP (HyHGP)\n");
+  if (level > 3)
+  {
+    printf("  This method is for either:\n");
+    printf("    a. All inputs are homogeneous (and same bounds too), or\n");
+    printf("    b. Only the last input is nonhomogeneous (quantile).\n");
+    printf("       - All N sample points must have same Q quantiles.\n");
+    printf("       - For CV, must use nGroups be factors of N/Q, and\n");
+    printf("         must not use randomization. Otherwise, CV fails.\n");
+  }
+  printf("33. Quantile GP (can be anisotropic)\n");
+  if (level > 3)
+  {
+    printf("  This method requires:\n");
+    printf("    - Quantile variable as the last input.\n");
+    printf("    - All N sample points have same Q quantiles.\n");
+    printf("    - There must be a quantile input value of 0.5\n");
+    printf("    - For CV, must use nGroups be factors of N/Q, and\n");
+    printf("      must not use randomization. Otherwise, CV fails.\n");
+    printf("    Note: Similar to HGP(b) but different implementation.\n");
+  }
+  printf("34. User-modified general nonlinear function\n");
+  printf("    (Need to modify the PsuadeRegression.cpp file)\n");
   return PSUADE_NUM_RS;
 }
 
@@ -759,6 +815,9 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
   FuncApprox *faPtr=NULL;
   char       *params[1], winput[10000], *strPtr, equal[100];
 
+  //**/ -------------------------------------------------
+  //**/ get response surface type
+  //**/ -------------------------------------------------
   if (faType >= 0) rsType = faType;
   else
   {
@@ -771,30 +830,30 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
     }
   }
 
+  //**/ -------------------------------------------------
+  //**/ instantiate response surface
+  //**/ -------------------------------------------------
   if      (rsType == PSUADE_RS_MARS) faPtr = new Mars(nInputs, nSamples);
-  else if (rsType == PSUADE_RS_ANN)  faPtr = new Ann(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_ANN)  faPtr = new DNN(nInputs, nSamples);
   else if (rsType == PSUADE_RS_REGRS)
           faPtr = new SelectiveRegression(nInputs, nSamples);
   else if (rsType == PSUADE_RS_GP1) faPtr = new GP1(nInputs, nSamples);
-  else if (rsType == PSUADE_RS_GP2) 
+  else if (rsType == PSUADE_RS_GP3) 
   {
     faPtr = NULL;
-    if (psConfig_ != NULL)
-    {
-      strPtr = psConfig_->getParameter("RS_no_multi_domain");
-      if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
-    }
+    //**/ if override, do not switch to MGP3
+    strPtr = psConfig_.getParameter("RS_no_multi_domain");
+    if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
+    //**/ if users have modified group sample size, use it to switch
+    //**/ to MGP3 is sample size too large
     if (faPtr == NULL)
     {
       nsize = 2000; 
-      if (psConfig_ != NULL)
+      strPtr = psConfig_.getParameter("MGP_max_samples_per_group");
+      if (strPtr != NULL)
       {
-        strPtr = psConfig_->getParameter("MGP_max_samples_per_group");
-        if (strPtr != NULL)
-        {
-          sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
-          if (nsize < 100) nsize = 1000;
-        }
+        sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
+        if (nsize < 100) nsize = 1000;
       }
       if (nSamples > nsize)
       {
@@ -810,7 +869,6 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
           faPtr = new GradLegendreRegression(nInputs, nSamples);
   else if (rsType == PSUADE_RS_TGP)   faPtr = new TGP(nInputs, nSamples);
   else if (rsType == PSUADE_RS_MARSB) faPtr = new MarsBagg(nInputs, nSamples);
-  else if (rsType == PSUADE_RS_EARTH) faPtr = new Earth(nInputs, nSamples);
   else if (rsType == PSUADE_RS_SOTS) faPtr = new SumOfTrees(nInputs,nSamples);
   else if (rsType == PSUADE_RS_REGRL)
           faPtr = new LegendreRegression(nInputs,nSamples);
@@ -833,22 +891,19 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
   else if (rsType == PSUADE_RS_RBF)
   {
     faPtr = NULL;
-    if (psConfig_ != NULL)
-    {
-      strPtr = psConfig_->getParameter("RS_no_multi_domain");
-      if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
-    }
+    //**/ if override, do not switch to MRBF
+    strPtr = psConfig_.getParameter("RS_no_multi_domain");
+    if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
+    //**/ if users have modified group sample size, use it to switch
+    //**/ to MRBF is sample size too large
     if (faPtr == NULL)
     {
       nsize = 5000; 
-      if (psConfig_ != NULL)
+      strPtr = psConfig_.getParameter("MRBF_max_samples_per_group");
+      if (strPtr != NULL)
       {
-        strPtr = psConfig_->getParameter("MRBF_max_samples_per_group");
-        if (strPtr != NULL)
-        {
-          sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
-          if (nsize < 100) nsize = 2000;
-        }
+        sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
+        if (nsize < 100) nsize = 2000;
       }
       if (nSamples > nsize)
       {
@@ -869,17 +924,27 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
        faPtr = new PLS(nInputs, nSamples);
   else if (rsType == PSUADE_RS_MRBF)
        faPtr = new MRBF(nInputs, nSamples);
-  else if (rsType == PSUADE_RS_MGP2)
+  else if (rsType == PSUADE_RS_MGP3)
        faPtr = new MGP3(nInputs, nSamples);
   else if (rsType == PSUADE_RS_MMARS)
        faPtr = new MMars(nInputs, nSamples);
   else if (faType == PSUADE_RS_LOCAL)
        faPtr = new PsuadeRegression(nInputs, nSamples);
-  else if (rsType == PSUADE_RS_NPL)
-       faPtr = new NPLearning(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_HLEG)
+       faPtr = new HomLegendreRegression(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_HGP3)
+       faPtr = new HGP3(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_MTGP)
+       faPtr = new MTGP(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_HKR)
+       faPtr = new HKriging(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_HYGP)
+       faPtr = new HybridGP(nInputs, nSamples);
+  else if (rsType == PSUADE_RS_QGP)
+       faPtr = new QGP(nInputs, nSamples);
   else
   {
-    printf("INFO: rstype has been set to default = regression.\n");
+    //printf("INFO: rstype has been set to default = regression.\n");
     faPtr = new Regression(nInputs, nSamples);
     params[0] = (char *) &rsType;
     faPtr->setParams(1, params);
@@ -889,6 +954,12 @@ FuncApprox *genFA(int faType, int nInputs, int outLevel, int nSamples)
 
 // ************************************************************************
 // friend function (create a function approximator from a data file)
+//**/ (flag == 0 ==> use the type from psuadeIO) 
+//**/ (flag == 1 ==> ask user which RS to use)
+//**/ (flag == 2 ==> use RS type from psuadeIO and create the model)
+//**/ (flag == 3 ==> ask user for RS type and create model - initialize)
+//**/ outputID fetched from psuadeIO
+//**/ no data transformation due to PDF
 // ------------------------------------------------------------------------
 extern "C" 
 FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
@@ -900,19 +971,28 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
   char       *params[3], winput[5001], equal[100], *strPtr;
   pData      pPtr, pInputs, pOutputs, pStates, pLower, pUpper;
 
+  //**/ -------------------------------------------------
+  //**/ error checking
+  //**/ -------------------------------------------------
   if (psuadeIO == NULL)
   {
     printf("ERROR: PsuadeData does not exist.\n");
     return NULL;
   }
+  psuadeIO->getParameter("ana_diagnostics", pPtr);
+  printLevel = pPtr.intData_;
 
+  //**/ -------------------------------------------------
+  //**/ fetch or ask for function approximation type
+  //**/ -------------------------------------------------
   if ((flag & 1) == 0)
   {
     assert(psuadeIO->getParameter("ana_rstype", pPtr) == 0);
     faType = pPtr.intData_;
     if (faType < 0 || faType >= PSUADE_NUM_RS)
     {
-      printf("createFA : faType (%d) not valid.\n", faType);
+      printf("genFAInteractive : faType (%d) not valid.\n",
+             faType);
       exit(1);
     }
   }
@@ -921,30 +1001,32 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
     faType = -1;
     while (faType < 0 || faType >= PSUADE_NUM_RS)
     {
-      writeFAInfo(-1);
+      writeFAInfo(printLevel);
       sprintf(winput, "Please enter your choice ? ");
       faType = getInt(0, PSUADE_NUM_RS-1, winput);
     }
   }
 
+  //**/ -------------------------------------------------
+  //**/ fetch the other parameters
+  //**/ -------------------------------------------------
   psuadeIO->getParameter("input_ninputs", pPtr);
   nInputs = pPtr.intData_;
   psuadeIO->getParameter("output_noutputs", pPtr);
   nOutputs = pPtr.intData_;
   psuadeIO->getParameter("method_nsamples", pPtr);
   nSamples = pPtr.intData_;
-  if (nSamples > psFAMaxDataPts_)
+  if (nSamples > psConfig_.RSMaxPts_)
   {
-    printf("PSUADE WARNING: For nSamples > %d,\n", psFAMaxDataPts_);
+    printf("PSUADE WARNING: For nSamples > %d,\n", 
+           psConfig_.RSMaxPts_);
     printf("  it can be extremely expensive to create\n");
     printf("  response surfaces.\n");
-    printf("  Please consult PSUADE developers before moving on.\n");
+    printf("  Consult PSUADE developers before moving on.\n");
     exit(1);
   }
   psuadeIO->getParameter("ana_outputid", pPtr);
   outputID = pPtr.intData_;
-  psuadeIO->getParameter("ana_diagnostics", pPtr);
-  printLevel = pPtr.intData_;
   psuadeIO->getParameter("ana_regressionwgtid", pPtr);
   wgtID = pPtr.intData_;
   psuadeIO->getParameter("output_sample", pOutputs);
@@ -953,30 +1035,33 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
   psuadeIO->getParameter("input_lbounds", pLower);
   psuadeIO->getParameter("input_ubounds", pUpper);
 
-  if      (faType == PSUADE_RS_MARS) faPtr = new Mars(nInputs, nSamples);
-  else if (faType == PSUADE_RS_ANN)  faPtr = new Ann(nInputs, nSamples);
+  //**/ -------------------------------------------------
+  //**/ instantiate function approximation object
+  //**/ -------------------------------------------------
+  if (faType == PSUADE_RS_MARS) 
+       faPtr = new Mars(nInputs, nSamples);
+  else if (faType == PSUADE_RS_ANN)
+       faPtr = new DNN(nInputs, nSamples);
   else if (faType == PSUADE_RS_REGRS)
-          faPtr = new SelectiveRegression(nInputs, nSamples);
-  else if (faType == PSUADE_RS_GP1)   faPtr = new GP1(nInputs, nSamples);
-  else if (faType == PSUADE_RS_GP2)
+       faPtr = new SelectiveRegression(nInputs, nSamples);
+  else if (faType == PSUADE_RS_GP1)  
+       faPtr = new GP1(nInputs, nSamples);
+  else if (faType == PSUADE_RS_GP3)
   {
     faPtr = NULL;
-    if (psConfig_ != NULL)
-    {
-      strPtr = psConfig_->getParameter("RS_no_multi_domain");
-      if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
-    }
+    //**/ if override, do not switch to MGP3
+    strPtr = psConfig_.getParameter("RS_no_multi_domain");
+    if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
+    //**/ if users have modified group sample size, use it 
+    //**/ to switch to MGP3 is sample size too large
     if (faPtr == NULL)
     {
       nsize = 2000; 
-      if (psConfig_ != NULL)
+      strPtr = psConfig_.getParameter("MGP_max_samples_per_group");
+      if (strPtr != NULL)
       {
-        strPtr = psConfig_->getParameter("MGP_max_samples_per_group");
-        if (strPtr != NULL)
-        {
-          sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
-          if (nsize < 100) nsize = 1000;
-        }
+        sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
+        if (nsize < 100) nsize = 1000;
       }
       if (nSamples > nsize)
       {
@@ -986,13 +1071,16 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
       else faPtr = new GP3(nInputs, nSamples);
     }
   }
-  else if (faType == PSUADE_RS_SVM)   faPtr = new SVM(nInputs, nSamples);
+  else if (faType == PSUADE_RS_SVM)
+          faPtr = new SVM(nInputs, nSamples);
   else if (faType == PSUADE_RS_REGRGL)
           faPtr = new GradLegendreRegression(nInputs, nSamples);
-  else if (faType == PSUADE_RS_TGP)   faPtr = new TGP(nInputs, nSamples);
-  else if (faType == PSUADE_RS_MARSB) faPtr = new MarsBagg(nInputs, nSamples);
-  else if (faType == PSUADE_RS_EARTH) faPtr = new Earth(nInputs, nSamples);
-  else if (faType == PSUADE_RS_SOTS) faPtr = new SumOfTrees(nInputs,nSamples);
+  else if (faType == PSUADE_RS_TGP)
+          faPtr = new TGP(nInputs, nSamples);
+  else if (faType == PSUADE_RS_MARSB)
+          faPtr = new MarsBagg(nInputs, nSamples);
+  else if (faType == PSUADE_RS_SOTS)
+          faPtr = new SumOfTrees(nInputs,nSamples);
   else if (faType == PSUADE_RS_REGRL)
   {
     faPtr = new LegendreRegression(nInputs,nSamples);
@@ -1014,7 +1102,7 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
   {
     if (nInputs > 3)
     {
-      printf("genFA ERROR: Splines does not support nInputs > 3.\n");
+      printf("genFAInteractive ERROR: Splines does not support nInputs > 3.\n");
       exit(1);
     }
     faPtr = new Splines(nInputs, nSamples);
@@ -1023,22 +1111,19 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
   else if (faType == PSUADE_RS_RBF)
   {
     faPtr = NULL;
-    if (psConfig_ != NULL)
-    {
-      strPtr = psConfig_->getParameter("RS_no_multi_domain");
-      if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
-    }
+    //**/ if override, do not switch to MRBF
+    strPtr = psConfig_.getParameter("RS_no_multi_domain");
+    if (strPtr != NULL) faPtr = new RBF(nInputs, nSamples);
+    //**/ if users have modified group sample size, use it to switch
+    //**/ to MRBF is sample size too large
     if (faPtr == NULL)
     {
       nsize = 5000; 
-      if (psConfig_ != NULL)
+      strPtr = psConfig_.getParameter("MRBF_max_samples_per_group");
+      if (strPtr != NULL)
       {
-        strPtr = psConfig_->getParameter("MRBF_max_samples_per_group");
-        if (strPtr != NULL)
-        {
-          sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
-          if (nsize < 100) nsize = 2000;
-        }
+        sscanf(strPtr, "%s %s %d", winput, equal, &nsize);
+        if (nsize < 100) nsize = 2000;
       }
       if (nSamples > nsize)
       {
@@ -1058,12 +1143,22 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
        faPtr = new PLS(nInputs, nSamples);
   else if (faType == PSUADE_RS_MRBF)
        faPtr = new MRBF(nInputs, nSamples);
+  else if (faType == PSUADE_RS_MGP3)
+       faPtr = new MGP3(nInputs, nSamples);
   else if (faType == PSUADE_RS_MMARS)
        faPtr = new MMars(nInputs, nSamples);
   else if (faType == PSUADE_RS_LOCAL)
        faPtr = new PsuadeRegression(nInputs, nSamples);
-  else if (faType == PSUADE_RS_NPL)
-       faPtr = new NPLearning(nInputs, nSamples);
+  else if (faType == PSUADE_RS_HLEG)
+       faPtr = new HomLegendreRegression(nInputs, nSamples);
+  else if (faType == PSUADE_RS_HGP3)
+       faPtr = new HGP3(nInputs, nSamples);
+  else if (faType == PSUADE_RS_HKR)
+       faPtr = new HKriging(nInputs, nSamples);
+  else if (faType == PSUADE_RS_HYGP)
+       faPtr = new HybridGP(nInputs, nSamples);
+  else if (faType == PSUADE_RS_QGP)
+       faPtr = new QGP(nInputs, nSamples);
   else
   {
     faPtr = new Regression(nInputs, nSamples);
@@ -1073,6 +1168,9 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
   faPtr->setBounds(pLower.dbleArray_, pUpper.dbleArray_);
   faPtr->setOutputLevel(printLevel);
 
+  //**/ -------------------------------------------------
+  //**/ set number of points per dimension
+  //**/ -------------------------------------------------
   nPtsPerDim = 256;
   totPts = 1000001;
   while (totPts > 1000000)
@@ -1087,23 +1185,28 @@ FuncApprox *genFAInteractive(PsuadeData *psuadeIO, int flag)
   }
   faPtr->setNPtsPerDim(nPtsPerDim);
 
+  //**/ -------------------------------------------------
+  //**/ load in sample weights, if any
+  //**/ -------------------------------------------------
+  psVector vecWgts;
   if (wgtID >= 0 && wgtID < nOutputs)
   {
-    wghts = new double[nSamples];
+    vecWgts.setLength(nSamples);
     for (ii = 0; ii < nSamples; ii++)
-      wghts[ii] = pOutputs.dbleArray_[nOutputs*ii+wgtID];
-    faPtr->loadWeights(nSamples, wghts);
-    delete [] wghts;
+      vecWgts[ii] = pOutputs.dbleArray_[nOutputs*ii+wgtID];
+    faPtr->loadWeights(nSamples, vecWgts.getDVector());
   }
 
+  //**/ -------------------------------------------------
+  //**/ load data
+  //**/ -------------------------------------------------
   if (flag & 2)
   {
-    Y = new double[nSamples];
-    checkAllocate(Y, "Y in FuncApprox::genFAInteractive");
+    psVector vecYT;
+    vecYT.setLength(nSamples);
     for (ii = 0; ii < nSamples; ii++)
-       Y[ii] = pOutputs.dbleArray_[nOutputs*ii+outputID];
-    faPtr->initialize(pInputs.dbleArray_, Y);
-    delete [] Y;
+       vecYT[ii] = pOutputs.dbleArray_[nOutputs*ii+outputID];
+    faPtr->initialize(pInputs.dbleArray_, vecYT.getDVector());
   }
   return faPtr;
 }
@@ -1123,6 +1226,9 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
   FuncApprox *faPtr;
   pData      pPtr, pInpData, pOutData, pStates;
 
+  //**/ ----------------------------------------------------------------
+  //**/ read the model data
+  //**/ ----------------------------------------------------------------
   for (ii = strlen(fname)-1; ii >= 0; ii--) if (fname[ii] == '/') break;
   status = psuadeIO->readPsuadeFile(fname);
   if (status != 0)
@@ -1131,6 +1237,9 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
     return NULL;
   }
 
+  //**/ ----------------------------------------------------------------
+  //**/ retrieve the model parameters
+  //**/ ----------------------------------------------------------------
   psuadeIO->getParameter("input_ninputs", pPtr);
   nInputs = pPtr.intData_;
   psuadeIO->getParameter("output_noutputs", pPtr);
@@ -1144,6 +1253,9 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
   psuadeIO->getParameter("output_states", pStates);
   sampleStates = pStates.intArray_;
 
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
   for (ii = 0; ii < nSamples; ii++)
   {
     if (sampleStates[ii] != 1 || 
@@ -1157,6 +1269,9 @@ FuncApprox *genFAFromFile(char *fname, int outputID)
     }
   }
 
+  //**/ ----------------------------------------------------------------
+  //**/ create a RS model (need to transform data first)
+  //**/ ----------------------------------------------------------------
   PDFTransform(psuadeIO, nSamples, nInputs, sampleInputs);
   psuadeIO->updateInputSection(nSamples,nInputs,NULL,NULL,NULL,
                                sampleInputs,NULL,NULL,NULL,NULL,NULL);

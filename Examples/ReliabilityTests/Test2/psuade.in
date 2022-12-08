@@ -1,0 +1,23 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable 1 X1  =  0   12.5663712
+   variable 2 X2  =  0   12.5663712
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = METIS
+   num_samples = 36
+   random_seed = 541541191
+END
+APPLICATION
+   driver = ./simulator
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 0
+END
+END

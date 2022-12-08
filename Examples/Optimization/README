@@ -1,0 +1,18 @@
+Rosenbrock - the Rosenbrock function
+Branin     - the Branin problem
+Poisson    - a Poisson equation (given solution and recover boundary condition)
+             (especially for testing the Manifold Mapping method)
+CobylaTest - test problems with nonlinearly inequality constraints for cobyla
+LincoaTest - test problems with linear equality constraints for lincoa
+MOO        - multiobjective optimization
+OUU        - optimization under uncertainty
+Himmelblau - a function with many local minima
+H1         - a function with many local minima
+Griewank   - a function with many local minima
+Shaffer    - a function with many local minima
+Schwefel   - a function with many local minima
+Rastrigin  - a function with many local minima
+MixedInteger - various test for mixed integer optimization using Nomad/SCE
+
+
+

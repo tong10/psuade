@@ -1,5 +1,4 @@
 #include "lbfgsb.h"
-static integer c__1 = 1;
 
 
  int lnsrlb(integer *n, double *l, double *u, 
@@ -43,18 +42,18 @@ static integer c__1 = 1;
 
 
     /* Table of constant values */
-    static double c_b14 = FTOL;
-    static double c_b15 = GTOL;
-    static double c_b16 = XTOL;
-    static double c_b17 = STEPMIN;
+    double c_b14 = FTOL;
+    double c_b15 = GTOL;
+    double c_b16 = XTOL;
+    double c_b17 = STEPMIN;
     /* System generated locals */
-    integer i__1;
+    integer i__1, iOne=1;
     double d__1;
 
 
     /* Local variables */
-    static integer i__;
-    static double a1, a2;
+    integer i__;
+    double a1, a2;
 
     /* Parameter adjustments */
     --z__;
@@ -73,7 +72,7 @@ static integer c__1 = 1;
     if ( *task == FG_LN ) { 
         goto L556;
     }
-    *dtd = ddot(n, &d__[1], &c__1, &d__[1], &c__1);
+    *dtd = ddot(n, &d__[1], &iOne, &d__[1], &iOne);
     *dnorm = sqrt(*dtd);
     /*     Determine the maximum step length. */
     *stpmx = 1e10;
@@ -112,14 +111,14 @@ static integer c__1 = 1;
     } else {
         *stp = 1.;
     }
-    dcopy(n, &x[1], &c__1, &t[1], &c__1);
-    dcopy(n, &g[1], &c__1, &r__[1], &c__1);
+    dcopy(n, &x[1], &iOne, &t[1], &iOne);
+    dcopy(n, &g[1], &iOne, &r__[1], &iOne);
     *fold = *f;
     *ifun = 0;
     *iback = 0;
     *csave = START;
 L556:
-    *gd = ddot(n, &g[1], &c__1, &d__[1], &c__1);
+    *gd = ddot(n, &g[1], &iOne, &d__[1], &iOne);
     if (*ifun == 0) {
         *gdold = *gd;
         if (*gd >= 0.) {
@@ -143,7 +142,7 @@ L556:
         ++(*nfgv);
         *iback = *ifun - 1;
         if (*stp == 1.) {
-            dcopy(n, &z__[1], &c__1, &x[1], &c__1);
+            dcopy(n, &z__[1], &iOne, &x[1], &iOne);
         } else {
             i__1 = *n;
             for (i__ = 1; i__ <= i__1; ++i__) {
@@ -168,10 +167,10 @@ int dcsrch(double *f, double *g, double *stp,
 
 
     /* Local variables */
-    static double fm, gm, fx, fy, gx, gy, fxm, fym, gxm, gym, stx, sty;
-    static integer stage;
-    static double finit, ginit, width, ftest, gtest, stmin, stmax, width1;
-    static logical brackt;
+    double fm, gm, fx, fy, gx, gy, fxm, fym, gxm, gym, stx, sty;
+    integer stage;
+    double finit, ginit, width, ftest, gtest, stmin, stmax, width1;
+    logical brackt;
 
     /*
      ********** 
@@ -494,7 +493,7 @@ L1000:
     double sqrt(double);
 
     /* Local variables */
-    static double p, q, r__, s, sgnd, stpc, stpf, stpq, gamma, theta;
+    double p, q, r__, s, sgnd, stpc, stpf, stpq, gamma, theta;
 
     /*
      ********** 

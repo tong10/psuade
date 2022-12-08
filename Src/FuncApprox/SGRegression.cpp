@@ -45,7 +45,6 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
   FILE   *fp;
 
   faID_     = PSUADE_RS_REGSG;
-  pcePerms_ = NULL;
   numPerms_ = 0;
 
   if (outputLevel_ >= 0)
@@ -95,18 +94,18 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
     fscanf(fp, "%lg", &ddata);
     sampleWeights_[ii] = ddata;
   }
-  lBounds_.setLength(nInputs_);
-  uBounds_.setLength(nInputs_);
+  VecLBs_.setLength(nInputs_);
+  VecUBs_.setLength(nInputs_);
   for (kk = 0; kk < nInputs_; kk++)
   {
     fscanf(fp, "%lg %lg", &ddata, &ddata2);
-    lBounds_[kk] = ddata;
-    uBounds_[kk] = ddata2;
-    if (lBounds_[kk] >= uBounds_[kk])
+    VecLBs_[kk] = ddata;
+    VecUBs_[kk] = ddata2;
+    if (VecLBs_[kk] >= VecUBs_[kk])
     {
       printf("SparseGridRegression ERROR: invalid input bounds.\n");
       printf("       lbound, ubound (input %d) = %e %e\n", kk+1, 
-             lBounds_[kk], uBounds_[kk]);
+             VecLBs_[kk], VecUBs_[kk]);
       exit(1);
     }
   }
@@ -119,12 +118,6 @@ SparseGridRegression::SparseGridRegression(int nInputs,int nSamples):
 // ------------------------------------------------------------------------
 SparseGridRegression::~SparseGridRegression()
 {
-  if (pcePerms_ != NULL)
-  {
-    for (int ii = 0; ii < numPerms_; ii++) 
-      if (pcePerms_[ii] != NULL) delete [] pcePerms_[ii];
-    delete [] pcePerms_;
-  }
 }
 
 // ************************************************************************
@@ -134,6 +127,9 @@ int SparseGridRegression::initialize(double *X, double *Y)
 {
   int totPts, ss;
 
+  //**/ ===============================================================
+  //**/ error checking
+  //**/ ===============================================================
   if (sampleInputs_.length() == 0)
   {
     printf("SparseGridRegression::initialize ERROR - invalid sample.\n");
@@ -145,8 +141,11 @@ int SparseGridRegression::initialize(double *X, double *Y)
     exit(1);
   } 
    
+  //**/ ===============================================================
+  //**/ analyze the data
+  //**/ ===============================================================
   analyze(X, Y);
-  if (psRSCodeGen_ == 1) 
+  if (psConfig_.RSCodeGenIsOn())
   {
     printf("SparseGridRegression INFO: response surface stand-alone ");
     printf("code not available.\n");
@@ -158,10 +157,14 @@ int SparseGridRegression::initialize(double *X, double *Y)
 // Generate lattice data based on the input set
 // ------------------------------------------------------------------------
 int SparseGridRegression::genNDGridData(double *X, double *Y, int *N2,
-                                        double **X2, double **Y2)
+                                        double **XOut, double **YOut)
 {
   int totPts, ss;
+  psVector vecYOut;
 
+  //**/ ===============================================================
+  //**/ error checking
+  //**/ ===============================================================
   if (sampleInputs_.length() == 0)
   {
     printf("SparseGridRegression::genNDGridData ERROR - invalid sample.\n");
@@ -173,19 +176,30 @@ int SparseGridRegression::genNDGridData(double *X, double *Y, int *N2,
     exit(1);
   } 
    
+  //**/ ===============================================================
+  //**/ analyze the data
+  //**/ ===============================================================
   analyze(X, Y);
 
+  //**/ ===============================================================
+  //**/ return if there is no request to create lattice points
+  //**/ ===============================================================
   if ((*N2) == -999) return 0;
 
-  genNDGrid(N2, X2);
+  //**/ ===============================================================
+  //**/ generating regular grid data
+  //**/ ===============================================================
+  genNDGrid(N2, XOut);
   if ((*N2) == 0) return 0;
   totPts = (*N2);
 
-  (*Y2) = new double[totPts];
-  checkAllocate(*Y2, "Y2 in SGRegression::genNDGridData");
+  //**/ ===============================================================
+  //**/ allocate storage for the data points and generate them
+  //**/ ===============================================================
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
   for (ss = 0; ss < totPts; ss++)
-    (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
-
+    (*YOut)[ss] = evaluatePoint(&((*XOut)[ss*nInputs_]));
   return 0;
 }
 
@@ -197,29 +211,38 @@ int SparseGridRegression::gen1DGridData(double *X, double *Y, int ind1,
                                         double **XX, double **YY)
 {
   int    totPts, mm, nn;
-  double HX, *Xloc;
-
+  double HX;
+  psVector vecYOut, vecXT, vecXOut;
+  
+  //**/ ===============================================================
+  //**/ create response surface
+  //**/ ===============================================================
   (*NN) = -999;
   genNDGridData(X, Y, NN, NULL, NULL);
 
+  //**/ ===============================================================
+  //**/ set up for generating regular grid data
+  //**/ ===============================================================
   totPts = nPtsPerDim_;
-  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
+  //**/ ===============================================================
+  //**/ allocate storage for and then generate the data points
+  //**/ ===============================================================
   (*NN) = totPts;
-  (*XX) = new double[totPts];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in SGRegression::gen1DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  vecXOut.setLength(totPts);
+  vecYOut.setLength(totPts);
+  (*XX) = vecXOut.takeDVector();
+  (*YY) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
-    Xloc[ind1] = HX * mm + lowerBounds_[ind1];
-    (*XX)[mm] = Xloc[ind1];
-    (*YY)[mm] = evaluatePoint(Xloc);
+    vecXT[ind1] = HX * mm + VecLBs_[ind1];
+    (*XX)[mm] = vecXT[ind1];
+    (*YY)[mm] = evaluatePoint(vecXT.getDVector());
   }
-
-  delete [] Xloc;
   return 0;
 }
 
@@ -230,39 +253,46 @@ int SparseGridRegression::gen2DGridData(double *X, double *Y, int ind1,
                                       int ind2, double *settings, int *NN, 
                                       double **XX, double **YY)
 {
-  int    totPts, mm, nn, index;
-  double *HX, *Xloc;
+  int totPts, mm, nn, index;
+  psVector vecYOut, vecXT, vecXOut, vecHX;
 
+  //**/ ===============================================================
+  //**/ create response surface
+  //**/ ===============================================================
   (*NN) = -999;
   genNDGridData(X, Y, NN, NULL, NULL);
 
+  //**/ ===============================================================
+  //**/ set up for generating regular grid data
+  //**/ ===============================================================
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
 
+  //**/ ===============================================================
+  //**/ allocate storage for and then generate the data points
+  //**/ ===============================================================
   (*NN) = totPts;
-  (*XX) = new double[totPts * 2];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in SGRegression::gen2DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  vecXOut.setLength(totPts*2);
+  vecYOut.setLength(totPts);
+  (*XX) = vecXOut.takeDVector();
+  (*YY) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
     for (nn = 0; nn < nPtsPerDim_; nn++)
     {
       index = mm * nPtsPerDim_ + nn;
-      Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-      Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-      (*XX)[index*2]   = Xloc[ind1];
-      (*XX)[index*2+1] = Xloc[ind2];
-      (*YY)[index] = evaluatePoint(Xloc);
+      vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+      vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+      (*XX)[index*2]   = vecXT[ind1];
+      (*XX)[index*2+1] = vecXT[ind2];
+      (*YY)[index] = evaluatePoint(vecXT.getDVector());
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -273,24 +303,34 @@ int SparseGridRegression::gen3DGridData(double *X, double *Y, int ind1,
                                   int ind2, int ind3, double *settings, 
                                   int *NN, double **XX, double **YY)
 {
-  int    totPts, mm, nn, pp, index;
-  double *HX, *Xloc;
+  int totPts, mm, nn, pp, index;
+  psVector vecYOut, vecXT, vecXOut, vecHX;
 
+  //**/ ===============================================================
+  //**/ create response surface
+  //**/ ===============================================================
   (*NN) = -999;
   genNDGridData(X, Y, NN, NULL, NULL);
 
+  //**/ ===============================================================
+  //**/ set up for generating regular grid data
+  //**/ ===============================================================
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
 
+  //**/ ===============================================================
+  //**/ allocate storage for and then generate the data points
+  //**/ ===============================================================
   (*NN) = totPts;
-  (*XX) = new double[totPts * 3];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in SGRegression::gen3DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  vecXOut.setLength(totPts*3);
+  vecYOut.setLength(totPts);
+  (*XX) = vecXOut.takeDVector();
+  (*YY) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -299,19 +339,16 @@ int SparseGridRegression::gen3DGridData(double *X, double *Y, int ind1,
       for (pp = 0; pp < nPtsPerDim_; pp++)
       {
         index = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
-        Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-        Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-        Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-        (*XX)[index*3]   = Xloc[ind1];
-        (*XX)[index*3+1] = Xloc[ind2];
-        (*XX)[index*3+2] = Xloc[ind3];
-        (*YY)[index] = evaluatePoint(Xloc);
+        vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+        vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+        vecXT[ind3] = vecHX[2] * pp + VecLBs_[ind3];
+        (*XX)[index*3]   = vecXT[ind1];
+        (*XX)[index*3+1] = vecXT[ind2];
+        (*XX)[index*3+2] = vecXT[ind3];
+        (*YY)[index] = evaluatePoint(vecXT.getDVector());
       }
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -322,25 +359,35 @@ int SparseGridRegression::gen4DGridData(double *X, double *Y, int ind1,
                              int ind2, int ind3, int ind4, double *settings, 
                              int *NN, double **XX, double **YY)
 {
-  int    totPts, mm, nn, pp, qq, index;
-  double *HX, *Xloc;
+  int totPts, mm, nn, pp, qq, index;
+  psVector vecYOut, vecXT, vecXOut, vecHX;
 
+  //**/ ===============================================================
+  //**/ create response surface
+  //**/ ===============================================================
   (*NN) = -999;
   genNDGridData(X, Y, NN, NULL, NULL);
 
+  //**/ ===============================================================
+  //**/ set up for generating regular grid data
+  //**/ ===============================================================
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4])/(nPtsPerDim_ - 1); 
 
+  //**/ ===============================================================
+  //**/ allocate storage for and then generate the data points
+  //**/ ===============================================================
   (*NN) = totPts;
-  (*XX) = new double[totPts * 4];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in SGRegression::gen4DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  vecXOut.setLength(totPts*4);
+  vecYOut.setLength(totPts);
+  (*XX) = vecXOut.takeDVector();
+  (*YY) = vecYOut.takeDVector();
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -352,22 +399,19 @@ int SparseGridRegression::gen4DGridData(double *X, double *Y, int ind1,
         {
           index = mm*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
                   nn*nPtsPerDim_*nPtsPerDim_ + pp * nPtsPerDim_ + qq;
-          Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-          Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-          Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-          Xloc[ind4] = HX[3] * qq + lowerBounds_[ind4];
-          (*XX)[index*4]   = Xloc[ind1];
-          (*XX)[index*4+1] = Xloc[ind2];
-          (*XX)[index*4+2] = Xloc[ind3];
-          (*XX)[index*4+3] = Xloc[ind4];
-          (*YY)[index] = evaluatePoint(Xloc);
+          vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+          vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+          vecXT[ind3] = vecHX[2] * pp + VecLBs_[ind3];
+          vecXT[ind4] = vecHX[3] * qq + VecLBs_[ind4];
+          (*XX)[index*4]   = vecXT[ind1];
+          (*XX)[index*4+1] = vecXT[ind2];
+          (*XX)[index*4+2] = vecXT[ind3];
+          (*XX)[index*4+3] = vecXT[ind4];
+          (*YY)[index] = evaluatePoint(vecXT.getDVector());
         }
       }
     }
   }
-
-  delete [] Xloc;
-  delete [] HX;
   return 0;
 }
 
@@ -377,28 +421,27 @@ int SparseGridRegression::gen4DGridData(double *X, double *Y, int ind1,
 double SparseGridRegression::evaluatePoint(double *X)
 {
   int    ii, kk;
-  double Y, multiplier, **LTable, ddata;
+  double Y, multiplier, ddata;
+  psMatrix MatLTable;
 
-  if (regCoefs_.length() == 0) return 0.0;
+  if (VecRegCoefs_.length() == 0) return 0.0;
   Y = 0.0;
-  LTable = new double*[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
-  checkAllocate(LTable[nInputs_-1],"LTable in SGRegression::evaluatePoint");
+  MatLTable.setFormat(PS_MAT2D);
+  MatLTable.setDim(nInputs_, pOrder_+1);
+  double **LTable = MatLTable.getMatrix2D();
   Y = 0.0;
   for (kk = 0; kk < numPerms_; kk++)
   {
     for (ii = 0; ii < nInputs_; ii++)
     {
-      ddata = (X[ii] - lBounds_[ii])/(uBounds_[ii] - lBounds_[ii])*2-1;
+      ddata = (X[ii] - VecLBs_[ii])/(VecUBs_[ii] - VecLBs_[ii])*2-1;
       EvalLegendrePolynomials(ddata, LTable[ii]);
     }
     multiplier = 1.0;
     for (ii = 0; ii < nInputs_; ii++)
-      multiplier *= LTable[ii][pcePerms_[kk][ii]];
-    Y += regCoefs_[kk] * multiplier;
+      multiplier *= LTable[ii][MatPcePerms_.getEntry(kk,ii)];
+    Y += VecRegCoefs_[kk] * multiplier;
   }
-  for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
-  delete [] LTable;
   return Y;
 }
 
@@ -439,25 +482,32 @@ double SparseGridRegression::evaluatePointFuzzy(int npts, double *X,
 int SparseGridRegression::analyze(double *X, double *Y)
 {
   int    ii, jj, kk, ll;
-  double **LTables, *coefs, ddata, ddata2, wt;
+  double ddata, ddata2, wt;
+  psVector vecCoefs;
 
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
   if (nInputs_ <= 0 || nSamples_ <= 0)
   {
     printf("SparseGridRegression::analyze ERROR - invalid arguments.\n");
     exit(1);
   } 
-  if (lBounds_.length() == 0)
+  if (VecLBs_.length() == 0)
   {
     printf("SparseGridRegression::analyze ERROR - input bounds not set.\n");
     exit(1);
   } 
    
+  //**/ ---------------------------------------------------------------
+  //**/ check sample
+  //**/ ---------------------------------------------------------------
   for (ii = 0; ii < nSamples_; ii++)
   {
     for (kk = 0; kk < nInputs_; kk++)
     {
       ddata = sampleInputs_[ii*nInputs_+kk];
-      ddata = ddata * (uBounds_[kk] - lBounds_[kk]) + lBounds_[kk];
+      ddata = ddata * (VecUBs_[kk] - VecLBs_[kk]) + VecLBs_[kk];
       if (PABS(ddata - X[ii*nInputs_+kk]) > 1.0e-13)
       {
         printf("SparseGridRegression::analyze ERROR - sample mismatch\n");
@@ -466,12 +516,16 @@ int SparseGridRegression::analyze(double *X, double *Y)
     }
   }
 
-  regCoefs_.setLength(numPerms_);
-  LTables = new double*[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) LTables[ii] = new double[pOrder_+1];
-  coefs = new double[numPerms_];
-  checkAllocate(coefs, "coefs in SGRegression::analyze");
-  for (ii = 0; ii < numPerms_; ii++) coefs[ii] = 0.0;
+  //**/ ---------------------------------------------------------------
+  //**/ computing the coefficients 
+  //**/ ---------------------------------------------------------------
+  VecRegCoefs_.setLength(numPerms_);
+  psMatrix MatLTables;
+  MatLTables.setFormat(PS_MAT2D);
+  MatLTables.setDim(nInputs_, pOrder_+1);
+  double **LTables = MatLTables.getMatrix2D();
+  vecCoefs.setLength(numPerms_);
+  for (ii = 0; ii < numPerms_; ii++) vecCoefs[ii] = 0.0;
 
   for (ii = 0; ii < nSamples_; ii++)
   {
@@ -484,42 +538,39 @@ int SparseGridRegression::analyze(double *X, double *Y)
     {
       ddata = 1.0;
       for (ll = 0; ll < nInputs_; ll++)
-        ddata *= LTables[ll][pcePerms_[kk][ll]];
+        ddata *= LTables[ll][MatPcePerms_.getEntry(kk,ll)];
       ddata2 = ddata * ddata;
       wt = sampleWeights_[ii];
-      regCoefs_[kk] += (ddata * Y[ii] * wt);
-      coefs[kk] += (ddata2 * wt);
+      VecRegCoefs_[kk] += (ddata * Y[ii] * wt);
+      vecCoefs[kk] += (ddata2 * wt);
     }
   } 
-  if (outputLevel_ >= 0)
+  //**/ finally divide numerators by denominators
+  if (outputLevel_ > 0)
   {
     printf("Legendre polynomial functional forms: \n");
     printf("X normalized to Z in [-1 1] (e.g. X in [0,1] -> Z=2X-1)\n");
     printf("P_0(Z) = 1\n");
     printf("P_1(Z) = Z\n");
-    printf("P_{n+1} = 1/(n+1) {(2n + 1) Z P_n(Z) + n P_{n-1}(Z)}\n");
+    printf("P_{n+1} = 1/(n+1) {(2n + 1) Z P_n(Z) - n P_{n-1}(Z)}\n");
     printEquals(PL_INFO, 0);
   }
   for (kk = 0; kk < numPerms_; kk++)
   {
-    if (coefs[kk] == 0.0) 
+    if (vecCoefs[kk] == 0.0) 
          printf("ERROR in SparseGridRegression: divide by 0.\n");
-    else regCoefs_[kk] /= coefs[kk];
-    if (outputLevel_ >= 0)
+    else VecRegCoefs_[kk] /= vecCoefs[kk];
+    if (outputLevel_ > 0)
     {
       printf("Legendre polynomial (");
       for (jj = 0; jj < nInputs_; jj++)
-        printf("%d ", pcePerms_[kk][jj]);
-      ddata = regCoefs_[kk];
+        printf("%d ", MatPcePerms_.getEntry(kk,jj));
+      ddata = VecRegCoefs_[kk];
       if (PABS(ddata) < 1.0e-13) ddata = 0.0;
       printf(") coefficient = %e\n", ddata);
     }
   }
-  if (outputLevel_ >= 0) printAsterisks(PL_INFO, 0);
-
-  delete [] coefs;
-  for (ii = 0; ii < nInputs_; ii++) delete [] LTables[ii];
-  delete [] LTables;
+  if (outputLevel_ > 0) printAsterisks(PL_INFO, 0);
   return 0;
 }
 
@@ -531,31 +582,32 @@ int SparseGridRegression::GenPermutations()
 {
   int  ii, kk, orderTmp, rvTmp;
 
+  //**/ compute number of permutations
   numPerms_ = computeNumPCEPermutations(nInputs_, pOrder_);
 
-  pcePerms_ = new int*[numPerms_];
-  for (ii = 0; ii < numPerms_; ii++) pcePerms_[ii] = new int[nInputs_];
-  checkAllocate(pcePerms_[numPerms_-1], 
-                "pcePerms_ in SGRegression::GenPermutations");
+  //**/ construct the permutations
+  MatPcePerms_.setFormat(PS_MAT2D);
+  MatPcePerms_.setDim(numPerms_, nInputs_);
+  int **matPerms = MatPcePerms_.getIMatrix2D();
 
   numPerms_ = 0;
   for (kk = 0; kk <= pOrder_; kk++)
   {
     orderTmp = kk;
     rvTmp = 0;
-    pcePerms_[numPerms_][0] = orderTmp;
-    for (ii = 1; ii < nInputs_; ii++) pcePerms_[numPerms_][ii] = 0;
-    while (pcePerms_[numPerms_][nInputs_-1] != kk)
+    matPerms[numPerms_][0] = orderTmp;
+    for (ii = 1; ii < nInputs_; ii++) matPerms[numPerms_][ii] = 0;
+    while (matPerms[numPerms_][nInputs_-1] != kk)
     {
       numPerms_++;
       for (ii = 0; ii < nInputs_; ii++)
-        pcePerms_[numPerms_][ii] = pcePerms_[numPerms_-1][ii];
+        matPerms[numPerms_][ii] = matPerms[numPerms_-1][ii];
       if (orderTmp > 1) rvTmp = 1;
       else              rvTmp++;
-      pcePerms_[numPerms_][rvTmp-1] = 0;
-      orderTmp = pcePerms_[numPerms_-1][rvTmp-1];
-      pcePerms_[numPerms_][0] = orderTmp - 1;
-      pcePerms_[numPerms_][rvTmp] = pcePerms_[numPerms_-1][rvTmp] + 1;
+      matPerms[numPerms_][rvTmp-1] = 0;
+      orderTmp = matPerms[numPerms_-1][rvTmp-1];
+      matPerms[numPerms_][0] = orderTmp - 1;
+      matPerms[numPerms_][rvTmp] = matPerms[numPerms_-1][rvTmp] + 1;
     }
     numPerms_++;
   }
@@ -576,6 +628,8 @@ int SparseGridRegression::EvalLegendrePolynomials(double X, double *LTable)
       LTable[ii] = ((2 * ii - 1) * X * LTable[ii-1] -
                     (ii - 1) * LTable[ii-2]) / ii;
   }
+  //**/ normalize
+  //**/for (ii = 0; ii <= pOrder_; ii++) LTable[ii] *= sqrt(0.5+ii);
   return 0;
 }
 

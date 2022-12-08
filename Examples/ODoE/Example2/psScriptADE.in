@@ -1,0 +1,19 @@
+run psuadeGenSample.in
+load psuadeData
+odoe_dmetric
+y
+1
+2
+0
+odoe_ametric
+y
+1
+2
+0
+odoe_entropy
+y
+1
+2
+0
+q
+

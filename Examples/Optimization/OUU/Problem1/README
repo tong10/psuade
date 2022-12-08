@@ -1,0 +1,58 @@
+===========================================
+One-stage OUU
+===========================================
+
+Case 1: use bobyqa optimizer
+
+Probem is in the form of (see simulator.c):
+   Y = F(D,X1,X2,W1,W2,W3)
+
+Optimization problem:
+
+  min_{D,X1,X2} Phi_{W1,W2,W3}(F(D,X1,X2,W1,W2,W3))
+
+Psuade input file: psuade.in 
+
+Steps 
+1. cc -o simulator simulator.c -lm
+2. Run: psuade < psScript.in  > out
+3. Compare out against psScript.out  
+   D ~ -0.466
+
+-------------------------------------------
+Case 2: if derivative information is available
+        Use LBFGS
+
+simulator_deriv is similar to simulator but it
+has derivative information (use BFGS)
+
+Steps 
+1. cc -o simulator_deriv simulator_deriv.c -lm
+2. Run: psuade < psScript_deriv.in  > out
+3. Compare out against psScript_deriv.out  
+   D ~ -0.466
+
+===========================================
+Two-stage OUU
+===========================================
+
+Problem:
+
+min_D Phi_{W1,W2,W3} [min_{X1,X2} F(D,X1,X2,W1,W2,W3)]
+
+Steps:
+1. cc -o simulator2 simulator2.c -lm
+2. Run: psuade < psScript2.in  > out
+3. Compare out against psScript2.out  
+
+-------------------------------------------
+simulator2a is similar to simulator2 but it
+is for ensemble simulation.
+
+Steps:
+1. cc -o simulator2a simulator2a.c -lm
+2. Run: psuade < psScript2a.in  > out
+3. Compare out against psScript2a.out  
+
+===========================================
+

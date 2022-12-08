@@ -1,0 +1,12 @@
+load RSTrainData
+mcmc_predict
+y
+2
+1
+2
+none
+EvalSet
+PriorSample
+0
+q
+

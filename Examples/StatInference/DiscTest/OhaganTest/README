@@ -1,0 +1,107 @@
+==================================================================
+This example shows a study of O'hagan example
+==================================================================
+Problem definition:
+
+Let X    be a design parameter.
+    beta be an uncertain parameter.
+0.2 <= X <= 4
+0.35 <= beta <= 0.75
+
+------------------------------------------------------------------
+The true model is
+
+Ye = Beta * X / (1 + X / 20)
+
+where true beta = Beta = 0.65 and so
+
+Ye = 0.65 * X / (1 + X / 20)
+------------------------------------------------------------------
+The simulation model is: 
+
+Ys = beta * X
+
+------------------------------------------------------------------
+Discrepancy function:
+
+d1 = Ye - Ys 
+   = 0.65 * X / (1 + X / 20) - dbeta * X
+   = 0.65 * X / (1 + 0.05 * X) - dbeta * X * (1 + 0.05 X) / ( 1 + 0.05 X)
+   = [(0.65 - dbeta) * X - 0.05 * dbeta * X * X] / ( 1 + 0.05 X)  
+
+where beta=dbeta is fixed during the construction of discrepancy 
+although the true beta is not supposed to be known.
+        
+------------------------------------------------------------------
+corrected function:
+
+Y = Ys + d1 = beta * X + 0.65 * X / (1 + X / 20) - dbeta * X
+            = (beta - dbeta) * X + 0.65 * X / (1 + X / 20)
+
+For example, if dbeta has been set to be 0.5, then the corrected
+function Y becomes
+
+Y = (beta - 0.5) * X + 0.65 * X / (1 + X / 20)
+
+Then during inference, the posterior distribution of beta will be
+around beta=0.5 (a property of discrepancy modeling - that the
+mode of the posterior distribution is the user-specified value
+of beta; thus, discrepancy modeling is good for improving prediction
+but not improving the knowledge of model parameters)
+
+==================================================================
+                 Preliminary Steps
+------------------------------------------------------------------
+I. Preparing experimental data file (expdata)
+
+   You can use the existing expdata file in this directory. If 
+   you want to try generating experimental data yourself, follow
+   the following steps:
+
+   1. Compile the program that generates experimental data
+      (experimental data follows the Ye formulation above with 
+       added noise)
+
+      cc -o experiment experiment.c -lm
+
+   2. Run the program 'experiment' to generate data in psuadeData
+
+      psuade psExper.in
+
+   3. Convert the experimental data file from PSUADE to Excel 
+      format (which will be inserted into the experimental data file)
+
+      psuade
+      > load psuadeData
+      > write_xls expdata
+      > quit
+
+    4. Replace the first line of 'expdata' with '21 1 1 1'
+       which means that there are 21 experiments, 1 output, 1
+       design parameter and the design parameter is parameter 1
+       in the simulation model.
+
+       Also, add 0.1 at the end of each line to specify the std dev
+       of the observations.
+
+II. Prepare simulation data
+
+    1. Compile the program that generates the simulator 
+
+       cc -o simulator simulator.c -lm
+
+    2. Run sampling on the simulator and move the result to 'simdata'
+
+       psuade psSim.in
+       mv psuadeData simdata
+
+III. Run inference
+
+     There are 2 cases the details of which are given in each of 
+     the subdirectories (Case 1: no discrepancy, Case 2: with
+     discrepancy).
+
+     To run these cases, first copy simdata and expdata to these
+     subdirectories, cd to the subdirectories, and follow 
+     instructions in the README files.
+

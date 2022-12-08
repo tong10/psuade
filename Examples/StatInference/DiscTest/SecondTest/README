@@ -1,0 +1,123 @@
+==================================================================
+This example shows that the use of discrepancy modeling is also
+better (in addition to the FirstTest) in case when there are 
+additional model form errors that have not been accounted for 
+(in this case, the effect of X3)
+==================================================================
+Problem definition:
+
+Let X1 be a design parameter.
+X2 is an uncertain parameter.
+0.6 <= X1 <= 0.9
+0   <= X2 <= 1
+
+X3 is an invisible design parameter
+0 <= X3 <= 1
+------------------------------------------------------------------
+The true model is
+
+Ye = X1 + X2 + X2 * X1 + a * X2 * X3
+
+a is some random number
+where the uncertain (calibratin) parameter is X2 = 0.9
+                                               a = 0.5
+
+Y_e = X1 + 0.9 + 0.9 * X1 + 0.45 * X3 = 1.9 * X1 + 0.9 + 0.45 * X3
+------------------------------------------------------------------
+The simulation model is: 
+
+Y_s = X1 + X2
+
+------------------------------------------------------------------
+Discrepancy function: (if X2* is set at 0.5)
+
+d1 = Y_e - Y_s 
+   = 1.9 * X1 + 0.9 + 0.45 * X3 - X1 - X2
+   = 0.9 * X1 - X2 + 0.45 * X3 - 0.9
+        
+==================================================================
+                 Steps
+------------------------------------------------------------------
+1. Compile the program that generates experimental data
+
+   cc -o experiment experiment.c -lm
+
+2. Run the program 'experiment' to generate the experimental
+   data file called 'expdata'
+
+3. Compile the program that generates the simulator 
+
+   cc -o simulator simulator.c -lm
+
+4. Run sampling on the simulator and move the result to 'simdata'
+
+   psuade psSim.in
+   mv psuadeData simData
+
+==================================================================
+ MCMC without discrepancy
+------------------------------------------------------------------
+1. run psuade < psScript1a.in
+   After it is completed, 2 files have been created:
+   (a) MCMCPostSample - a sample drawn from the posterior of the
+                        calibration parameter. The first parameter
+                        in the file is the design parameter X1.
+   (b) matlabmcmc2.m - for displaying the posteriors (parameter 2)
+   Observe that inside matlabmcmc2.m the loglikelihood is large 
+   (~60) but the ideal is 0.
+
+2. uncertainty analysis based on the posterior
+   (or use psScript1b.in)
+
+   First modify the second line of MCMCPostSample to set the 
+   sample size psuade
+   > load simdata
+   > mcmc_predict
+     choose quadratic (option 2)
+     Discrepancy file: none
+     Sample file: MCMCPostSample
+     evaluation file: evaldata
+
+It should display something like:
+
+** Sample mean  ~ 1.5
+** Sample stdev ~ 1.5e-2
+
+true mean = 1.9 * X1 + 0.9 + 0.45 * X3
+          = 2.025 
+
+==================================================================
+ MCMC with discrepancy
+------------------------------------------------------------------
+1. now run psuade < psScript2a.in
+   After it is completed, 3 files have been created:
+   (1) DiscrepancyModel1 - the sample file for the discrepancy model
+   (2) MCMCPostSample - a sample drawn from the posterior of the
+                        calibration parameter. The first parameter
+                        in the file is the design parameter X1.
+   (3) matlabmcmc2.m - for displaying the posteriors (parameter 2)
+
+2. uncertainty analysis based on the posterior
+   (or use psScript2b.in)
+
+   First modify the second line of MCMCPostSample to set the 
+   sample size psuade
+   > load simdata
+   > mcmc_predict
+     choose quadratic (option 2)
+     Discrepancy file: DiscrepancyModel
+     response surface option: 2 (quadratic)
+     Sample file: MCMCPostSample
+     evaluation file: evaldata
+
+It should display something like:
+
+Sample mean  ~ 2.13
+Sample stdev ~ 0.1
+
+true mean = 1.9 * X1 + 0.9 + 0.45 * X3 = 2.025 
+
+Note: You may observe that the R-squared for the discrepancy 
+      response surface is relatively small. The reason for
+      this is due to the effect of X3.
+

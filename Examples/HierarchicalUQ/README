@@ -1,0 +1,155 @@
+This example demonstrates a two-stage UQ/SA:
+
+                    experiment
+                        |
+                        v      pi(theta_2)
+  p(theta_2) ---->  subsystem -------------->  full system ----->
+                                                   ^
+                                                   |
+  p(theta_1) ---------------------------------------
+
+where p(*)  - prior
+      pi(*) - posterior
+
+* Problem has two parameters and the full model is in fullsystem.c
+
+* Ranges (priors) for the 2 inputs (theta_1,theta_2) are [0.4, 0.6]
+
+* subsystem.c is a model for the focused experiment of a subsystem 
+  to calibrate theta_2.
+
+* expdata2: contains experimental data to calibrate theta_2
+
+* subsystem.c and psuadeSubsysRS.in are used for generating a sample 
+  for theta_2 for use in creating a response surface for MCMC.
+
+* Think of fullsystem.c as the full system model consisting of
+  2 uncertain parameter: theta_1 and theta_2 whereby the distribution 
+  of theta_1 is known but that of theta_2 is to be derived from 
+  experiment on a subsystem.
+
+* So the steps are:
+  - calibrate theta_2 first using subsystem.c and expdata2
+  - propagate theta_1 and theta_2 using fullsystem.c
+
+=============================================================
+To run:
+
+I. Calibrate uncertain parameter in the subsystem model
+
+(1) Prepare the simulation model for the subsystem
+
+    cc -o subsystem subsystem.c -lm
+
+          Model: Y = theta_2 + theta_2 * theta_2
+                 theta_2 is uncertain
+                 uncertainties in Y is expressed in expdata2
+
+(2) Run a sample for the purpose of creating a response 
+    surface to be used in MCMC on the subsystem model
+
+    * psuade psuadeSubsysRS.in (this file has the sampling information)
+    * rename psuadeData as subsys.psu (to avoid confusion)
+      - subsys.psu will be used in the next step
+
+(3) run psuade with rsmcmc and ana_expert mode on (ana_expert
+    mode must be on to create posterior sample)
+    - load subsys.psu
+    - run rsmcmc using expdata2 (can use GP as RS)
+      * use brute force with 100000 samples
+      * no RS uncertainty, no discrepancy model
+    - When it is done, a MCMCPostSample will have been created.
+    - You can also visualize the posterior with matlabmcmc2.m
+      (or scilabmcmc2.m when you turn on scilab before running
+       rsmcmc)
+
+(4) prepare the posterior sample in a certain format
+
+    * read in MCMCPostSample using iread 
+    * write it to a PSUADE file called 'posterior2.psu'
+
+**** Step (1) - (4) have been captured in psScriptStage1.in
+     Just run: psuade < psScriptStage1.in and at the end 
+               MCMCPostSample will have been created
+
+II. Uncertainty assessment of the full model from posterior of
+    theta_2 and some prescribed uncertainty of theta_1
+
+(1) generate a sample for theta_1 
+
+    * run: psuade psuadeGenSample1.in 
+    * rename psuadeData as prior1.psu.
+  
+(2) convert MCMCPostSample for theta_1 
+    * launch psuade and use iread and iwrite to create posterior2.psu
+
+(3) draw a two-input sample to run through the full model
+    (This step combines a uniform sample for theta_1 with
+     the posterior sample for theta_2)
+
+    * launch psuade and run rand_draw2 using prior1.psu
+      and posterior2.psu to generate a two-input sample (say
+      size of 100000). 
+    * Write it to 'largeSample.psu' in PSUADE format.
+      (theta_1 (uniform) and theta_2 (calibrated))
+
+(4) Prepare a sample for building a full system response 
+    surface to be used for uncertainty propagation
+
+    * cc -o fullsystem fullsystem.c -lm
+    * psuade psuadeFullSys.in (100 sample with factorial)
+    * rename psuadeData as fullsys.psu
+    * edit fullsys.psu to turn on rstype = GP3 (this will
+      tell PSUADE to use Gaussian process to build response
+      surface for the full system from the sample)
+    NOTE: now fullsys.psu can be used in place of an actual
+          simulation model
+
+(5) Run a large sample on the full system model (actually
+    its surrogate) for the purpose of computing prediction 
+    statistics
+
+    - Set the driver field in 'largeSample.psu' to './fullsys.psu' 
+    - run: psuade largeSample.psu 
+    - rename psuadeData to largeSample.psu
+
+(6) Quantify output uncertainty of the full model
+
+    psuade
+    > load largeSample.psu
+    > ua
+    > me (this command computes parameter first-order sensitivity)
+
+**** Step (1) - (5) have been captured in psScriptStage2.in
+     Just run: psuade < psScriptStage2.in and at the end some UQ
+               statistics will have been displayed.
+
+Uncertainty analysis result:
+       Sample mean          =   4.5226e-01
+       Sample std dev       =   3.6987e-02
+Sensitivity analysis result:
+Input    1, normalized 1st-order effect =  9.95e-01 
+Input    2, normalized 1st-order effect =  3.71e-03
+
+=============================================================
+To run without using expdata2 (no constraint on theta_2),
+just do: psuade < psScriptOneStage.in
+
+Uncertainty analysis result:
+       Sample mean          =   4.6623e-01
+       Sample std dev       =   5.8633e-02
+Sensitivity analysis result:
+Input    1, normalized 1st-order effect =  8.72e-01
+Input    2, normalized 1st-order effect =  4.89e-02
+
+*** Compare Sensitivity analysis results between
+    - psScriptStage1.in followed by psScriptStage2.in
+    - psScriptOneStage.in
+You will see that theta_2 is more sensitive in the former case.
+The reason is that allowable ranges for theta_2 has been limited
+after using expdata2 to constrain it.
+
+*** Use: make -f MakeClean 
+  to remove all files created during the exercise
+
+

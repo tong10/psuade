@@ -1,0 +1,16 @@
+A function with many local minima near the global minimum.
+
+solution = [8.6998, 6.7665]
+
+min F = -2
+
+To run:
+    cc -o simulator simulator.c -lm
+    psuade psuade.in
+
+Or,
+    psuade < psScript.in
+
+To clean up:
+    make -f MakeClean
+

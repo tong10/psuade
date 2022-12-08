@@ -1,0 +1,10 @@
+Checking Legendre RS works
+- cc -o simulator simulator.c -lm
+- psuade psuade.in
+- psuade
+> load psuadeData
+> rscheck and choose Legendre
+> say yes for [-1, 1]
+
+- the answer should be 1 for the second order term for both inputs
+

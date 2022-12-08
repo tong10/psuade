@@ -1,0 +1,3 @@
+clean:
+	rm -f *.m *.sci simulatorBobyqa psuadeData .psuade_* psuadeApps*
+

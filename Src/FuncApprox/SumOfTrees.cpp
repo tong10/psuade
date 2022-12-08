@@ -44,17 +44,23 @@ SumOfTrees::SumOfTrees(int nInputs,int nSamples) :
 {
   char pString[501];
 
+  //**/ set identifier
   faID_ = PSUADE_RS_SOTS;
 
+  //**/ set mode (mode = 0: bagging, mode = 1 : boosting
   mode_ = 0;
 
+  //**/ default number of trees and other parameters
   numTrees_ = 100;
   treePtrs_ = NULL;
+  //**/ the unimportant ones can be bumped up if minPtsPerNode too small
+  //**/ a recommendation is 10.
   minPtsPerNode_ = 10;
   shrinkFactor_ = 0.005;
   tolerance_ = 1.0e-6;
 
-  if (psRSExpertMode_ == 1)
+  //**/ user adjustable parameters
+  if (psConfig_.RSExpertModeIsOn())
   {
     sprintf(pString,"Enter the desired number of trees (>10): ");
     numTrees_ = getInt(10, 10000, pString);
@@ -62,6 +68,7 @@ SumOfTrees::SumOfTrees(int nInputs,int nSamples) :
     minPtsPerNode_ = getInt(2, nSamples/5, pString);
   }
 
+  //**/ allocate trees
   treePtrs_ = new TreeNode*[numTrees_];
   for (int ii = 0; ii < numTrees_; ii++) treePtrs_[ii] = new TreeNode();
 }
@@ -83,8 +90,14 @@ SumOfTrees::~SumOfTrees()
 // ------------------------------------------------------------------------
 int SumOfTrees::initialize(double *X, double *Y)
 {
+  //**/ ---------------------------------------------------------------
+  //**/ clean up and initialize trees
+  //**/ ---------------------------------------------------------------
   initTrees();
 
+  //**/ ---------------------------------------------------------------
+  //**/ build trees 
+  //**/ ---------------------------------------------------------------
   buildTrees(X, Y);
   return 0;
 }
@@ -92,24 +105,40 @@ int SumOfTrees::initialize(double *X, double *Y)
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int SumOfTrees::genNDGridData(double *X, double *Y, int *N2, double **X2, 
-                              double **Y2)
+int SumOfTrees::genNDGridData(double *X, double *Y, int *N2, double **XOut, 
+                              double **YOut)
 {
   int totPts;
 
+  //**/ ---------------------------------------------------------------
+  //**/ clean up and initialize trees
+  //**/ ---------------------------------------------------------------
   initTrees();
 
+  //**/ ---------------------------------------------------------------
+  //**/ build trees 
+  //**/ ---------------------------------------------------------------
   buildTrees(X, Y);
 
+  //**/ ---------------------------------------------------------------
+  //**/ if requested not to create mesh, just return
+  //**/ ---------------------------------------------------------------
   if ((*N2) == -999) return 0;
   
-  genNDGrid(N2, X2);
+  //**/ ---------------------------------------------------------------
+  //**/ generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(N2, XOut);
   if ((*N2) == 0) return 0;
   totPts = (*N2);
 
-  (*Y2) = new double[totPts];
-  checkAllocate(*Y2, "Y2 in SumOfTrees::genNDGridData");
-  evaluatePoint(totPts, *X2, *Y2);
+  //**/ ---------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ---------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  evaluatePoint(totPts, *XOut, *YOut);
 
   return 0;
 }
@@ -118,40 +147,46 @@ int SumOfTrees::genNDGridData(double *X, double *Y, int *N2, double **X2,
 // Generate results for display
 // ------------------------------------------------------------------------
 int SumOfTrees::gen1DGridData(double *X, double *Y, int ind1, 
-                              double *settings, int *N, double **X2, 
-                              double **Y2)
+                              double *settings, int *N, double **XOut, 
+                              double **YOut)
 {
   int    ii, ss, totPts;
-  double *XT, *XX, *YY, HX;
+  double HX;
+  psVector vecXT, vecXOut, vecYOut;
 
+  //**/ clean up and initialize trees
   initTrees();
 
+  //**/ build trees 
   buildTrees(X, Y);
 
+  //**/ set up for generating regular grid data
   totPts = nPtsPerDim_;
-  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-  (*X2) = new double[totPts];
-  XX = (*X2);
-  (*Y2) = new double[totPts];
-  YY = (*Y2);
+  //**/ allocate storage for the data points
+  vecXOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
   (*N) = totPts;
 
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in SumOfTrees::gen1DGridData");
+  //**/ allocate local storage for the data points
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
+    for (ii = 0; ii < nInputs_; ii++) 
+      vecXT[ss*nInputs_+ii] = settings[ii]; 
     
+  //**/ generate the data points 
   for (ss = 0; ss < totPts; ss++) 
   {
-    XT[ss*nInputs_+ind1]  = HX * ss + lowerBounds_[ind1];
-    XX[ss] = HX * ss + lowerBounds_[ind1];
-    YY[ss] = 0.0;
+    vecXT[ss*nInputs_+ind1]  = HX * ss + VecLBs_[ind1];
+    (*XOut)[ss] = HX * ss + VecLBs_[ind1];
+    (*YOut)[ss] = 0.0;
   }
 
-  evaluatePoint(totPts, XT, YY);
-
-  delete [] XT;
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
   return 0;
 }
 
@@ -159,48 +194,52 @@ int SumOfTrees::gen1DGridData(double *X, double *Y, int ind1,
 // Generate results for display
 // ------------------------------------------------------------------------
 int SumOfTrees::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
-                              double *settings, int *N, double **X2, 
-                              double **Y2)
+                              double *settings, int *N, double **XOut, 
+                              double **YOut)
 {
-  int    ii, ss, jj, index, totPts;
-  double *XT, *XX, *YY, *HX;
+  int ii, ss, jj, index, totPts;
+  psVector vecXT, vecXOut, vecYOut, vecHX;
  
+  //**/ clean up and initialize trees
   initTrees();
 
+  //**/ build trees 
   buildTrees(X, Y);
 
+  //**/ set up for generating regular grid data
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
 
-  (*X2) = new double[2*totPts];
-  XX = (*X2);
-  (*Y2) = new double[totPts];
-  YY = (*Y2);
+  //**/ allocate storage for the data points
+  vecXOut.setLength(totPts*2);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
   (*N) = totPts;
 
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in SumOfTrees::gen2DGridData");
+  //**/ allocate local storage for the data points
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
+    for (ii = 0; ii < nInputs_; ii++) 
+      vecXT[ss*nInputs_+ii] = settings[ii]; 
     
+  //**/ generate the data points 
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
     for (jj = 0; jj < nPtsPerDim_; jj++)
     {
       index = ii * nPtsPerDim_ + jj;
-      XT[index*nInputs_+ind1] = HX[0] * ii + lowerBounds_[ind1];
-      XT[index*nInputs_+ind2] = HX[1] * jj + lowerBounds_[ind2];
-      XX[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-      XX[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
+      vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+      vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+      (*XOut)[index*2]   = vecHX[0] * ii + VecLBs_[ind1];
+      (*XOut)[index*2+1] = vecHX[1] * jj + VecLBs_[ind2];
     }
   }
 
-  evaluatePoint(totPts, XT, YY);
-
-  delete [] XT;
-  delete [] HX;
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
   return 0;
 }
 
@@ -209,32 +248,38 @@ int SumOfTrees::gen2DGridData(double *X, double *Y, int ind1, int ind2,
 // ------------------------------------------------------------------------
 int SumOfTrees::gen3DGridData(double *X, double *Y, int ind1, int ind2, 
                               int ind3, double *settings, int *N, 
-                              double **X2, double **Y2)
+                              double **XOut, double **YOut)
 {
-  int    ii, ss, jj, ll, index, totPts;
-  double *XT, *XX, *YY, *HX;
+  int ii, ss, jj, ll, index, totPts;
+  psVector vecXT, vecXOut, vecYOut, vecHX;
 
+  //**/ clean up and initialize trees
   initTrees();
 
+  //**/ build trees 
   buildTrees(X, Y);
 
+  //**/ set up for generating regular grid data
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
 
-  (*X2) = new double[3*totPts];
-  XX = (*X2);
-  (*Y2) = new double[totPts];
-  YY = (*Y2);
+  //**/ allocate storage for the data points
+  vecXOut.setLength(totPts*3);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
   (*N) = totPts;
 
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in SumOfTrees::gen3DGridData");
+  //**/ allocate local storage for the data points
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++)
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii];
+    for (ii = 0; ii < nInputs_; ii++) 
+      vecXT[ss*nInputs_+ii] = settings[ii];
 
+  //**/ generate the data points 
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
     for (jj = 0; jj < nPtsPerDim_; jj++)
@@ -242,20 +287,18 @@ int SumOfTrees::gen3DGridData(double *X, double *Y, int ind1, int ind2,
       for (ll = 0; ll < nPtsPerDim_; ll++)
       {
         index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-        XT[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-        XT[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-        XT[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-        XX[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-        XX[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-        XX[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
+        vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+        vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+        vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+        (*XOut)[index*3]   = vecHX[0] * ii + VecLBs_[ind1];
+        (*XOut)[index*3+1] = vecHX[1] * jj + VecLBs_[ind2];
+        (*XOut)[index*3+2] = vecHX[2] * ll + VecLBs_[ind3];
       }
     }
   }
 
-  evaluatePoint(totPts, XT, YY);
-
-  delete [] XT;
-  delete [] HX;
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
   return 0;
 }
 
@@ -264,33 +307,39 @@ int SumOfTrees::gen3DGridData(double *X, double *Y, int ind1, int ind2,
 // ------------------------------------------------------------------------
 int SumOfTrees::gen4DGridData(double *X, double *Y, int ind1, int ind2, 
                               int ind3, int ind4, double *settings, 
-                              int *N, double **X2, double **Y2)
+                              int *N, double **XOut, double **YOut)
 {
-  int    ii, ss, jj, ll, mm, index, totPts;
-  double *XT, *XX, *YY, *HX;
+  int ii, ss, jj, ll, mm, index, totPts;
+  psVector vecXT, vecXOut, vecYOut, vecHX;
 
+  //**/ clean up and initialize trees
   initTrees();
 
+  //**/ build trees 
   buildTrees(X, Y);
 
+  //**/ set up for generating regular grid data
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4])/(nPtsPerDim_ - 1); 
 
-  (*X2) = new double[4*totPts];
-  XX = (*X2);
-  (*Y2) = new double[totPts];
-  YY = (*Y2);
+  //**/ allocate storage for the data points
+  vecXOut.setLength(totPts*4);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
   (*N) = totPts;
 
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in SumOfTrees::gen4DGridData");
+  //**/ allocate local storage for the data points
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
+    for (ii = 0; ii < nInputs_; ii++) 
+      vecXT[ss*nInputs_+ii] = settings[ii]; 
     
+  //**/ generate the data points 
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
     for (jj = 0; jj < nPtsPerDim_; jj++)
@@ -301,23 +350,21 @@ int SumOfTrees::gen4DGridData(double *X, double *Y, int ind1, int ind2,
         {
           index = ii*nPtsPerDim_*nPtsPerDim_ * nPtsPerDim_ +
                   jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-          XT[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-          XT[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-          XT[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-          XT[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
-          XX[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-          XX[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-          XX[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-          XX[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
+          vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+          vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+          vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+          vecXT[index*nInputs_+ind4] = vecHX[3] * mm + VecLBs_[ind4];
+          (*XOut)[index*4]   = vecHX[0] * ii + VecLBs_[ind1];
+          (*XOut)[index*4+1] = vecHX[1] * jj + VecLBs_[ind2];
+          (*XOut)[index*4+2] = vecHX[2] * ll + VecLBs_[ind3];
+          (*XOut)[index*4+3] = vecHX[3] * mm + VecLBs_[ind4];
         }
       }
     }
   }
 
-  evaluatePoint(totPts, XT, YY);
-
-  delete [] XT;
-  delete [] HX;
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
   return 0;
 }
 
@@ -330,6 +377,7 @@ double SumOfTrees::evaluatePoint(double *X)
   double Y=0.0;
 
   for (ii = 0; ii < numTrees_; ii++) Y += evaluateTree(treePtrs_[ii], X);
+  //**/ boostrap mode: do average
   Y /= (double) numTrees_;
   return Y;
 }
@@ -346,6 +394,7 @@ double SumOfTrees::evaluatePoint(int npts, double *X, double *Y)
     Y[ss] = 0.0;
     for (ii = 0; ii < numTrees_; ii++)
       Y[ss] += evaluateTree(treePtrs_[ii], &X[ss*nInputs_]);
+    //**/ boostrap mode: do average
     if (mode_ == 0) Y[ss] /= (double) numTrees_;
   }
   return 0.0;
@@ -387,7 +436,9 @@ int SumOfTrees::initTrees()
 {
   int    ii;
 
-  printf("SumOfTrees: initializing trees.\n");
+  //**/ clean up, if needed
+  if (psConfig_.InteractiveIsOn()) 
+    printf("SumOfTrees: initializing trees.\n");
   if (treePtrs_ != NULL)
   {
     for (ii = 0; ii < numTrees_; ii++) 
@@ -411,21 +462,11 @@ int SumOfTrees::initTrees()
 int SumOfTrees::buildTrees(double *X, double *Y)
 {
   int    jj, kk, mm, ss;
-  double *XT, *YT, *YY, mult, checksum, *inputScores;
+  double mult, checksum;
   FILE   *fp=NULL;
 
-  //** allocate temporary storage
-  inputScores = new double[nInputs_];
-  XT = new double[nSamples_*nInputs_];
-  YT = new double[nSamples_];
-  YY = new double[nSamples_];
-  checkAllocate(YY, "YY in SumOfTrees::buildTrees");
-
-  //** initialize local variables (YY keeps intermediate Y)
-  for (jj = 0; jj < nInputs_; jj++) inputScores[jj] = 0.0; 
-  for (jj = 0; jj < nSamples_; jj++) YY[jj] = Y[jj];
-
-  if (psRSCodeGen_ == 1) fp  = fopen("psuade_rs.info", "w");
+  //**/ build trees 
+  if (psConfig_.RSCodeGenIsOn()) fp  = fopen("psuade_rs.info", "w");
   if (fp != NULL)
   {
     fprintf(fp,"This file contains information to re-construct sum-of-trees\n");
@@ -438,7 +479,7 @@ int SumOfTrees::buildTrees(double *X, double *Y)
     fprintf(fp,"NT = %d\n", numTrees_);
     fclose(fp);
   }
-  if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "w");
+  if (psConfig_.RSCodeGenIsOn()) fp = fopen("psuade_rs.py", "w");
   if (fp != NULL)
   {
     fwriteRSPythonHeader(fp);
@@ -448,12 +489,26 @@ int SumOfTrees::buildTrees(double *X, double *Y)
     fwriteRSPythonCommon(fp);
     fclose(fp);
   }
+  //**/ build trees 
   mult = shrinkFactor_;
-  printf("SumOfTrees: building %d trees.\n", numTrees_);
+  if (psConfig_.InteractiveIsOn()) 
+    printf("SumOfTrees: building %d trees.\n", numTrees_);
+
+  psVector vecXT, vecYT, vecYY;
+#pragma omp parallel shared(X) \
+  private(mm,jj,ss,kk,vecXT,vecYT,vecYY,checksum,mult)
+#pragma omp for
   for (mm = 0; mm < numTrees_; mm++)
   {
-    if (outputLevel_ > 0) printf("   building tree #%d\n",mm+1);
-    if (psRSCodeGen_ == 1)
+    if (psConfig_.InteractiveIsOn() && outputLevel_ > 3) 
+      printf("   building tree #%d\n",mm+1);
+
+    vecXT.setLength(nSamples_*nInputs_);
+    vecYT.setLength(nSamples_);
+    vecYY.setLength(nSamples_);
+    for (jj = 0; jj < nSamples_; jj++) vecYY[jj] = Y[jj];
+
+    if (psConfig_.InteractiveIsOn() && psConfig_.RSCodeGenIsOn())
     {
       fp = fopen("psuade_rs.info", "a");
       if (fp != NULL)
@@ -468,35 +523,47 @@ int SumOfTrees::buildTrees(double *X, double *Y)
         fclose(fp);
       }
     }
+    //**/ bagging mode: create a boostrap aggregate
     if (mode_ == 0)
     {
+      //**/ generate an aggregate
       for (ss = 0; ss < nSamples_; ss++)
       {
-        kk = PSUADE_rand() % nSamples_;
+        //**/ using PSUADE_rand will break OpenMP
+        //kk = PSUADE_rand() % nSamples_;
+        kk = lrand48() % nSamples_;
         for (jj = 0; jj < nInputs_; jj++)
-          XT[ss*nInputs_+jj] = X[kk*nInputs_+jj];
-        YT[ss] = Y[kk];
+          vecXT[ss*nInputs_+jj] = X[kk*nInputs_+jj];
+        vecYT[ss] = Y[kk];
       }
     }
+    //**/ boosting mode: use residual
     else
     {
-      for (jj = 0; jj < nSamples_*nInputs_; jj++) XT[jj] = X[jj];
-      for (jj = 0; jj < nSamples_; jj++) YT[jj] = YY[jj];
+      //**/ copy the predictor values
+      for (jj = 0; jj < nSamples_*nInputs_; jj++) vecXT[jj] = X[jj];
+      //**/ copy the result values
+      for (jj = 0; jj < nSamples_; jj++) vecYT[jj] = vecYY[jj];
+      //**/ generate an aggregate based on the current vecYT
     }
-    buildOneTree(treePtrs_[mm], nSamples_, XT, YT, 0);
+    //**/ build tree
+    buildOneTree(treePtrs_[mm], nSamples_, vecXT.getDVector(), 
+                 vecYT.getDVector(), 0);
+    //**/ boosting mode: use residual
     if (mode_ == 1)
     {
+      //**/ evaluate 
       for (jj = 0; jj < nSamples_; jj++) 
-        YY[jj] -= (mult * evaluateTree(treePtrs_[mm], &X[jj*nInputs_]));
+        vecYY[jj] -= (mult * evaluateTree(treePtrs_[mm], &X[jj*nInputs_]));
       checksum = 0.0;
-      for (jj = 0; jj < nSamples_; jj++) checksum += YY[jj] * YY[jj];
-      printf("SumOfTree boosting at iteration %d = %e\n", mm+1, 
-             checksum/nSamples_);
+      for (jj = 0; jj < nSamples_; jj++) checksum += vecYY[jj] * vecYY[jj];
+      if (psConfig_.InteractiveIsOn())
+        printf("SumOfTree boosting at iteration %d = %e\n", mm+1, 
+               checksum/nSamples_);
       mult = shrinkFactor_ * mult / (shrinkFactor_ - mult * mult);
       if (mm == numTrees_-1) mult = 1.0;
-      printf("mult %d = %e\n", mm, mult);
     }
-    if (psRSCodeGen_ == 1)
+    if (psConfig_.InteractiveIsOn() && psConfig_.RSCodeGenIsOn())
     {
       fp = fopen("psuade_rs.info", "a");
       if (fp != NULL)
@@ -512,8 +579,10 @@ int SumOfTrees::buildTrees(double *X, double *Y)
       }
     }
   }
+
   fp = NULL;
-  if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "a");
+  if (psConfig_.InteractiveIsOn() && psConfig_.RSCodeGenIsOn()) 
+    fp = fopen("psuade_rs.info", "a");
   if (fp != NULL)
   {
     fprintf(fp,"====================== SPLIT HERE =====================\n");
@@ -549,7 +618,7 @@ int SumOfTrees::buildTrees(double *X, double *Y)
     fprintf(fp,"  double X[%d], Y, Std;\n",nInputs_);
     fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
     fprintf(fp,"  TreeNode **treePtrs;\n");
-    fprintf(fp,"  if (argc != 3) {\n");
+    fprintf(fp,"  if (argc < 3) {\n");
     fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
     fprintf(fp,"     exit(1);\n");
     fprintf(fp,"  }\n");
@@ -685,7 +754,7 @@ int SumOfTrees::buildTrees(double *X, double *Y)
     printf("FILE psuade_rs.info contains sum-of-trees information.\n");
   }
   fp = NULL;
-  if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "a");
+  if (psConfig_.RSCodeGenIsOn()) fp = fopen("psuade_rs.py", "a");
   if (fp != NULL)
   {
     fprintf(fp,"nInputs = %d\n", nInputs_);
@@ -787,10 +856,6 @@ int SumOfTrees::buildTrees(double *X, double *Y)
     fclose(fp);
     printf("FILE psuade_rs.py contains the sum-of-trees interpolator.\n");
   }
-  delete [] XT;
-  delete [] YT;
-  delete [] YY;
-  delete [] inputScores;
   return 0;
 }
 
@@ -801,10 +866,11 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
                              double *YT, int level)
 {
   int    ii, jj, kk, minInd, repeatCnt, inpImpurity, locImpurity;
-  double mean1, mean2, sosSum, sosMin, Ymax, *X1, *Y1;
+  double mean1, mean2, sosSum, sosMin, Ymax;
   double lmean1, lmean2, sos1, sos2, sos, mean, maxImpurity, ddata;
   FILE   *fp;
 
+  //**/ if node less than minimum size, stop branching
   if (leng < 2*minPtsPerNode_)
   {
     tnode->leftNode_ = NULL;
@@ -818,7 +884,7 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
     ddata = 0.0;
     for (jj = 0; jj < leng; jj++) ddata += pow(YT[jj]-mean,2.0);
     tnode->nodeStdev_ = sqrt(ddata/leng);
-    if (psRSCodeGen_ == 1)
+    if (psConfig_.InteractiveIsOn() && psConfig_.RSCodeGenIsOn())
     {
       fp = fopen("psuade_rs.info", "a");
       if (fp != NULL)
@@ -840,55 +906,74 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
     return -1;
   }
 
+  //**/ scale to prevent overflow
   Ymax = PABS(YT[0]);
   for (jj = 1; jj < leng; jj++) 
     if (PABS(YT[jj]) > Ymax) Ymax = PABS(YT[jj]);
   if (Ymax == 0.0) Ymax = 1.0;
       
-  X1 = new double[leng*nInputs_];
-  Y1 = new double[leng];
-  checkAllocate(Y1, "Y1 in SumOfTrees::buildOneTree");
-  for (jj = 0; jj < leng; jj++) Y1[jj] = YT[jj] / Ymax;
+  //**/ compute aggregate sum of variances
+  psVector vecXX, vecYY;
+  vecXX.setLength(leng*nInputs_);
+  vecYY.setLength(leng);
+  for (jj = 0; jj < leng; jj++) vecYY[jj] = YT[jj] / Ymax;
   mean = sos = 0.0;
-  for (jj = 0; jj < leng; jj++) mean += Y1[jj];
+  for (jj = 0; jj < leng; jj++) mean += vecYY[jj];
   mean /= leng;
-  for (jj = 0; jj < leng; jj++) sos += (Y1[jj]-mean)*(Y1[jj]-mean);
+  for (jj = 0; jj < leng; jj++) 
+    sos += (vecYY[jj]-mean)*(vecYY[jj]-mean);
   sos /= leng;
 
+  //**/ search which input gives maximum impurity decrease
   maxImpurity = - PSUADE_UNDEFINED;
   inpImpurity = -1;
   for (ii = 0; ii < nInputs_; ii++)
   {
     for (jj = 0; jj < leng; jj++)
     {
-      X1[jj] = XT[jj*nInputs_+ii];
-      Y1[jj] = YT[jj] / Ymax;
+      vecXX[jj] = XT[jj*nInputs_+ii];
+      vecYY[jj] = YT[jj] / Ymax;
     }
-    sortDbleList2(leng, X1, Y1);
+    //**/ sort based on the given coordinate
+    sortDbleList2(leng, vecXX.getDVector(), vecYY.getDVector());
+    //**/ compute the initial sums of squares
     mean1 = sos1 = 0.0;
-    for (jj = 0; jj < 2; jj++) mean1 += Y1[jj];
+    for (jj = 0; jj < 2; jj++) mean1 += vecYY[jj];
     mean1 /= 2.0;
-    for (jj = 0; jj < 2; jj++) sos1 += (Y1[jj] - mean1) * (Y1[jj] - mean1);
+    for (jj = 0; jj < 2; jj++) 
+      sos1 += (vecYY[jj] - mean1) * (vecYY[jj] - mean1);
     mean2 = sos2 = 0.0;
-    for (jj = 2; jj < leng; jj++) mean2 += Y1[jj];
+    for (jj = 2; jj < leng; jj++) mean2 += vecYY[jj];
     mean2 /= (leng - 2.0);
     for (jj = 2; jj < leng; jj++)
-      sos2 += (Y1[jj] - mean2) * (Y1[jj] - mean2);
+      sos2 += (vecYY[jj] - mean2) * (vecYY[jj] - mean2);
     sosSum = (sos1 + sos2) / leng;
     sosMin = sosSum;
     minInd = 1;
     repeatCnt = 0;
+    //**/ search for minimum sum
     for (jj = 2; jj < leng - 2; jj++)
     {
       lmean1 = mean1;
       lmean2 = mean2;
-      mean1 = (mean1 * jj + Y1[jj]) / (jj + 1.0);
-      mean2 = (mean2 * (leng - jj) - Y1[jj]) / (leng-jj-1.0);
-      sos1 = sos1 + lmean1 * lmean1 * jj + Y1[jj] * Y1[jj] - 
+      mean1 = (mean1 * jj + vecYY[jj]) / (jj + 1.0);
+      mean2 = (mean2 * (leng - jj) - vecYY[jj]) / (leng-jj-1.0);
+      sos1 = sos1 + lmean1 * lmean1 * jj + vecYY[jj] * vecYY[jj] - 
              (jj + 1.0) * mean1 * mean1;
-      sos2 = sos2 + lmean2 * lmean2 * (leng - jj) - Y1[jj] * Y1[jj] - 
-             (leng - jj - 1.0) * mean2 * mean2;
+      sos2 = sos2 + lmean2 * lmean2 * (leng - jj) - vecYY[jj] * 
+             vecYY[jj] - (leng - jj - 1.0) * mean2 * mean2;
 #if 0
+//**/ direct calculation instead of iteration
+//**/ mean1 = sos1 = 0.0;
+//**/ for (kk = 0; kk <= jj; kk++) mean1 += vecYY[kk];
+//**/ mean1 /= (jj + 1.0);
+//**/ for (kk = 0; kk <= jj; kk++) 
+//**/   sos1 += (vecYY[kk]-mean1) * (vecYY[kk]-mean1);
+//**/ mean2 = sos2 = 0.0;
+//**/ for (kk = jj+1; kk < leng; kk++) mean2 += vecYY[kk];
+//**/ mean2 /= (leng - jj - 1.0);
+//**/ for (kk = jj+1; kk < leng; kk++)
+//**/    sos2 += (vecYY[kk]-mean2)*(vecYY[kk]-mean2);
 #endif
       sosSum = (sos1 + sos2) / leng;
       if (sosSum == sosMin) repeatCnt++;
@@ -911,33 +996,38 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
       locImpurity = minInd + repeatCnt / 2;
     }
   }
-  if (outputLevel_ >= 2)
-    printf("SumOfTree: level = %d, leng = %d, input selected = %d, impurity = %e\n",
-           level, leng, inpImpurity+1, maxImpurity);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 2)
+  {
+    printf("SumOfTree: level = %d, leng = %d, input selected = %d ",
+           level, leng, inpImpurity+1);
+    printf("impurity = %e\n", maxImpurity);
+  }
 
+  //**/ check for convergence
   if (maxImpurity / sos < tolerance_) inpImpurity = -1;
 
+  //**/ reorder the array before going down the tree
   if (inpImpurity >= 0)
   {
     for (jj = 0; jj < leng; jj++)
     {
-      X1[jj] = XT[jj*nInputs_+inpImpurity];
-      Y1[jj] = 1.0 * jj;
+      vecXX[jj] = XT[jj*nInputs_+inpImpurity];
+      vecYY[jj] = 1.0 * jj;
     }
-    sortDbleList2(leng, X1, Y1);
+    sortDbleList2(leng, vecXX.getDVector(), vecYY.getDVector());
     for (jj = 0; jj < leng; jj++)
     {
-      kk = (int) (Y1[jj] + 0.0001);
+      kk = (int) (vecYY[jj] + 0.0001);
       for (ii = 0; ii < nInputs_; ii++)
-        X1[jj*nInputs_+ii] = XT[kk*nInputs_+ii];
-      Y1[jj] = YT[kk];
+        vecXX[jj*nInputs_+ii] = XT[kk*nInputs_+ii];
+      vecYY[jj] = YT[kk];
     }
-    for (jj = 0; jj < leng*nInputs_; jj++) XT[jj] = X1[jj];
-    for (jj = 0; jj < leng; jj++) YT[jj] = Y1[jj];
+    for (jj = 0; jj < leng*nInputs_; jj++) XT[jj] = vecXX[jj];
+    for (jj = 0; jj < leng; jj++) YT[jj] = vecYY[jj];
 
     tnode->cutPoint_ = XT[locImpurity*nInputs_+inpImpurity]; 
     tnode->whichInput_ = inpImpurity; 
-    if (psRSCodeGen_ == 1)
+    if (psConfig_.InteractiveIsOn() && psConfig_.RSCodeGenIsOn())
     {
       fp = fopen("psuade_rs.info", "a");
       if (fp != NULL)
@@ -954,9 +1044,10 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
         fclose(fp);
       }
     }
-    if (outputLevel_ >= 3)
+    if (psConfig_.InteractiveIsOn() && outputLevel_ >= 3)
       printf("SumTree Level = %d, Cutting input %d at %e\n", level, 
              inpImpurity+1, tnode->cutPoint_);
+    //**/ go to next level
     tnode->leftNode_ = new TreeNode();
     buildOneTree(tnode->leftNode_, locImpurity+1, XT, YT, level+1);
     tnode->rightNode_ = new TreeNode();
@@ -977,7 +1068,7 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
     ddata = 0.0;
     for (jj = 0; jj < leng; jj++) ddata += pow(YT[jj]-mean,2.0);
     tnode->nodeStdev_ = sqrt(ddata/leng);
-    if (psRSCodeGen_ == 1)
+    if (psConfig_.RSCodeGenIsOn())
     {
       fp = fopen("psuade_rs.info", "a");
       if (fp != NULL)
@@ -997,15 +1088,13 @@ int SumOfTrees::buildOneTree(TreeNode *tnode, int leng, double *XT,
       }
     }
   }
-  delete [] X1;
-  delete [] Y1;
   return 0;
 }
 
 // ************************************************************************
 // get the information about splitting 
 // ------------------------------------------------------------------------
-double SumOfTrees::tabulateSplits(TreeNode *tptr, double *scores, int level)
+double SumOfTrees::tabulateSplits(TreeNode *tptr,double *scores,int level)
 {
   double accum=0;
   if (tptr->whichInput_ < 0) return tptr->nodeStdev_;
@@ -1070,29 +1159,30 @@ double SumOfTrees::setParams(int targc, char **targv)
   else if (targc > 0 && !strcmp(targv[0], "rank"))
   {
     double val=0.0;
-    inputScores = new double[nInputs_];
-    checkAllocate(inputScores, "inputScores in SumOfTrees::setParams");
-    for (ii = 0; ii < nInputs_; ii++) inputScores[ii] = 0.0;
+    psVector vecIScores;
+    vecIScores.setLength(nInputs_);
+    for (ii = 0; ii < nInputs_; ii++) vecIScores[ii] = 0.0;
     for (mm = 0; mm < numTrees_; mm++)
     {
-      val += tabulateSplits(treePtrs_[mm], inputScores, 0);
+      val += tabulateSplits(treePtrs_[mm],vecIScores.getDVector(),0);
     }
     val /= (double) numTrees_;
     mmax = 0.0;
     for (ii = 0; ii < nInputs_; ii++)
-      if (inputScores[ii] > mmax) mmax = inputScores[ii];
+      if (vecIScores[ii] > mmax) mmax = vecIScores[ii];
     if (mmax > 0)
     {
       for (ii = 0; ii < nInputs_; ii++)
-        inputScores[ii] = inputScores[ii] / mmax * 100;
+        vecIScores[ii] = vecIScores[ii] / mmax * 100;
     }
 
-    if (psPlotTool_ == 1) fp = fopen("scilabsot.sci", "w");
-    else                  fp = fopen("matlabsot.m", "w");
+    //**/ output to a matlab file
+    if (plotScilab()) fp = fopen("scilabsot.sci", "w");
+    else              fp = fopen("matlabsot.m", "w");
     fwritePlotCLF(fp);
     fprintf(fp, "A = [\n");
     for (ii = 0; ii < nInputs_; ii++)
-       fprintf(fp, "%e\n", 0.01 * inputScores[ii]);
+       fprintf(fp, "%e\n", 0.01 * vecIScores[ii]);
     fprintf(fp, "];\n");
     fprintf(fp, "bar(A, 0.8);\n");
     fwritePlotAxes(fp);
@@ -1100,14 +1190,16 @@ double SumOfTrees::setParams(int targc, char **targv)
     fwritePlotXLabel(fp, "Input parameters");
     fwritePlotYLabel(fp, "Sum-of-trees Metric (normalized)");
     fclose(fp);
-    if (psPlotTool_ == 1)
+    if (plotScilab())
          printf("Sum-of-trees ranking is now in scilabsot.sci.\n");
     else printf("Sum-of-trees ranking is now in matlabsot.m.\n");
 
-    iArray = new int[nInputs_];
-    checkAllocate(iArray, "iArray in SumOfTrees::setParams");
-    for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-    sortDbleList2a(nInputs_, inputScores, iArray);
+    //**/ re-order for ordered outputs
+    psIVector vecIT;
+    vecIT.setLength(nInputs_);
+    for (ii = 0; ii < nInputs_; ii++) vecIT[ii] = ii;
+    sortDbleList2a(nInputs_,vecIScores.getDVector(),
+                   vecIT.getIVector());
     if (targc == 1)
     {
       printAsterisks(PL_INFO, 0);
@@ -1118,14 +1210,11 @@ double SumOfTrees::setParams(int targc, char **targv)
       printAsterisks(PL_INFO, 0);
       for (ii = nInputs_-1; ii >= 0; ii--)
         printf("*  Rank %3d : Input = %3d (score = %4.1f)\n",
-               nInputs_-ii, iArray[ii]+1, inputScores[ii]);
+               nInputs_-ii, vecIT[ii]+1, vecIScores[ii]);
       printAsterisks(PL_INFO, 0);
     }
-    delete [] iArray;
-    delete [] inputScores;
     return val;
   }
   return 0.0;
 }
-
 

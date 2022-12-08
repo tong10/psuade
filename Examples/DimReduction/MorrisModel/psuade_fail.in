@@ -1,0 +1,25 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable 1 X1 =  0.0  1.0
+   variable 2 X2 =  0.0  1.0
+   variable 3 X3 =  0.0  1.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = MOAT
+   num_samples = 360
+#  randomize
+END
+APPLICATION
+   driver = ./fail_simulator
+END
+ANALYSIS
+   analyzer method = MOAT
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

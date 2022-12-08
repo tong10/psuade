@@ -45,24 +45,31 @@ MMars::MMars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
   double ddata;
   char   pString[501], *strPtr, equal[100], winput[5000];
 
+  //**/ =======================================================
+  //**/ set internal parameters and initialize stuff
+  //**/ =======================================================
   boxes_ = NULL;
   partSize_ = 6000;
 
+  //**/ =======================================================
   // display banner and additonal information
-  if (isScreenDumpModeOn() == 1)
+  //**/ =======================================================
+  if (psConfig_.InteractiveIsOn())
   {
     printAsterisks(PL_INFO, 0);
     printOutTS(PL_INFO,
-       "*   Multi-Multivariate Regression Function (MMARS) Analysis\n");
+       "*   Multi-Multivariate Regression (MMARS) Analysis\n");
     printOutTS(PL_INFO,"* Set printlevel to 1-4 to see details.\n");
     printOutTS(PL_INFO,"* Turn on rs_expert mode to make changes.\n");
     printEquals(PL_INFO, 0);
   }
   
-  // Xd contains the amount of overlaps between partitions
-  Xd_ = new double[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) Xd_[ii] = 0.05;
-  if (psRSExpertMode_ == 1 && psInteractive_ == 1)
+  //**/ =======================================================
+  // vecXd contains the amount of overlaps between partitions
+  //**/ =======================================================
+  vecXd_.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++) vecXd_[ii] = 0.05;
+  if (psConfig_.RSExpertModeIsOn() && psConfig_.InteractiveIsOn())
   {
     printf("You can improve smoothness across partitions by allowing\n");
     printf("overlaps. The recommended overlap is 0.1 (or 10%%).\n");
@@ -70,25 +77,32 @@ MMars::MMars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     ddata = getDouble(pString);
     if (ddata < 0 || ddata > 0.4)
     {
-      ddata = 0.1;
+      ddata = 0.05;
       printf("ERROR: Degree of overlap should be > 0 and <= 0.4.\n");
-      printf("INFO:  Degree of overlap set to default = 0.1\n");
+      printf("INFO:  Degree of overlap set to default = 0.05\n");
     }
-    for (ii = 0; ii < nInputs_; ii++) Xd_[ii] = ddata;
+    for (ii = 0; ii < nInputs_; ii++) vecXd_[ii] = ddata;
     printf("You can decide the sample size of each partition.\n");
     printf("Larger sample size per partition will take more setup time.\n");
     printf("The default is 1000 (will have more if there is overlap).\n");
     sprintf(pString, "Enter the partition sample size (1000 - 10000) : ");
-    partSize_ = getInt(500, 20000, pString);
+    partSize_ = getInt(200, 20000, pString);
+    sprintf(pString, "MMARS_max_samples_per_group = %d", partSize_);
+    psConfig_.putParameter(pString);
+    sprintf(pString, "MMARS_overlap = %e", ddata);
+    psConfig_.putParameter(pString);
   }
 
-  if (psConfig_ != NULL)
+  //**/ =======================================================
+  //**/ user adjustable parameters
+  //**/ =======================================================
+  else
   {
-    strPtr = psConfig_->getParameter("MMARS_max_samples_per_group");
+    strPtr = psConfig_.getParameter("MMARS_max_samples_per_group");
     if (strPtr != NULL)
     {
       sscanf(strPtr, "%s %s %d", winput, equal, &idata);
-      if (idata >= 1000) partSize_ = idata;
+      if (idata >= 100) partSize_ = idata;
       else 
       {
         printf("MMars INFO: config parameter setting not done.\n");
@@ -96,13 +110,21 @@ MMars::MMars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
         printf("            max_samples_per_group should be >= 1000.\n");
       }
     }
+    strPtr = psConfig_.getParameter("MMARS_overlap");
+    if (strPtr != NULL)
+    {
+      sscanf(strPtr, "%s %s %lg", winput, equal, &ddata);
+      if (ddata >= 0) 
+        for (ii = 0; ii < nInputs_; ii++) vecXd_[ii] = ddata;
+    }
   }
   nPartitions_ = (nSamples + partSize_/2) / partSize_;
   ddata = log(1.0*nPartitions_) / log(2.0);
   idata = (int) ddata;
-  if (idata > nInputs_) idata = nInputs_;
+  //if (idata > nInputs_) idata = nInputs_;
   nPartitions_ = 1 << idata;
-  printf("MMars: number of partitions = %d\n", nPartitions_);
+  if (psConfig_.InteractiveIsOn())
+    printf("MMars: number of partitions = %d\n", nPartitions_);
 }
 
 // ************************************************************************
@@ -110,17 +132,12 @@ MMars::MMars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 MMars::~MMars()
 {
-  if (Xd_ != NULL) delete [] Xd_;
   if (boxes_ != NULL)
   {
     for (int ii = 0; ii < nPartitions_; ii++) 
     {
       if (boxes_[ii] != NULL)
-      {
         if (boxes_[ii]->marsPtr_ != NULL) delete boxes_[ii]->marsPtr_;
-        if (boxes_[ii]->lBounds_ != NULL) delete [] boxes_[ii]->lBounds_;
-        if (boxes_[ii]->uBounds_ != NULL) delete [] boxes_[ii]->uBounds_;
-      }
     }
     delete [] boxes_;
   }
@@ -131,138 +148,196 @@ MMars::~MMars()
 // ------------------------------------------------------------------------
 int MMars::initialize(double *X, double *Y)
 {
-  int    ii, jj, ss, nSubs, index, *indices, incr, samCnt;
-  double range, *XX, *YY, *lbs, *ubs, *vces, *coefs, var=0,ddata, diff;
+  int    ii, jj, ss, nSubs, index, incr, samCnt;
+  double range, var=0,ddata, diff;
+  char   pString[10000], winput[10000];
+  psVector  vecVces, vecXT, vecYT;
+  psIVector vecInds;
 
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
   if (boxes_ != NULL)
   {
     for (ii = 0; ii < nPartitions_; ii++) 
     {
       if (boxes_[ii] != NULL)
-      {
         if (boxes_[ii]->marsPtr_ != NULL) delete boxes_[ii]->marsPtr_;
-        if (boxes_[ii]->lBounds_ != NULL) delete [] boxes_[ii]->lBounds_;
-        if (boxes_[ii]->uBounds_ != NULL) delete [] boxes_[ii]->uBounds_;
-      }
     }
     delete [] boxes_;
   }
   boxes_ = NULL;
 
-  if (lowerBounds_ == NULL)
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
+  if (VecLBs_.length() == 0)
   {
     printOutTS(PL_ERROR,
          "MMars initialize ERROR: sample bounds not set yet.\n");
     return -1;
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ divide up into sub-regions based on parameter sensitivities
+  //**/ ---------------------------------------------------------------
   MainEffectAnalyzer *me = new MainEffectAnalyzer();
+  psConfig_.AnaExpertModeSaveAndReset();
   turnPrintTSOff();
-  vces = new double[nInputs_];
-  me->computeVCECrude(nInputs_,nSamples_,X,Y,lowerBounds_,upperBounds_, 
-                      var, vces);
+  vecVces.setLength(nInputs_);
+  me->computeVCECrude(nInputs_,nSamples_,X,Y,VecLBs_.getDVector(),
+                      VecUBs_.getDVector(),var,vecVces.getDVector());
   delete me;
-  indices = new int[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) indices[ii] = ii;
+  psConfig_.AnaExpertModeRestore();
+  vecInds.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++) vecInds[ii] = ii;
   ddata = 0;
-  for (ii = 0; ii < nInputs_; ii++) ddata += vces[ii];
-  for (ii = 0; ii < nInputs_; ii++) vces[ii] /= ddata;
-  sortDbleList2a(nInputs_, vces, indices);
-  if (outputLevel_ > 1) 
+  for (ii = 0; ii < nInputs_; ii++) ddata += vecVces[ii];
+  for (ii = 0; ii < nInputs_; ii++) vecVces[ii] /= ddata;
+  sortDbleList2a(nInputs_, vecVces.getDVector(), vecInds.getIVector());
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 1) 
   {
     for (ii = 0; ii < nInputs_; ii++) 
-      printf("VCE %4d = %12.4e\n", indices[ii], vces[ii]);
+      printf("VCE %4d = %12.4e\n", vecInds[ii], vecVces[ii]);
   }
 
+  //**/ special parameter settings
+  int nBasis, maxVarPerBasis, normalizeY, localRSExpert=0;
+  if (psConfig_.RSExpertModeIsOn() && psConfig_.InteractiveIsOn())
+  {
+    printOutTS(PL_INFO,"MMars: Current number of basis functions = 100\n");
+    nBasis = nSamples_;
+    if (nSamples_ > 10)
+    {
+      sprintf(pString,"Enter the number of basis functions (>=10, <= %d): ",
+              nSamples_);
+      nBasis = getInt(10, nSamples_, pString);
+    }
+    maxVarPerBasis = 8;
+    if (nInputs_ < maxVarPerBasis) maxVarPerBasis = nInputs_;
+    printOutTS(PL_INFO,
+         "MMars: Current degree of interactions    = %d\n",maxVarPerBasis);
+    sprintf(pString, "Enter the degree of interactions (<=%d) : ",nInputs_);
+    maxVarPerBasis = getInt(1, nInputs_, pString);
+    sprintf(pString, "Mars: normalize output? (y or n) ");
+    getString(pString, winput);
+    normalizeY = 0;
+    if (winput[0] == 'y') normalizeY = 1;
+    sprintf(pString, "MARS_num_basis = %d", nBasis);
+    psConfig_.putParameter(pString);
+    sprintf(pString, "MARS_interaction = %d", maxVarPerBasis);
+    psConfig_.putParameter(pString);
+    if (normalizeY == 1)
+    {
+      sprintf(pString, "normalize_outputs");
+      psConfig_.putParameter(pString);
+    }
+    localRSExpert = 1;
+    psConfig_.RSExpertModeSaveAndReset();
+  }
+
+  //**/ initialize boxes
   nSubs = int(log(1.0*nPartitions_ + 1.0e-9) / log(2.0));
   boxes_ = new MMars_Box*[nPartitions_];
   for (ii = 0; ii < nPartitions_; ii++)
   {
     boxes_[ii] = new MMars_Box();
-    boxes_[ii]->lBounds_ = new double[nInputs_];
-    boxes_[ii]->uBounds_ = new double[nInputs_];
+    boxes_[ii]->vecLBs_.setLength(nInputs_);
+    boxes_[ii]->vecUBs_.setLength(nInputs_);
     boxes_[ii]->marsPtr_ = NULL;
     for (jj = 0; jj < nInputs_; jj++)
     {
-      boxes_[ii]->lBounds_[jj] = lowerBounds_[jj];
-      boxes_[ii]->uBounds_[jj] = upperBounds_[jj];
+      boxes_[ii]->vecLBs_[jj] = VecLBs_[jj];
+      boxes_[ii]->vecUBs_[jj] = VecUBs_[jj];
     }
   }
 
+  //**/ subdivide into boxes based on parameter sensitivities
   for (ii = 0; ii < nSubs; ii++)
   {
-    index = indices[nInputs_-1]; 
-    if (outputLevel_ > 0) 
+    index = vecInds[nInputs_-1]; 
+    if (psConfig_.InteractiveIsOn() && outputLevel_ > 0) 
     {
       printf("Selected input for partition %4dd = %4dd, VCE = %12.4e\n",
-             ii+1, index+1, vces[nInputs_-1]);
+             ii+1, index+1, vecVces[nInputs_-1]);
     }
     incr = 1 << (nSubs - ii - 1);
     for (jj = 0; jj < nPartitions_; jj++)
     {
       if (((jj / incr) % 2) == 0)
       { 
-        boxes_[jj]->uBounds_[index] = 0.5 * 
-          (boxes_[jj]->uBounds_[index] + boxes_[jj]->lBounds_[index]);
+        boxes_[jj]->vecUBs_[index] = 0.5 * 
+          (boxes_[jj]->vecUBs_[index] + boxes_[jj]->vecLBs_[index]);
       }
       else
       { 
-        boxes_[jj]->lBounds_[index] = 0.5 * 
-          (boxes_[jj]->uBounds_[index] + boxes_[jj]->lBounds_[index]);
+        boxes_[jj]->vecLBs_[index] = 0.5 * 
+          (boxes_[jj]->vecUBs_[index] + boxes_[jj]->vecLBs_[index]);
       }
     }
-    vces[nInputs_-1] *= 0.25;
-    sortDbleList2a(nInputs_, vces, indices);
+    vecVces[nInputs_-1] *= 0.25;
+    sortDbleList2a(nInputs_, vecVces.getDVector(), vecInds.getIVector());
   }
-  if (outputLevel_ > 3) 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 3)
   {
     for (jj = 0; jj < nPartitions_; jj++)
     {
       printf("Partition %d:\n", jj);
         for (ii = 0; ii < nInputs_; ii++)
           printf("Input %2d = %12.4e %12.4e\n",ii+1,
-            boxes_[jj]->lBounds_[ii], boxes_[jj]->uBounds_[ii]);
+            boxes_[jj]->vecLBs_[ii], boxes_[jj]->vecUBs_[ii]);
     }
   }
+  //**/ check coverage
   double dcheck1=0, dcheck2=0;
   for (jj = 0; jj < nPartitions_; jj++)
   {
     ddata = 1.0;
     for (ii = 0; ii < nInputs_; ii++)
-      ddata *= (boxes_[jj]->uBounds_[ii]-boxes_[jj]->lBounds_[ii]);
+      ddata *= (boxes_[jj]->vecUBs_[ii]-boxes_[jj]->vecLBs_[ii]);
     dcheck2 += ddata;
   }
   dcheck1 = 1;
   for (ii = 0; ii < nInputs_; ii++)
-    dcheck1 *= (upperBounds_[ii] - lowerBounds_[ii]);
-  printf("MMars: Partition coverage check: %e (sum) ?= %e (orig)\n", 
-         dcheck1, dcheck2);
+    dcheck1 *= (VecUBs_[ii] - VecLBs_[ii]);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 2)
+  {
+    //printf("MMars: Partition coverage check: %e (orig) ?= %e (sum)\n", 
+    //       dcheck1, dcheck2);
+    if (dcheck2 >= dcheck1) printf("MMars: Partition Coverage - good\n");
+    else
+      printf("MMars: potential problem with partition coverage.\n");
+  }
 
+  //**/ initialize Mars for each non-empty box
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
+    printf("MMars training begins....\n");
   int total=0;
-  YY = new double[nSamples_];
+  double *lbs, *ubs;
+  vecXT.setLength(nSamples_*nInputs_);
+  vecYT.setLength(nSamples_);
   for (ii = 0; ii < nPartitions_; ii++)
   {
-    lbs = boxes_[ii]->lBounds_;
-    ubs = boxes_[ii]->uBounds_;
-    XX = new double[nSamples_*nInputs_];
+    lbs = boxes_[ii]->vecLBs_.getDVector();
+    ubs = boxes_[ii]->vecUBs_.getDVector();
     samCnt = 0;
     for (ss = 0; ss < nSamples_; ss++)
     {
       for (jj = 0; jj < nInputs_; jj++)
       {
-        diff = Xd_[jj] * (ubs[jj] - lbs[jj]);
+        diff = vecXd_[jj] * (ubs[jj] - lbs[jj]);
         ddata = X[ss*nInputs_+jj];
         if (ddata < lbs[jj]-diff || ddata > ubs[jj]+diff) break;
       } 
       if (jj == nInputs_)
       {
         for (jj = 0; jj < nInputs_; jj++)
-           XX[samCnt*nInputs_+jj] = X[ss*nInputs_+jj];
-        YY[samCnt] = Y[ss];
+          vecXT[samCnt*nInputs_+jj] = X[ss*nInputs_+jj];
+        vecYT[samCnt] = Y[ss];
         samCnt++;
       }
     }
-    if (outputLevel_ >= 0) 
+    if (psConfig_.InteractiveIsOn() && outputLevel_ >= 0)
       printf("Partition %d has %d sample points.\n",ii+1,samCnt);
     if (samCnt == 0)
     {
@@ -272,45 +347,71 @@ int MMars::initialize(double *X, double *Y)
     else
     {
       boxes_[ii]->marsPtr_ = new Mars(nInputs_, samCnt);
-      boxes_[ii]->marsPtr_->initialize(XX,YY);
+      boxes_[ii]->marsPtr_->setBounds(boxes_[ii]->vecLBs_.getDVector(),
+                                      boxes_[ii]->vecUBs_.getDVector());
+      boxes_[ii]->marsPtr_->initialize(vecXT.getDVector(),
+                                       vecYT.getDVector());
     }
     boxes_[ii]->nSamples_ = samCnt;
     total += samCnt;
   }
-  if (outputLevel_ > 0) 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 0)
   {
-    printf("Sample size = %d\n",nSamples_);
+    printf("Original sample size = %d\n",nSamples_);
     printf("Total sample sizes from all partitions = %d\n",total);
     printf("INFO: Total from all partitions may be larger than original\n");
     printf("      sample due to overlap. If the total is too large so\n");
     printf("      that it is close to the original size, partitioning\n");
     printf("      is not worthwhile -> you may want to reduce overlap.\n");
   }
-  delete [] vces;
-  delete [] indices;
-  delete [] YY;
+  if (localRSExpert == 1)
+  {
+    // March 2019: These may not be compatible with CV if removed
+    //psConfig_.removeParameter("MARS_num_basis");
+    //psConfig_.removeParameter("MARS_interaction");
+    //psConfig_.removeParameter("normalize_outputs");
+    psConfig_.RSExpertModeRestore();
+  }
   turnPrintTSOn();
+
+  if (psConfig_.InteractiveIsOn() && outputLevel_ > 1)
+     printf("MMars training completed.\n");
+  if (psConfig_.RSCodeGenIsOn())
+    printf("MMars INFO: response surface stand-alone code not available.\n");
+
   return 0;
 }
 
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MMars::genNDGridData(double *X,double *Y,int *N2,double **X2,double **Y2)
+int MMars::genNDGridData(double *XIn,double *YIn,int *NOut,double **XOut,
+                         double **YOut)
 {
-  int totPts;
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  initialize(XIn,YIn);
 
-  initialize(X,Y);
-
-  if ((*N2) == -999) return 0;
+  //**/ ---------------------------------------------------------------
+  //**/ if requested not to create mesh, just return
+  //**/ ---------------------------------------------------------------
+  if ((*NOut) == -999) return 0;
  
-  genNDGrid(N2, X2);
-  if ((*N2) == 0) return 0;
-  totPts = (*N2);
+  //**/ ---------------------------------------------------------------
+  //**/ generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(NOut, XOut);
+  if ((*NOut) == 0) return 0;
+  int totPts = (*NOut);
 
-  (*Y2) = new double[totPts];
-  checkAllocate(*Y2, "Y2 in MMars::genNDGridData");
-  evaluatePoint(totPts, *X2, *Y2);
+  //**/ ---------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ---------------------------------------------------------------
+  psVector vecYOut;
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  evaluatePoint(totPts, *XOut, *YOut);
 
   return 0;
 }
@@ -318,115 +419,144 @@ int MMars::genNDGridData(double *X,double *Y,int *N2,double **X2,double **Y2)
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MMars::gen1DGridData(double *X, double *Y, int ind1, double *settings, 
-                       int *N2, double **X2, double **Y2)
+int MMars::gen1DGridData(double *XIn,double *YIn,int ind1,double *settings, 
+                         int *NOut, double **XOut, double **YOut)
 {
-  int    ii, ss, totPts;
-  double *XT, *XX, *YY, HX;
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  initialize(XIn,YIn);
 
-  initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  int totPts = nPtsPerDim_;
+  double HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-  totPts = nPtsPerDim_;
-  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  //**/ allocate storage for the data points
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  (*NOut) = totPts;
 
-  (*X2) = new double[totPts];
-  (*Y2) = new double[totPts];
-  (*N2) = totPts;
-  XX = (*X2);
-  YY = (*Y2);
-
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in MMars::gen1DGridData");
+  //**/ allocate local storage for the data points
+  int ii, ss;
+  psVector vecXT;
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
+    for (ii = 0; ii < nInputs_; ii++) vecXT[ss*nInputs_+ii] = settings[ii]; 
    
+  //**/ generate the data points 
   for (ss = 0; ss < totPts; ss++) 
   {
-    XT[ss*nInputs_+ind1]  = HX * ss + lowerBounds_[ind1];
-    XX[ss] = HX * ss + lowerBounds_[ind1];
-    YY[ss] = 0.0;
+    vecXT[ss*nInputs_+ind1]  = HX * ss + VecLBs_[ind1];
+    (*XOut)[ss] = HX * ss + VecLBs_[ind1];
+    (*YOut)[ss] = 0.0;
   }
 
-  evaluatePoint(totPts, XT, YY);
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
 
-  delete [] XT;
   return 0;
 }
 
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MMars::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
-                       double *settings, int *N2, double **X2, double **Y2)
+int MMars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
+                         double *settings, int *NOut, double **XOut, 
+                         double **YOut)
 {
-  int    ii, ss, jj, index, totPts;
-  double *XT, *XX, *YY, *HX;
- 
-  initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  initialize(XIn,YIn);
 
-  totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  int totPts = nPtsPerDim_ * nPtsPerDim_;
+  psVector vecHX;
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
 
-  (*X2) = new double[2*totPts];
-  (*Y2) = new double[totPts];
-  (*N2) = totPts;
-  XX = (*X2);
-  YY = (*Y2);
+  //**/ allocate storage for the data points
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*2);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  (*NOut) = totPts;
 
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in MMars::gen2DGridData");
+  //**/ allocate local storage for the data points
+  int ii, ss, jj, index;
+  psVector vecXT;
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
+    for (ii = 0; ii < nInputs_; ii++) 
+      vecXT[ss*nInputs_+ii] = settings[ii]; 
     
+  //**/ generate the data points 
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
     for (jj = 0; jj < nPtsPerDim_; jj++)
     {
       index = ii * nPtsPerDim_ + jj;
-      XT[index*nInputs_+ind1] = HX[0] * ii + lowerBounds_[ind1];
-      XT[index*nInputs_+ind2] = HX[1] * jj + lowerBounds_[ind2];
-      XX[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-      XX[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
+      vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+      vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+      (*XOut)[index*2]   = vecHX[0] * ii + VecLBs_[ind1];
+      (*XOut)[index*2+1] = vecHX[1] * jj + VecLBs_[ind2];
     }
   }
 
-  evaluatePoint(totPts, XT, YY);
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
 
-  delete [] XT;
-  delete [] HX;
   return 0;
 }
 
 // ************************************************************************
 // Generate 3D results for display
 // ------------------------------------------------------------------------
-int MMars::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3, 
-                       double *settings, int *N2, double **X2, double **Y2)
+int MMars::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2,
+                         int ind3, double *settings, int *NOut, 
+                         double **XOut, double **YOut)
 {
-  int    ii, ss, jj, ll, index, totPts;
-  double *XT, *XX, *YY, *HX;
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  initialize(XIn,YIn);
 
-  initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  int totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  psVector vecHX;
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
 
-  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  //**/ allocate storage for the data points
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*3);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  (*NOut) = totPts;
 
-  (*X2) = new double[3*totPts];
-  (*Y2) = new double[totPts];
-  (*N2) = totPts;
-  XX = (*X2);
-  YY = (*Y2);
-
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in MMars::gen3DGridData");
+  //**/ allocate local storage for the data points
+  int ii, ss, jj, ll, index;
+  psVector vecXT;
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++)
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii];
+    for (ii = 0; ii < nInputs_; ii++) 
+      vecXT[ss*nInputs_+ii] = settings[ii];
 
+  //**/ generate the data points 
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
     for (jj = 0; jj < nPtsPerDim_; jj++)
@@ -434,53 +564,61 @@ int MMars::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
       for (ll = 0; ll < nPtsPerDim_; ll++)
       {
         index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-        XT[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-        XT[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-        XT[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-        XX[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-        XX[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-        XX[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
+        vecXT[index*nInputs_+ind1]  = vecHX[0] * ii + VecLBs_[ind1];
+        vecXT[index*nInputs_+ind2]  = vecHX[1] * jj + VecLBs_[ind2];
+        vecXT[index*nInputs_+ind3]  = vecHX[2] * ll + VecLBs_[ind3];
+        (*XOut)[index*3]   = vecHX[0] * ii + VecLBs_[ind1];
+        (*XOut)[index*3+1] = vecHX[1] * jj + VecLBs_[ind2];
+        (*XOut)[index*3+2] = vecHX[2] * ll + VecLBs_[ind3];
       }
     }
   }
 
-  evaluatePoint(totPts, XT, YY);
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
 
-  delete [] XT;
-  delete [] HX;
   return 0;
 }
 
 // ************************************************************************
 // Generate 4D results for display
 // ------------------------------------------------------------------------
-int MMars::gen4DGridData(double *X,double *Y, int ind1, int ind2, int ind3, 
-                       int ind4, double *settings, int *N2, double **X2, 
-                       double **Y2)
+int MMars::gen4DGridData(double *XIn,double *YIn, int ind1, int ind2, 
+                         int ind3, int ind4, double *settings, int *NOut, 
+                         double **XOut, double **YOut)
 {
-  int    ii, ss, jj, ll, mm, index, totPts;
-  double *XT, *XX, *YY, *HX;
+  //**/ ---------------------------------------------------------------
+  //**/ initialization
+  //**/ ---------------------------------------------------------------
+  initialize(XIn,YIn);
 
-  initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  int totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  psVector vecHX;
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4])/(nPtsPerDim_ - 1); 
 
-  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  //**/ allocate storage for the data points
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*4);
+  (*XOut) = vecXOut.takeDVector();
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  (*NOut) = totPts;
 
-  (*X2) = new double[4*totPts];
-  (*Y2) = new double[totPts];
-  (*N2) = totPts;
-  XX = (*X2);
-  YY = (*Y2);
-
-  XT = new double[totPts*nInputs_];
-  checkAllocate(XT, "XT in MMars::gen4DGridData");
+  //**/ allocate local storage for the data points
+  int ii, ss, jj, ll, mm, index;
+  psVector vecXT;
+  vecXT.setLength(totPts*nInputs_);
   for (ss = 0; ss < totPts; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) XT[ss*nInputs_+ii] = settings[ii]; 
+    for (ii = 0; ii < nInputs_; ii++) vecXT[ss*nInputs_+ii] = settings[ii]; 
     
+  //**/ generate the data points 
   for (ii = 0; ii < nPtsPerDim_; ii++) 
   {
     for (jj = 0; jj < nPtsPerDim_; jj++)
@@ -491,23 +629,22 @@ int MMars::gen4DGridData(double *X,double *Y, int ind1, int ind2, int ind3,
         {
           index = ii*nPtsPerDim_*nPtsPerDim_ * nPtsPerDim_ +
                   jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-          XT[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-          XT[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-          XT[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-          XT[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
-          XX[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-          XX[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-          XX[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-          XX[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
+          vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+          vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+          vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+          vecXT[index*nInputs_+ind4] = vecHX[3] * mm + VecLBs_[ind4];
+          (*XOut)[index*4]   = vecHX[0] * ii + VecLBs_[ind1];
+          (*XOut)[index*4+1] = vecHX[1] * jj + VecLBs_[ind2];
+          (*XOut)[index*4+2] = vecHX[2] * ll + VecLBs_[ind3];
+          (*XOut)[index*4+3] = vecHX[3] * mm + VecLBs_[ind4];
         }
       }
     }
   }
 
-  evaluatePoint(totPts, XT, YY);
+  //**/ evaluate 
+  evaluatePoint(totPts, vecXT.getDVector(), *YOut);
 
-  delete [] XT;
-  delete [] HX;
   return 0;
 }
 
@@ -533,17 +670,18 @@ double MMars::evaluatePoint(int nPts, double *X, double *Y)
   for (ss = 0; ss < nPts; ss++) 
   {
     count = 0;
+    //**/ look for a partition
     Yt = 0.0;
     for (pp = 0; pp < nPartitions_; pp++)
     {
-      lbs = boxes_[pp]->lBounds_;
-      ubs = boxes_[pp]->uBounds_;
+      lbs = boxes_[pp]->vecLBs_.getDVector();
+      ubs = boxes_[pp]->vecUBs_.getDVector();
       for (ii = 0; ii < nInputs_; ii++)
       {
-        if (ubs[ii] == upperBounds_[ii]) highFlag = 1;
-        else                             highFlag = 0;
+        if (ubs[ii] == VecUBs_[ii]) highFlag = 1;
+        else                        highFlag = 0;
         ddata = X[ss*nInputs_+ii];
-        diff = Xd_[ii] * (ubs[ii] - lbs[ii]);
+        diff = vecXd_[ii] * (ubs[ii] - lbs[ii]);
         if (highFlag == 0)
         {
           if (ddata < (lbs[ii]-diff) || ddata >= (ubs[ii]+diff)) break;
@@ -565,8 +703,8 @@ double MMars::evaluatePoint(int nPts, double *X, double *Y)
     if (count == 0)
     {
       printf("MMars evaluate WARNING: sample point not in any partition.\n");
-      printf("INFO: this may happen during cross validation.\n");
-      printf("INFO: prediction - average of all partitions (maybe wrong).\n");
+      printf("   INFO: Evaluation will be performed by taking averarge\n");
+      printf("         from all partitions (may be inaccurate).\n");
       Yt = 0;
       for (pp = 0; pp < nPartitions_; pp++)
       {
@@ -597,7 +735,7 @@ double MMars::evaluatePointFuzzy(double *X, double &std)
 // ************************************************************************
 // Evaluate a number of points with standard deviations
 // ------------------------------------------------------------------------
-double MMars::evaluatePointFuzzy(int npts, double *X, double *Y, double *Ystd)
+double MMars::evaluatePointFuzzy(int npts,double *X,double *Y,double *Ystd)
 {
   evaluatePoint(npts, X, Y);
   for (int ss = 0; ss < npts; ss++) Ystd[ss] = 0.0;

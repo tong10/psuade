@@ -1,0 +1,22 @@
+#This script run 2-stage optimization using 100 LHS point
+#re-run with the next to last entry set to y to use RS
+run psuade2.in
+y
+y
+y
+1
+0
+0
+1
+4
+4
+4
+1
+2
+y
+1
+100
+n
+n
+q
+

@@ -1,0 +1,22 @@
+PSUADE
+INPUT
+   dimension = 1
+   variable   1 X   = 0.0  1.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = FACT
+   num_samples = 11
+END
+APPLICATION
+   driver = ./simulator
+   launch_interval = 0
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 2
+END
+END

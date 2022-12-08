@@ -1,0 +1,15 @@
+# unweighted scheme (option 1 right after odoe_mmd), use brute force search
+sys cc -o simulator simulator.c -lm
+run psuade.in
+sys mv psuadeData Sample
+load Sample
+odoe_mmd
+y
+1
+1
+5
+0
+n
+
+q
+

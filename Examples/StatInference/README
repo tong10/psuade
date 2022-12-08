@@ -1,0 +1,60 @@
+BaseTest - simple inferences
+DiscTest - inference with discrepancy 
+MultiModel - posterior is multi-modal
+PMCMC - parallel MCMC
+
+***********************************************************************
+PSUADE statistical inference package performs response-surface-based
+Bayesian inferences. As such, it requires
+- a sample (evaluated) for building response surfaces
+- an experimental file 
+  Note: users can embed experimental comparison within their samples
+        (that is, sample outputs are square roots of negative log 
+        likelihoods) and then use a 'manufactured' experimental file 
+        with zero mean and unit standard deviation. The inference 
+        engine will then exponentiate the square root of negative 
+        logLikelihood (negLL) during MCMC (that is, compute 
+        exp(-0.5*(negLL-mean)^2/std^2))
+
+Since statistical inference using response surfaces is relatively
+cheap computationally, 2 inference methods are provided in PSUADE:
+- brute force (not smart sampling such as MCMC)
+- MCMC with multiple chains and Gibbs sampling
+
+Note: it turns out that in many cases the brute force method may
+      be faster than the MCMC because Gibbs searching may be
+      expensive (Metropolis-Hastings has not been implemented).
+      If high dimensions or when the posterior is focused in a
+      tiny region, the brute force method may have problems, but
+      so does Gibbs.
+=======================================================================
+Inference with discrepancy models:
+There are five ways discrepancy models can be incorporated in inference
+but only two are provided in PSUADE:
+- A constant discrepancy function
+- A discrepancy model as a function of the design variables
+
+If you select discrepancy modeling, you need to specify the point 
+(the values of the uncertain parameters) at which the discrepancy
+function is to be created. This will in default be the midpoint of 
+the uncertain parameter ranges.
+
+The discrepancy function may be created by
+a. subtracting the simulation outputs from the experimental data at
+   the experimental conditions
+b. a response surface constructed from the results of (a)
+
+If the results of (a) cannot be fitted well with a response surface,
+then the posteriors will still be valid, but if you are to use the
+posteriors as well as the discrepancy model for prediction, it may
+have large errors (because a response surface will be needed for the 
+discrepancy model to perform prediction)
+***********************************************************************
+At the end of inference, and in the matlabmcmc2.m file (which can be
+used to display the posterior plots), there will be MLE negative log
+likelihood value. If that value is far from 0, then you may need to
+use discrepancy model, because the simulation results and experimental
+data appear to be far apart.
+
+
+

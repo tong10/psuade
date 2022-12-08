@@ -1,0 +1,15 @@
+# run first time with PriorSample
+load RSTrainSample
+setranseed 12121212111
+odoeu_optnbf
+y
+3
+0
+PriorSample
+UniformSample
+CandidateSet
+EvalSet
+2
+10
+q
+

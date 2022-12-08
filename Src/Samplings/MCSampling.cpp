@@ -24,6 +24,7 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
+//**/using namespace std;
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "MCSampling.h"
@@ -33,7 +34,7 @@
 // ------------------------------------------------------------------------
 MCSampling::MCSampling() : Sampling()
 {
-   samplingID_ = PSUADE_SAMP_MC;
+  samplingID_ = PSUADE_SAMP_MC;
 }
 
 // ************************************************************************
@@ -48,42 +49,52 @@ MCSampling::~MCSampling()
 // ------------------------------------------------------------------------
 int MCSampling::initialize(int initLevel)
 {
-   int    ii, inputID;
-   double range;
+  int    ii, kk;
+  double range;
 
-   if (nSamples_ == 0)
-   {
-      printf("MCSampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("MCSampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+    printf("MCSampling::initialize ERROR - nSamples = 0.\n");
+    exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+    printf("MCSampling::initialize ERROR - input not set up.\n");
+    exit(1);
+  }
 
-   if (printLevel_ > 4)
-   {
-      printf("MCSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("MCSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("MCSampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    MCSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("MCSampling::initialize: nSamples = %d\n", nSamples_);
+    printf("MCSampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("MCSampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (ii = 0; ii < nInputs_; ii++)
+      printf("    MCSampling input %3d = [%e %e]\n", ii+1,
+             vecLBs_[ii], vecUBs_[ii]);
+  }
 
-   deleteSampleData();
-   if (initLevel != 0) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ sanitize and set parameters
+  //**/ ----------------------------------------------------------------
+  if (initLevel != 0) return 0;
 
-   allocSampleData();
-   for (inputID = 0; inputID < nInputs_; inputID++)
-   { 
-      range = upperBounds_[inputID] - lowerBounds_[inputID];
-      for (ii = 0; ii < nSamples_; ii++) 
-         sampleMatrix_[ii][inputID] = PSUADE_drand() * range + 
-                                      lowerBounds_[inputID];
-   }
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ generate samples
+  //**/ ----------------------------------------------------------------
+  allocSampleData();
+  for (ii = 0; ii < nInputs_; ii++)
+  { 
+    range = vecUBs_[ii] - vecLBs_[ii];
+    for (kk = 0; kk < nSamples_; kk++) 
+      vecSamInps_[kk*nInputs_+ii] = PSUADE_drand() * range + vecLBs_[ii];
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -92,55 +103,64 @@ int MCSampling::initialize(int initLevel)
 int MCSampling::refine(int refineRatio, int randomize, double thresh,
                        int nSamples, double *sampleErrors)
 {
-   int    ii, inputID, oldNumSamples, *oldSampleStates;
-   int    nLevels;
-   double **oldSampleMatrix, *oldSampleOutput, range;
+  int    ii, inputID, oldNumSamples, nLevels;
+  double range;
+  psVector  vecSamInpsOld, vecSamOutsOld;
+  psIVector vecSamStasOld;
 
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
+  //**/ ----------------------------------------------------------------
+  //**/ unused parameters
+  //**/ ----------------------------------------------------------------
+  (void) randomize;
+  (void) thresh;
+  (void) nSamples;
+  (void) sampleErrors;
 
-   nLevels         = refineRatio;
-   oldNumSamples   = nSamples_;
-   oldSampleMatrix = sampleMatrix_;
-   oldSampleOutput = sampleOutput_;
-   oldSampleStates = sampleStates_;
+  //**/ ----------------------------------------------------------------
+  //**/ refine sample
+  //**/ ----------------------------------------------------------------
+  nLevels       = refineRatio;
+  oldNumSamples = nSamples_;
+  vecSamInpsOld = vecSamInps_;
+  vecSamOutsOld = vecSamOuts_;
+  vecSamStasOld = vecSamStas_;
 
-   nSamples_ *= nLevels;
-   allocSampleData();
+  nSamples_ *= nLevels;
+  vecSamInps_.setLength(nSamples_*nInputs_);
+  vecSamOuts_.setLength(nSamples_*nOutputs_);
+  vecSamStas_.setLength(nSamples_);
 
-   if (printLevel_ > 4)
-   {
-      printf("MCSampling::refine: nSamples = %d\n", nSamples_);
-      printf("MCSampling::refine: nInputs  = %d\n", nInputs_);
-      printf("MCSampling::refine: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    MCSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("MCSampling::refine: nSamples = %d\n", nSamples_);
+    printf("MCSampling::refine: nInputs  = %d\n", nInputs_);
+    printf("MCSampling::refine: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    MCSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+  }
 
-   for (ii = 0; ii < oldNumSamples; ii++) 
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++) 
-         sampleMatrix_[ii][inputID] = oldSampleMatrix[ii][inputID];
-      for (inputID = 0; inputID < nOutputs_; inputID++) 
-         sampleOutput_[ii*nOutputs_+inputID] = 
-                    oldSampleOutput[ii*nOutputs_+inputID];
-      sampleStates_[ii] = oldSampleStates[ii];
-   }
-   for (inputID = 0; inputID < nInputs_; inputID++) 
-   {
-      range = upperBounds_[inputID] - lowerBounds_[inputID];
-      for (ii = oldNumSamples; ii < nSamples_; ii++)
-         sampleMatrix_[ii][inputID] = PSUADE_drand() * range + 
-                                      lowerBounds_[inputID];
-   }
-   for (ii = 0; ii < oldNumSamples; ii++) delete [] oldSampleMatrix[ii];
-   delete [] oldSampleMatrix;
-   delete [] oldSampleOutput;
-   delete [] oldSampleStates;
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ construct refined sample
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < oldNumSamples*nInputs_; ii++) 
+    vecSamInps_[ii] = vecSamInpsOld[ii];
+  for (ii = 0; ii < oldNumSamples*nOutputs_; ii++) 
+    vecSamOuts_[ii] = vecSamOutsOld[ii];
+  for (ii = 0; ii < oldNumSamples; ii++) 
+    vecSamStas_[ii] = vecSamStasOld[ii];
+
+  for (inputID = 0; inputID < nInputs_; inputID++) 
+  {
+    range = vecUBs_[inputID] - vecLBs_[inputID];
+    for (ii = oldNumSamples; ii < nSamples_; ii++)
+      vecSamInps_[ii*nInputs_+inputID] = PSUADE_drand() * range + 
+                                         vecLBs_[inputID];
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -148,8 +168,8 @@ int MCSampling::refine(int refineRatio, int randomize, double thresh,
 // ------------------------------------------------------------------------
 MCSampling& MCSampling::operator=(const MCSampling &)
 {
-   printf("MCSampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("MCSampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

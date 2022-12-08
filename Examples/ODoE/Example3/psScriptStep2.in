@@ -1,0 +1,40 @@
+# This script takes point 14 and 19, and run odoeu_rsmcmc
+# to create posterior (odoeu_posterior) 
+# First, select candidate 14 and 19 and write to SelectSet1a
+iread CandidateSet0
+idelete
+y
+2
+3
+4
+sdelete
+y
+1
+20
+25
+sdelete
+y
+1
+15
+18
+sdelete
+y
+1
+1
+13
+iwrite SelectSet1a
+# append SelectSet1a with experimental (hypothetical) result -> SelectSet1
+sys cc -o experiment experiment.c -lm
+sys ./experiment SelectSet1a SelectSet1 
+# generate posterior after using design 14 and 19
+load RSTrainSample
+odoeu_rsmcmc
+y
+3
+0
+PriorSample
+SelectSet1
+10
+# odoeu_posterior (after 14 and 19) has been created
+q
+

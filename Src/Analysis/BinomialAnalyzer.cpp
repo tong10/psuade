@@ -43,10 +43,10 @@
 // ************************************************************************
 // constructor
 // ------------------------------------------------------------------------
-BinomialAnalyzer::BinomialAnalyzer() : Analyzer(), nSamples_(0), Ybin_(0), 
-                     nBelow_(0), BinomialCDF_(0), typeI_(0)
+BinomialAnalyzer::BinomialAnalyzer() : Analyzer(), nSamples_(0), 
+                                       nBelow_(0), typeI_(0)
 {
-   setName("BINOMIAL");
+  setName("BINOMIAL");
 }
 
 // ************************************************************************
@@ -54,8 +54,8 @@ BinomialAnalyzer::BinomialAnalyzer() : Analyzer(), nSamples_(0), Ybin_(0),
 // ------------------------------------------------------------------------
 BinomialAnalyzer::~BinomialAnalyzer()
 {
-   if (Ybin_) delete [] Ybin_;
-   if (BinomialCDF_) delete BinomialCDF_;
+  VecYBins_.clean();
+  VecBinomialCDF_.clean();
 }
 
 // ************************************************************************
@@ -63,66 +63,89 @@ BinomialAnalyzer::~BinomialAnalyzer()
 // ------------------------------------------------------------------------
 double BinomialAnalyzer::analyze(aData &adata)
 {
-   int     ss,  printLevel, info;
-   double  *Y, p0=0.5, thresh;
+  int    ss, info;
+  double p0=0.5;
 
-   printLevel = adata.printLevel_;
-   nSamples_   = adata.nSamples_;
-   Y          = adata.sampleOutputs_;
-   thresh     = adata.analysisThreshold_;
+  //**/ ---------------------------------------------------------------
+  //**/ extract data
+  //**/ ---------------------------------------------------------------
+  int printLevel = adata.printLevel_;
+  nSamples_ = adata.nSamples_;
+  double *Y = adata.sampleOutputs_;
+  double thresh = adata.analysisThreshold_;
 
-   if (nSamples_ <= 1)
-   {
-      printOutTS(PL_ERROR, "BinomialAnalyzer INFO: not meaningful to ");
-      printOutTS(PL_ERROR, "do this when nSamples_ <= 1.\n");
-      return PSUADE_UNDEFINED;
-   } 
-   if (Y == NULL)
-   {
-      printOutTS(PL_ERROR, "BinomialAnalyzer ERROR: no data.\n");
-      return PSUADE_UNDEFINED;
-   } 
-   info = 0;
-   for (ss = 0; ss < nSamples_; ss++)
-      if (Y[ss] == PSUADE_UNDEFINED) info++;
-   if (info > 0)
-   {
-      printOutTS(PL_ERROR,
-           "BinomialAnalyzer ERROR: Some outputs are undefined.\n");
-      printOutTS(PL_ERROR,
-           "                        Prune them first before analyze.\n");
-      return PSUADE_UNDEFINED;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ error checking and clean up
+  //**/ ---------------------------------------------------------------
+  if (nSamples_ <= 1)
+  {
+    printOutTS(PL_ERROR, "BinomialAnalyzer INFO: not meaningful to ");
+    printOutTS(PL_ERROR, "do this when nSamples_ <= 1.\n");
+    return PSUADE_UNDEFINED;
+  } 
+  if (Y == NULL)
+  {
+    printOutTS(PL_ERROR, "BinomialAnalyzer ERROR: no data.\n");
+    return PSUADE_UNDEFINED;
+  } 
+  info = 0;
+  for (ss = 0; ss < nSamples_; ss++)
+    if (Y[ss] == PSUADE_UNDEFINED) info++;
+  if (info > 0)
+  {
+    printOutTS(PL_ERROR,
+         "BinomialAnalyzer ERROR: Some outputs are undefined.\n");
+    printOutTS(PL_ERROR,
+         "                        Prune them first before analyze.\n");
+    return PSUADE_UNDEFINED;
+  }
 
-   if (Ybin_) delete [] Ybin_;
-   if (BinomialCDF_) delete BinomialCDF_;
-   Ybin_ = NULL;
-   BinomialCDF_ = NULL;
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
+  VecYBins_.clean();
+  VecBinomialCDF_.clean();
    
-   Ybin_ = new double[nSamples_];
-   checkAllocate(Ybin_, "Ybin in BinomialAnalyzer::analyze");
-   for (ss = 0; ss < nSamples_; ss++)
-   {
-      if (PABS(Y[ss]) <= thresh) Ybin_[ss] = 1.0;
-      else                       Ybin_[ss] = 0.0;
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ fill VecYBins array (1 - not important, 0 - significant)
+  //**/ ---------------------------------------------------------------
+  VecYBins_.setLength(nSamples_);
+  for (ss = 0; ss < nSamples_; ss++)
+  {
+    if (PABS(Y[ss]) <= thresh) VecYBins_[ss] = 1.0;
+    else                       VecYBins_[ss] = 0.0;
+  }
 
-   nBelow_ = 0;
-   for (ss = 0; ss < nSamples_; ss++) if (Ybin_[ss] == 1.0) nBelow_++;
-   if (printLevel > 2)
-      printOutTS(PL_INFO,
-           "   ====> BinomialAnalyzer: number below threshold = %d (%d)\n",
-           nBelow_, nSamples_);
+  //**/ ---------------------------------------------------------------
+  //**/ count the number of values that are below the threshold
+  //**/ ---------------------------------------------------------------
+  nBelow_ = 0;
+  for (ss = 0; ss < nSamples_; ss++) 
+    if (VecYBins_[ss] == 1.0) nBelow_++;
+  if (printLevel > 2)
+    printOutTS(PL_INFO,
+         "   ====> BinomialAnalyzer: number below threshold = %d (%d)\n",
+         nBelow_, nSamples_);
 
-   BinomialCDF_ = setupBinomialCDF(nSamples_, p0);
-   for (ss = 0; ss <= nSamples_; ss++)
-      BinomialCDF_[ss] = 1.0 - BinomialCDF_[ss];
+  //**/ ---------------------------------------------------------------
+  //**/ create binomial cdf (VecBinomialCDF_[i] - probabilities that 
+  //**/     there are more than i values below the threshold given p0)
+  //**/ If p0 is smaller, VecBinomialCDF_[i] will be smaller (smaller
+  //**/ probabilities that there are more than i values below threshold)
+  //**/ ---------------------------------------------------------------
+  setupBinomialCDF(nSamples_, p0);
+  for (ss = 0; ss <= nSamples_; ss++)
+    VecBinomialCDF_[ss] = 1.0 - VecBinomialCDF_[ss];
 
-   typeI_ = BinomialCDF_[nBelow_];
+  //**/ ---------------------------------------------------------------
+  //**/ Given the observation that there are nBelow_ values below the
+  //**/ threshold, typeI_ is the error of making the assumption that
+  //**/ p0 is the probability that an observation is below threshold.
+  //**/ (if p0 is smaller, then this error is smaller)
+  //**/ ---------------------------------------------------------------
+  typeI_ = VecBinomialCDF_[nBelow_];
 
-   //delete [] Ybin_;
-   //delete [] BinomialCDF_;
-   return typeI_;
+  return typeI_;
 }
 
 // *************************************************************************
@@ -130,21 +153,20 @@ double BinomialAnalyzer::analyze(aData &adata)
 // -------------------------------------------------------------------------
 double *BinomialAnalyzer::setupBinomialCDF(int n, double p0)
 {
-   int    k;
-   double *retValues, nFact, kFact, nkFact;
+  int    k;
+  double nFact, kFact, nkFact;
 
-   nFact = factorial(n);
-   retValues = new double[n+1];
-   checkAllocate(retValues,"retValues in Binomial::setupBinomialCDF");
-   for (k = 0; k <= n; k++)
-   {
-      kFact  = factorial(k);
-      nkFact = factorial(n-k);
-      retValues[k] = pow(p0,1.0*k) * pow(1-p0,1.0*(n-k));
-      retValues[k] *= (nFact / (kFact * nkFact));
-      if (k > 0) retValues[k] += retValues[k-1];
-   }
-   return retValues;
+  nFact = factorial(n);
+  VecBinomialCDF_.setLength(n+1);
+  for (k = 0; k <= n; k++)
+  {
+    kFact  = factorial(k);
+    nkFact = factorial(n-k);
+    VecBinomialCDF_[k] = pow(p0,1.0*k) * pow(1-p0,1.0*(n-k));
+    VecBinomialCDF_[k] *= (nFact / (kFact * nkFact));
+    if (k > 0) VecBinomialCDF_[k] += VecBinomialCDF_[k-1];
+  }
+  return 0;
 }
 
 // *************************************************************************
@@ -177,33 +199,23 @@ BinomialAnalyzer& BinomialAnalyzer::operator=(const BinomialAnalyzer &)
 // ------------------------------------------------------------------------
 int BinomialAnalyzer::get_nSamples()
 {
-   return nSamples_;
+  return nSamples_;
 }
 double *BinomialAnalyzer::get_Ybin()
 {
-   double* retVal = NULL;
-   if (Ybin_)
-   {
-      retVal = new double[nSamples_];
-      checkAllocate(retVal,"retVal in Binomial::get_nSamples");
-      std::copy(Ybin_, Ybin_+nSamples_, retVal);
-   }
-   return retVal;
+  psVector vecT;
+  vecT = VecYBins_;
+  return vecT.takeDVector();
 }
 int BinomialAnalyzer::get_nBelow()
 {
-   return nBelow_;
+  return nBelow_;
 }
 double *BinomialAnalyzer::get_BinomialCDF()
 {
-   double* retVal = NULL;
-   if (Ybin_)
-   {
-      retVal = new double[nSamples_+1];
-      checkAllocate(retVal,"retVal in Binomial::get_BinomialCDF");
-      std::copy(BinomialCDF_, BinomialCDF_+nSamples_+1, retVal);
-   }
-   return retVal;
+  psVector vecT;
+  vecT = VecBinomialCDF_;
+  return vecT.takeDVector();
 }
 double BinomialAnalyzer::get_typeI()
 {

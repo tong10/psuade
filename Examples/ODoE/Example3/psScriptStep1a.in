@@ -1,0 +1,19 @@
+# run with 4 selections with PriorSample
+setranseed 943421232321
+odoeu_boptn
+y
+1
+25
+4
+1000
+y
+5
+RSTrainSample
+3
+0
+PriorSample
+CandidateSet0
+EvalSet
+10
+q
+

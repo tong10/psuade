@@ -105,6 +105,7 @@ extern "C"
       double ddata;
       oData  *odata;
 
+      //**/ ------ fetch data ------
       odata = (oData *) psOUU3Obj_;
       M1    = psOUU3M1_;
       M2    = psOUU3M2_;
@@ -113,6 +114,10 @@ extern "C"
       M     = M1 + M2 + M3 + M4;
       funcID = odata->numFuncEvals_;
 
+      //**/ ------ set the operating variables ------
+      //**/ XValues compacted (values for X1 should
+      //**/ have been set
+      //**/ psOUU3XValues in order
       index = 0;
       for (ii = 0; ii < M; ii++) 
       {
@@ -122,6 +127,9 @@ extern "C"
             index++;
          }
       }
+      //**/ ------ set the uncertain variables ------
+      //**/ psOUU3WValues compacted
+      //**/ psOUU3XValues in order
       index = 0;
       for (ii = 0; ii < M; ii++) 
       {
@@ -140,6 +148,7 @@ extern "C"
          }
       }
 
+      //**/ ------ search to see if it has already been evaluated ------
       found = 0;
       for (ii = 0; ii < psOUU3NSaved_; ii++)
       {
@@ -156,6 +165,7 @@ extern "C"
          }
       }
 
+      //**/ ------ run simulation ------
       if (found == 0)
       {
          odata->funcIO_->evaluate(funcID,M,psOUU3XValues_,iOne,&ddata,0);
@@ -170,6 +180,7 @@ extern "C"
       }
       (*YValue) = ddata;
 
+      //**/ ------ diagnostics ------
       if (ddata < psOUU3OptimalY_)
       {
          psOUU3OptimalY_ = ddata;
@@ -178,6 +189,8 @@ extern "C"
          {
             printf("    OUU3Optimizer inner loop New Ymin = %16.8e (%d)\n",
                    ddata, odata->numFuncEvals_);
+            //**/ only display values of operating variables
+            //**/ since this is the second stage optimization
             for (ii = 0; ii < M; ii++) 
                if (psOUU3InputTypes_[ii] == 1)
                   printf("     Input %3d = %e\n", ii+1, psOUU3OptimalX_[ii]);
@@ -202,6 +215,7 @@ extern "C"
       oData  *odata;
       FILE   *fp=NULL;
 
+      //**/ ------ fetch data (*nInp) = M1 ------
       odata = (oData *) psOUU3Obj_;
       M1    = psOUU3M1_;
       M2    = psOUU3M2_;
@@ -210,6 +224,8 @@ extern "C"
       M     = M1 + M2 + M3 + M4;
       nSamp = psOUU3X3nSamples_ * psOUU3X4nSamples_;
 
+      //**/ ------ set up for ensemble optimization ------
+      //**/        for operating variables (=1)
       rhobeg = 1.0e35;
       for (ii = 0; ii < M; ii++)
       {
@@ -231,6 +247,10 @@ extern "C"
       lowers = (double *) malloc(M*sizeof(double));
       uppers = (double *) malloc(M*sizeof(double));
 
+      //**/ ------ run ensemble optimization ------
+      //**/   XValues (design variables - compacted)
+      //**/   psOUU3XValues - all variables in order
+      //**/   inject the design data to psOUU3XValues
       index = 0;
       for (ii = 0; ii < M; ii++)
       {
@@ -243,6 +263,7 @@ extern "C"
       if (odata->outputLevel_ > 1) 
       {
          printf("OUU3Optimizer: Outer optimization loop FuncEval.\n");
+         //**/ print out the design variables
          index = 0;
          for (ii = 0; ii < M; ii++)
          {
@@ -256,12 +277,16 @@ extern "C"
       }
       if (psOUU3EnsembleEval_ == 0)
       {
+         //**/ recall: psOUU3XValues already stuffed with design & initial
+         //**/         operating variable data
          for (ss = 0; ss < nSamp; ss++)
          {
             if (odata->outputLevel_ > 3) 
                printf("OUU3Optimizer sample %d (of %d)\n",ss+1,nSamp); 
             readys[ss] = -1;
             psOUU3OptimalY_ = PSUADE_UNDEFINED;
+            //**/ initialize psOUU3WValues - uncertain variables (compacted)
+            //**/ design values have been set already
             index = 0;
             for (ii = 0; ii < M; ii++)
             {
@@ -282,6 +307,9 @@ extern "C"
                   index++;
                }
             }
+            //**/ Given design and uncertain parameters (in psOUU3XValues
+            //**/  - in order, and in psOUU3WValues - compacted)
+            //**/ ------ if user does not provide 2nd level optimizer ------
             if (psOUU3UserOpt_ == 0)
             {
                index = 0;
@@ -305,7 +333,9 @@ extern "C"
                          ss+1,psOUU3SamOutputs_[ss]); 
             }
             else
+            //**/ ------ if user provides 2nd level optimizer ------
             {
+               //**/ inject design variable values into XLocal
                index = 0;
                for (ii = 0; ii < M; ii++)
                {
@@ -315,6 +345,7 @@ extern "C"
                      index++;
                   }
                }
+               //**/ inject operating variable values (mid point)
                index = 0;
                for (ii = 0; ii < M; ii++)
                {
@@ -325,6 +356,7 @@ extern "C"
                      index++;
                   }
                }
+               //**/ inject uncertain variable values (from sample)
                index = 0;
                for (ii = 0; ii < M; ii++)
                {
@@ -345,6 +377,7 @@ extern "C"
                      index++;
                   }
                }
+               //**/ evaluate
                funcID = psOUU3Counter_ * nSamp + ss;
                readys[ss] = odata->funcIO_->evaluate(funcID,M,XLocal,iOne,
                                                      &ddata,0);
@@ -357,6 +390,7 @@ extern "C"
             }
          } 
 
+         //**/ if asynchronous mode is on, additonal processing
          if (psOUU3UserOpt_ == 1 && psOUU3Parallel_ == 1)
          {
             for (ss = 0; ss < nSamp; ss++)
@@ -385,6 +419,7 @@ extern "C"
       }
       else
       {
+         //**/ put design variable values to XLocal (compacted)
          index = 0;
          for (ii = 0; ii < M; ii++)
          {
@@ -396,6 +431,7 @@ extern "C"
          }
          for (ss = 0; ss < nSamp; ss++)
          {
+            //**/ inject design values into psOUU3XValues 
             index = 0;
             for (ii = 0; ii < M; ii++) 
             {
@@ -405,6 +441,7 @@ extern "C"
                   index++;
                }
             }
+            //**/ inject operating values into psOUU3XValues
             for (ii = 0; ii < M; ii++)
             {
                if (psOUU3InputTypes_[ii] == 1)
@@ -413,6 +450,7 @@ extern "C"
                                                  odata->upperBounds_[ii]);
                }
             }
+            //**/ inject uncertain values into psOUU3XValues
             index = 0;
             for (ii = 0; ii < M; ii++)
             {
@@ -437,6 +475,7 @@ extern "C"
          odata->funcIO_->ensembleEvaluate(nSamp,M,psOUU3XValues_,
                                           iOne,psOUU3SamOutputs_,funcID);
          odata->numFuncEvals_ += nSamp;
+         //**/ ------ save the data ------
          for (ss = 0; ss < nSamp; ss++)
          {
             if ((psOUU3NSaved_+1)*M < psOUU3MaxSaved_*10)
@@ -450,6 +489,7 @@ extern "C"
          for (ii = 0; ii < M; ii++) psOUU3OptimalX_[ii] = psOUU3XValues_[ii];
       }
 
+      //**/ ------ analyze optimization results ------
       if (psOUU3UseRS_ == 0)
       {
          if (psOUU3Mode_ == 1 || psOUU3Mode_ == 2)
@@ -584,6 +624,7 @@ extern "C"
          free(resultStore);
       }
  
+      //**/ ------ store optimal information ------
       if (mean < odata->optimalY_)
       {
          odata->optimalY_ = mean;
@@ -602,6 +643,7 @@ extern "C"
       }
       psOUU3Counter_++;
 
+      //**/ ------ clean up and return ------
       free(lowers);
       free(uppers);
       free(readys);
@@ -654,9 +696,16 @@ void OUU3Optimizer::optimize(oData *odata)
    FILE   *fp=NULL;
    static int currDriver=-1;
 
-   psMasterMode_ = 0;
+   //**/ ----------------------------------------------------------
+   //**/ header and fetch data
+   //**/ ----------------------------------------------------------
+   //**/ turning on master mode may cause problem. So turn ff
+   psConfig_.MasterModeOff();
    nInputs = odata->nInputs_;
    printLevel = odata->outputLevel_;
+   //**/ ----------------------------------------------------------
+   //**/ if this has been instantiated before, no need to print header
+   //**/ ----------------------------------------------------------
    if (psOUU3M1_+psOUU3M2_+psOUU3M3_ == nInputs && psOUU3M1_ > 0 &
        psOUU3M2_ > 0 && psOUU3M3_ > 0) printHeader = 0;
    if (printLevel >= 0 && printHeader == 1)
@@ -708,6 +757,9 @@ void OUU3Optimizer::optimize(oData *odata)
       }
       printEquals(PL_INFO, 0);
    }
+   //**/ ----------------------------------------------------------
+   //**/ fetch M1, M2, M3, and M4
+   //**/ ----------------------------------------------------------
    if (psOUU3M1_+psOUU3M2_+psOUU3M4_ == nInputs && psOUU3M1_ > 0 &
        psOUU3M2_ > 0 && psOUU3M4_ > 0)
    {
@@ -756,6 +808,9 @@ void OUU3Optimizer::optimize(oData *odata)
       printDashes(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ request user to identify variable types
+   //**/ ----------------------------------------------------------
    printf("In the following, please select type for each variable:\n");
    printf("  1. design variable\n");
    printf("  2. operating variable\n");
@@ -799,8 +854,13 @@ void OUU3Optimizer::optimize(oData *odata)
    }
    printEquals(PL_INFO, 0);
 
+   //**/ ----------------------------------------------------------
+   //**/ prepare for optimization: rhobeg, maxfun, initial guess, 
+   //**/ initialize optimal data storage
+   //**/ ----------------------------------------------------------
    for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = 0.0;
    odata->optimalY_ = 1.0e50;
+   //**/ XValues stores the initial values for design parameters
    XValues = new double[M1+1];
    index = 0;
    for (ii = 0; ii < nInputs; ii++)
@@ -811,6 +871,7 @@ void OUU3Optimizer::optimize(oData *odata)
          index++;
       }
    }
+   //**/ compute the tolerance criterion (based on design parameters)
    rhobeg = 1e35;
    index = 0;
    for (ii = 0; ii < nInputs; ii++) 
@@ -831,6 +892,7 @@ void OUU3Optimizer::optimize(oData *odata)
       rhoend = rhobeg * 1.0e-6;
    }
 
+   //**/ use the opt_driver code
    maxfun = odata->maxFEval_;
    if ((odata->setOptDriver_ & 1))
    {
@@ -844,9 +906,13 @@ void OUU3Optimizer::optimize(oData *odata)
    printf("OUU3Optimizer: tolerance  = %e\n", odata->tolerance_);
    printEquals(PL_INFO, 0);
 
+   //**/ ----------------------------------------------------------
+   //**/ set default: no user opt code, no RS
+   //**/ then ask for type of objective function ==> psOUU3Mode_
+   //**/ ----------------------------------------------------------
    psOUU3UserOpt_ = 0;
    psOUU3UseRS_ = 0;
-   if (psOptExpertMode_ == 1)
+   if (psConfig_.OptExpertModeIsOn())
    {
       printEquals(PL_INFO, 0);
       printf("Select which functional Phi_{X3,X4} to use: \n");
@@ -873,6 +939,9 @@ void OUU3Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ request users for a sample for X3 
+   //**/ ----------------------------------------------------------
    psOUU3X3nSamples_ = 1;
    if (M3 > 0)
    {
@@ -922,6 +991,9 @@ void OUU3Optimizer::optimize(oData *odata)
       printf("User sample for X3 CDF = %e (should be ~1)\n", ddata);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ ask for X4 sampling method (default - LHS) and size
+   //**/ ----------------------------------------------------------
    if (printLevel > 2) printf("OUU3Optimizer: generating a sample for X4.\n");
    int    methodX4 = 1, *samStates;
    double *samOuts, *lowers, *uppers;
@@ -987,6 +1059,9 @@ void OUU3Optimizer::optimize(oData *odata)
       printEquals(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ if there are discrete variables X3, read in the sample
+   //**/ ----------------------------------------------------------
    int nSamp=psOUU3X3nSamples_*psOUU3X4nSamples_;
    psOUU3SamOutputs_  = new double[nSamp];
    printf("Use your own optimizer instead of BOBYQA ? (y or n) ");
@@ -1023,10 +1098,17 @@ void OUU3Optimizer::optimize(oData *odata)
    }
    fgets(lineIn, 500, stdin);
 
+   //**/ ----------------------------------------------------------
+   //**/ these variables are for temporary storage at various stages
+   //**/ of optimization. psOUU3XValues is for storing all simulations
+   //**/ ----------------------------------------------------------
    psOUU3WValues_ = new double[nInputs];
    psOUU3XValues_ = new double[nInputs*nSamp];
    psOUU3OptimalX_ = new double[nInputs];
 
+   //**/ ----------------------------------------------------------
+   //**/ set up response surface constructor and large sample
+   //**/ ----------------------------------------------------------
    int        rstype=0, *inputPDFs=NULL;
    double     *inputMeans=NULL, *inputStdevs=NULL;
    PDFManager *pdfman=NULL;
@@ -1048,8 +1130,8 @@ void OUU3Optimizer::optimize(oData *odata)
          rstype = PSUADE_RS_KR;
          printf("OUU3Optimizer: use Kriging response surface\n");
       }
-      kk = psInteractive_;
-      psInteractive_ = 0;
+      //**/ create response surface
+      psConfig_.InteractiveSaveAndReset();
       psOUU3faPtr_ = genFA(rstype, M4, -1, psOUU3X4nSamples_);
       lowers = new double[M4];
       uppers = new double[M4];
@@ -1065,8 +1147,9 @@ void OUU3Optimizer::optimize(oData *odata)
       }
       psOUU3faPtr_->setBounds(lowers,uppers);
       psOUU3faPtr_->setOutputLevel(0);
-      psInteractive_ = kk;
+      psConfig_.InteractiveRestore();
 
+      //**/ generate a large sample
       odata->psIO_->getParameter("input_pdfs", pdata);
       inputPDFs = pdata.intArray_;
       pdata.intArray_ = NULL;
@@ -1125,6 +1208,7 @@ void OUU3Optimizer::optimize(oData *odata)
          corMat1 = (psMatrix *) pdata.psObject_;
          pdata.psObject_ = NULL;
 
+         //**/ compress pdf information
          corMat2.setDim(M4,M4);
          int    *iPdfs  = new int[nInputs];
          double *iMeans = new double[nInputs];
@@ -1174,12 +1258,18 @@ void OUU3Optimizer::optimize(oData *odata)
       delete [] uppers;
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ optimize 
+   //**/ ----------------------------------------------------------
    nPts = (M1 + 1) * (M1 + 2) / 2;
    workArray = new double[(nPts+5)*(nPts+M1)+3*M1*(M1+5)/2+1];
    psOUU3Counter_ = 0;
    if (psOUU3Parallel_ == 1) odata->funcIO_->setAsynchronousMode();
 
 #ifdef HAVE_BOBYQA
+   //**/ ----------------------------------------------------------
+   //**/ ----- retrieve history -----
+   //**/ ----------------------------------------------------------
    fp = fopen("psuade_ouu3_history", "r");
    if (fp != NULL)
    {
@@ -1210,6 +1300,9 @@ void OUU3Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ ----- run optimizer -----
+   //**/ ----------------------------------------------------------
    for (ii = 0; ii < M1; ii++) 
       printf("OUU3Optimizer initial X %3d = %e\n", ii+1, XValues[ii]);
    bobyqa_(&M1, &nPts, XValues, odata->lowerBounds_,
@@ -1218,6 +1311,9 @@ void OUU3Optimizer::optimize(oData *odata)
    printf("OUU3Optimizer: total number of evaluations = %d\n",
            odata->numFuncEvals_);
 
+   //**/ ----------------------------------------------------------
+   //**/ ----- save history -----
+   //**/ ----------------------------------------------------------
    if (psOUU3NSaved_ > 0)
    {
       fp = fopen("psuade_ouu3_history","w");
@@ -1240,6 +1336,9 @@ void OUU3Optimizer::optimize(oData *odata)
 #endif
    if (psOUU3Parallel_ == 1) odata->funcIO_->setSynchronousMode();
 
+   //**/ ----------------------------------------------------------
+   //**/ set return values and clean up 
+   //**/ ----------------------------------------------------------
    if ((odata->setOptDriver_ & 2) && currDriver >= 0)
    {
       printf("OUU3Optimizer INFO: reverting to original simulation driver.\n");

@@ -1,0 +1,27 @@
+# option (after 35): 1-G, 2-I, 3-5:DAE
+# if option = G or I, add EvalSet after CandidateSet
+# 10000 iterations with 10 restarts
+# parameter 1 and 2 are uncertain
+# evaluation sample = CandidateSet
+# 0 : MARS, 10 - GP (after CandidateSet/EvalSet)
+printlevel 1
+odoeu_foptn
+y
+1
+35
+2
+10000
+y
+10
+RSTrainData
+1
+2
+0
+PriorSample
+y
+1
+CandidateSet
+EvalSet
+10
+q
+

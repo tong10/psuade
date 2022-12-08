@@ -1,0 +1,27 @@
+Bungee Problem:
+
+The function is
+
+   hmin = H - 2Mg/ k sigma
+
+where H is the distance of the jumping platform to the ground
+      M is the mass (kg)
+      sigma is the number of strands in the cord
+      g is gravity (9.8m/s2)
+      k is the elastic constrant of one strand (N/m) = 1.5
+
+H is uniformly distributed [40,60]
+M = U(67 kg, 74 kg)
+sigma = U(20,40)
+
+99.99% for 4 standard deviations
+ 
+sensitivity indices
+H ~0.45
+M ~0.01
+sig ~0.54
+
+Basic: basic analysis
+BungeeWithNoise: add noise to the Bungee function and analyze its effect 
+BungeeMP: learn how to run this problem in a multiprocessing environment
+

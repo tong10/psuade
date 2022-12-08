@@ -1,0 +1,8 @@
+A function with many shells separated by troughs.
+The global minimum is at the center.
+
+solution: [0, ..0]
+
+min F = 0
+
+Note: dual annealing and differential evolution fail for this problem

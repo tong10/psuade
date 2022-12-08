@@ -1,0 +1,32 @@
+This case runs inference without discrepancy modeling
+
+I. To run inference, do: psuade < script.mcmc
+
+   You will see something like this:
+
+   Input   2 =   5.64196703e-01
+   MLE Negative log likelihood =  4.8163e+00
+   MCMC_BF: input   2 value at maximum likelihood = 5.641967e-01
+   MCMC_BF: input   2 mean    = 5.641254e-01
+   MCMC_BF: input   2 std dev = 9.177076e-03
+
+   - so the value of beta that best matches data is ~0.5642
+   - However, the negative log likelihood is 4.8, which is high
+     (the closer it is to 0, the better it is)
+   - high negative log likelihood means that discrepancy modeling
+     may be needed
+   - also, note that the standard deviation of the posterior
+     distribution of beta is 0.009 - too small to be reasonable
+
+II. Now use the posterior sample for prediction
+
+    psuade < script.post
+
+    The evaluation is at X=0.5 so according to the true formula
+    (Ye = Beta * X / (1 + X / 20) where Beta=0.65)
+
+    The predicted value ~ 0.27984 with s.d. ~ 0.001
+
+    The true Y = 0.65 * 0.5 / (1 + 0.025) = 0.317
+
+

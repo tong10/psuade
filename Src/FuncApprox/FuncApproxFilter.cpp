@@ -38,40 +38,40 @@
 // ------------------------------------------------------------------------
 FuncApproxFilter::FuncApproxFilter(char *filename)
 {
-   char       inputLine[500], keyword[500];
-   FILE*      fp;
-   PsuadeData *ioPtr;
+  char       inputLine[500], keyword[500];
+  FILE*      fp;
+  PsuadeData *ioPtr;
 
-   fp = fopen(filename, "r");
-   if (fp == NULL)
-   {
-      printf("FuncApproxFilter ERROR - no data file. \n");
-      assert(fp != NULL);
-   }
-   fgets(inputLine, 500, fp);
-   sscanf(inputLine, "%s", keyword);
-   while (keyword[0] == '#')
-   {
-      fgets(inputLine, 500, fp);
-      sscanf(inputLine, "%s", keyword);
-   }
-   if (strcmp(keyword, "PSUADE_IO"))
-   {
-      printf("FuncApproxFilter ERROR - PSUADE_IO section absent.\n");
-      printf("                         filename = %s.\n",filename);
-      exit(1);
-   }
-   fclose(fp);
+  fp = fopen(filename, "r");
+  if (fp == NULL)
+  {
+    printf("FuncApproxFilter ERROR - no data file. \n");
+    assert(fp != NULL);
+  }
+  fgets(inputLine, 500, fp);
+  sscanf(inputLine, "%s", keyword);
+  while (keyword[0] == '#')
+  {
+    fgets(inputLine, 500, fp);
+    sscanf(inputLine, "%s", keyword);
+  }
+  if (strcmp(keyword, "PSUADE_IO"))
+  {
+    printf("FuncApproxFilter ERROR - PSUADE_IO section absent.\n");
+    printf("                         filename = %s.\n",filename);
+    exit(1);
+  }
+  fclose(fp);
 
-   printLevel_ = 0; 
-   strcpy(dataFileName_, filename);
-   YLBound_ = - PSUADE_UNDEFINED;
-   YUBound_ =   PSUADE_UNDEFINED;
+  printLevel_ = 0; 
+  strcpy(dataFileName_, filename);
+  YLBound_ = - PSUADE_UNDEFINED;
+  YUBound_ =   PSUADE_UNDEFINED;
 
-   ioPtr = new PsuadeData();
-   ioPtr->readPsuadeFile(dataFileName_);
-   faPtr_ = genFAInteractive(ioPtr, 2);
-   delete ioPtr;
+  ioPtr = new PsuadeData();
+  ioPtr->readPsuadeFile(dataFileName_);
+  faPtr_ = genFAInteractive(ioPtr, 2);
+  delete ioPtr;
 }
 
 // ************************************************************************
@@ -79,7 +79,7 @@ FuncApproxFilter::FuncApproxFilter(char *filename)
 // ------------------------------------------------------------------------
 FuncApproxFilter::~FuncApproxFilter()
 {
-   delete faPtr_;
+  delete faPtr_;
 }
 
 // ************************************************************************
@@ -87,8 +87,8 @@ FuncApproxFilter::~FuncApproxFilter()
 // ------------------------------------------------------------------------
 int FuncApproxFilter::setPrintLevel(int level)
 {
-   printLevel_ = level;
-   return 0;
+  printLevel_ = level;
+  return 0;
 }
 
 // ************************************************************************
@@ -96,9 +96,9 @@ int FuncApproxFilter::setPrintLevel(int level)
 // ------------------------------------------------------------------------
 int FuncApproxFilter::setYBounds( double& lower, double& upper )
 {
-   YLBound_ = lower;
-   YUBound_ = upper;
-   return 0;
+  YLBound_ = lower;
+  YUBound_ = upper;
+  return 0;
 }
 
 // ************************************************************************
@@ -106,9 +106,9 @@ int FuncApproxFilter::setYBounds( double& lower, double& upper )
 // ------------------------------------------------------------------------
 int FuncApproxFilter::getYBounds( double &lower, double &upper )
 {
-   lower = YLBound_;
-   upper = YUBound_;
-   return 0;
+  lower = YLBound_;
+  upper = YUBound_;
+  return 0;
 }
 
 // ************************************************************************
@@ -116,9 +116,9 @@ int FuncApproxFilter::getYBounds( double &lower, double &upper )
 // ------------------------------------------------------------------------
 double FuncApproxFilter::evaluatePoint(double *X, int &flag)
 {
-   double Y = faPtr_->evaluatePoint(X);
-   flag = 1;
-   if (Y < YLBound_ || Y > YUBound_) flag = 0;
-   return Y;
+  double Y = faPtr_->evaluatePoint(X);
+  flag = 1;
+  if (Y < YLBound_ || Y > YUBound_) flag = 0;
+  return Y;
 }
 

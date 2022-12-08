@@ -1,0 +1,17 @@
+Numerical examples:
+
+Adaptive        - for adaptive response surface analysis
+DimReduction    - Morris screening and other types of analysis
+Optimization    - numerical optimization
+StatInference   - Bayesian calibration
+MixedUQ         - mixed aleatory epistemic uncertainty analysis
+HierarchicalUQ  - multistage UQ
+ODoE            - Optimal experimental design
+SamMethodTests  - test different sampling methods
+RSTests         - test different RS methods
+ReliabilityTest - several methods for reliability analysis
+BasicStat       - hypothesis tests, 2-sample tests, ...
+PsuadeAsLib     - call psuade libraries from user codes
+PsuadeAsServer  - an example using PSUADE in a server-client mode
+CorrelatedInps  - an example for SA with correlated inputs
+SimpleUQ        - a few examples for conducting simple UQ analysis

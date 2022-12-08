@@ -68,7 +68,7 @@ static int PSUADE_PB_GV28Z[9][9] =
 // ------------------------------------------------------------------------
 PlackettBurmanSampling::PlackettBurmanSampling() : Sampling()
 {
-   samplingID_ = PSUADE_SAMP_PBD;
+  samplingID_ = PSUADE_SAMP_PBD;
 }
 
 // ************************************************************************
@@ -83,213 +83,241 @@ PlackettBurmanSampling::~PlackettBurmanSampling()
 // ------------------------------------------------------------------------
 int PlackettBurmanSampling::initialize(int initLevel)
 {
-   int ii, jj, kk, ipower, whichPlan, checkN;
-   int **patternMatrix, **tempMatrix, rowCnt, *genVec;
+  int ii, jj, kk, ipower, whichPlan, checkN;
+  int **patternMatrix, **tempMatrix, rowCnt, *genVec;
 
-   if (nSamples_ == 0)
-   {
-      printf("PlackettBurmanSampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("PlackettBurmanSampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
-   if (nInputs_ < 2)
-   {
-      printf("PlackettBurmanSampling::initialize ERROR - nInputs < 2.\n");
-      exit(1);
-   }
-   if (nInputs_ > 47)
-   {
-      printf("PlackettBurmanSampling::initialize ERROR - nInputs > 47 not");
-      printf(" supported.\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+    printf("PlackettBurmanSampling::initialize ERROR - nSamples = 0.\n");
+    exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+     printf("PlackettBurmanSampling::initialize ERROR - input not set up.\n");
+     exit(1);
+  }
+  if (nInputs_ < 2)
+  {
+    printf("PlackettBurmanSampling::initialize ERROR - nInputs < 2.\n");
+    exit(1);
+  }
+  if (nInputs_ > 47)
+  {
+    printf("PlackettBurmanSampling::initialize ERROR - nInputs > 47 not");
+    printf(" supported.\n");
+    exit(1);
+  }
    
+  //**/ ----------------------------------------------------------------
+  //**/ clean up and allocate new storage
+  //**/ ----------------------------------------------------------------
+  if (initLevel != 0) return 0;
+  ii = nInputs_ / 4;
+  nSamples_ = (ii + 1) * 4;
+  allocSampleData();
 
-   deleteSampleData();
-   if (initLevel != 0) return 0;
-   ii = nInputs_ / 4;
-   nSamples_ = (ii + 1) * 4;
-   allocSampleData();
+  //**/ ----------------------------------------------------------------
+  //**/ generate pattern matrix
+  //**/ ----------------------------------------------------------------
+  psIVector *vecPatterns, *vecTmpPatterns;
+  vecPatterns = new psIVector[nSamples_];
+  for (ii = 0; ii < nSamples_; ii++)
+    vecPatterns[ii].setLength(nSamples_);
+  vecTmpPatterns = new psIVector[nSamples_];
+  for (ii = 0; ii < nSamples_; ii++)
+    vecTmpPatterns[ii].setLength(nSamples_);
+  whichPlan = -1;
+  ipower = int (log((double) nSamples_) / log(2.0e0) + 1.0e-8);
+  checkN = (int) pow(2.0, (double) ipower);
+  if (checkN == nSamples_) whichPlan = 0;
+  else if (nSamples_ == 12) whichPlan = 1;
+  else if (nSamples_ == 20) whichPlan = 2;
+  else if (nSamples_ == 24) whichPlan = 3;
+  else if (nSamples_ == 28) whichPlan = 4;
+  else if (nSamples_ == 36) whichPlan = 5;
+  else if (nSamples_ == 40) whichPlan = 6;
+  else if (nSamples_ == 44) whichPlan = 7;
+  else if (nSamples_ == 48) whichPlan = 8;
 
-   patternMatrix = new int*[nSamples_];
-   for (ii = 0; ii < nSamples_; ii++)
-      patternMatrix[ii] = new int[nSamples_];
-   whichPlan = -1;
-   ipower = int (log((double) nSamples_) / log(2.0e0) + 1.0e-8);
-   checkN = (int) pow(2.0, (double) ipower);
-   if (checkN == nSamples_) whichPlan = 0;
-   else if (nSamples_ == 12) whichPlan = 1;
-   else if (nSamples_ == 20) whichPlan = 2;
-   else if (nSamples_ == 24) whichPlan = 3;
-   else if (nSamples_ == 28) whichPlan = 4;
-   else if (nSamples_ == 36) whichPlan = 5;
-   else if (nSamples_ == 40) whichPlan = 6;
-   else if (nSamples_ == 44) whichPlan = 7;
-   else if (nSamples_ == 48) whichPlan = 8;
-
-   if (whichPlan == 0)
-   {
-      patternMatrix[0][0] =  1; patternMatrix[0][1] = 1;
-      patternMatrix[0][2] =  1; patternMatrix[0][3] = 1;
-      patternMatrix[1][0] =  1; patternMatrix[1][1] = -1;
-      patternMatrix[1][2] =  1; patternMatrix[1][3] = -1;
-      patternMatrix[2][0] =  1; patternMatrix[2][1] = 1;
-      patternMatrix[2][2] = -1; patternMatrix[2][3] = -1;
-      patternMatrix[3][0] =  1; patternMatrix[3][1] = -1;
-      patternMatrix[3][2] = -1; patternMatrix[3][3] = 1;
-      if (nSamples_ > 4)
+  if (whichPlan == 0)
+  {
+    //**/ first construct H4 (Hadamard matrix of order 4)
+    vecPatterns[0][0] =  1; vecPatterns[0][1] = 1;
+    vecPatterns[0][2] =  1; vecPatterns[0][3] = 1;
+    vecPatterns[1][0] =  1; vecPatterns[1][1] = -1;
+    vecPatterns[1][2] =  1; vecPatterns[1][3] = -1;
+    vecPatterns[2][0] =  1; vecPatterns[2][1] = 1;
+    vecPatterns[2][2] = -1; vecPatterns[2][3] = -1;
+    vecPatterns[3][0] =  1; vecPatterns[3][1] = -1;
+    vecPatterns[3][2] = -1; vecPatterns[3][3] = 1;
+    if (nSamples_ > 4)
+    {
+      //**/ recursively generate Hadamard matrix of higher order
+      ipower = int (log((double) nSamples_) / log(2.0e0) + 1.0e-8);
+      rowCnt = 4;
+      for (ii = 0; ii < ipower-2; ii++)
       {
-         ipower = int (log((double) nSamples_) / log(2.0e0) + 1.0e-8);
-         tempMatrix = new int*[nSamples_];
-         for (ii = 0; ii < nSamples_; ii++)
-            tempMatrix[ii] = new int[nSamples_];
-         rowCnt = 4;
-         for (ii = 0; ii < ipower-2; ii++)
-         {
-            for (jj = 0; jj < rowCnt; jj++)
-               for (kk = 0; kk < rowCnt; kk++)
-                  tempMatrix[jj][kk] = patternMatrix[jj][kk];
-            for (jj = 0; jj < rowCnt; jj++)
-            {
-               for (kk = 0; kk < rowCnt; kk++)
-               {
-                  patternMatrix[rowCnt+jj][kk] = tempMatrix[jj][kk];
-                  patternMatrix[jj][rowCnt+kk] = tempMatrix[jj][kk];
-                  patternMatrix[rowCnt+jj][rowCnt+kk] = -tempMatrix[jj][kk];
-               }
-            }
-            rowCnt *= 2;
-         }
-         for (ii = 0; ii < nSamples_; ii++) delete [] tempMatrix[ii];
-         delete [] tempMatrix;
+        for (jj = 0; jj < rowCnt; jj++)
+          for (kk = 0; kk < rowCnt; kk++)
+            vecTmpPatterns[jj][kk] = vecPatterns[jj][kk];
+        for (jj = 0; jj < rowCnt; jj++)
+        {
+          for (kk = 0; kk < rowCnt; kk++)
+          {
+            vecPatterns[rowCnt+jj][kk] = vecTmpPatterns[jj][kk];
+            vecPatterns[jj][rowCnt+kk] = vecTmpPatterns[jj][kk];
+            vecPatterns[rowCnt+jj][rowCnt+kk] = -vecTmpPatterns[jj][kk];
+          }
+        }
+        rowCnt *= 2;
       }
+      for (ii = 0; ii < nSamples_; ii++) vecTmpPatterns[ii].clean();
+      delete [] vecTmpPatterns;
+    }
 
-      for (ii = 0; ii < nSamples_; ii++)
-         for (jj = 0; jj < nSamples_-1; jj++)
-            patternMatrix[ii][jj] = patternMatrix[ii][jj+1];
-   }
-   else if (whichPlan != 4 && whichPlan != 6 && whichPlan != 8)
-   {
-      switch(whichPlan)
-      {
-         case 1: genVec = PSUADE_PB_GV12; break;
-         case 2: genVec = PSUADE_PB_GV20; break;
-         case 3: genVec = PSUADE_PB_GV24; break;
-         case 5: genVec = PSUADE_PB_GV36; break;
-         case 7: genVec = PSUADE_PB_GV44; break;
-      }
-
+    //**/ leave out the first column
+    for (ii = 0; ii < nSamples_; ii++)
       for (jj = 0; jj < nSamples_-1; jj++)
-         patternMatrix[0][jj] = genVec[jj];
+        vecPatterns[ii][jj] = vecPatterns[ii][jj+1];
+  }
+  else if (whichPlan != 4 && whichPlan != 6 && whichPlan != 8)
+  {
+    switch(whichPlan)
+    {
+      case 1: genVec = PSUADE_PB_GV12; break;
+      case 2: genVec = PSUADE_PB_GV20; break;
+      case 3: genVec = PSUADE_PB_GV24; break;
+      case 5: genVec = PSUADE_PB_GV36; break;
+      case 7: genVec = PSUADE_PB_GV44; break;
+    }
 
-      for (ii = 1; ii < nSamples_-1; ii++)
+    //**/ get the generating vector
+    for (jj = 0; jj < nSamples_-1; jj++) vecPatterns[0][jj] = genVec[jj];
+
+    //**/ get the subsequent rows
+    for (ii = 1; ii < nSamples_-1; ii++)
+    {
+      for (jj = 1; jj < nSamples_-1; jj++)
+        vecPatterns[ii][jj] = vecPatterns[ii-1][jj-1];
+      vecPatterns[ii][0] = vecPatterns[ii-1][nSamples_-2];
+    }
+
+    //**/ finally append the last sample point with all 0's
+    for (jj = 0; jj < nSamples_-1; jj++)
+      vecPatterns[nSamples_-1][jj] = 0;
+  }
+  else if (whichPlan == 4)
+  {
+    for (ii = 0; ii < 9; ii++)
+    {
+      for (jj = 0; jj < 9; jj++)
       {
-         for (jj = 1; jj < nSamples_-1; jj++)
-            patternMatrix[ii][jj] = patternMatrix[ii-1][jj-1];
-         patternMatrix[ii][0] = patternMatrix[ii-1][nSamples_-2];
+        vecPatterns[ii][jj]       = PSUADE_PB_GV28X[ii][jj]; 
+        vecPatterns[ii+9][jj+9]   = PSUADE_PB_GV28X[ii][jj]; 
+        vecPatterns[ii+18][jj+18] = PSUADE_PB_GV28X[ii][jj]; 
+        vecPatterns[ii][jj+9]     = PSUADE_PB_GV28Y[ii][jj]; 
+        vecPatterns[ii+9][jj+18]  = PSUADE_PB_GV28Y[ii][jj]; 
+        vecPatterns[ii+18][jj]    = PSUADE_PB_GV28Y[ii][jj]; 
+        vecPatterns[ii][jj+18]    = PSUADE_PB_GV28Z[ii][jj]; 
+        vecPatterns[ii+9][jj]     = PSUADE_PB_GV28Z[ii][jj]; 
+        vecPatterns[ii+18][jj+9]  = PSUADE_PB_GV28Z[ii][jj]; 
       }
+    }
+    for (jj = 0; jj < 27; jj++) vecPatterns[27][jj] = 0;
+  }
+  else if (whichPlan == 6)
+  {
+    //**/ use the H2N formula from N=20
+    genVec = PSUADE_PB_GV20;
+    for (jj = 1; jj < 20; jj++) vecPatterns[0][jj] = genVec[jj];
+    for (ii = 0; ii < 19; ii++)
+    {
+      vecPatterns[ii][0] = 1;
+      for (jj = 2; jj < 20; jj++)
+        vecPatterns[ii][jj] = vecPatterns[ii-1][jj-1];
+      vecPatterns[ii][1] = vecPatterns[ii-1][19];
+    }
+    for (jj = 1; jj < 20; jj++) vecPatterns[19][jj] = 0;
+    vecPatterns[19][0] = 1;
 
+    //**/ duplicate 
+    for (ii = 0; ii < 20; ii++) 
+    {
+      for (jj = 0; jj < 20; jj++) 
+      {
+        vecPatterns[ii+20][jj] = vecPatterns[ii][jj]; 
+        vecPatterns[ii][jj+20] = vecPatterns[ii][jj]; 
+        vecPatterns[ii+20][jj+20] = -vecPatterns[ii][jj]; 
+      }
+    }
+
+    //**/ finally, leave out the first column
+    for (ii = 0; ii < nSamples_; ii++)
       for (jj = 0; jj < nSamples_-1; jj++)
-         patternMatrix[nSamples_-1][jj] = 0;
-   }
-   else if (whichPlan == 4)
-   {
-      for (ii = 0; ii < 9; ii++)
-      {
-         for (jj = 0; jj < 9; jj++)
-         {
-            patternMatrix[ii][jj]       = PSUADE_PB_GV28X[ii][jj]; 
-            patternMatrix[ii+9][jj+9]   = PSUADE_PB_GV28X[ii][jj]; 
-            patternMatrix[ii+18][jj+18] = PSUADE_PB_GV28X[ii][jj]; 
-            patternMatrix[ii][jj+9]     = PSUADE_PB_GV28Y[ii][jj]; 
-            patternMatrix[ii+9][jj+18]  = PSUADE_PB_GV28Y[ii][jj]; 
-            patternMatrix[ii+18][jj]    = PSUADE_PB_GV28Y[ii][jj]; 
-            patternMatrix[ii][jj+18]    = PSUADE_PB_GV28Z[ii][jj]; 
-            patternMatrix[ii+9][jj]     = PSUADE_PB_GV28Z[ii][jj]; 
-            patternMatrix[ii+18][jj+9]  = PSUADE_PB_GV28Z[ii][jj]; 
-         }
-      }
-      for (jj = 0; jj < 27; jj++) patternMatrix[27][jj] = 0;
-   }
-   else if (whichPlan == 6)
-   {
-      genVec = PSUADE_PB_GV20;
-      for (jj = 1; jj < 20; jj++) patternMatrix[0][jj] = genVec[jj];
-      for (ii = 0; ii < 19; ii++)
-      {
-         patternMatrix[ii][0] = 1;
-         for (jj = 2; jj < 20; jj++)
-            patternMatrix[ii][jj] = patternMatrix[ii-1][jj-1];
-         patternMatrix[ii][1] = patternMatrix[ii-1][19];
-      }
-      for (jj = 1; jj < 20; jj++) patternMatrix[19][jj] = 0;
-      patternMatrix[19][0] = 1;
+        vecPatterns[ii][jj] = vecPatterns[ii][jj+1];
+  } 
+  else if (whichPlan == 8)
+  {
+    //**/ use the H2N formula from N=24
+    genVec = PSUADE_PB_GV24;
+    for (jj = 1; jj < 24; jj++) vecPatterns[0][jj] = genVec[jj];
+    for (ii = 0; ii < 23; ii++)
+    {
+      vecPatterns[ii][0] = 1;
+      for (jj = 2; jj < 24; jj++)
+        vecPatterns[ii][jj] = vecPatterns[ii-1][jj-1];
+      vecPatterns[ii][1] = vecPatterns[ii-1][23];
+    }
+    for (jj = 1; jj < 24; jj++) vecPatterns[23][jj] = 0;
+    vecPatterns[23][0] = 1;
 
-      for (ii = 0; ii < 20; ii++) 
+    //**/ duplicate 
+    for (ii = 0; ii < 24; ii++) 
+    {
+      for (jj = 0; jj < 24; jj++) 
       {
-         for (jj = 0; jj < 20; jj++) 
-         {
-            patternMatrix[ii+20][jj] = patternMatrix[ii][jj]; 
-            patternMatrix[ii][jj+20] = patternMatrix[ii][jj]; 
-            patternMatrix[ii+20][jj+20] = -patternMatrix[ii][jj]; 
-         }
+        vecPatterns[ii+24][jj] = vecPatterns[ii][jj]; 
+        vecPatterns[ii][jj+24] = vecPatterns[ii][jj]; 
+        vecPatterns[ii+24][jj+24] = -vecPatterns[ii][jj]; 
       }
+    }
 
-      for (ii = 0; ii < nSamples_; ii++)
-         for (jj = 0; jj < nSamples_-1; jj++)
-            patternMatrix[ii][jj] = patternMatrix[ii][jj+1];
-   } 
-   else if (whichPlan == 8)
-   {
-      genVec = PSUADE_PB_GV24;
-      for (jj = 1; jj < 24; jj++) patternMatrix[0][jj] = genVec[jj];
-      for (ii = 0; ii < 23; ii++)
-      {
-         patternMatrix[ii][0] = 1;
-         for (jj = 2; jj < 24; jj++)
-            patternMatrix[ii][jj] = patternMatrix[ii-1][jj-1];
-         patternMatrix[ii][1] = patternMatrix[ii-1][23];
-      }
-      for (jj = 1; jj < 24; jj++) patternMatrix[23][jj] = 0;
-      patternMatrix[23][0] = 1;
-
-      for (ii = 0; ii < 24; ii++) 
-      {
-         for (jj = 0; jj < 24; jj++) 
-         {
-            patternMatrix[ii+24][jj] = patternMatrix[ii][jj]; 
-            patternMatrix[ii][jj+24] = patternMatrix[ii][jj]; 
-            patternMatrix[ii+24][jj+24] = -patternMatrix[ii][jj]; 
-         }
-      }
-
-      for (ii = 0; ii < nSamples_; ii++)
-         for (jj = 0; jj < nSamples_-1; jj++)
-            patternMatrix[ii][jj] = patternMatrix[ii][jj+1];
-   }
+    //**/ finally, leave out the first column
+    for (ii = 0; ii < nSamples_; ii++)
+      for (jj = 0; jj < nSamples_-1; jj++)
+        vecPatterns[ii][jj] = vecPatterns[ii][jj+1];
+  }
       
-   for (ii = 0; ii < nSamples_; ii++)
-      for (jj = 0; jj < nInputs_; jj++)
-         sampleMatrix_[ii][jj] = (upperBounds_[jj] - lowerBounds_[jj]) *
-               0.5 * (patternMatrix[ii][jj] + 1.0) + lowerBounds_[jj];
+  //**/ ----------------------------------------------------------------
+  //**/ generate sample
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nSamples_; ii++)
+    for (jj = 0; jj < nInputs_; jj++)
+      vecSamInps_[ii*nInputs_+jj] = (vecUBs_[jj] - vecLBs_[jj]) *
+               0.5 * (vecPatterns[ii][jj] + 1.0) + vecLBs_[jj];
 
-   for (ii = 0; ii < nSamples_; ii++) delete [] patternMatrix[ii];
-   delete [] patternMatrix;
+  //**/ ----------------------------------------------------------------
+  //**/ clean up
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nSamples_; ii++) vecPatterns[ii].clean();
+  delete [] vecPatterns;
 
-   if (printLevel_ > 4)
-   {
-      printf("PlackettBurmanSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("PlackettBurmanSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("PlackettBurmanSampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (jj = 0; jj < nInputs_; jj++)
-         printf("    PlackettBurmanSampling input %3d = [%e %e]\n", jj+1,
-                lowerBounds_[jj], upperBounds_[jj]);
-   }
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("PlackettBurmanSampling::initialize: nSamples = %d\n", nSamples_);
+    printf("PlackettBurmanSampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("PlackettBurmanSampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (jj = 0; jj < nInputs_; jj++)
+      printf("    PlackettBurmanSampling input %3d = [%e %e]\n", jj+1,
+             vecLBs_[jj], vecUBs_[jj]);
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -297,9 +325,9 @@ int PlackettBurmanSampling::initialize(int initLevel)
 // ------------------------------------------------------------------------
 int PlackettBurmanSampling::refine(int, int, double, int, double *)
 {
-   printf("PlackettBurmanSampling::refine ERROR - not supported.\n");
-   exit(1);
-   return 0;
+  printf("PlackettBurmanSampling::refine ERROR - not supported.\n");
+  exit(1);
+  return 0;
 }
 
 // ************************************************************************
@@ -308,8 +336,8 @@ int PlackettBurmanSampling::refine(int, int, double, int, double *)
 PlackettBurmanSampling& PlackettBurmanSampling::operator=
                                      (const PlackettBurmanSampling &)
 {
-   printf("PlackettBurmanSampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("PlackettBurmanSampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

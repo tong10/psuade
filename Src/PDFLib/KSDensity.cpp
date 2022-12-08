@@ -47,46 +47,59 @@ KSDensity::~KSDensity()
 // ************************************************************************
 // get pdf
 // ------------------------------------------------------------------------
-void KSDensity::genDensity1D(psVector &dataSet, psVector &Xp, psVector &Pp)
+void KSDensity::genDensity1D(psVector &vecData, psVector &vecXp, 
+                             psVector &vecPp)
 {
-   int    outLeng=101, ii, jj, kk;
-   double lower, upper, width, median, accum, alpha, pi2Inv=0.5/3.1415928;
-   double ddata, ddata2;
-   psVector ds;
+  int    outLeng=101, ii, jj, kk;
+  double lower, upper, width, median, accum, alpha, pi2Inv=0.5/3.1415928;
+  double ddata, ddata2;
+  psVector vecDS;
 
-   ds = dataSet;
-   ds.sort();
-   kk = ds.length() / 2;
-   median = ds[kk]; 
-   for (ii = 0; ii < ds.length(); ii++) ds[ii] = PABS(ds[ii] - median);
-   ds.sort();
-   median = ds[kk]; 
-   alpha = median / 0.6745;
-   if (alpha == 0) alpha = dataSet.max() - dataSet.min();
-   alpha *= pow(4.0 / (3.0 * dataSet.length()), 0.2);
-   if (alpha == 0) alpha = 1.0;
-   lower = dataSet.min() - 2.0 * alpha;
-   upper = dataSet.max() + 2.0 * alpha;
-   width = (upper - lower) / outLeng;
+  //**/ sort data set and take median
+  vecDS = vecData;
+  vecDS.sort();
+  kk = vecDS.length() / 2;
+  median = vecDS[kk]; 
 
-   Xp.setLength(outLeng);
-   Pp.setLength(outLeng);
-   for (ii = 0; ii < outLeng; ii++)
-   {
-     Xp[ii] = ddata = lower + width * (0.5 + ii);
-     accum = 0.0;
-     for (jj = 0; jj < dataSet.length(); jj++)
-     {
-       ddata2 = (ddata - dataSet[jj]) / alpha;
-       accum += exp(-0.5 * ddata2 * ddata2) * pi2Inv;
-     }
-     Pp[ii] = accum / (double) dataSet.length();
-   }
-   ddata = Pp.sum();
-   if (ddata != 0.0)
-   {
-      ddata = 1.0 / ddata;
-      Pp.scale(ddata);
-   }
+  //**/ take absolute value of data after subtracting median
+  for (ii = 0; ii < vecDS.length(); ii++) 
+    vecDS[ii] = PABS(vecDS[ii] - median);
+
+  //**/ sort again and take median
+  vecDS.sort();
+  median = vecDS[kk]; 
+
+  //**/ compute alpha for prescribing lower and upper bounds
+  alpha = median / 0.6745;
+  if (alpha == 0) alpha = vecData.max() - vecData.min();
+  alpha *= pow(4.0 / (3.0 * vecData.length()), 0.2);
+  if (alpha == 0) alpha = 1.0;
+  lower = vecData.min() - 2.0 * alpha;
+  upper = vecData.max() + 2.0 * alpha;
+  width = (upper - lower) / outLeng;
+
+  //**/ compute at each X increment the corresponding probability
+  //**/ by summing the exponential of its distance from other points
+  vecXp.setLength(outLeng);
+  vecPp.setLength(outLeng);
+  for (ii = 0; ii < outLeng; ii++)
+  {
+    vecXp[ii] = ddata = lower + width * (0.5 + ii);
+    accum = 0.0;
+    for (jj = 0; jj < vecData.length(); jj++)
+    {
+      ddata2 = (ddata - vecData[jj]) / alpha;
+      accum += exp(-0.5 * ddata2 * ddata2) * pi2Inv;
+    }
+    vecPp[ii] = accum / (double) vecData.length();
+  }
+
+  //**/ finally normalize
+  ddata = vecPp.sum();
+  if (ddata != 0.0)
+  {
+    ddata = 1.0 / ddata;
+    vecPp.scale(ddata);
+  }
 }
 

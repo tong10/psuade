@@ -1,0 +1,45 @@
+Hi Charles,
+
+Yes, feel free to do so. But please do not alter the license agreement when
+you release my code.
+
+Cheers
+Thorsten
+---
+Thorsten Joachims
+Associate Professor
+Department of Computer Science
+Cornell University
+http:// www. joachims.org/ 
+
+> > -----Original Message-----
+> > From: Charles H. Tong [mailto:chtong@llnl.gov]
+> > Sent: Tuesday, January 27, 2009 7:00 PM
+> > To: Thorsten Joachims
+> > Subject: re: svm-light
+> > 
+> > Professor Joachims,
+> > 
+> > I would like to use your svm-light software package.
+> > To facilitate our usage, I would like to change how my
+> > code is interfacing to your svm code. That means I
+> > need to change the calling pattern inside the
+> > svm_learn_main.c file. Do I have your permission
+> > to modify this file for our use? (I will not be changing
+> > the algorithms, just the interface) Also, I would like
+> > to release my software with svm-light as a subpackage.
+> > It is going to be a public domain release (by a federal
+> > government organization). Do I also get your permission
+> > to do it?
+> > 
+> > Thanks.
+> > 
+> > Charles Tong
+> > Center for Applied Scientific Computing
+> > Lawrence Livermore National Laboratory
+> > 7000 East Avenue
+> > Livermore, CA 94550-0808
+
+
+
+

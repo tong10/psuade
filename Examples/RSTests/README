@@ -1,0 +1,8 @@
+Legendre - test the Legendre method
+GradLegendre - test the derivative-based Legendre method
+UserRegression - test the regression method with user-specified terms
+HomogeneousInps - test general homogeneous input problems
+Heteroscedastic - test heteroscedastic problems
+RSIndex - an example showing how to use RS index file
+
+

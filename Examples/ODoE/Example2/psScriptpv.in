@@ -1,0 +1,11 @@
+sys cc -o simulator simulator.c -lm
+sys cc -o candidate candidate.c -lm
+sys ./candidate 
+run psuadeRS.in
+load psuadeData
+odoe_pv
+y
+10
+CandidateSet0
+q
+

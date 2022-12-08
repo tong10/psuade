@@ -1,0 +1,32 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable   1 X1   = -5  5
+   variable   2 X2   = -5  5
+   variable   3 X3   = -5  5
+   PDF 1 N 0 1
+   PDF 2 N 0 1
+   PDF 3 N 0 1
+   COR 1 2 0.7
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = MC
+   num_samples = 1000000
+   randomize
+   random_seed = 41491431
+END
+APPLICATION
+   driver = ./RSSample
+END
+ANALYSIS
+   analyzer method = MainEffect
+   analyzer rstype = linear
+   analyzer output_id  = 1
+   printlevel 1
+   io_expert
+END
+END

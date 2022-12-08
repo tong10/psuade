@@ -1,0 +1,29 @@
+Morris problem 1: a complex function with 20 inputs
+                  (The first 10 are important)
+
+To run:
+
+make to create psuade executable
+cc -o morris_simulator morris_simulator.c -lm
+psuade psuade_morris.in
+
+To cross-check, use delta method
+psuade psuade_delta.in
+
+========================================================
+Morris problem 2: the Morris problem with 100 parameters
+                  in his original paper
+                  (The first 30 are important)
+
+cc -o morris_simulator2 morris_simulator2.c -lm
+psuade psuade_morris2.in
+
+========================================================
+Morris problem 3: fail_simulator problem has sensitivities 
+    that cannot be detected by the Morris method using
+    4 levels.
+
+cc -o fail_simulator fail_simulator.c -lm
+psuade psuade_fail.in
+
+

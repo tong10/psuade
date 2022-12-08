@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+//**/using namespace std;
 
 #include "sysdef.h"
 #include "PsuadeUtil.h"
@@ -78,77 +79,99 @@ FASTSampling::~FASTSampling()
 // ------------------------------------------------------------------------
 int FASTSampling::initialize(int initLevel)
 {
-   int    M=4, *omegas, inputID, ii;
-   double *ranges, ds, ss, ps_pi=3.14159, ddata;
+  int    M=4, inputID, ii;
+  double ds, ss, ps_pi=3.14159, ddata;
+  psIVector vecOmegas;
+  psVector  vecRanges;
 
-   if (nSamples_ == 0)
-   {
-      printf("FASTSampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("FASTSampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+    printf("FASTSampling::initialize ERROR - nSamples = 0.\n");
+    exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+    printf("FASTSampling::initialize ERROR - input not set up.\n");
+    exit(1);
+  }
 
-   deleteSampleData();
-   if (nInputs_ > 50) 
-   {
-      printf("FASTSampling : cannot handle nInputs > 50.\n");
-      exit(1);
-   }
-   if (initLevel != 0) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ clean up and initialize parameters
+  //**/ ----------------------------------------------------------------
+  if (nInputs_ > 50) 
+  {
+    printf("FASTSampling : cannot handle nInputs > 50.\n");
+    exit(1);
+  }
+  if (initLevel != 0) return 0;
 
-   omegas = new int[nInputs_];
-   calculateOmegas(nInputs_, omegas);
+  //**/ ----------------------------------------------------------------
+  //**/ compute the fundamental frequencies
+  //**/ ----------------------------------------------------------------
+  vecOmegas.setLength(nInputs_);
+  calculateOmegas(nInputs_, vecOmegas.getIVector());
 
-   ii = (nSamples_ - 1) / omegas[nInputs_-1] / 2;
-   if ((2*ii*omegas[nInputs_-1]+1) == nSamples_ && ii >= 2) M = ii;
-   else nSamples_ = 2 * M * omegas[nInputs_-1] + 1;
+  //**/ ----------------------------------------------------------------
+  //**/ compute the sample points in [0,1]^n (s from -pi/2 to pi/2)
+  //**/ ----------------------------------------------------------------
+  if ((2*M*vecOmegas[nInputs_-1]+1) > nSamples_)
+  {
+    printf("FASTSampling INFO: sample size %d too small, changed to %d\n",
+           nSamples_, 2*M*vecOmegas[nInputs_-1]+1);
+    nSamples_ = 2 * M * vecOmegas[nInputs_-1] + 1;
+  }
 
-   if (printLevel_ > 4)
-   {
-      printf("FASTSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("FASTSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("FASTSampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    FASTSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    FASTSampling::input %4d fundamental frequency = %d\n",
-                inputID+1, omegas[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("FASTSampling::initialize: nSamples = %d\n", nSamples_);
+    printf("FASTSampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("FASTSampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    FASTSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    FASTSampling::input %4d fundamental frequency = %d\n",
+             inputID+1, vecOmegas[inputID]);
+  }
 
-   allocSampleData();
-   ds = ps_pi / (double) (2 * nSamples_);
-   for (ii = 0; ii < nSamples_; ii++)
-   {
-      ss = - 0.5 * ps_pi + ds * (2 * ii + 1);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         ddata = ss * omegas[inputID];
-         sampleMatrix_[ii][inputID] = 0.5 + 1.0 / ps_pi * asin(sin(ddata));
-      }
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ construct sample
+  //**/ ----------------------------------------------------------------
+  allocSampleData();
+  ds = ps_pi / (double) (2 * nSamples_);
+  for (ii = 0; ii < nSamples_; ii++)
+  {
+    ss = - 0.5 * ps_pi + ds * (2 * ii + 1);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      ddata = ss * vecOmegas[inputID];
+      vecSamInps_[ii*nInputs_+inputID] = 0.5+1.0/ps_pi*asin(sin(ddata));
+    }
+  }
 
-   ranges = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++) 
-      ranges[inputID] = upperBounds_[inputID] - lowerBounds_[inputID];
+  //**/ ----------------------------------------------------------------
+  //**/ generate the actual sample points
+  //**/ ----------------------------------------------------------------
+  vecRanges.setLength(nInputs_);
+  for (inputID = 0; inputID < nInputs_; inputID++) 
+    vecRanges[inputID] = vecUBs_[inputID] - vecLBs_[inputID];
 
-   for (ii = 0; ii < nSamples_; ii++) 
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         ddata = sampleMatrix_[ii][inputID];
-         sampleMatrix_[ii][inputID] = ddata * ranges[inputID] + 
-                                      lowerBounds_[inputID];
-      }
-   } 
-
-   delete [] ranges;
-   delete [] omegas;
-   return 0;
+  for (ii = 0; ii < nSamples_; ii++) 
+  {
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      ddata = vecSamInps_[ii*nInputs_+inputID];
+      vecSamInps_[ii*nInputs_+inputID] = ddata * vecRanges[inputID] + 
+                                         vecLBs_[inputID];
+    }
+  } 
+  return 0;
 }
 
 // ************************************************************************
@@ -157,88 +180,108 @@ int FASTSampling::initialize(int initLevel)
 int FASTSampling::refine(int refineRatio, int randomize, double thresh,
                          int nSamples, double *sampleErrors)
 {
-   int    *omegas, M, oldNSamples, *oldStates, ii, inputID, fail;
-   double *ranges, **oldSamples, *oldOutputs, ds, ss, ps_pi=3.14159, ddata;
+  int    M, *oldStates, ii, inputID, fail;
+  double **oldSamples, *oldOutputs, ds, ss, ps_pi=3.14159, ddata;
+  psVector  vecRanges;
+  psIVector vecOmegas;
 
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
+  //**/ ----------------------------------------------------------------
+  //**/ unused parameters
+  //**/ ----------------------------------------------------------------
+  (void) randomize;
+  (void) thresh;
+  (void) nSamples;
+  (void) sampleErrors;
 
-   omegas = new int[nInputs_];
-   calculateOmegas(nInputs_, omegas);
-   M = (nSamples_ - 1) / omegas[nInputs_-1];
-   if ((M*omegas[nInputs_-1]+1) != nSamples_)
-   {
-      printf("FASTSampling refine ERROR : invalid sample size.\n");
-      delete [] omegas;
-      exit(1);
-   } 
+  //**/ ----------------------------------------------------------------
+  //**/ checking
+  //**/ ----------------------------------------------------------------
+  vecOmegas.setLength(nInputs_);
+  calculateOmegas(nInputs_, vecOmegas.getIVector());
+  M = (nSamples_ - 1) / vecOmegas[nInputs_-1];
+  if ((M*vecOmegas[nInputs_-1]+1) != nSamples_)
+  {
+    printf("FASTSampling refine ERROR : invalid sample size.\n");
+    exit(1);
+  } 
    
-   oldNSamples = nSamples_;
-   oldSamples  = sampleMatrix_;
-   oldOutputs  = sampleOutput_;
-   oldStates   = sampleStates_;
-   sampleMatrix_ = NULL;
-   sampleOutput_ = NULL;
-   sampleStates_ = NULL;
-   deleteSampleData();
-   nSamples_ = (nSamples_ - 1) * 2 + 1;
-   allocSampleData();
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the new set of data
+  //**/ ----------------------------------------------------------------
+  psVector  vecSamInps2, vecSamOuts2;
+  psIVector vecSamStas2;
+  int oldNSamples = nSamples_;
+  vecSamInps2 = vecSamInps_;
+  vecSamOuts2 = vecSamOuts_;
+  vecSamStas2 = vecSamStas_;
+  nSamples_ = (nSamples_ - 1) * 2 + 1;
+  vecSamInps_.setLength(nSamples_*nInputs_);
+  vecSamOuts_.setLength(nSamples_*nOutputs_);
+  vecSamStas_.setLength(nSamples_);
 
-   if (printLevel_ > 4)
-   {
-      printf("FASTSampling::refine: nSamples = %d\n", nSamples_);
-      printf("FASTSampling::refine: nInputs  = %d\n", nInputs_);
-      printf("FASTSampling::refine: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    FASTSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("FASTSampling::refine: nSamples = %d\n", nSamples_);
+    printf("FASTSampling::refine: nInputs  = %d\n", nInputs_);
+    printf("FASTSampling::refine: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    FASTSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+  }
 
-   for (ii = 0; ii < nSamples_; ii++)
-   {
-      ds = ps_pi / (double) (2 * nSamples_);
-      ss = - 0.5 * ps_pi + ds * (2 * ii + 1);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         ddata = ss * omegas[inputID];
-         sampleMatrix_[ii][inputID] = 0.5 + 1.0 / ps_pi * asin(sin(ddata));
-      }
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ generate refined sample
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nSamples_; ii++)
+  {
+    ds = ps_pi / (double) (2 * nSamples_);
+    ss = - 0.5 * ps_pi + ds * (2 * ii + 1);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      ddata = ss * vecOmegas[inputID];
+      vecSamInps_[ii*nInputs_+inputID]=0.5+1.0/ps_pi*asin(sin(ddata));
+    }
+  }
 
-   ranges = new double[nInputs_];
-   for (inputID = 0; inputID < nInputs_; inputID++) 
-      ranges[inputID] = upperBounds_[inputID] - lowerBounds_[inputID];
+  //**/ ----------------------------------------------------------------
+  //**/ generate the actual sample points
+  //**/ ----------------------------------------------------------------
+  vecRanges.setLength(nInputs_);
+  for (inputID = 0; inputID < nInputs_; inputID++) 
+    vecRanges[inputID] = vecUBs_[inputID] - vecLBs_[inputID];
 
-   for (ii = 0; ii < nSamples_; ii++) 
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         ddata = sampleMatrix_[ii][inputID];
-         sampleMatrix_[ii][inputID] = ddata * ranges[inputID] + 
-                                      lowerBounds_[inputID];
-      }
-   } 
+  for (ii = 0; ii < nSamples_; ii++) 
+  {
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+      ddata = vecSamInps_[ii*nInputs_+inputID];
+      vecSamInps_[ii*nInputs_+inputID] = ddata * vecRanges[inputID] + 
+                                         vecLBs_[inputID];
+    }
+  } 
 
-   fail = 0;
-   for (ii = 0; ii < oldNSamples; ii++)
-   {
-      for (inputID = 0; inputID < nInputs_; inputID++)
-      {
-         ddata = oldSamples[ii][inputID] - sampleMatrix_[ii*2][inputID];
-         if (PABS(ddata) > 1.0e-13) fail = 1;
-      }
-      for (inputID = 0; inputID < nOutputs_; inputID++)
-         sampleOutput_[ii*2*nOutputs_+inputID] = 
-                                     oldOutputs[ii*nOutputs_+inputID];
-      sampleStates_[ii*2] = oldStates[ii];
-   }
-   if (fail == 1) printf("FASTSampling fails checking.\n");
-
-   delete [] omegas;
-   delete [] ranges;
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ fill in the old sample data
+  //**/ ----------------------------------------------------------------
+  fail = 0;
+  for (ii = 0; ii < oldNSamples; ii++)
+  {
+    for (inputID = 0; inputID < nInputs_; inputID++)
+    {
+       ddata = vecSamInps2[ii*nInputs_+inputID] - 
+               vecSamInps_[ii*2*nInputs_+inputID];
+       if (PABS(ddata) > 1.0e-13) fail = 1;
+    }
+    for (inputID = 0; inputID < nOutputs_; inputID++)
+      vecSamOuts_[ii*2*nOutputs_+inputID] = 
+                           vecSamOuts2[ii*nOutputs_+inputID];
+    vecSamStas_[ii*2] = vecSamStas2[ii];
+  }
+  if (fail == 1) printf("FASTSampling fails checking.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -246,12 +289,24 @@ int FASTSampling::refine(int refineRatio, int randomize, double thresh,
 // ------------------------------------------------------------------------
 int FASTSampling::calculateOmegas(int nInputs, int *omegas)
 {
-   int ii;
-
-   omegas[0] = PSUADE_FAST_OMEGA[nInputs-1];
-   for (ii = 1; ii < nInputs; ii++)
-      omegas[ii] = omegas[ii-1] + PSUADE_FAST_DELTA[nInputs-1-ii];
-   return 0;
+  omegas[0] = PSUADE_FAST_OMEGA[nInputs-1];
+  for (int ii = 1; ii < nInputs; ii++)
+    omegas[ii] = omegas[ii-1] + PSUADE_FAST_DELTA[nInputs-1-ii];
+  if (nInputs == 1) omegas[0] = 11;
+  else if (nInputs == 2)
+  {
+    omegas[0] = 11;
+    omegas[1] = 21;
+  }
+  else if (nInputs == 3)
+  {
+    //**/ this set will make sure that
+    //**/ sum_{i=1}^3 a_i omegas[i] != 0 for sum_{i=1}^3 |a_i| <= M+1
+    omegas[0] = 11;
+    omegas[1] = 21;
+    omegas[2] = 29;
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -259,8 +314,8 @@ int FASTSampling::calculateOmegas(int nInputs, int *omegas)
 // ------------------------------------------------------------------------
 FASTSampling& FASTSampling::operator=(const FASTSampling &)
 {
-   printf("FASTSampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("FASTSampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

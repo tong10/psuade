@@ -1,0 +1,81 @@
+**********************************************************************
+*          RS-based First Order Sobol' Analysis 
+======================================================================
+                Sample size = 100000
+**********************************************************************
+*           Gaussian Process Model
+* Default exponential degree = 2.000000e+00
+======================================================================
+RSMSobol1: sample mean (std dev of mean) =  1.807e+01 ( 0.000e+00)
+RSMSobol1: std dev (std dev of std dev)  =  8.699e+00 ( 0.000e+00)
+RSMSobol1: processing input 1
+RSMSobol1: processing input 2
+RSMSobol1: processing input 3
+**********************************************************************
+RSMSobol1: Normalized mean VCE for input   1 =  4.414e-01
+RSMSobol1: Normalized mean VCE for input   2 =  1.119e-02
+RSMSobol1: Normalized mean VCE for input   3 =  5.486e-01
+======================================================================
+RSMSobol1: ordered normalized VCE : 
+----------------------------------------------------------------------
+RSMSobol1: Normalized VCE for input   3 =  5.486e-01
+RSMSobol1: Normalized VCE for input   1 =  4.414e-01
+RSMSobol1: Normalized VCE for input   2 =  1.119e-02
+**********************************************************************
+
+**********************************************************************
+*          RS-based Second Order Sobol' Indices 
+======================================================================
+* RSMSobol2 INFO: all uniform distributions.
+**********************************************************************
+*           Gaussian Process Model
+* Default exponential degree = 2.000000e+00
+======================================================================
+RSMSobol2 INFO: Creating a sample for basic statistics.
+                Sample size = 100000
+RSMSobol2: Running the sample with response surface...
+RSMSobol2: Done running the sample with response surface.
+RSMSobol2: sample mean    (based on N = 100000) =  1.807e+01
+RSMSobol2: sample std dev (based on N = 100000) =  8.699e+00
+**********************************************************************
+VCE(  1,  2) =  3.439e+01, (normalized) =  4.544e-01
+VCE(  1,  3) =  7.487e+01, (normalized) =  9.893e-01
+VCE(  2,  3) =  4.253e+01, (normalized) =  5.620e-01
+**********************************************************************
+
+**********************************************************************
+*          RS-based Total Order Sobol' Indices 
+======================================================================
+* RSMSobolTSI INFO: all uniform distributions.
+**********************************************************************
+*           Gaussian Process Model
+* Default exponential degree = 2.000000e+00
+======================================================================
+**********************************************************************
+* RSMSobolTSIAnalyzer computes the total sensitivities one input at a
+*    time. For each input, it first creates a sample of size K (that
+*    is, K levels). For each level a sample of size M is drawn from
+*    all other inputs.
+*    The total sample size is thus: M * K * nInputs.
+* nInputs   = 3
+* default M = 10000
+* default K = 50
+* To change settings, re-run with ana_expert mode on.
+**********************************************************************
+RSMSobolTSI INFO: Creating a sample for basic statistics.
+                  Sample size = 1000000
+RSMSobolTSI: sample mean (N=1000000) = 1.808650e+01.
+RSMSobolTSI: sample std  (N=1000000) = 8.701564e+00.
+RSMSobolTSI: sample var  (N=1000000) = 7.571721e+01.
+RSMSobolTSI: Processing input 1 (phase 1)
+RSMSobolTSI: Processing input 2 (phase 1)
+RSMSobolTSI: Processing input 3 (phase 1)
+RSMSobolTSI: Processing input 1 (phase 2)
+RSMSobolTSI: Processing input 2 (phase 2)
+RSMSobolTSI: Processing input 3 (phase 2)
+======================================================================
+Total sensitivity (normalized) for input   1 = 4.408e-01
+Total sensitivity (normalized) for input   2 = 1.200e-02
+Total sensitivity (normalized) for input   3 = 5.487e-01
+**********************************************************************
+

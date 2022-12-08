@@ -1,0 +1,109 @@
+# compile the simulation model
+sys cc -o simulator simulator.c -lm
+# generate sample outputs
+run psuade.in
+# rename the psuade output file
+sys mv -f psuadeData simdata
+# random seed 
+setranseed 12917411
+# load sample
+load simdata
+# load sample one more time so the sample size is 600
+loadmore simdata
+# Okay. Going back to the original sample of size 300
+load simdata
+# delete the first input
+idelete
+y
+1
+1
+# Okay. Going back to the original sample of size 300
+load simdata
+# duplicate the sample outputs
+oadd simdata
+y
+# delete output 1
+odelete
+y
+1
+# load the original sample again
+load simdata
+# response surface analysis with Kriging
+rscheck
+11
+1
+y
+10
+y
+# split the sample into two sets
+splitsample
+y
+150
+2
+# load the first splitted sample
+load psuadeSample1
+# add the second splitted sample
+loadmore psuadeSample2
+# write this concatenated sample into a file called 'abc'
+write abc
+# check that this `abc' file is the same as the original sample
+sys diff simdata abc
+# load the sample again
+load simdata
+# perform response-surface-based main effect analysis (Kriging)
+rssobol1
+y
+1
+11
+# perform response-surface-based total effect analysis (Kriging)
+rssoboltsi
+y
+1
+11
+# perform RS-based pairwise sensitivity analysis (Kriging)
+rssobol2
+y
+1
+11
+# generate basic statistics from the raw sample
+ua
+1
+# generate basic statistics from the RS constructed from the sample
+rsua
+y
+1
+1
+10000
+1
+11
+# correlation analysis
+ca
+y
+1
+# main effect analysis using the raw sample
+me
+y
+1
+# perform analysis of variation 
+anova
+y
+1
+1
+# perform parameter ranking using MARS measure
+mars_sa
+y
+1
+0
+# perform parameter ranking using Kriging measure
+gp_sa
+y
+1
+2
+# perform parameter ranking using GP measure
+gp_sa
+y
+1
+3
+sys rm -f abc *.m simdata simulator rsua_sample psuadeSample?
+q
+

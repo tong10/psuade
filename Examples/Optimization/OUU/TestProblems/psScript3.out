@@ -1,0 +1,1146 @@
+**********************************************************************
+*      Welcome to PSUADE (version 1.7.5)
+**********************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (1.7.5)
+(for help, enter <help>)
+======================================================================
+psuade> INFO: Creating a sample assuming all uncertain parameters
+      are uniformly distributed.
+PSUADE INFO: no driver given. The sample points
+             will be used for optimization only.
+PSUADE run: output level = 2
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 0 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: if evaluation should be fast but is slow, check save frequency.
+Note: use psuade_pmachine to dynamically change max jobs.
+Note: use psuade_stop to terminate gracefully.
+======================================================================
+PSUADE run: running sample, nSamples = 10 
+**********************************************************************
+PSUADE : Search for local minima in sample space.
+         number of samples = 10
+	 optimization starting point 1 : 
+		  -3.75000000e+00
+		   1.25000000e+00
+		   3.75000000e+00
+		   3.75000000e+00
+		   2.50000000e+00
+		  -7.50000000e+00
+		  -2.50000000e+00
+		  -2.50000000e+00
+		   3.75000000e+00
+		   1.25000000e+00
+		   1.25000000e+00
+		   3.75000000e+00
+				 Y =   1.00000000e+35
+**********************************************************************
+**********************************************************************
+PSUADE OPTIMIZATION 1 (1) : 
+	 starting X(     1) =  -3.75000000e+00
+	 starting X(     2) =   1.25000000e+00
+	 starting X(     3) =   3.75000000e+00
+	 starting X(     4) =   3.75000000e+00
+	 starting X(     5) =   2.50000000e+00
+	 starting X(     6) =  -7.50000000e+00
+	 starting X(     7) =  -2.50000000e+00
+	 starting X(     8) =  -2.50000000e+00
+	 starting X(     9) =   3.75000000e+00
+	 starting X(    10) =   1.25000000e+00
+	 starting X(    11) =   1.25000000e+00
+	 starting X(    12) =   3.75000000e+00
+	 starting Y =   1.00000000e+35
+**********************************************************************
+**********************************************************************
+*     1- OR 2-STAGE OPTIMIZATION UNDER UNCERTAINTY (OUU)
+======================================================================
+This optimization capability solves the following problem:
+
+   minimize_Z1 { Phi_{Z3,Z4} [ G(Z1,Z2,Z3,Z4) ] } 
+
+   subject to bound constraints on Z1, Z2, and Z4; and
+
+   (or subject to inequality constraints on Z1,Z2,Z3,Z4
+    using cobyla if performing a 1-level OUU.)
+
+   Z3 is a set of discrete parameters for which a sample
+
+   is to be provided by the user. 
+
+   (0) How to perform regular optimization? 
+       In this case 
+       - Z1 will be the optimization variables
+       - Z2 should be an empty set
+       - Z3 should be an empty set
+       - Z4 should be an empty set
+       - G(Z1,Z3,Z4)=G(Z1) is the simulator (opt_driver)
+   (1) How to perform 1-level OUU? 
+       In this case 
+       - Z1: the optimization variables
+       - Z2: should be an empty set
+       - Z3: parameters that you will provide a sample for.
+       - Z4: parameters that you do not provide a sample.
+         (optionally, you can choose sampling schemed and
+          whether you want response surface for Z4).
+       - G(Z1,Z3,Z4) is the simulator (opt_driver)
+
+   (2) How to perform 2-level OUU? 
+       In this case 
+       - Z1: the optimization variables
+       - Z2: the set of level-2 optimization parameters.
+         If Z2 do not need to be published outside of the G
+         function, then it can be specified as an empty set.
+       - Z3: parameters that you will provide a sample for.
+       - Z4: parameters that you do not provide a sample.
+       - There are 2 options to how to set up G(Z1,Z2,Z3,Z4):
+         (a) A user-provided level 2 optimizer that does
+
+              G(Z1,Z2,Z3,Z4) = minimize_Z2{F(Z1,Z2,Z3,Z4)}
+
+             where F(Z1,Z2,Z3,Z4) is embedded in G(Z1,...)
+
+             In this case, the user will provide G(Z1,...)
+             via opt_driver (i.e. opt_driver = gfunction)
+         (b) A user-provided function F(Z1,...) such that
+
+              G(Z1,Z2,Z3,Z4) = minimize_Z2 {F(Z1,Z2,Z3,Z4)}
+
+             In this case, user is expected to provide the
+             F(Z1,...) function via 'opt_driver = ffunction'
+             and OUU provides the optimizer (BOBYQA).
+
+   In case 1 and 2, Phi_{Z3,Z4} is a functional on G(Z1,...)
+   with respect to Z3 and Z4, e.g. Phi_{Z3,Z4} may be:
+   1. mean of G(Z1,Z2,Z3,Z4) with respect to Z3,Z4 (default)
+   2. mean of G(Z1,Z2,Z3,Z4) + alpha * std dev of G(Z1,...)
+   3. G(Z1,Z2,Z3*,Z4*) such that 
+         Prob(G(Z1,Z2,Z3,Z4)>G(Z1,Z2,Z3*,Z4*)) = epsilon
+   4. min_{Z3,Z4} G(Z1,Z2,Z3,Z4) given Z1,Z2 (robust opt.)
+======================================================================
+In the above formulation, the total no. of parameters M = 12
+These parameters are to be divided into four groups:
+(1) Stage 1 optimization parameters Z1 (M1 >= 1) 
+(2) Stage 2 optimization (recourse) parameters Z2
+(3) uncertain parameters Z3 (with a user-provided sample) 
+(4) uncertain parameters Z4 
+    - continuous parameters (PSUADE to generate sample), or
+    - a large sample (created by PSUADE from RS) 
+Thus, the first M1+M2 parameters are considered to be
+optimization parameters, and M3+M4 are uncertain parameters
+so that M = M1 + M2 + M3 + M4.
+======================================================================
+To reuse simulation results (e.g. from before abrupt
+termination), turn on save_history and use_history
+optimization options in the ANALYSIS section (e.g.
+optimization save_history). You will see a text file
+called 'psuade_ouu_history' afterward.
+**********************************************************************
+IF YOU ARE READY TO MOVE ON, ENTER 'y' AND RETURN : ======================================================================
+M1 = number of design (level 1 optim.) parameters
+Enter M1 (between 1 and 12) : M2 = no. of recourse (level 2 optim.) parameters
+Enter M2 (between 0 and 8) : M3 = number of discrete (scenario) parameters
+Enter M3 (between 0 and 4) : ----------------------------------------------------------------------
+Number of first  stage optimization parameters = 4
+Number of second stage optimization parameters = 4
+Number of discrete   uncertain parameters      = 0
+Number of continuous uncertain parameters      = 4
+----------------------------------------------------------------------
+In the following, please select type for each variable:
+  1. design variable (level 1 optimization parameter)
+  2. operating variable (level 2 optimization parameter)
+  3. discrete uncertain variable (a sample will be given)
+  4. continuous uncertain variable
+NOTE: make sure your specification matches with above.
+Type for variable 1 ? Type for variable 2 ? Type for variable 3 ? Type for variable 4 ? Type for variable 5 ? Type for variable 6 ? Type for variable 7 ? Type for variable 8 ? Type for variable 9 ? Type for variable 10 ? Type for variable 11 ? Type for variable 12 ? ======================================================================
+Input    1 is a design parameter.
+Input    2 is a design parameter.
+Input    3 is a design parameter.
+Input    4 is a design parameter.
+Input    5 is an operating parameter.
+Input    6 is an operating parameter.
+Input    7 is an operating parameter.
+Input    8 is an operating parameter.
+Input    9 is a continuous uncertain parameter.
+Input   10 is a continuous uncertain parameter.
+Input   11 is a continuous uncertain parameter.
+Input   12 is a continuous uncertain parameter.
+PDF type for Input     9 = Uniform
+PDF type for Input    10 = Uniform
+PDF type for Input    11 = Uniform
+PDF type for Input    12 = Uniform
+======================================================================
+OUUOptimizer: setting optimization simulation driver.
+**********************************************************************
+OUUOptimizer: max fevals = 1000000
+OUUOptimizer: tolerance  = 1.000000e-06
+======================================================================
+======================================================================
+Select which functional Phi_{Z3,Z4} to use: 
+  1. mean of G(Z1,...) with respect to Z3,Z4 (default)
+  2. mean of G(Z1,...) + beta * std dev of G(Z1,...)
+  3. G(Z1,Z2,Z3*,Z4*) such that 
+         Prob(G(Z1,...)>G(Z1,Z2,Z3*,Z4*)) = 1 - alpha
+     This is also called value-at-risk with confidence
+     level alpha.
+Enter your choice of functional (1, 2 or 3) : OUUOptimizer: generating a sample for Z4. Two options:
+(1) Users can upload a sample to PSUADE
+(2) PSUADE can internally create a sample
+Select option 1 or 2 : ======================================================================
+PSUADE will create a sample (size will be selected later)
+for Z4. Since the sample should be small for computational
+efficiency, and accuracy of statistics depends on sample
+size, you have the option to add one more step in OUU by
+estimating the statistics with a large sample evaluated on
+the response surfaces built from the small sample.
+Use response surface for Z4 to compute statistics? (y or n) ======================================================================
+OUUOptimizer uses a Z4 sample to estimate the objective
+Default sampling method = Latin hypercube
+Default sample size     = 100
+Available sampling method: 
+   (1) LHS, 
+   (2) factorial, or
+   (3) quasi-MC.
+Select sampling method (1, 2 or 3) : Enter sample size (>= 5, <= 1000) : Latin hypercube/QMC has sample size = 100
+======================================================================
+For 2-stage OUU, you have 2 options for inner optimization:
+(1) You can use BOBYQA available in PSUADE (in this case
+    opt_driver should point to your original function), or
+(2) You can provide your own optimizer (in opt_driver).
+Use your own optimizer instead of BOBYQA? (y or n) NOTE: Make sure your optimizer executable has been
+      assigned to 'opt_driver' and it optimizes with
+      respect to the 5-th to 8-th parameters.
+======================================================================
+Each simulation calls the opt_driver with 1 sample point.
+For higher efficiency (less I/O), you have the option to
+provide in 'ensemble_opt_driver' an executable that can
+run multiple sample points. In this case, OUU calls the
+ensemble executable with the following sequence: 
+    <ensemble_opt_driver> <sampleFile> <outputFile>
+
+where <sampleFile> is in the following format:
+   line 1: <nSamples>
+   line 2: Sample point 1 input values
+   line 3: Sample point 2 input values
+   line n: ...
+
+and <outputFile> should have all sample output values.
+
+Use ensemble opt driver for ensemble runs ? (y or n) ======================================================================
+You can configure OUU to run the ensemble simulations in
+parallel/asynchronous using the Linux fork/join. If 'n'
+is entered below, the opt_driver simulator will be
+evaluated sequentially (one sample point at a time).
+If 'y' is selected instead, be careful, because PSUADE
+PSUADE will launch 100 jobs simultaneously, which may
+jam up the job queuing system.
+Turn on asynchronous mode ? (y or n) ======================================================================
+OUUOptimizer: setting up response surface
+OUUOptimizer: use Kriging (slow) response surface
+OUUOptimizer initial X   1 = -3.750000e+00
+OUUOptimizer initial X   2 = 1.250000e+00
+OUUOptimizer initial X   3 = 3.750000e+00
+OUUOptimizer initial X   4 = 3.750000e+00
+OUUOptimizer: Outer optimization iteration = 1
+OUUOptimizer: Outer optimization loop FuncEval 1.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=100
+OUUOptimizer: computed  objective (with RS) = 2.706784e+02.
+    OUUOptimizer outer loop new Ymin =   2.70678353e+02 (***)
+OUUOptimizer: Outer optimization iteration = 2
+OUUOptimizer: Outer optimization loop FuncEval 101.
+    Current Level 1 input   1 = 1.250000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=200
+OUUOptimizer: computed  objective (with RS) = 1.462170e+02.
+    OUUOptimizer outer loop new Ymin =   1.46217007e+02 (***)
+OUUOptimizer: Outer optimization iteration = 3
+OUUOptimizer: Outer optimization loop FuncEval 201.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 5.000000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=300
+OUUOptimizer: computed  objective (with RS) = 5.024951e+02.
+OUUOptimizer: Outer optimization iteration = 4
+OUUOptimizer: Outer optimization loop FuncEval 301.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 5.000000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=400
+OUUOptimizer: computed  objective (with RS) = 3.040681e+02.
+OUUOptimizer: Outer optimization iteration = 5
+OUUOptimizer: Outer optimization loop FuncEval 401.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 5.000000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=500
+OUUOptimizer: computed  objective (with RS) = 3.070044e+02.
+OUUOptimizer: Outer optimization iteration = 6
+OUUOptimizer: Outer optimization loop FuncEval 501.
+    Current Level 1 input   1 = -5.000000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=600
+OUUOptimizer: computed  objective (with RS) = 3.800681e+02.
+OUUOptimizer: Outer optimization iteration = 7
+OUUOptimizer: Outer optimization loop FuncEval 601.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = -3.750000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=700
+OUUOptimizer: computed  objective (with RS) = 3.553213e+02.
+OUUOptimizer: Outer optimization iteration = 8
+OUUOptimizer: Outer optimization loop FuncEval 701.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = -1.250000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=800
+OUUOptimizer: computed  objective (with RS) = 2.306350e+02.
+OUUOptimizer: Outer optimization iteration = 9
+OUUOptimizer: Outer optimization loop FuncEval 801.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = -1.250000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=900
+OUUOptimizer: computed  objective (with RS) = 2.490640e+02.
+OUUOptimizer: Outer optimization iteration = 10
+OUUOptimizer: Outer optimization loop FuncEval 901.
+    Current Level 1 input   1 = 1.250000e+00
+    Current Level 1 input   2 = -3.750000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1000
+OUUOptimizer: computed  objective (with RS) = 2.309388e+02.
+OUUOptimizer: Outer optimization iteration = 11
+OUUOptimizer: Outer optimization loop FuncEval 1001.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = -3.750000e+00
+    Current Level 1 input   3 = -1.250000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1100
+OUUOptimizer: computed  objective (with RS) = 3.153653e+02.
+OUUOptimizer: Outer optimization iteration = 12
+OUUOptimizer: Outer optimization loop FuncEval 1101.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = -1.250000e+00
+    Current Level 1 input   4 = -1.250000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1200
+OUUOptimizer: computed  objective (with RS) = 2.089358e+02.
+OUUOptimizer: Outer optimization iteration = 13
+OUUOptimizer: Outer optimization loop FuncEval 1201.
+    Current Level 1 input   1 = 1.250000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = -1.250000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1300
+OUUOptimizer: computed  objective (with RS) = 1.278239e+02.
+    OUUOptimizer outer loop new Ymin =   1.27823867e+02 (***)
+OUUOptimizer: Outer optimization iteration = 14
+OUUOptimizer: Outer optimization loop FuncEval 1301.
+    Current Level 1 input   1 = 1.250000e+00
+    Current Level 1 input   2 = 1.250000e+00
+    Current Level 1 input   3 = -1.250000e+00
+    Current Level 1 input   4 = 3.750000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1400
+OUUOptimizer: computed  objective (with RS) = 1.063367e+02.
+    OUUOptimizer outer loop new Ymin =   1.06336683e+02 (***)
+OUUOptimizer: Outer optimization iteration = 15
+OUUOptimizer: Outer optimization loop FuncEval 1401.
+    Current Level 1 input   1 = -3.750000e+00
+    Current Level 1 input   2 = -3.750000e+00
+    Current Level 1 input   3 = 3.750000e+00
+    Current Level 1 input   4 = -1.250000e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1500
+OUUOptimizer: computed  objective (with RS) = 3.337393e+02.
+OUUOptimizer: Outer optimization iteration = 16
+OUUOptimizer: Outer optimization loop FuncEval 1501.
+    Current Level 1 input   1 = 5.000000e+00
+    Current Level 1 input   2 = 3.495774e-01
+    Current Level 1 input   3 = -4.173303e+00
+    Current Level 1 input   4 = 2.492606e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1600
+OUUOptimizer: computed  objective (with RS) = 3.461292e+02.
+OUUOptimizer: Outer optimization iteration = 17
+OUUOptimizer: Outer optimization loop FuncEval 1601.
+    Current Level 1 input   1 = 7.525858e-02
+    Current Level 1 input   2 = 4.018307e-01
+    Current Level 1 input   3 = -3.025732e+00
+    Current Level 1 input   4 = 2.751317e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1700
+OUUOptimizer: computed  objective (with RS) = 7.517807e+01.
+    OUUOptimizer outer loop new Ymin =   7.51780714e+01 (***)
+OUUOptimizer: Outer optimization iteration = 18
+OUUOptimizer: Outer optimization loop FuncEval 1701.
+    Current Level 1 input   1 = -1.381806e-01
+    Current Level 1 input   2 = 9.489605e-02
+    Current Level 1 input   3 = -2.294451e+00
+    Current Level 1 input   4 = 3.900755e-01
+OUUOptimizer: computing objective with RS, nFuncEval=1800
+OUUOptimizer: computed  objective (with RS) = 4.443911e+01.
+    OUUOptimizer outer loop new Ymin =   4.44391079e+01 (***)
+OUUOptimizer: Outer optimization iteration = 19
+OUUOptimizer: Outer optimization loop FuncEval 1801.
+    Current Level 1 input   1 = 1.918606e-01
+    Current Level 1 input   2 = -6.513881e-01
+    Current Level 1 input   3 = -1.731076e+00
+    Current Level 1 input   4 = -2.838501e+00
+OUUOptimizer: computing objective with RS, nFuncEval=1900
+OUUOptimizer: computed  objective (with RS) = 8.599849e+01.
+OUUOptimizer: Outer optimization iteration = 20
+OUUOptimizer: Outer optimization loop FuncEval 1901.
+    Current Level 1 input   1 = 7.699258e-03
+    Current Level 1 input   2 = 8.524180e-01
+    Current Level 1 input   3 = -2.874597e+00
+    Current Level 1 input   4 = 1.537258e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2000
+OUUOptimizer: computed  objective (with RS) = 6.437763e+01.
+OUUOptimizer: Outer optimization iteration = 21
+OUUOptimizer: Outer optimization loop FuncEval 2001.
+    Current Level 1 input   1 = -1.439103e-02
+    Current Level 1 input   2 = -3.179037e-01
+    Current Level 1 input   3 = -1.398579e-01
+    Current Level 1 input   4 = 7.245754e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2100
+OUUOptimizer: computed  objective (with RS) = 2.770076e+01.
+    OUUOptimizer outer loop new Ymin =   2.77007595e+01 (***)
+OUUOptimizer: Outer optimization iteration = 22
+OUUOptimizer: Outer optimization loop FuncEval 2101.
+    Current Level 1 input   1 = 2.002700e-01
+    Current Level 1 input   2 = -6.766376e-01
+    Current Level 1 input   3 = -3.814951e-01
+    Current Level 1 input   4 = 5.947982e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2200
+OUUOptimizer: computed  objective (with RS) = 3.324128e+01.
+OUUOptimizer: Outer optimization iteration = 23
+OUUOptimizer: Outer optimization loop FuncEval 2201.
+    Current Level 1 input   1 = -1.357346e-01
+    Current Level 1 input   2 = -2.301546e-01
+    Current Level 1 input   3 = 2.930950e-01
+    Current Level 1 input   4 = 9.248942e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2300
+OUUOptimizer: computed  objective (with RS) = 2.853228e+01.
+OUUOptimizer: Outer optimization iteration = 24
+OUUOptimizer: Outer optimization loop FuncEval 2301.
+    Current Level 1 input   1 = 4.688644e-01
+    Current Level 1 input   2 = -3.182164e-01
+    Current Level 1 input   3 = -6.024408e-02
+    Current Level 1 input   4 = 8.252019e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2400
+OUUOptimizer: computed  objective (with RS) = 3.402802e+01.
+OUUOptimizer: Outer optimization iteration = 25
+OUUOptimizer: Outer optimization loop FuncEval 2401.
+    Current Level 1 input   1 = -1.502910e-01
+    Current Level 1 input   2 = 3.567283e-02
+    Current Level 1 input   3 = -8.009446e-02
+    Current Level 1 input   4 = 4.037279e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2500
+OUUOptimizer: computed  objective (with RS) = 2.929398e+01.
+OUUOptimizer: Outer optimization iteration = 26
+OUUOptimizer: Outer optimization loop FuncEval 2501.
+    Current Level 1 input   1 = -4.073187e-02
+    Current Level 1 input   2 = -5.513528e-01
+    Current Level 1 input   3 = 1.170202e-01
+    Current Level 1 input   4 = 3.656586e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2600
+OUUOptimizer: computed  objective (with RS) = 2.880392e+01.
+OUUOptimizer: Outer optimization iteration = 27
+OUUOptimizer: Outer optimization loop FuncEval 2601.
+    Current Level 1 input   1 = -2.477847e-01
+    Current Level 1 input   2 = -3.874665e-01
+    Current Level 1 input   3 = -2.683101e-01
+    Current Level 1 input   4 = 1.141934e+00
+OUUOptimizer: computing objective with RS, nFuncEval=2700
+OUUOptimizer: computed  objective (with RS) = 2.918682e+01.
+OUUOptimizer: Outer optimization iteration = 28
+OUUOptimizer: Outer optimization loop FuncEval 2701.
+    Current Level 1 input   1 = -4.152575e-01
+    Current Level 1 input   2 = -3.451870e-01
+    Current Level 1 input   3 = -2.653268e-01
+    Current Level 1 input   4 = 4.547251e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2800
+OUUOptimizer: computed  objective (with RS) = 2.969750e+01.
+OUUOptimizer: Outer optimization iteration = 29
+OUUOptimizer: Outer optimization loop FuncEval 2801.
+    Current Level 1 input   1 = -1.467049e-01
+    Current Level 1 input   2 = -1.706055e-01
+    Current Level 1 input   3 = -5.362508e-01
+    Current Level 1 input   4 = 9.562411e-01
+OUUOptimizer: computing objective with RS, nFuncEval=2900
+OUUOptimizer: computed  objective (with RS) = 2.892022e+01.
+OUUOptimizer: Outer optimization iteration = 30
+OUUOptimizer: Outer optimization loop FuncEval 2901.
+    Current Level 1 input   1 = 2.993461e-01
+    Current Level 1 input   2 = -4.495850e-01
+    Current Level 1 input   3 = -4.665498e-01
+    Current Level 1 input   4 = 8.904112e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3000
+OUUOptimizer: computed  objective (with RS) = 3.307399e+01.
+OUUOptimizer: Outer optimization iteration = 31
+OUUOptimizer: Outer optimization loop FuncEval 3001.
+    Current Level 1 input   1 = 2.329894e-02
+    Current Level 1 input   2 = -3.271757e-01
+    Current Level 1 input   3 = 2.209083e-01
+    Current Level 1 input   4 = 3.805679e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3100
+OUUOptimizer: computed  objective (with RS) = 3.148190e+01.
+OUUOptimizer: Outer optimization iteration = 32
+OUUOptimizer: Outer optimization loop FuncEval 3101.
+    Current Level 1 input   1 = 1.379592e-01
+    Current Level 1 input   2 = -6.077189e-01
+    Current Level 1 input   3 = -5.301691e-02
+    Current Level 1 input   4 = 1.092346e+00
+OUUOptimizer: computing objective with RS, nFuncEval=3200
+OUUOptimizer: computed  objective (with RS) = 3.222519e+01.
+OUUOptimizer: Outer optimization iteration = 33
+OUUOptimizer: Outer optimization loop FuncEval 3201.
+    Current Level 1 input   1 = -3.989618e-01
+    Current Level 1 input   2 = -7.309566e-02
+    Current Level 1 input   3 = -8.562855e-02
+    Current Level 1 input   4 = 9.226500e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3300
+OUUOptimizer: computed  objective (with RS) = 2.990220e+01.
+OUUOptimizer: Outer optimization iteration = 34
+OUUOptimizer: Outer optimization loop FuncEval 3301.
+    Current Level 1 input   1 = 3.889570e-02
+    Current Level 1 input   2 = -9.117092e-02
+    Current Level 1 input   3 = -1.786548e-01
+    Current Level 1 input   4 = 8.067189e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3400
+OUUOptimizer: computed  objective (with RS) = 2.820011e+01.
+OUUOptimizer: Outer optimization iteration = 35
+OUUOptimizer: Outer optimization loop FuncEval 3401.
+    Current Level 1 input   1 = -9.065352e-02
+    Current Level 1 input   2 = -3.882327e-01
+    Current Level 1 input   3 = -8.256752e-02
+    Current Level 1 input   4 = 7.643332e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3500
+OUUOptimizer: computed  objective (with RS) = 2.783018e+01.
+OUUOptimizer: Outer optimization iteration = 36
+OUUOptimizer: Outer optimization loop FuncEval 3501.
+    Current Level 1 input   1 = -6.843618e-02
+    Current Level 1 input   2 = -2.646533e-01
+    Current Level 1 input   3 = -1.467714e-01
+    Current Level 1 input   4 = 6.254759e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3600
+OUUOptimizer: computed  objective (with RS) = 2.777353e+01.
+OUUOptimizer: Outer optimization iteration = 37
+OUUOptimizer: Outer optimization loop FuncEval 3601.
+    Current Level 1 input   1 = 3.302649e-04
+    Current Level 1 input   2 = -3.272250e-01
+    Current Level 1 input   3 = -1.849004e-01
+    Current Level 1 input   4 = 7.116304e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3700
+OUUOptimizer: computed  objective (with RS) = 2.772308e+01.
+OUUOptimizer: Outer optimization iteration = 38
+OUUOptimizer: Outer optimization loop FuncEval 3701.
+    Current Level 1 input   1 = -4.236656e-02
+    Current Level 1 input   2 = -2.933473e-01
+    Current Level 1 input   3 = -1.567847e-01
+    Current Level 1 input   4 = 7.533475e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3800
+OUUOptimizer: computed  objective (with RS) = 2.772733e+01.
+OUUOptimizer: Outer optimization iteration = 39
+OUUOptimizer: Outer optimization loop FuncEval 3801.
+    Current Level 1 input   1 = -2.652539e-02
+    Current Level 1 input   2 = -3.091288e-01
+    Current Level 1 input   3 = -9.656265e-02
+    Current Level 1 input   4 = 7.446073e-01
+OUUOptimizer: computing objective with RS, nFuncEval=3900
+OUUOptimizer: computed  objective (with RS) = 2.769934e+01.
+    OUUOptimizer outer loop new Ymin =   2.76993363e+01 (***)
+OUUOptimizer: Outer optimization iteration = 40
+OUUOptimizer: Outer optimization loop FuncEval 3901.
+    Current Level 1 input   1 = 4.990349e-03
+    Current Level 1 input   2 = -2.975773e-01
+    Current Level 1 input   3 = -1.116089e-01
+    Current Level 1 input   4 = 7.107409e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4000
+OUUOptimizer: computed  objective (with RS) = 2.769349e+01.
+    OUUOptimizer outer loop new Ymin =   2.76934898e+01 (***)
+OUUOptimizer: Outer optimization iteration = 41
+OUUOptimizer: Outer optimization loop FuncEval 4001.
+    Current Level 1 input   1 = 7.888633e-03
+    Current Level 1 input   2 = -2.867503e-01
+    Current Level 1 input   3 = -1.531765e-01
+    Current Level 1 input   4 = 6.853144e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4100
+OUUOptimizer: computed  objective (with RS) = 2.770942e+01.
+OUUOptimizer: Outer optimization iteration = 42
+OUUOptimizer: Outer optimization loop FuncEval 4101.
+    Current Level 1 input   1 = 1.127594e-03
+    Current Level 1 input   2 = -3.472865e-01
+    Current Level 1 input   3 = -1.100156e-01
+    Current Level 1 input   4 = 7.141373e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4200
+OUUOptimizer: computed  objective (with RS) = 2.770645e+01.
+OUUOptimizer: Outer optimization iteration = 43
+OUUOptimizer: Outer optimization loop FuncEval 4201.
+    Current Level 1 input   1 = -4.073221e-02
+    Current Level 1 input   2 = -3.128862e-01
+    Current Level 1 input   3 = -1.120807e-01
+    Current Level 1 input   4 = 6.975174e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4300
+OUUOptimizer: computed  objective (with RS) = 2.770089e+01.
+OUUOptimizer: Outer optimization iteration = 44
+OUUOptimizer: Outer optimization loop FuncEval 4301.
+    Current Level 1 input   1 = 1.933126e-02
+    Current Level 1 input   2 = -3.095809e-01
+    Current Level 1 input   3 = -7.146419e-02
+    Current Level 1 input   4 = 6.875319e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4400
+OUUOptimizer: computed  objective (with RS) = 2.769783e+01.
+OUUOptimizer: Outer optimization iteration = 45
+OUUOptimizer: Outer optimization loop FuncEval 4401.
+    Current Level 1 input   1 = 1.138559e-02
+    Current Level 1 input   2 = -3.308649e-01
+    Current Level 1 input   3 = -7.485275e-02
+    Current Level 1 input   4 = 7.108949e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4500
+OUUOptimizer: computed  objective (with RS) = 2.769842e+01.
+OUUOptimizer: Outer optimization iteration = 46
+OUUOptimizer: Outer optimization loop FuncEval 4501.
+    Current Level 1 input   1 = -1.386683e-02
+    Current Level 1 input   2 = -2.609733e-01
+    Current Level 1 input   3 = -8.554728e-02
+    Current Level 1 input   4 = 7.219369e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4600
+OUUOptimizer: computed  objective (with RS) = 2.770942e+01.
+OUUOptimizer: Outer optimization iteration = 47
+OUUOptimizer: Outer optimization loop FuncEval 4601.
+    Current Level 1 input   1 = -3.527379e-03
+    Current Level 1 input   2 = -3.268361e-01
+    Current Level 1 input   3 = -1.296912e-01
+    Current Level 1 input   4 = 6.754649e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4700
+OUUOptimizer: computed  objective (with RS) = 2.770051e+01.
+OUUOptimizer: Outer optimization iteration = 48
+OUUOptimizer: Outer optimization loop FuncEval 4701.
+    Current Level 1 input   1 = 5.086644e-02
+    Current Level 1 input   2 = -2.941931e-01
+    Current Level 1 input   3 = -1.017531e-01
+    Current Level 1 input   4 = 7.276760e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4800
+OUUOptimizer: computed  objective (with RS) = 3.052093e+01.
+OUUOptimizer: Outer optimization iteration = 49
+OUUOptimizer: Outer optimization loop FuncEval 4801.
+    Current Level 1 input   1 = -2.729827e-02
+    Current Level 1 input   2 = -2.683473e-01
+    Current Level 1 input   3 = -1.062948e-01
+    Current Level 1 input   4 = 6.867656e-01
+OUUOptimizer: computing objective with RS, nFuncEval=4900
+OUUOptimizer: computed  objective (with RS) = 2.770719e+01.
+OUUOptimizer: Outer optimization iteration = 50
+OUUOptimizer: Outer optimization loop FuncEval 4901.
+    Current Level 1 input   1 = 3.341938e-02
+    Current Level 1 input   2 = -3.122583e-01
+    Current Level 1 input   3 = -1.458892e-01
+    Current Level 1 input   4 = 7.280936e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5000
+OUUOptimizer: computed  objective (with RS) = 2.772053e+01.
+OUUOptimizer: Outer optimization iteration = 51
+OUUOptimizer: Outer optimization loop FuncEval 5001.
+    Current Level 1 input   1 = -2.251640e-02
+    Current Level 1 input   2 = -3.086854e-01
+    Current Level 1 input   3 = -7.430504e-02
+    Current Level 1 input   4 = 6.956276e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5100
+OUUOptimizer: computed  objective (with RS) = 2.769071e+01.
+    OUUOptimizer outer loop new Ymin =   2.76907109e+01 (***)
+OUUOptimizer: Outer optimization iteration = 52
+OUUOptimizer: Outer optimization loop FuncEval 5101.
+    Current Level 1 input   1 = -1.033631e-03
+    Current Level 1 input   2 = -3.522482e-01
+    Current Level 1 input   3 = -6.533909e-02
+    Current Level 1 input   4 = 6.878568e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5200
+OUUOptimizer: computed  objective (with RS) = 2.770934e+01.
+OUUOptimizer: Outer optimization iteration = 53
+OUUOptimizer: Outer optimization loop FuncEval 5201.
+    Current Level 1 input   1 = -2.234935e-02
+    Current Level 1 input   2 = -3.046019e-01
+    Current Level 1 input   3 = -9.311873e-02
+    Current Level 1 input   4 = 7.115757e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5300
+OUUOptimizer: computed  objective (with RS) = 2.769079e+01.
+OUUOptimizer: Outer optimization iteration = 54
+OUUOptimizer: Outer optimization loop FuncEval 5301.
+    Current Level 1 input   1 = -3.208679e-02
+    Current Level 1 input   2 = -3.036319e-01
+    Current Level 1 input   3 = -6.933379e-02
+    Current Level 1 input   4 = 6.994232e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5400
+OUUOptimizer: computed  objective (with RS) = 2.769465e+01.
+OUUOptimizer: Outer optimization iteration = 55
+OUUOptimizer: Outer optimization loop FuncEval 5401.
+    Current Level 1 input   1 = -1.863894e-02
+    Current Level 1 input   2 = -3.077055e-01
+    Current Level 1 input   3 = -6.536427e-02
+    Current Level 1 input   4 = 7.033940e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5500
+OUUOptimizer: computed  objective (with RS) = 2.769059e+01.
+    OUUOptimizer outer loop new Ymin =   2.76905877e+01 (***)
+OUUOptimizer: Outer optimization iteration = 56
+OUUOptimizer: Outer optimization loop FuncEval 5501.
+    Current Level 1 input   1 = -2.051060e-02
+    Current Level 1 input   2 = -3.120060e-01
+    Current Level 1 input   3 = -6.562763e-02
+    Current Level 1 input   4 = 7.051066e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5600
+OUUOptimizer: computed  objective (with RS) = 2.769118e+01.
+OUUOptimizer: Outer optimization iteration = 57
+OUUOptimizer: Outer optimization loop FuncEval 5601.
+    Current Level 1 input   1 = -1.493699e-02
+    Current Level 1 input   2 = -3.075471e-01
+    Current Level 1 input   3 = -6.869055e-02
+    Current Level 1 input   4 = 7.029397e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5700
+OUUOptimizer: computed  objective (with RS) = 2.768966e+01.
+    OUUOptimizer outer loop new Ymin =   2.76896632e+01 (***)
+OUUOptimizer: Outer optimization iteration = 58
+OUUOptimizer: Outer optimization loop FuncEval 5701.
+    Current Level 1 input   1 = -1.037147e-02
+    Current Level 1 input   2 = -3.072116e-01
+    Current Level 1 input   3 = -7.752674e-02
+    Current Level 1 input   4 = 7.019573e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5800
+OUUOptimizer: computed  objective (with RS) = 2.768859e+01.
+    OUUOptimizer outer loop new Ymin =   2.76885865e+01 (***)
+OUUOptimizer: Outer optimization iteration = 59
+OUUOptimizer: Outer optimization loop FuncEval 5801.
+    Current Level 1 input   1 = -8.708486e-03
+    Current Level 1 input   2 = -3.069847e-01
+    Current Level 1 input   3 = -8.696202e-02
+    Current Level 1 input   4 = 7.011043e-01
+OUUOptimizer: computing objective with RS, nFuncEval=5900
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+    OUUOptimizer outer loop new Ymin =   2.76883515e+01 (***)
+OUUOptimizer: Outer optimization iteration = 60
+OUUOptimizer: Outer optimization loop FuncEval 5901.
+    Current Level 1 input   1 = -5.842242e-03
+    Current Level 1 input   2 = -3.052092e-01
+    Current Level 1 input   3 = -8.975462e-02
+    Current Level 1 input   4 = 7.035195e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6000
+OUUOptimizer: computed  objective (with RS) = 2.768854e+01.
+OUUOptimizer: Outer optimization iteration = 61
+OUUOptimizer: Outer optimization loop FuncEval 6001.
+    Current Level 1 input   1 = -8.103244e-03
+    Current Level 1 input   2 = -3.085397e-01
+    Current Level 1 input   3 = -9.074556e-02
+    Current Level 1 input   4 = 6.982935e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6100
+OUUOptimizer: computed  objective (with RS) = 2.768847e+01.
+OUUOptimizer: Outer optimization iteration = 62
+OUUOptimizer: Outer optimization loop FuncEval 6101.
+    Current Level 1 input   1 = -1.084505e-02
+    Current Level 1 input   2 = -3.107825e-01
+    Current Level 1 input   3 = -8.771777e-02
+    Current Level 1 input   4 = 6.987718e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6200
+OUUOptimizer: computed  objective (with RS) = 2.768853e+01.
+OUUOptimizer: Outer optimization iteration = 63
+OUUOptimizer: Outer optimization loop FuncEval 6201.
+    Current Level 1 input   1 = -7.017680e-03
+    Current Level 1 input   2 = -3.038693e-01
+    Current Level 1 input   3 = -8.385100e-02
+    Current Level 1 input   4 = 7.027646e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6300
+OUUOptimizer: computed  objective (with RS) = 2.768848e+01.
+OUUOptimizer: Outer optimization iteration = 64
+OUUOptimizer: Outer optimization loop FuncEval 6301.
+    Current Level 1 input   1 = -8.940564e-03
+    Current Level 1 input   2 = -3.069845e-01
+    Current Level 1 input   3 = -8.589962e-02
+    Current Level 1 input   4 = 7.012406e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6400
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+    OUUOptimizer outer loop new Ymin =   2.76883461e+01 (***)
+OUUOptimizer: Outer optimization iteration = 65
+OUUOptimizer: Outer optimization loop FuncEval 6401.
+    Current Level 1 input   1 = -8.814325e-03
+    Current Level 1 input   2 = -3.072722e-01
+    Current Level 1 input   3 = -8.606921e-02
+    Current Level 1 input   4 = 7.015907e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6500
+OUUOptimizer: computed  objective (with RS) = 2.768831e+01.
+    OUUOptimizer outer loop new Ymin =   2.76883092e+01 (***)
+OUUOptimizer: Outer optimization iteration = 66
+OUUOptimizer: Outer optimization loop FuncEval 6501.
+    Current Level 1 input   1 = -8.798606e-03
+    Current Level 1 input   2 = -3.076323e-01
+    Current Level 1 input   3 = -8.627813e-02
+    Current Level 1 input   4 = 7.018671e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6600
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 67
+OUUOptimizer: Outer optimization loop FuncEval 6601.
+    Current Level 1 input   1 = -8.632807e-03
+    Current Level 1 input   2 = -3.073791e-01
+    Current Level 1 input   3 = -8.564082e-02
+    Current Level 1 input   4 = 7.017393e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6700
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 68
+OUUOptimizer: Outer optimization loop FuncEval 6701.
+    Current Level 1 input   1 = -8.992295e-03
+    Current Level 1 input   2 = -3.069001e-01
+    Current Level 1 input   3 = -8.632361e-02
+    Current Level 1 input   4 = 7.017138e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6800
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 69
+OUUOptimizer: Outer optimization loop FuncEval 6801.
+    Current Level 1 input   1 = -9.196532e-03
+    Current Level 1 input   2 = -3.073394e-01
+    Current Level 1 input   3 = -8.638069e-02
+    Current Level 1 input   4 = 7.015419e-01
+OUUOptimizer: computing objective with RS, nFuncEval=6900
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 70
+OUUOptimizer: Outer optimization loop FuncEval 6901.
+    Current Level 1 input   1 = -8.450964e-03
+    Current Level 1 input   2 = -3.074781e-01
+    Current Level 1 input   3 = -8.620102e-02
+    Current Level 1 input   4 = 7.013495e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7000
+OUUOptimizer: computed  objective (with RS) = 2.768838e+01.
+OUUOptimizer: Outer optimization iteration = 71
+OUUOptimizer: Outer optimization loop FuncEval 7001.
+    Current Level 1 input   1 = -9.215901e-03
+    Current Level 1 input   2 = -3.072093e-01
+    Current Level 1 input   3 = -8.578043e-02
+    Current Level 1 input   4 = 7.015533e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7100
+OUUOptimizer: computed  objective (with RS) = 2.768836e+01.
+OUUOptimizer: Outer optimization iteration = 72
+OUUOptimizer: Outer optimization loop FuncEval 7101.
+    Current Level 1 input   1 = -8.723177e-03
+    Current Level 1 input   2 = -3.072820e-01
+    Current Level 1 input   3 = -8.578781e-02
+    Current Level 1 input   4 = 7.011877e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7200
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 73
+OUUOptimizer: Outer optimization loop FuncEval 7201.
+    Current Level 1 input   1 = -8.568524e-03
+    Current Level 1 input   2 = -3.070375e-01
+    Current Level 1 input   3 = -8.617172e-02
+    Current Level 1 input   4 = 7.019428e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7300
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 74
+OUUOptimizer: Outer optimization loop FuncEval 7301.
+    Current Level 1 input   1 = -8.543915e-03
+    Current Level 1 input   2 = -3.069451e-01
+    Current Level 1 input   3 = -8.618355e-02
+    Current Level 1 input   4 = 7.013523e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7400
+OUUOptimizer: computed  objective (with RS) = 2.768836e+01.
+OUUOptimizer: Outer optimization iteration = 75
+OUUOptimizer: Outer optimization loop FuncEval 7401.
+    Current Level 1 input   1 = -8.648642e-03
+    Current Level 1 input   2 = -3.072647e-01
+    Current Level 1 input   3 = -8.653949e-02
+    Current Level 1 input   4 = 7.015542e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7500
+OUUOptimizer: computed  objective (with RS) = 2.768842e+01.
+OUUOptimizer: Outer optimization iteration = 76
+OUUOptimizer: Outer optimization loop FuncEval 7501.
+    Current Level 1 input   1 = -8.976702e-03
+    Current Level 1 input   2 = -3.071620e-01
+    Current Level 1 input   3 = -8.592496e-02
+    Current Level 1 input   4 = 7.020274e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7600
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 77
+OUUOptimizer: Outer optimization loop FuncEval 7601.
+    Current Level 1 input   1 = -9.035253e-03
+    Current Level 1 input   2 = -3.076347e-01
+    Current Level 1 input   3 = -8.612405e-02
+    Current Level 1 input   4 = 7.013323e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7700
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 78
+OUUOptimizer: Outer optimization loop FuncEval 7701.
+    Current Level 1 input   1 = -8.572978e-03
+    Current Level 1 input   2 = -3.069302e-01
+    Current Level 1 input   3 = -8.579656e-02
+    Current Level 1 input   4 = 7.015687e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7800
+OUUOptimizer: computed  objective (with RS) = 2.768836e+01.
+OUUOptimizer: Outer optimization iteration = 79
+OUUOptimizer: Outer optimization loop FuncEval 7801.
+    Current Level 1 input   1 = -8.833509e-03
+    Current Level 1 input   2 = -3.074250e-01
+    Current Level 1 input   3 = -8.598901e-02
+    Current Level 1 input   4 = 7.016855e-01
+OUUOptimizer: computing objective with RS, nFuncEval=7900
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 80
+OUUOptimizer: Outer optimization loop FuncEval 7901.
+    Current Level 1 input   1 = -8.832168e-03
+    Current Level 1 input   2 = -3.072850e-01
+    Current Level 1 input   3 = -8.610411e-02
+    Current Level 1 input   4 = 7.016189e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8000
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 81
+OUUOptimizer: Outer optimization loop FuncEval 8001.
+    Current Level 1 input   1 = -8.760891e-03
+    Current Level 1 input   2 = -3.072720e-01
+    Current Level 1 input   3 = -8.595646e-02
+    Current Level 1 input   4 = 7.015983e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8100
+OUUOptimizer: computed  objective (with RS) = 2.768837e+01.
+OUUOptimizer: Outer optimization iteration = 82
+OUUOptimizer: Outer optimization loop FuncEval 8101.
+    Current Level 1 input   1 = -8.795551e-03
+    Current Level 1 input   2 = -3.072818e-01
+    Current Level 1 input   3 = -8.611367e-02
+    Current Level 1 input   4 = 7.015819e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8200
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 83
+OUUOptimizer: Outer optimization loop FuncEval 8201.
+    Current Level 1 input   1 = -8.859122e-03
+    Current Level 1 input   2 = -3.072657e-01
+    Current Level 1 input   3 = -8.606543e-02
+    Current Level 1 input   4 = 7.016116e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8300
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 84
+OUUOptimizer: Outer optimization loop FuncEval 8301.
+    Current Level 1 input   1 = -8.816501e-03
+    Current Level 1 input   2 = -3.073160e-01
+    Current Level 1 input   3 = -8.605210e-02
+    Current Level 1 input   4 = 7.015740e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8400
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 85
+OUUOptimizer: Outer optimization loop FuncEval 8401.
+    Current Level 1 input   1 = -8.785604e-03
+    Current Level 1 input   2 = -3.072615e-01
+    Current Level 1 input   3 = -8.605593e-02
+    Current Level 1 input   4 = 7.016279e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8500
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 86
+OUUOptimizer: Outer optimization loop FuncEval 8501.
+    Current Level 1 input   1 = -8.826949e-03
+    Current Level 1 input   2 = -3.072434e-01
+    Current Level 1 input   3 = -8.605225e-02
+    Current Level 1 input   4 = 7.015557e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8600
+OUUOptimizer: computed  objective (with RS) = 2.768833e+01.
+OUUOptimizer: Outer optimization iteration = 87
+OUUOptimizer: Outer optimization loop FuncEval 8601.
+    Current Level 1 input   1 = -8.811546e-03
+    Current Level 1 input   2 = -3.072735e-01
+    Current Level 1 input   3 = -8.609062e-02
+    Current Level 1 input   4 = 7.015456e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8700
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 88
+OUUOptimizer: Outer optimization loop FuncEval 8701.
+    Current Level 1 input   1 = -8.787284e-03
+    Current Level 1 input   2 = -3.072395e-01
+    Current Level 1 input   3 = -8.608064e-02
+    Current Level 1 input   4 = 7.015668e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8800
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 89
+OUUOptimizer: Outer optimization loop FuncEval 8801.
+    Current Level 1 input   1 = -8.791761e-03
+    Current Level 1 input   2 = -3.073127e-01
+    Current Level 1 input   3 = -8.607284e-02
+    Current Level 1 input   4 = 7.016090e-01
+OUUOptimizer: computing objective with RS, nFuncEval=8900
+OUUOptimizer: computed  objective (with RS) = 2.768826e+01.
+    OUUOptimizer outer loop new Ymin =   2.76882606e+01 (***)
+OUUOptimizer: Outer optimization iteration = 90
+OUUOptimizer: Outer optimization loop FuncEval 8901.
+    Current Level 1 input   1 = -8.770262e-03
+    Current Level 1 input   2 = -3.073536e-01
+    Current Level 1 input   3 = -8.607708e-02
+    Current Level 1 input   4 = 7.016275e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9000
+OUUOptimizer: computed  objective (with RS) = 2.768833e+01.
+OUUOptimizer: Outer optimization iteration = 91
+OUUOptimizer: Outer optimization loop FuncEval 9001.
+    Current Level 1 input   1 = -8.765025e-03
+    Current Level 1 input   2 = -3.072870e-01
+    Current Level 1 input   3 = -8.608756e-02
+    Current Level 1 input   4 = 7.016391e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9100
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 92
+OUUOptimizer: Outer optimization loop FuncEval 9101.
+    Current Level 1 input   1 = -8.824008e-03
+    Current Level 1 input   2 = -3.073249e-01
+    Current Level 1 input   3 = -8.607615e-02
+    Current Level 1 input   4 = 7.016450e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9200
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 93
+OUUOptimizer: Outer optimization loop FuncEval 9201.
+    Current Level 1 input   1 = -8.810109e-03
+    Current Level 1 input   2 = -3.073259e-01
+    Current Level 1 input   3 = -8.604687e-02
+    Current Level 1 input   4 = 7.016452e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9300
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 94
+OUUOptimizer: Outer optimization loop FuncEval 9301.
+    Current Level 1 input   1 = -8.752611e-03
+    Current Level 1 input   2 = -3.073046e-01
+    Current Level 1 input   3 = -8.605408e-02
+    Current Level 1 input   4 = 7.015855e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9400
+OUUOptimizer: computed  objective (with RS) = 2.768836e+01.
+OUUOptimizer: Outer optimization iteration = 95
+OUUOptimizer: Outer optimization loop FuncEval 9401.
+    Current Level 1 input   1 = -8.798430e-03
+    Current Level 1 input   2 = -3.073157e-01
+    Current Level 1 input   3 = -8.610056e-02
+    Current Level 1 input   4 = 7.016499e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9500
+OUUOptimizer: computed  objective (with RS) = 2.768836e+01.
+OUUOptimizer: Outer optimization iteration = 96
+OUUOptimizer: Outer optimization loop FuncEval 9501.
+    Current Level 1 input   1 = -8.785133e-03
+    Current Level 1 input   2 = -3.073333e-01
+    Current Level 1 input   3 = -8.611424e-02
+    Current Level 1 input   4 = 7.015911e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9600
+OUUOptimizer: computed  objective (with RS) = 2.768831e+01.
+OUUOptimizer: Outer optimization iteration = 97
+OUUOptimizer: Outer optimization loop FuncEval 9601.
+    Current Level 1 input   1 = -8.831164e-03
+    Current Level 1 input   2 = -3.073153e-01
+    Current Level 1 input   3 = -8.610281e-02
+    Current Level 1 input   4 = 7.016024e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9700
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 98
+OUUOptimizer: Outer optimization loop FuncEval 9701.
+    Current Level 1 input   1 = -8.803562e-03
+    Current Level 1 input   2 = -3.072777e-01
+    Current Level 1 input   3 = -8.604498e-02
+    Current Level 1 input   4 = 7.015900e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9800
+OUUOptimizer: computed  objective (with RS) = 2.768839e+01.
+OUUOptimizer: Outer optimization iteration = 99
+OUUOptimizer: Outer optimization loop FuncEval 9801.
+    Current Level 1 input   1 = -8.785880e-03
+    Current Level 1 input   2 = -3.073218e-01
+    Current Level 1 input   3 = -8.608123e-02
+    Current Level 1 input   4 = 7.015880e-01
+OUUOptimizer: computing objective with RS, nFuncEval=9900
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 100
+OUUOptimizer: Outer optimization loop FuncEval 9901.
+    Current Level 1 input   1 = -8.798497e-03
+    Current Level 1 input   2 = -3.073080e-01
+    Current Level 1 input   3 = -8.607210e-02
+    Current Level 1 input   4 = 7.016092e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10000
+OUUOptimizer: computed  objective (with RS) = 2.768833e+01.
+OUUOptimizer: Outer optimization iteration = 101
+OUUOptimizer: Outer optimization loop FuncEval 10001.
+    Current Level 1 input   1 = -8.796462e-03
+    Current Level 1 input   2 = -3.073241e-01
+    Current Level 1 input   3 = -8.607465e-02
+    Current Level 1 input   4 = 7.016101e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10100
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 102
+OUUOptimizer: Outer optimization loop FuncEval 10101.
+    Current Level 1 input   1 = -8.791756e-03
+    Current Level 1 input   2 = -3.073153e-01
+    Current Level 1 input   3 = -8.606871e-02
+    Current Level 1 input   4 = 7.016101e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10200
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 103
+OUUOptimizer: Outer optimization loop FuncEval 10201.
+    Current Level 1 input   1 = -8.789187e-03
+    Current Level 1 input   2 = -3.073091e-01
+    Current Level 1 input   3 = -8.607367e-02
+    Current Level 1 input   4 = 7.016068e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10300
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: Outer optimization iteration = 104
+OUUOptimizer: Outer optimization loop FuncEval 10301.
+    Current Level 1 input   1 = -8.792088e-03
+    Current Level 1 input   2 = -3.073100e-01
+    Current Level 1 input   3 = -8.607636e-02
+    Current Level 1 input   4 = 7.016066e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10400
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 105
+OUUOptimizer: Outer optimization loop FuncEval 10401.
+    Current Level 1 input   1 = -8.790481e-03
+    Current Level 1 input   2 = -3.073129e-01
+    Current Level 1 input   3 = -8.607285e-02
+    Current Level 1 input   4 = 7.016138e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10500
+OUUOptimizer: computed  objective (with RS) = 2.768834e+01.
+OUUOptimizer: Outer optimization iteration = 106
+OUUOptimizer: Outer optimization loop FuncEval 10501.
+    Current Level 1 input   1 = -8.789708e-03
+    Current Level 1 input   2 = -3.073159e-01
+    Current Level 1 input   3 = -8.607594e-02
+    Current Level 1 input   4 = 7.016098e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10600
+OUUOptimizer: computed  objective (with RS) = 2.768837e+01.
+OUUOptimizer: Outer optimization iteration = 107
+OUUOptimizer: Outer optimization loop FuncEval 10601.
+    Current Level 1 input   1 = -8.791408e-03
+    Current Level 1 input   2 = -3.073090e-01
+    Current Level 1 input   3 = -8.606956e-02
+    Current Level 1 input   4 = 7.016085e-01
+OUUOptimizer: computing objective with RS, nFuncEval=10700
+OUUOptimizer: computed  objective (with RS) = 2.768835e+01.
+OUUOptimizer: total number of evaluations = 10700
+	 OUUOptimizer number of function evaluations = 10700
+	 optimum  X(     1) =  -8.79176111e-03
+	 optimum  X(     2) =  -3.07312696e-01
+	 optimum  X(     3) =  -8.60728425e-02
+	 optimum  X(     4) =   7.01608973e-01
+			 optimum Y =   2.76882606e+01
+**********************************************************************
+	 OUU total number of function evaluations = 10700
+**********************************************************************
+PSUADE Optimization Results.
+PSUADE Optimization : local optima 1 (1) - 
+		X     1 =  -8.79176111e-03
+		X     2 =  -3.07312696e-01
+		X     3 =  -8.60728425e-02
+		X     4 =   7.01608973e-01
+			Ymin =   2.76882606e+01
+##################################################
+PSUADE OPTIMIZATION : CURRENT GLOBAL MINIMUM - 
+		X     1 =  -8.79176111e-03
+		X     2 =  -3.07312696e-01
+		X     3 =  -8.60728425e-02
+		X     4 =   7.01608973e-01
+			Ymin =   2.76882606e+01
+##################################################
+**********************************************************************
+======================================================================
+psuade> 

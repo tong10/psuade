@@ -37,13 +37,13 @@
 // ------------------------------------------------------------------------
 PDFCauchy::PDFCauchy(double x0, double gamma)
 {
-   X0_    = x0;
-   gamma_ = gamma;
-   if (gamma <= 0)
-   {
-      printf("PDFCauchy: gamma needs to be > 0.\n");
-      exit(1);
-   }
+  X0_    = x0;
+  gamma_ = gamma;
+  if (gamma <= 0)
+  {
+    printf("PDFCauchy: gamma needs to be > 0.\n");
+    exit(1);
+  }
 }
 
 // ************************************************************************
@@ -58,19 +58,19 @@ PDFCauchy::~PDFCauchy()
 // ------------------------------------------------------------------------
 int PDFCauchy::getPDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double mult, xdata;
+  int    ii;
+  double mult, xdata;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFCauchy: getPDF begins (length = %d)\n",length);
-   mult = 1.0 / (PS_PI * gamma_);
-   for (ii = 0; ii < length; ii++)
-   {
-      xdata = (inData[ii] - X0_) / gamma_;
-      outData[ii] = mult / (1.0 + xdata * xdata);
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFCauchy: getPDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFCauchy: getPDF begins (length = %d)\n",length);
+  mult = 1.0 / (PS_PI * gamma_);
+  for (ii = 0; ii < length; ii++)
+  {
+    xdata = (inData[ii] - X0_) / gamma_;
+    outData[ii] = mult / (1.0 + xdata * xdata);
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFCauchy: getPDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -78,85 +78,96 @@ int PDFCauchy::getPDF(int length, double *inData, double *outData)
 // ------------------------------------------------------------------------
 int PDFCauchy::getCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double ddata;
+  int    ii;
+  double ddata;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFCauchy: getCDF begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = (inData[ii] - X0_) / gamma_;
-      outData[ii] = atan(ddata) / PS_PI + 0.5;
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFCauchy: getCDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFCauchy: getCDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = (inData[ii] - X0_) / gamma_;
+    outData[ii] = atan(ddata) / PS_PI + 0.5;
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFCauchy: getCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFCauchy::invCDF(int length, double *inData, double *outData,
-                    double lower, double upper)
+int PDFCauchy::invCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double scale, ddata, dtm, xlo, xmi, xhi, ylo, ymi, yhi;
+  int    ii;
+  double ddata, dtm, xlo, xmi, xhi, ylo, ymi, yhi;
 
-   if (upper <= lower)
-   {
-      printf("PDFCauchy invCDF ERROR - lower bound >= upper bound.\n");
-      exit(1);
-   }
-   if (lower < 0.0)
-   {
-      printf("PDFCauchy invCDF ERROR - lower bound < 0.\n");
-      exit(1);
-   }
+  //**/ -------------------------------------------------------------
+  //**/ map the input data onto the CDF
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFCauchy: invCDF begins (length = %d)\n",length);
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFCauchy: invCDF begins (length = %d)\n",length);
-   scale = upper - lower;
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if (ddata < 0.0)
+  //**/ -------------------------------------------------------------
+  //**/ search for xlo and xhi
+  //**/ -------------------------------------------------------------
+  double XLO = 0.0;
+  double YLO = 1;
+  while (YLO > 1.0e-8)
+  {
+    XLO -= 1.0;
+    dtm = (XLO - X0_) / gamma_;
+    YLO = atan(dtm) / PS_PI + 0.5;
+  }
+  double XHI = 0.0;
+  double YHI = 0.0;
+  while (YHI < 0.9999999)
+  {
+    XHI += 1.0;
+    dtm = (XHI - X0_) / gamma_;
+    YHI = atan(dtm) / PS_PI + 0.5;
+  }
+
+  //**/ -------------------------------------------------------------
+  //**/ now do the search
+  //**/ -------------------------------------------------------------
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if (ddata <= 0.0 || ddata >= 1)
+    {
+      printf("PDFCauchy invCDF ERROR - CDF value %e not in (0,1).\n",
+             ddata);
+      exit(1);
+    }
+    xlo = XLO;
+    ylo = YLO;
+    xhi = XHI;
+    yhi = YHI;
+    if      (ddata <= ylo) outData[ii] = xlo;
+    else if (ddata >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
       {
-         printf("PDFCauchy invCDF ERROR - data %e not in [0,infty).\n",
-                ddata);
-         exit(1);
+        xmi = 0.5 * (xhi + xlo);
+        dtm = (xmi - X0_) / gamma_;
+        ymi = atan(dtm) / PS_PI + 0.5;
+        if (ddata > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-      xlo = lower;
-      dtm = (xlo - X0_) / gamma_;
-      ylo = atan(dtm) / PS_PI + 0.5;
-      xhi = upper;
-      dtm = (xhi - X0_) / gamma_;
-      yhi = atan(dtm) / PS_PI + 0.5;
-      ddata = (ddata - lower) / scale * (yhi - ylo) + ylo;
-      if      (ddata <= ylo) outData[ii] = xlo;
-      else if (ddata >= yhi) outData[ii] = xhi;
-      else
-      {
-         while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            dtm = (xmi - X0_) / gamma_;
-            ymi = atan(dtm) / PS_PI + 0.5;
-            if (ddata > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
-         else                                   outData[ii] = xhi;
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFCauchy: invCDF ends.\n");
-   return 0;
+      if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
+      else                                   outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFCauchy: invCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -165,60 +176,67 @@ int PDFCauchy::invCDF(int length, double *inData, double *outData,
 int PDFCauchy::genSample(int length, double *outData, double *lowers,
                          double *uppers)
 {
-   int    ii;
-   double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, lower, upper;
+  int    ii;
+  double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, lower, upper;
 
-   if (lowers == NULL || uppers == NULL)
-   {
-      printf("PDFCauchy genSample ERROR - lower/upper bound unavailable.\n"); 
-      exit(1);
-   }
-   lower = lowers[0];
-   upper = uppers[0];
-   if (upper <= lower)
-   {
-      printf("PDFCauchy genSample ERROR - lower bound >= upper bound.\n");
-      exit(1);
-   }
+  //**/ -------------------------------------------------------------
+  //**/ upper and lower bounds has to be in (0,1), and upper > lower
+  //**/ -------------------------------------------------------------
+  if (lowers == NULL || uppers == NULL)
+  {
+    printf("PDFCauchy genSample ERROR - lower/upper bound unavailable.\n"); 
+    exit(1);
+  }
+  lower = lowers[0];
+  upper = uppers[0];
+  if (upper <= lower)
+  {
+    printf("PDFCauchy genSample ERROR - lower bound >= upper bound.\n");
+    exit(1);
+  }
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFCauchy: genSample begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      UU = PSUADE_drand();
-      xlo = lower;
-      mult = (xlo - X0_) / gamma_;
-      ylo = atan(mult) / PS_PI + 0.5;
-      xhi = upper;
-      mult = (xhi - X0_) / gamma_;
-      yhi = atan(mult) / PS_PI + 0.5;
-      UU = UU * (yhi - ylo) + ylo;
-      if      (UU <= ylo) outData[ii] = xlo;
-      else if (UU >= yhi) outData[ii] = xhi;
-      else
+  //**/ -------------------------------------------------------------
+  //**/ generate sample
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFCauchy: genSample begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    UU = PSUADE_drand();
+    xlo = lower;
+    mult = (xlo - X0_) / gamma_;
+    ylo = atan(mult) / PS_PI + 0.5;
+    xhi = upper;
+    mult = (xhi - X0_) / gamma_;
+    yhi = atan(mult) / PS_PI + 0.5;
+    UU = UU * (yhi - ylo) + ylo;
+    if      (UU <= ylo) outData[ii] = xlo;
+    else if (UU >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
       {
-         while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            mult = (xmi - X0_) / gamma_;
-            ymi = atan(mult) / PS_PI + 0.5;
-            if (UU > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
-         else                             outData[ii] = xhi;
+        xmi = 0.5 * (xhi + xlo);
+        mult = (xmi - X0_) / gamma_;
+        ymi = atan(mult) / PS_PI + 0.5;
+        if (UU > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFCauchy: genSample ends.\n");
-   return 0;
+      if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
+      else                             outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFCauchy: genSample ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -226,7 +244,7 @@ int PDFCauchy::genSample(int length, double *outData, double *lowers,
 // ------------------------------------------------------------------------
 double PDFCauchy::getMean()
 {
-   printf("PDFCauchy ERROR: mean is not defined.\n");
-   return 0.0;
+  printf("PDFCauchy ERROR: mean is not defined.\n");
+  return 0.0;
 }
 

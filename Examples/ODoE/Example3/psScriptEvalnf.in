@@ -1,0 +1,13 @@
+# Show the use of this command to compute G/I/D/A/E
+# metrics for each member of the set CandidateSet0
+# (Use the Fisher method)
+odoeu_evalnf
+y
+RSTrainSample
+3
+0
+PriorSample
+CandidateSet0
+10
+q
+

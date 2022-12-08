@@ -44,6 +44,7 @@
 // ------------------------------------------------------------------------
 PRSFuncApproxAnalyzer::PRSFuncApproxAnalyzer(CommManager *comm) 
 {
+   //**/ default is MARS
    rsType_ = PSUADE_RS_MARS;
    commMgr_ = comm;
    if (comm == NULL)
@@ -67,7 +68,7 @@ PRSFuncApproxAnalyzer::~PRSFuncApproxAnalyzer()
 // ------------------------------------------------------------------------
 double PRSFuncApproxAnalyzer::analyze(aData &adata)
 {
-   int        nInputs, nOutputs, nSamples, outputID, status, rsState, ii;
+   int        nInputs, nOutputs, nSamples, outputID, status,  ii;
    int        ss, ss2, count, nPtsPerDim=64, ranFlag=0, printLevel, wgtID;
    int        nSubSamples, *iArray, *iArray2, iOne=1, commLeng, commFlag;
    int        numCVGroups, pindex;
@@ -81,6 +82,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    FILE       *fpData, *fpErr;
    FuncApprox *faPtr=NULL;
 
+   //**/ ---------------------------------------------------------------
+   //**/ extract data
+   //**/ ---------------------------------------------------------------
    printLevel = adata.printLevel_;
    nInputs   = adata.nInputs_;
    nOutputs  = adata.nOutputs_;
@@ -92,6 +96,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    outputID  = adata.outputID_;
    wgtID     = adata.regWgtID_;
 
+   //**/ ---------------------------------------------------------------
+   //**/ error checking and diagnostics
+   //**/ ---------------------------------------------------------------
    if (nInputs <= 0 || nOutputs <= 0 || nSamples <= 0)
    {
       if (mypid_ == 0)
@@ -122,6 +129,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       printEquals(PL_INFO, 0);
    }
    
+   //**/ ---------------------------------------------------------------
+   //**/ copy the selected output data to a new array and find max
+   //**/ ---------------------------------------------------------------
    YLocal = new double[nSamples];
    checkAllocate(YLocal, "YLocal in PRSFuncApprox::analyze");
    for (ss = 0; ss < nSamples; ss++) YLocal[ss] = Y[ss*nOutputs+outputID];
@@ -151,6 +161,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       return PSUADE_UNDEFINED;
    }
 
+   //**/ ---------------------------------------------------------------
+   //**/ generate response surfaces 
+   //**/ ---------------------------------------------------------------
    if (mypid_ == 0)
    {
       YT = new double[nSamples];
@@ -195,6 +208,10 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          return PSUADE_UNDEFINED;
       }
 
+      //**/ ------------------------------------------------------------
+      //**/ check RS data against the original data if more than 1 level.
+      //**/ For one level, a final check will be done later.
+      //**/ ------------------------------------------------------------
       sumErr1  = sumErr2 = maxErr = sumErr1s = sumErr2s = maxErrs = 0.0;
       sumErr11 = sumErr11s = ydiff = 0.0;
       maxBase = maxBases = ymean = yvar = 0.0;
@@ -260,6 +277,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       if (!strcmp(commBuffer, "psuadeError")) return PSUADE_UNDEFINED;
    }
 
+   //**/ ---------------------------------------------------------------
+   //**/ cross validation
+   //**/ ---------------------------------------------------------------
    if (rsType_ == PSUADE_RS_REGRGL || rsType_ == PSUADE_RS_SPLINES ||
        rsType_ == PSUADE_RS_REGSG) 
    {
@@ -308,10 +328,13 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    commMgr_->bcast((void *) &nSubSamples, iOne, INT, 0);
    commMgr_->bcast((void *) &ranFlag, iOne, INT, 0);
 
+   //**/ allocate space to store errors
    adata.sampleErrors_ = new double[nSamples];
    for (ss = 0; ss < nSamples; ss++) adata.sampleErrors_[ss] = 0.0;
 
+   //**/ instantiate regressors and set parameters
    faPtr = genFA(rsType_, nInputs, iOne, nSamples-nSubSamples);
+   //**/ NULL check by Bill Oliver
    if (faPtr == NULL)
    {
       printOutTS(PL_INFO,"PRSA: genFA returned NULL in file %s line %d\n",
@@ -322,9 +345,9 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
    faPtr->setBounds(lower, upper);
    if (mypid_ == 0) faPtr->setOutputLevel(printLevel);
    else             faPtr->setOutputLevel(0);
-   rsState = psRSExpertMode_;
-   psRSExpertMode_ = 0;
+   psConfig_.RSExpertModeSaveAndReset();
 
+   //**/ permute design matrix
    XX = new double[nSamples*nInputs];
    YY = new double[nSamples];
    WW = new double[nSamples];
@@ -347,6 +370,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          WW[iArray[ss]] = Y[ss*nOutputs+wgtID];
    }
 
+   //**/ iterate on groups
    X2 = new double[nSamples*nInputs];
    Y2 = new double[nSamples];
    YT = new double[nSamples];
@@ -362,6 +386,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          printf("P%5d : CV processes %d out of %d.\n",
                 mypid_,ss/nSubSamples+1, nSamples/nSubSamples);
 
+         //**/ gather the non-excluded data points
          count = 0;
          for (ss2 = 0; ss2 < nSamples; ss2++)
          {
@@ -377,6 +402,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          if (wgtID >= 0 && wgtID < nOutputs)
             faPtr->loadWeights(nSamples-nSubSamples, wgts);
 
+         //**/ generate response surface
          status = faPtr->initialize(X2, Y2);
          if (status == -1) break;
          count = nSubSamples;
@@ -385,6 +411,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       }
    }
 
+   //**/ Communicate the chain information
    commFlag = 1;
    commMgr_->bcast((void *) &commFlag, iOne, INT, 0);
    for (ss = 0; ss < nSamples; ss+=nSubSamples)
@@ -410,6 +437,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          commMgr_->send((void *) &ST[ss],count,DOUBLE,pindex,0);
    }
 
+   //**/ compute errors
    adata.sampleErrors_ = NULL;
    if (mypid_ == 0)
    {
@@ -460,7 +488,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       printOutTS(PL_INFO,
            "PRSA: final CV error  = %11.3e (max   scaled,BASE=%9.3e)\n",
            cvMaxs, cvMaxBases);
-      if (psPlotTool_ == 1)
+      if (plotScilab())
       {
          fpData = fopen("RSFA_CV_err.sci", "w");
          if (fpData != NULL)
@@ -499,7 +527,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          fwriteHold(fpData, 0);
          fwritePlotFigure(fpData, 1);
          fprintf(fpData, "subplot(1,2,1)\n");
-         if (psPlotTool_ == 1)
+         if (plotScilab())
          {
             fprintf(fpData, "ymin = min(A(:,1));\n");
             fprintf(fpData, "ymax = max(A(:,1));\n");
@@ -524,7 +552,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          fwritePlotTitle(fpData, "CV Error Histogram");
          fwritePlotXLabel(fpData, "Error (unnormalized)");
          fwritePlotYLabel(fpData, "Probabilities");
-         if (psPlotTool_ != 1)
+         if (plotMatlab())
          {
             fprintf(fpData,"disp(['Error Mean  = ' num2str(mean(A(:,1)))])\n");
             fprintf(fpData,"disp(['Error stdev = ' num2str(std(A(:,1)))])\n");
@@ -556,7 +584,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          fprintf(fpData, "plot(A(:,2), A(:,3),'*','MarkerSize',12)\n");
          fwriteHold(fpData, 1);
          fprintf(fpData, "plot(XX, XX)\n");
-         if (psPlotTool_ == 1)
+         if (plotScilab())
          {
             fprintf(fpData, "a = get(\"current_axes\");\n");
             fprintf(fpData, "a.data_bounds=[xmin,xmin;xmax,xmax];\n");
@@ -564,7 +592,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          else fprintf(fpData, "axis([xmin xmax xmin xmax])\n");
          if (ssum > 0.0)
          {
-            if (psPlotTool_ == 1) fprintf(fpData,"drawlater\n");
+            if (plotScilab()) fprintf(fpData,"drawlater\n");
             fprintf(fpData,"for ii = 1 : %d\n", nSamples);
             fprintf(fpData,"  xx = [A(ii,2) A(ii,2)];\n");
             fprintf(fpData,"  d1 = A(ii,3)-A(ii,4);\n");
@@ -578,7 +606,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
             fprintf(fpData,"%%plot(xx(1), yy(1),'rv','markerSize',10);\n");
             fprintf(fpData,"%%plot(xx(2), yy(2),'r^','markerSize',10);\n");
             fprintf(fpData,"end;\n");
-            if (psPlotTool_ == 1) fprintf(fpData,"drawnow\n");
+            if (plotScilab()) fprintf(fpData,"drawnow\n");
             else
             {
               fprintf(fpData,"text(0.1,0.9,'RED: prediction outside +/-1 std ");
@@ -629,7 +657,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
          fwriteComment(fpData, pString);
          fprintf(fpData,"end;\n");
          fclose(fpData);
-         if (psPlotTool_ == 1)
+         if (plotScilab())
               printOutTS(PL_INFO, "CV error file is RSFA_CV_err.sci\n");
          else printOutTS(PL_INFO, "CV error file is RSFA_CV_err.m\n");
       }
@@ -637,7 +665,7 @@ double PRSFuncApproxAnalyzer::analyze(aData &adata)
       delete [] sArray;
       delete [] sigmas;
    }
-   psRSExpertMode_ = rsState;
+   psConfig_.RSExpertModeRestore();
    delete faPtr;
    delete [] XX;
    delete [] YY;

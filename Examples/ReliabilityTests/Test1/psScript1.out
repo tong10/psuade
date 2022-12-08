@@ -1,0 +1,395 @@
+**********************************************************************
+*      Welcome to PSUADE (version 2.1.0)
+**********************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (2.1.0)
+(for help, enter <help>)
+======================================================================
+psuade> psuade> Sampling INFO: Creating a sample assuming all uncertain parameters are
+               uniformly distributed.
+PSUADE adaptivePRA: sampling defaulted to METIS.
+METISSam INIT: looking for psuadeMetisInfo file...
+METISSam INIT: psuadeMetisInfo file not found - create new one.
+METISSam INIT: calling domain partitioner.
+METIS: nInputs = 2, nSamples = n * n.
+METIS: nInputs = 2, nSamples = n * n, mstep = 300.
+METISSam INIT: subdomains created.
+PSUADE adaptivePRA: refineSize = 100000
+PSUADE adaptivePRA: initial nSamples = 100
+PSUADE adaptivePRA: number of refinements = 20
+This function finds the first division between FAIL/NoFAIL and focuses
+the adaptive sampling on the interface. Hence, it is important that
+the initial nSamples is sufficiently large to uncover all FAIL/NoFail
+interfaces.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 0 (of 20)
+PSUADE adaptivePRA: current nSamples = 100
+..........
+AdaptivePRA: jobs completed = 100(of 100)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+          To do so, need lower/upper safety margins.
+Safety region is defined to be inside [lower, upper].
+Upper bound for safety region (-999 if none): Lower bound for safety region (-999 if none): CURRENT RELIABLITY (SUCCESS) = 91.00000% (8190000/9000000*100)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 100
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 21.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 121
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 1 (of 20)
+PSUADE adaptivePRA: current nSamples = 121
+.
+AdaptivePRA: jobs completed = 121(of 121)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 91.00120% (8190108/9000000*100)
+Convergence check = 1.318673e-05 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 121
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 25.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 146
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 2 (of 20)
+PSUADE adaptivePRA: current nSamples = 146
+...
+AdaptivePRA: jobs completed = 146(of 146)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.24373% (8121936/9000000*100)
+Convergence check = 8.358487e-03 (1.000000e-04), trial 2 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 146
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 40.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 186
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 3 (of 20)
+PSUADE adaptivePRA: current nSamples = 186
+...
+AdaptivePRA: jobs completed = 186(of 186)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.37537% (8133783/9000000*100)
+Convergence check = 1.457579e-03 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 186
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 63.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 249
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 4 (of 20)
+PSUADE adaptivePRA: current nSamples = 249
+......
+AdaptivePRA: jobs completed = 249(of 249)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.18484% (8116636/9000000*100)
+Convergence check = 2.110346e-03 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 249
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 107.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 356
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 5 (of 20)
+PSUADE adaptivePRA: current nSamples = 356
+..........
+AdaptivePRA: jobs completed = 356(of 356)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.27911% (8125120/9000000*100)
+Convergence check = 1.044715e-03 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 356
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 140.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 496
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 6 (of 20)
+PSUADE adaptivePRA: current nSamples = 496
+.............
+AdaptivePRA: jobs completed = 496(of 496)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.18194% (8116375/9000000*100)
+Convergence check = 1.076871e-03 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 496
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 211.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 707
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 7 (of 20)
+PSUADE adaptivePRA: current nSamples = 707
+...................
+AdaptivePRA: jobs completed = 707(of 707)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.12773% (8111496/9000000*100)
+Convergence check = 6.013112e-04 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 707
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 304.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 1011
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 8 (of 20)
+PSUADE adaptivePRA: current nSamples = 1011
+...........................
+AdaptivePRA: jobs completed = 1011(of 1011)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.12182% (8110964/9000000*100)
+Convergence check = 6.558808e-05 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 1011
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 434.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 1445
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 9 (of 20)
+PSUADE adaptivePRA: current nSamples = 1445
+........................................
+AdaptivePRA: jobs completed = 1445(of 1445)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.13413% (8112072/9000000*100)
+Convergence check = 1.365959e-04 (1.000000e-04), trial 2 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 1445
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 625.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 2070
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 10 (of 20)
+PSUADE adaptivePRA: current nSamples = 2070
+.........................................................
+AdaptivePRA: jobs completed = 2070(of 2070)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.15273% (8113746/9000000*100)
+Convergence check = 2.063378e-04 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 2070
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 901.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 2971
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 11 (of 20)
+PSUADE adaptivePRA: current nSamples = 2971
+..................................................................................
+AdaptivePRA: jobs completed = 2971(of 2971)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.15230% (8113707/9000000*100)
+Convergence check = 4.806669e-06 (1.000000e-04), trial 1 (of 2)
+AdaptivePRA INFO: sample outputs are not 0/1
+      Current reliability != 0 nor 1 => adaptive refinement
+      (Convert outputs to 0/1 before refinement).
+      (Call refinement based on gradients between neighbors)
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) begins.
+----------------------------------------------------------------------
+METISSampling refine: Sample information before refinement 
+     nSamples = 2971
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+METISSampling refine: based on gradient with neighbors.
+     Maximum allowable number of new points = 100000.
+METISSampling refine - number of new sample points = 1227.
+METISSampling refine INFO: pass final check sum
+----------------------------------------------------------------------
+METISSampling refine: Sample information after refinement 
+     nSamples = 4198
+     nInputs  = 2
+     nOutputs = 1
+----------------------------------------------------------------------
+PRA adaptive refinement (Output!=0/1;currRA!=0/1) completes.
+**********************************************************************
+PSUADE adaptivePRA: current level    = 12 (of 20)
+PSUADE adaptivePRA: current nSamples = 4198
+...............................................................................................................
+AdaptivePRA: jobs completed = 4198(of 4198)
+AdaptivePRA INFO: non 0/1 outputs (transform to 0/1).
+CURRENT RELIABLITY (SUCCESS) = 90.15101% (8113591/9000000*100)
+Convergence check = 1.429690e-05 (1.000000e-04), trial 2 (of 2)
+Convergence check: 1.429690e-05 <? 1.000000e-04
+CONVERGED: RELIABILITY (SUCCESS) = 90.15101%
+psuade> psuade terminates ...

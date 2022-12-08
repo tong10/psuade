@@ -1,0 +1,17 @@
+# use exhaustive search
+sys cc -o simulator simulator.c -lm
+run psuadeGenCand.in
+rename psuadeData candidateSet
+load candidateSet
+printlevel 1
+odoe_mmv
+y
+4
+2
+50
+1000
+
+n
+0.0025
+0.0025
+q

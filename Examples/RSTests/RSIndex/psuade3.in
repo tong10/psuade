@@ -1,0 +1,25 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable   1 X1 = 0  1
+   variable   2 X2 = 0  1
+   variable   3 X3 = 0  1
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = FACT
+   num_samples = 64
+END
+APPLICATION
+   driver = psData4.256
+END
+ANALYSIS
+   analyzer method = MainEffect
+   analyzer rs_index_file = indexFile
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

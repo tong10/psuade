@@ -45,8 +45,13 @@ GradLegendreRegression::GradLegendreRegression(int nInputs,int nSamples):
   faID_ = PSUADE_RS_REGRGL;
   pOrder_ = -1;
   numPerms_ = 0;
-  pcePerms_ = NULL;
-  derivSample_ = NULL;
+  //**/ need to be normalized (1/4/13)
+  //**/if (psConfig_.RSExpertModeIsOn())
+  //**/{
+  //**/   printf("Normalize the input parameters to [-1, 1]? (y - yes) ");
+  //**/   fgets(line, 100, stdin);
+  //**/   if (line[0] == 'y') normalizeFlag_ = 1;
+  //**/}
   normalizeFlag_ = 1;
   nOutputs_ = 1;
   printAsterisks(PL_INFO, 0);
@@ -59,13 +64,6 @@ GradLegendreRegression::GradLegendreRegression(int nInputs,int nSamples):
 // ------------------------------------------------------------------------
 GradLegendreRegression::~GradLegendreRegression()
 {
-  int ii;
-  if (pcePerms_ != NULL)
-  {
-    for (ii = 0; ii < numPerms_; ii++) 
-      if (pcePerms_[ii] != NULL) delete [] pcePerms_[ii];
-    delete [] pcePerms_;
-  }
 }
 
 // ************************************************************************
@@ -77,21 +75,23 @@ int GradLegendreRegression::initialize(double *X, double *Y)
   char pString[101];
   FILE *fp;
 
-  if (pcePerms_ != NULL)
+  //**/ ---------------------------------------------------------------
+  //**/ if derivatives have not been loaded, ask for a file
+  //**/ ---------------------------------------------------------------
+  if (VecDerivSample_.length() != nSamples_*nInputs_)
   {
-    for (ii = 0; ii < numPerms_; ii++) 
-      if (pcePerms_[ii] != NULL) delete [] pcePerms_[ii];
-    delete [] pcePerms_;
-    pcePerms_ = NULL;
-  }
-
-  if (derivSample_ == NULL)
-  {
-    printf("Users need to provide a sample file (PSUADE format) that\n");
-    printf("has derivative information (where the sample outputs are\n");
-    printf("derivatives of Y with respect to each input).\n");
-    printf("Note: The number of inputs/outputs in this file should match\n");
-    printf("      that of the sample used for creating response surface.\n");
+    printf("Users need to provide a sample file (in PSUADE format) ");
+    printf("that has\n");
+    printf("derivative information (where the sample outputs ");
+    printf("are derivatives\n");
+    printf("of Y with respect to each input).\n");
+    printf("NOTE: The number of inputs/outputs in this file ");
+    printf("should match that of\n");
+    printf("      the sample used for creating response surface.\n");
+    printf(" ==>  The number of outputs in this file should be %d\n",
+           nInputs_);
+    printf(" ==>  The sample size of this file should be %d\n",
+           nSamples_);
     sprintf(pString,"Enter name of derivative file (PSUADE format): ");
     getString(pString, gradFile_);
     ii = strlen(gradFile_);
@@ -105,6 +105,9 @@ int GradLegendreRegression::initialize(double *X, double *Y)
     }
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ launch regression
+  //**/ ---------------------------------------------------------------
   status = analyze(X, Y);
   if (status != 0)
   {
@@ -117,29 +120,42 @@ int GradLegendreRegression::initialize(double *X, double *Y)
 // ************************************************************************
 // Generate lattice data based on the input set
 // ------------------------------------------------------------------------
-int GradLegendreRegression::genNDGridData(double *X, double *Y, int *N2,
-                                          double **X2, double **Y2)
+int GradLegendreRegression::genNDGridData(double *X, double *Y, int *NOut,
+                                          double **XOut, double **YOut)
 {
   int totPts, ss, status;
+  //**/ ---------------------------------------------------------------
+  //**/ launch regression
+  //**/ ---------------------------------------------------------------
   status = analyze(X, Y);
   if (status != 0)
   {
     printf("GradLegendreRegression::genNDGridData - ERROR detected.\n");
-    (*N2) = 0;
+    (*NOut) = 0;
     return -1;
   }
 
-  if ((*N2) == -999) return 0;
+  //**/ ---------------------------------------------------------------
+  //**/ return if there is no request to create lattice points
+  //**/ ---------------------------------------------------------------
+  if ((*NOut) == -999) return 0;
 
-  genNDGrid(N2, X2);
-  if ((*N2) == 0) return 0;
-  totPts = (*N2);
+  //**/ ---------------------------------------------------------------
+  //**/ generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(NOut, XOut);
+  if ((*NOut) == 0) return 0;
+  totPts = (*NOut);
 
-  (*Y2) = new double[totPts];
-  checkAllocate(*Y2, "Y2 in GradLegendre::genNDGridData");
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for the data points and generate them
+  //**/ ---------------------------------------------------------------
+  psVector VecYOut;
+  VecYOut.setLength(totPts);
+  (*YOut) = VecYOut.takeDVector();
 
   for (ss = 0; ss < totPts; ss++)
-    (*Y2)[ss] = evaluatePoint(&((*X2)[ss*nInputs_]));
+    (*YOut)[ss] = evaluatePoint(&((*XOut)[ss*nInputs_]));
   return 0;
 }
 
@@ -147,104 +163,141 @@ int GradLegendreRegression::genNDGridData(double *X, double *Y, int *N2,
 // Generate 1D mesh results (set all other inputs to nominal values)
 // ------------------------------------------------------------------------
 int GradLegendreRegression::gen1DGridData(double *X, double *Y, int ind1,
-                                          double *settings, int *NN, 
-                                          double **XX, double **YY)
+                                          double *settings, int *NOut, 
+                                          double **XOut, double **YOut)
 {
   int    totPts, mm, nn;
-  double HX, *Xloc;
+  double HX;
+  psVector vecXT;
 
-  (*NN) = -999;
-  genNDGridData(X, Y, NN, NULL, NULL);
+  //**/ ---------------------------------------------------------------
+  //**/ create response surface
+  //**/ ---------------------------------------------------------------
+  (*NOut) = -999;
+  genNDGridData(X, Y, NOut, NULL, NULL);
 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
   totPts = nPtsPerDim_;
-  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-  (*NN) = totPts;
-  (*XX) = new double[totPts];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in GradLegendre::gen1DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  psVector VecXOut, VecYOut;
+  VecXOut.setLength(totPts);
+  VecYOut.setLength(totPts);
+  (*XOut) = VecXOut.takeDVector();
+  (*YOut) = VecYOut.takeDVector();
+  (*NOut) = totPts;
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
-    Xloc[ind1] = HX * mm + lowerBounds_[ind1];
-    (*XX)[mm] = Xloc[ind1];
-    (*YY)[mm] = evaluatePoint(Xloc);
+    vecXT[ind1] = HX * mm + VecLBs_[ind1];
+    (*XOut)[mm] = vecXT[ind1];
+    (*YOut)[mm] = evaluatePoint(vecXT.getDVector());
   }
 
-  delete [] Xloc;
+  //**/ ---------------------------------------------------------------
+  //**/ return 
+  //**/ ---------------------------------------------------------------
   return 0;
 }
 
 // ************************************************************************
 // Generate 2D mesh results (set all other inputs to nominal values)
 // ------------------------------------------------------------------------
-int GradLegendreRegression::gen2DGridData(double *X, double *Y, int ind1,
-                                     int ind2, double *settings, int *NN, 
-                                     double **XX, double **YY)
+int GradLegendreRegression::gen2DGridData(double *XIn,double *YIn,int ind1,
+                                     int ind2, double *settings, int *NOut, 
+                                     double **XOut, double **YOut)
 {
-  int    totPts, mm, nn, index;
-  double *HX, *Xloc;
+  int totPts, mm, nn, index;
+  psVector vecHX, vecXT;
 
-  (*NN) = -999;
-  genNDGridData(X, Y, NN, NULL, NULL);
+  //**/ ---------------------------------------------------------------
+  //**/ create response surface
+  //**/ ---------------------------------------------------------------
+  (*NOut) = -999;
+  genNDGridData(XIn, YIn, NOut, NULL, NULL);
 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
 
-  (*NN) = totPts;
-  (*XX) = new double[totPts * 2];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in GradLegendre::gen2DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  psVector VecXOut, VecYOut;
+  VecXOut.setLength(totPts * 2);
+  VecYOut.setLength(totPts);
+  (*XOut) = VecXOut.takeDVector();
+  (*YOut) = VecYOut.takeDVector();
+  (*NOut) = totPts;
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
     for (nn = 0; nn < nPtsPerDim_; nn++)
     {
       index = mm * nPtsPerDim_ + nn;
-      Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-      Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-      (*XX)[index*2]   = Xloc[ind1];
-      (*XX)[index*2+1] = Xloc[ind2];
-      (*YY)[index] = evaluatePoint(Xloc);
+      vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+      vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+      (*XOut)[index*2]   = vecXT[ind1];
+      (*XOut)[index*2+1] = vecXT[ind2];
+      (*YOut)[index] = evaluatePoint(vecXT.getDVector());
     }
   }
 
-  delete [] Xloc;
-  delete [] HX;
+  //**/ ---------------------------------------------------------------
+  //**/ return 
+  //**/ ---------------------------------------------------------------
   return 0;
 }
 
 // ************************************************************************
 // Generate 3D mesh results (setting others to some nominal values) 
 // ------------------------------------------------------------------------
-int GradLegendreRegression::gen3DGridData(double *X, double *Y, int ind1,
-                                      int ind2, int ind3, double *settings, 
-                                      int *NN, double **XX, double **YY)
+int GradLegendreRegression::gen3DGridData(double *XIn,double *YIn,int ind1,
+                                   int ind2, int ind3, double *settings, 
+                                   int *NOut, double **XOut, double **YOut)
 {
-  int    totPts, mm, nn, pp, index;
-  double *HX, *Xloc;
+  int totPts, mm, nn, pp, index;
+  psVector vecHX, vecXT;
 
-  (*NN) = -999;
-  genNDGridData(X, Y, NN, NULL, NULL);
+  //**/ ---------------------------------------------------------------
+  //**/ create response surface
+  //**/ ---------------------------------------------------------------
+  (*NOut) = -999;
+  genNDGridData(XIn, YIn, NOut, NULL, NULL);
 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
 
-  (*NN) = totPts;
-  (*XX) = new double[totPts * 3];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in GradLegendre::gen3DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  psVector VecXOut, VecYOut;
+  VecXOut.setLength(totPts * 3);
+  VecYOut.setLength(totPts);
+  (*XOut) = VecXOut.takeDVector();
+  (*YOut) = VecYOut.takeDVector();
+  (*NOut) = totPts;
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -253,49 +306,61 @@ int GradLegendreRegression::gen3DGridData(double *X, double *Y, int ind1,
       for (pp = 0; pp < nPtsPerDim_; pp++)
       {
         index = mm * nPtsPerDim_ * nPtsPerDim_ + nn * nPtsPerDim_ + pp;
-        Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-        Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-        Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-        (*XX)[index*3]   = Xloc[ind1];
-        (*XX)[index*3+1] = Xloc[ind2];
-        (*XX)[index*3+2] = Xloc[ind3];
-        (*YY)[index] = evaluatePoint(Xloc);
+        vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+        vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+        vecXT[ind3] = vecHX[2] * pp + VecLBs_[ind3];
+        (*XOut)[index*3]   = vecXT[ind1];
+        (*XOut)[index*3+1] = vecXT[ind2];
+        (*XOut)[index*3+2] = vecXT[ind3];
+        (*YOut)[index] = evaluatePoint(vecXT.getDVector());
       }
     }
   }
 
-  delete [] Xloc;
-  delete [] HX;
+  //**/ ---------------------------------------------------------------
+  //**/ return 
+  //**/ ---------------------------------------------------------------
   return 0;
 }
 
 // ************************************************************************
 // Generate 4D mesh results (setting others to some nominal values) 
 // ------------------------------------------------------------------------
-int GradLegendreRegression::gen4DGridData(double *X, double *Y, int ind1, 
+int GradLegendreRegression::gen4DGridData(double *XIn,double *YIn,int ind1, 
                                           int ind2, int ind3, int ind4, 
-                                          double *settings, int *NN, 
-                                          double **XX, double **YY)
+                                          double *settings, int *NOut, 
+                                          double **XOut, double **YOut)
 {
-  int    totPts, mm, nn, pp, qq, index;
-  double *HX, *Xloc;
+  int totPts, mm, nn, pp, qq, index;
+  psVector vecHX, vecXT;
 
-  (*NN) = -999;
-  genNDGridData(X, Y, NN, NULL, NULL);
+  //**/ ---------------------------------------------------------------
+  //**/ create response surface
+  //**/ ---------------------------------------------------------------
+  (*NOut) = -999;
+  genNDGridData(XIn, YIn, NOut, NULL, NULL);
 
+  //**/ ---------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX    = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4]) / (nPtsPerDim_ - 1); 
 
-  (*NN) = totPts;
-  (*XX) = new double[totPts * 4];
-  (*YY) = new double[totPts];
-  Xloc  = new double[nInputs_];
-  checkAllocate(Xloc, "Xloc in GradLegendre::gen4DGridData");
-  for (nn = 0; nn < nInputs_; nn++) Xloc[nn] = settings[nn]; 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for and then generate the data points
+  //**/ ---------------------------------------------------------------
+  psVector VecXOut, VecYOut;
+  VecXOut.setLength(totPts * 4);
+  VecYOut.setLength(totPts);
+  (*XOut) = VecXOut.takeDVector();
+  (*YOut) = VecYOut.takeDVector();
+  (*NOut) = totPts;
+  vecXT.setLength(nInputs_);
+  for (nn = 0; nn < nInputs_; nn++) vecXT[nn] = settings[nn]; 
     
   for (mm = 0; mm < nPtsPerDim_; mm++) 
   {
@@ -307,22 +372,23 @@ int GradLegendreRegression::gen4DGridData(double *X, double *Y, int ind1,
         {
           index = mm*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
                   nn*nPtsPerDim_*nPtsPerDim_ + pp * nPtsPerDim_ + qq;
-          Xloc[ind1] = HX[0] * mm + lowerBounds_[ind1];
-          Xloc[ind2] = HX[1] * nn + lowerBounds_[ind2];
-          Xloc[ind3] = HX[2] * pp + lowerBounds_[ind3];
-          Xloc[ind4] = HX[3] * qq + lowerBounds_[ind4];
-          (*XX)[index*4]   = Xloc[ind1];
-          (*XX)[index*4+1] = Xloc[ind2];
-          (*XX)[index*4+2] = Xloc[ind3];
-          (*XX)[index*4+3] = Xloc[ind4];
-          (*YY)[index] = evaluatePoint(Xloc);
+          vecXT[ind1] = vecHX[0] * mm + VecLBs_[ind1];
+          vecXT[ind2] = vecHX[1] * nn + VecLBs_[ind2];
+          vecXT[ind3] = vecHX[2] * pp + VecLBs_[ind3];
+          vecXT[ind4] = vecHX[3] * qq + VecLBs_[ind4];
+          (*XOut)[index*4]   = vecXT[ind1];
+          (*XOut)[index*4+1] = vecXT[ind2];
+          (*XOut)[index*4+2] = vecXT[ind3];
+          (*XOut)[index*4+3] = vecXT[ind4];
+          (*YOut)[index] = evaluatePoint(vecXT.getDVector());
         }
       }
     }
   }
 
-  delete [] Xloc;
-  delete [] HX;
+  //**/ ---------------------------------------------------------------
+  //**/ return 
+  //**/ ---------------------------------------------------------------
   return 0;
 }
 
@@ -332,18 +398,22 @@ int GradLegendreRegression::gen4DGridData(double *X, double *Y, int ind1,
 double GradLegendreRegression::evaluatePoint(double *X)
 {
   int    ii, nn;
-  double Y, multiplier, **LTable, normalX;
+  double Y, multiplier, normalX;
+  psMatrix MatLTable;
 
-  if (regCoeffs_.length() <= 0)
+  //**/ check to make sure it has been initialized
+  if (VecRegCoeffs_.length() <= 0)
   {
     printf("GradLegendre ERROR: initialize has not been called.\n");
     exit(1);
   }
 
-  LTable = new double*[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
-  checkAllocate(LTable[nInputs_-1], "LTable in GradLegendre::evaluatePoint");
+  //**/ allocate for computing Legendre table 
+  MatLTable.setFormat(PS_MAT2D);
+  MatLTable.setDim(nInputs_, pOrder_+1);
+  double **LTable = MatLTable.getMatrix2D();
 
+  //**/ evaluate Legendre polynomial
   Y = 0.0;
   for (nn = 0; nn < numPerms_; nn++)
   {
@@ -355,20 +425,17 @@ double GradLegendreRegression::evaluatePoint(double *X)
       }
       else
       {
-        normalX = X[ii] - lowerBounds_[ii];
-        normalX /= (upperBounds_[ii] - lowerBounds_[ii]);
+        normalX = X[ii] - VecLBs_[ii];
+        normalX /= (VecUBs_[ii] - VecLBs_[ii]);
         normalX = normalX * 2.0 - 1.0;
         EvalLegendrePolynomials(normalX, LTable[ii]);
       }
     }
     multiplier = 1.0;
     for (ii = 0; ii < nInputs_; ii++)
-      multiplier *= LTable[ii][pcePerms_[nn][ii]];
-    Y += regCoeffs_[nn]* multiplier;
+      multiplier *= LTable[ii][MatPCEPerms_.getEntry(nn,ii)];
+    Y += VecRegCoeffs_[nn]* multiplier;
   }
-
-  for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
-  delete [] LTable;
   return Y;
 }
 
@@ -388,19 +455,23 @@ double GradLegendreRegression::evaluatePoint(int npts, double *X, double *Y)
 double GradLegendreRegression::evaluatePointFuzzy(double *X, double &std)
 {
   int      ii, nn;
-  double   Y, multiplier, **LTable, normalX, stdev, dtmp;
+  double   Y, multiplier, normalX, stdev, dtmp;
   psVector VecXs;
+  psMatrix MatLTable;
 
-  if (regCoeffs_.length() <= 0)
+  //**/ check to make sure it has been initialized
+  if (VecRegCoeffs_.length() <= 0)
   {
     printf("GradLegendre ERROR: initialize has not been called.\n");
     exit(1);
   }
 
-  LTable = new double*[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) LTable[ii] = new double[pOrder_+1];
-  checkAllocate(LTable[nInputs_-1], "LTable in GradLegendre::evaluatePoint");
+  //**/ allocate for computing Legendre table 
+  MatLTable.setFormat(PS_MAT2D);
+  MatLTable.setDim(nInputs_, pOrder_+1);
+  double **LTable = MatLTable.getMatrix2D();
 
+  //**/ evaluate Legendre polynomial
   VecXs.setLength(numPerms_);
   Y = 0.0;
   for (nn = 0; nn < numPerms_; nn++)
@@ -413,29 +484,31 @@ double GradLegendreRegression::evaluatePointFuzzy(double *X, double &std)
       }
       else
       {
-        normalX = X[ii] - lowerBounds_[ii];
-        normalX /= (upperBounds_[ii] - lowerBounds_[ii]);
+        normalX = X[ii] - VecLBs_[ii];
+        normalX /= (VecUBs_[ii] - VecLBs_[ii]);
         normalX = normalX * 2.0 - 1.0;
         EvalLegendrePolynomials(normalX, LTable[ii]);
       }
     }
     multiplier = 1.0;
     for (ii = 0; ii < nInputs_; ii++)
-      multiplier *= LTable[ii][pcePerms_[nn][ii]];
-    Y += regCoeffs_[nn]* multiplier;
+      multiplier *= LTable[ii][MatPCEPerms_.getEntry(nn,ii)];
+    Y += VecRegCoeffs_[nn]* multiplier;
     VecXs[nn] = multiplier;
   }
 
+  //**/ compute standard deviation
   stdev = 0.0;
   for (ii = 0; ii < numPerms_; ii++)
   {
     dtmp = 0.0;
     for (nn = 0; nn < numPerms_; nn++)
-      dtmp += invCovMat_.getEntry(ii,nn) * VecXs[nn];
+      dtmp += MatInvCov_.getEntry(ii,nn) * VecXs[nn];
     stdev += dtmp * VecXs[ii];
   }
   std = sqrt(stdev);
 
+  //**/ clean up
   for (ii = 0; ii < nInputs_; ii++) delete [] LTable[ii];
   delete [] LTable;
   return Y;
@@ -469,7 +542,7 @@ int GradLegendreRegression::analyze(double *Xin, double *Y)
 int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
 {
   int    N, M, ii, mm, nn, wlen, info, NRevised, status, nInps;
-  double SSreg, SStotal, R2, var, esum, ymax, *UU, *VV, *arrayXX;
+  double SSreg, SStotal, R2, var, esum, ymax;
   char   pString[100];
   FILE   *fp;
   pData    pPtr;
@@ -477,6 +550,9 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
   psVector eigVals, VecYY, VecS, VecW, VecB;
   PsuadeData *ioPtr;
 
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
   if (nInputs_ <= 0 || nSamples_ <= 0)
   {
     printf("GradLegendreRegression::analyze ERROR - invalid arguments.\n");
@@ -484,6 +560,9 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
   } 
   GenPermutations();
    
+  //**/ ---------------------------------------------------------------
+  //**/ call regression analysis
+  //**/ ---------------------------------------------------------------
   if (outputLevel_ >= 0)
   {
     printAsterisks(PL_INFO, 0);
@@ -498,8 +577,12 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     printEquals(PL_INFO, 0);
   }
 
-  if (derivSample_ == NULL)
+  //**/ ---------------------------------------------------------------
+  //**/ read derivative file 
+  //**/ ---------------------------------------------------------------
+  if (VecDerivSample_.length() == 0)
   {
+    ioPtr = new PsuadeData();
     status = ioPtr->readPsuadeFile(gradFile_);
     if (status != 0)
     {
@@ -540,9 +623,13 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     delete ioPtr;
   }
 
+  //**/ ==============================================================
+  //**/ VecYY should have the output plus the derivatives
+  //**/ ==============================================================
   double *derivatives;
-  if (derivSample_ == NULL) derivatives = pPtr.dbleArray_;
-  else                      derivatives = derivSample_;
+  if (VecDerivSample_.length() == 0) 
+       derivatives = pPtr.dbleArray_;
+  else derivatives = VecDerivSample_.getDVector();
   M = nSamples_ * (nInputs_ + 1);
   VecYY.setLength(M);
   for (mm = 0; mm < nSamples_; mm++)
@@ -552,15 +639,21 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
       VecYY[mm*(nInputs_+1)+nn+1] = derivatives[mm*nInputs_+nn];
   }
 
+  //**/ ==============================================================
+  //**/ load the A matrix
+  //**/ ==============================================================
   N = loadXMatrix(VecX, MatXX);
   psVector VecA;
   VecA.setLength(M*N);
-  arrayXX = MatXX.getMatrix1D();
+  double *arrayXX = MatXX.getMatrix1D();
   for (mm = 0; mm < M; mm++)
     for (nn = 0; nn < N; nn++) VecA[mm+nn*M] = arrayXX[mm+nn*M];
   MatA.load(M, N, VecA.getDVector());
 
-  if (psRSExpertMode_ == 1 && outputLevel_ > 0)
+  //**/ ==============================================================
+  //**/ diagnostics 
+  //**/ ==============================================================
+  if (psConfig_.RSExpertModeIsOn() && outputLevel_ > 0)
   {
     fp = fopen("Grad_Legendre_regression_matrix.m", "w");
     if(fp == NULL)
@@ -586,6 +679,9 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     printf("Regression matrix written to Grad_Legendre_regression_matrix.m\n");
   }
 
+  //**/ ==============================================================
+  //**/ perform SVD 
+  //**/ ==============================================================
   if (outputLevel_ > 3) printf("Running SVD ...\n");
   info = MatA.computeSVD(MatU, VecS, MatV);
   if (outputLevel_ > 3)
@@ -600,6 +696,9 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     return -1;
   }
 
+  //**/ ==============================================================
+  //**/ eliminate the noise components 
+  //**/ ==============================================================
   if (VecS[0] == 0.0) NRevised = 0;
   else
   {
@@ -615,7 +714,7 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     printf("*                               Try lower order.\n");
     return -1;
   }
-  if (psRSExpertMode_ == 1)
+  if (psConfig_.RSExpertModeIsOn())
   {
     printf("GradLegendreReg: singular values for the Vandermonde matrix\n");
     printf("The VERY small ones may cause poor numerical accuracy,\n");
@@ -640,8 +739,11 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     }
   }
 
+  //**/ ==============================================================
+  //**/ compute B
+  //**/ ==============================================================
   VecW.setLength(M+N);
-  UU = MatU.getMatrix1D();
+  double *UU = MatU.getMatrix1D();
   for (mm = 0; mm < NRevised; mm++)
   {
     VecW[mm] = 0.0;
@@ -650,19 +752,25 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
   for (nn = 0; nn < NRevised; nn++) VecW[nn] /= VecS[nn];
   for (nn = NRevised; nn < N; nn++) VecW[nn] = 0.0;
   VecB.setLength(N);
-  VV = MatV.getMatrix1D();
+  double *VV = MatV.getMatrix1D();
   for (mm = 0; mm < N; mm++)
   {
     VecB[mm] = 0.0;
     for (nn = 0; nn < NRevised; nn++) VecB[mm] += VV[nn+mm*N] * VecW[nn];
   }
 
+  //**/ ==============================================================
+  //**/ store eigenvectors VV and eigenvalues SS^2
+  //**/ ==============================================================
   eigMatT.load(N, N, VV);
   eigVals.load(N, VecS.getDVector());
   for (nn = 0; nn < N; nn++) eigVals[nn] = pow(eigVals[nn], 2.0);
 
+  //**/ ==============================================================
+  //**/ compute residual
+  //**/ ==============================================================
   fp = NULL;
-  if (psMasterMode_ == 1)
+  if (psConfig_.MasterModeIsOn())
   {
     fp = fopen("grad_legendre_regression_err_file.m", "w");
     if(fp == NULL)
@@ -697,8 +805,12 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     printf("FILE grad_legendre_regression_err_file contains data errors\n");
   }
 
+  //**/ ==============================================================
+  //**/ form compute SS statistics 
+  //**/ ==============================================================
   status = computeSS(MatXX, VecYY, VecB, SSreg, SStotal);
   
+  //**/ normal case
   if (status == 0)
   {
     if (SStotal == 0) R2 = 1.0;
@@ -717,6 +829,7 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     }
   }
   else
+  //**/ in case SSreg > SStotal
   {
     if (SStotal == 0) R2 = 1.0;
     else              R2  = 1.0 - SSreg / SStotal;
@@ -728,17 +841,23 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
       else var = 0;
     }
   }
-  regCoeffs_.load(VecB);
+  VecRegCoeffs_.load(VecB);
 
+  //**/ ==============================================================
+  //**/ find variance of each coefficient 
+  //**/ ==============================================================
   computeCoeffVariance(eigMatT, eigVals, var);
   psVector VecBstd;
   VecBstd.setLength(N);
   for (ii = 0; ii < N; ii++)
-    VecBstd[ii] = sqrt(invCovMat_.getEntry(ii,ii));
+    VecBstd[ii] = sqrt(MatInvCov_.getEntry(ii,ii));
 
+  //**/ ==============================================================
+  //**/ print out regression coefficients 
+  //**/ ==============================================================
   if (outputLevel_ >= 0)
   {
-    printRC(VecB, VecBstd, MatXX, VecYY);
+    if (outputLevel_ > 0) printRC(VecB, VecBstd, MatXX, VecYY);
     printf("* Regression R-square = %10.3e\n", R2);
     if (M-N-1 > 0)
       printf("* adjusted   R-square = %10.3e\n",
@@ -746,8 +865,11 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
   }
   printAsterisks(PL_INFO, 0);
 
+  //**/ ==============================================================
+  //**/ create function file 
+  //**/ ==============================================================
   fp = NULL;
-  if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.info", "w");
+  if (psConfig_.RSCodeGenIsOn()) fp = fopen("psuade_rs.info", "w");
   if (fp != NULL)
   {
     fprintf(fp,"/* ***********************************************/\n");
@@ -770,7 +892,7 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     fprintf(fp,"  int    i, iOne=1, nInps;\n");
     fprintf(fp,"  double X[%d], Y, S;\n",nInputs_);
     fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
-    fprintf(fp,"  if (argc != 3) {\n");
+    fprintf(fp,"  if (argc < 3) {\n");
     fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
     fprintf(fp,"     exit(1);\n");
     fprintf(fp,"  }\n");
@@ -811,8 +933,8 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     {
       fprintf(fp,"  {");
       for (ii = 0; ii < nInputs_-1; ii++)
-        fprintf(fp," %d,", pcePerms_[mm][ii]);
-      fprintf(fp," %d },\n", pcePerms_[mm][nInputs_-1]);
+        fprintf(fp," %d,", MatPCEPerms_.getEntry(mm,ii));
+      fprintf(fp," %d },\n", MatPCEPerms_.getEntry(mm,nInputs_-1));
     }
     fprintf(fp,"};\n");
     fprintf(fp,"static double\n");
@@ -822,15 +944,15 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     {
        fprintf(fp,"  {");
        for (ii = 0; ii < numPerms_-1; ii++)
-          fprintf(fp," %24.16e,", invCovMat_.getEntry(mm,ii));
-       fprintf(fp," %24.16e },\n", invCovMat_.getEntry(mm,numPerms_-1));
+          fprintf(fp," %24.16e,", MatInvCov_.getEntry(mm,ii));
+       fprintf(fp," %24.16e },\n", MatInvCov_.getEntry(mm,numPerms_-1));
     }
     fprintf(fp,"};\n");
     fprintf(fp,"static double\n");
     fprintf(fp,"regCoefs[%d] = \n", numPerms_);
     fprintf(fp,"{\n");
     for (mm = 0; mm < numPerms_; mm++)
-      fprintf(fp," %24.16e,", regCoeffs_[mm]);
+      fprintf(fp," %24.16e,", VecRegCoeffs_[mm]);
     fprintf(fp,"};\n");
     fprintf(fp,"/* ==============================================*/\n");
     fprintf(fp,"int interpolate(int npts,double *X,double *Y,double *S){\n");
@@ -851,16 +973,16 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     {
       if (normalizeFlag_ == 0)
       {
-        fprintf(fp,"      normX = X[%d] - %24.16e;\n",ii, XMeans_[ii]);
-        fprintf(fp,"      normX /= %24.16e;\n", XStds_[ii]);
+        fprintf(fp,"      normX = X[%d] - %24.16e;\n",ii, VecXMeans_[ii]);
+        fprintf(fp,"      normX /= %24.16e;\n", VecXStds_[ii]);
         fprintf(fp,"      EvalLegendrePolynomials(normX,LTable[%d]);\n",ii);
       }
       else
       {
         fprintf(fp,"      normX = X[%d] - %24.16e;\n",
-                ii, lowerBounds_[ii]);
+                ii, VecLBs_[ii]);
         fprintf(fp,"      normX /= (%24.16e - %24.16e);\n",
-                upperBounds_[ii], lowerBounds_[ii]);
+                VecUBs_[ii], VecLBs_[ii]);
         fprintf(fp,"      normX = normX * 2.0 - 1.0;\n");
         fprintf(fp,"      EvalLegendrePolynomials(normX,LTable[%d]);\n",
                 ii);
@@ -906,7 +1028,7 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     printf("     the Legendre polynomial.\n");
   }
   fp = NULL;
-  if (psRSCodeGen_ == 1) fp = fopen("psuade_rs.py", "w");
+  if (psConfig_.RSCodeGenIsOn()) fp = fopen("psuade_rs.py", "w");
   if (fp != NULL)
   {
     fwriteRSPythonHeader(fp);
@@ -917,25 +1039,25 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     fprintf(fp,"pcePerms = [\n");
     for (mm = 0; mm < numPerms_; mm++)
     {
-      fprintf(fp," [ %d", pcePerms_[mm][0]);
+      fprintf(fp," [ %d", MatPCEPerms_.getEntry(mm,0));
       for (ii = 1; ii < nInputs_; ii++)
-        fprintf(fp,", %d", pcePerms_[mm][ii]);
+        fprintf(fp,", %d", MatPCEPerms_.getEntry(mm,ii));
       fprintf(fp," ],\n");
     }
     fprintf(fp,"]\n");
     fprintf(fp,"invCovMat = [\n");
     for (mm = 0; mm < numPerms_; mm++)
     {
-      fprintf(fp," [ %24.16e", invCovMat_.getEntry(mm,0));
+      fprintf(fp," [ %24.16e", MatInvCov_.getEntry(mm,0));
       for (nn = 1; nn < numPerms_; nn++)
-        fprintf(fp,", %24.16e", invCovMat_.getEntry(mm,nn));
+        fprintf(fp,", %24.16e", MatInvCov_.getEntry(mm,nn));
       fprintf(fp," ],\n");
     }
     fprintf(fp,"]\n");
     fprintf(fp,"regCoefs = [\n");
     for (mm = 0; mm < numPerms_-1; mm++)
-      fprintf(fp," %24.16e,\n", regCoeffs_[mm]);
-    fprintf(fp," %24.16e ]\n", regCoeffs_[numPerms_-1]);
+      fprintf(fp," %24.16e,\n", VecRegCoeffs_[mm]);
+    fprintf(fp," %24.16e ]\n", VecRegCoeffs_[numPerms_-1]);
     fprintf(fp,"###################################################\n");
     fprintf(fp,"def EvalLegendrePolynomials(X) :\n");
     fprintf(fp,"  LTable = %d * [0.0]\n", pOrder_+1);
@@ -968,15 +1090,15 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
     {
       if (normalizeFlag_ == 0)
       {
-        fprintf(fp,"      x2 = Xt[%d] - %24.16e\n",ii, XMeans_[ii]);
-        fprintf(fp,"      x2 = x2 / %24.16e\n", XStds_[ii]);
+        fprintf(fp,"      x2 = Xt[%d] - %24.16e\n",ii, VecXMeans_[ii]);
+        fprintf(fp,"      x2 = x2 / %24.16e\n", VecXStds_[ii]);
         fprintf(fp,"      LTable = EvalLegendrePolynomials(x2)\n");
       }
       else
       {
-        fprintf(fp,"      x2 = Xt[%d] - %24.16e\n",ii,lowerBounds_[ii]);
+        fprintf(fp,"      x2 = Xt[%d] - %24.16e\n",ii,VecLBs_[ii]);
         fprintf(fp,"      x2 = x2 / (%24.16e - %24.16e)\n",
-                upperBounds_[ii], lowerBounds_[ii]);
+                VecUBs_[ii], VecLBs_[ii]);
         fprintf(fp,"      x2 = x2 * 2.0 - 1.0\n");
         fprintf(fp,"      LTable = EvalLegendrePolynomials(x2)\n");
       }
@@ -1015,12 +1137,16 @@ int GradLegendreRegression::analyze(psVector VecX, psVector VecY)
 int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
 {
   int    M, N=0, ss, ii, kk, nn;
-  double multiplier, **LTable, **DTable, normalX, range;
+  double multiplier, normalX, range;
   psVector VecXX;
+  psMatrix MatLTable, MatDTable;
 
+  //**/ ==============================================================
+  //**/ lower and upper bounds needed for derivatives
+  //**/ ==============================================================
   for (ii = 0; ii < nInputs_; ii++)
   {
-    multiplier = upperBounds_[ii] - lowerBounds_[ii];
+    multiplier = VecUBs_[ii] - VecLBs_[ii];
     if (multiplier == 0.0)
     {
       printf("GradLegendreRegression ERROR: inputs not normalized.\n");
@@ -1028,18 +1154,22 @@ int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
     }
   }
 
+  //**/ ==============================================================
+  //**/ allocating memory for tables
+  //**/ ==============================================================
   M = nSamples_ * (nInputs_ + 1);
   N = numPerms_;
   VecXX.setLength(M*N);
-  LTable = new double*[nInputs_];
-  DTable = new double*[nInputs_];
-  checkAllocate(DTable, "DTable in GradLegendre::loadXMatrix");
-  for (ii = 0; ii < nInputs_; ii++)
-  {
-    LTable[ii] = new double[pOrder_+1];
-    DTable[ii] = new double[pOrder_+1];
-  }
+  MatLTable.setFormat(PS_MAT2D);
+  MatDTable.setFormat(PS_MAT2D);
+  MatLTable.setDim(nInputs_, pOrder_+1);
+  MatDTable.setDim(nInputs_, pOrder_+1);
+  double **LTable = MatLTable.getMatrix2D();
+  double **DTable = MatDTable.getMatrix2D();
 
+  //**/ ==============================================================
+  //**/ filling in the matrix
+  //**/ ==============================================================
   for (ss = 0; ss < nSamples_; ss++)
   {
     for (ii = 0; ii < nInputs_; ii++)
@@ -1047,15 +1177,16 @@ int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
       if (normalizeFlag_ == 0) normalX = VecX[ss*nInputs_+ii]; 
       else
       {
-        normalX = VecX[ss*nInputs_+ii] - lowerBounds_[ii];
-        normalX /= (upperBounds_[ii] - lowerBounds_[ii]);
+        normalX = VecX[ss*nInputs_+ii] - VecLBs_[ii];
+        normalX /= (VecUBs_[ii] - VecLBs_[ii]);
         normalX = normalX * 2.0 - 1.0;
       }
       EvalLegendrePolynomials(normalX, LTable[ii]);
       EvalLegendrePolynomialsDerivative(normalX, DTable[ii]);
+      //**/ why did I insert these lines?? (7/2014)
       if (normalizeFlag_ == 1)
       {
-        range = 2.0 / (upperBounds_[ii] - lowerBounds_[ii]);
+        range = 2.0 / (VecUBs_[ii] - VecLBs_[ii]);
         for (kk = 0; kk < pOrder_+1; kk++) DTable[ii][kk] *= range;
       }
     }
@@ -1063,7 +1194,7 @@ int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
     {
       multiplier = 1.0;
       for (ii = 0; ii < nInputs_; ii++)
-        multiplier *= LTable[ii][pcePerms_[nn][ii]];
+        multiplier *= LTable[ii][MatPCEPerms_.getEntry(nn,ii)];
       VecXX[M*nn+ss*(nInputs_+1)] = multiplier;
     }
     for (kk = 0; kk < nInputs_; kk++)
@@ -1073,8 +1204,9 @@ int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
         multiplier = 1.0;
         for (ii = 0; ii < nInputs_; ii++)
         {
-          if (kk == ii) multiplier *= DTable[ii][pcePerms_[nn][ii]];
-          else          multiplier *= LTable[ii][pcePerms_[nn][ii]];
+          if (kk == ii) 
+               multiplier *= DTable[ii][MatPCEPerms_.getEntry(nn,ii)];
+          else multiplier *= LTable[ii][MatPCEPerms_.getEntry(nn,ii)];
         }
         VecXX[M*nn+ss*(nInputs_+1)+kk+1] = multiplier;
       }
@@ -1082,29 +1214,26 @@ int GradLegendreRegression::loadXMatrix(psVector VecX, psMatrix &MatXX)
   }
   MatXX.setFormat(PS_MAT1D);
   MatXX.load(M, N, VecXX.getDVector());
-
-  for (ii = 0; ii < nInputs_; ii++)
-  {
-    delete [] LTable[ii];
-    delete [] DTable[ii];
-  }
-  delete [] LTable;
-  delete [] DTable;
   return N;
 }
 
 // *************************************************************************
 // compute SS (sum of squares) statistics
+//**/ SSred = (Y - Xb)' W (Y - Xb)
+//**/       = Y' W Y - 2 b 'X W 'Y + b' X' W X b
+//**/       = Y' W Y - 2 b' X' W Y + b' X' W Y  (since X'WXb=X'WY)
+//**/       = Y' W Y - b' X' W Y = (Y - Xb)' W Y
+//**/ SStot = Y' W Y - N * (mean (W^(1/2) Y))^2
 // -------------------------------------------------------------------------
 int GradLegendreRegression::computeSS(psMatrix MatXX, psVector VecY,
                                       psVector VecB, double &SSreg, 
                                       double &SStotal)
 {
   int    nn, mm, M, N;
-  double ymean, SSresid, SSresidCheck, ddata, rdata, *arrayXX;
+  double ymean, SSresid, SSresidCheck, ddata, rdata;
                                                                                
   N = VecB.length();
-  arrayXX = MatXX.getMatrix1D();
+  double *arrayXX = MatXX.getMatrix1D();
   M = nSamples_ * (nInputs_ + 1);
   SSresid = SSresidCheck = SStotal = ymean = SSreg = 0.0;
   for (mm = 0; mm < M; mm++) ymean += VecY[mm];
@@ -1146,6 +1275,7 @@ int GradLegendreRegression::computeCoeffVariance(psMatrix &eigMatT,
   nRows = eigMatT.nrows();
   tMat.setDim(nRows, nRows);
 
+  //**/ compute var * V S^{-2}
   for (ii = 0; ii < nRows; ii++)
   {
     invEig = eigVals[ii];
@@ -1156,7 +1286,8 @@ int GradLegendreRegression::computeCoeffVariance(psMatrix &eigMatT,
       tMat.setEntry(jj, ii, dtmp);
     }
   }
-  eigMatT.matmult(tMat, invCovMat_);
+  //**/ compute var V * S^{-2} * V^T 
+  tMat.matmult(eigMatT, MatInvCov_);
   return 0;
 }
 
@@ -1172,7 +1303,10 @@ int GradLegendreRegression::printRC(psVector VecB, psVector VecBstd,
 
   maxTerms = 0;
   for (ii = 0; ii < numPerms_; ii++) 
-    if (pcePerms_[ii][0] > maxTerms) maxTerms = pcePerms_[ii][0];
+  {
+    kk = MatPCEPerms_.getEntry(ii, 0); 
+    if (kk > maxTerms) maxTerms = kk;
+  }
 
   printEquals(PL_INFO, 0);
   if (normalizeFlag_ == 1)
@@ -1182,22 +1316,25 @@ int GradLegendreRegression::printRC(psVector VecB, psVector VecBstd,
   for (ii = 0; ii < nInputs_; ii++) printf("     ");
   printf("               coefficient  std. error  t-value\n");
 
+  //**/ --------- print out the linear coefficients --------------
   for (ii = 0; ii < numPerms_; ii++)
   {
     if (PABS(VecBstd[ii]) < 1.0e-15) coef = 0.0;
     else                             coef = VecB[ii] / VecBstd[ii]; 
+//**/ if (PABS(coef) > 1.0)
     {
       printf("* Input orders: ");
       for (jj = 0; jj < nInputs_; jj++)
-        printf(" %4d ", pcePerms_[ii][jj]);
+        printf(" %4d ", MatPCEPerms_.getEntry(ii,jj));
       printf("= %11.3e %11.3e %11.3e\n", VecB[ii], VecBstd[ii], coef);
     }
   }
+  //**/ --------- print out partial variances --------------
   flag = 1;
   for (ii = 0; ii < nInputs_; ii++)
-    if (upperBounds_[ii] != 1.0) flag = 0;
+    if (VecUBs_[ii] != 1.0) flag = 0;
   for (ii = 0; ii < nInputs_; ii++)
-    if (lowerBounds_[ii] != -1.0) flag = 0;
+    if (VecLBs_[ii] != -1.0) flag = 0;
   if (normalizeFlag_ == 1 || flag == 1)
   {
     printDashes(PL_INFO, 0);
@@ -1207,7 +1344,7 @@ int GradLegendreRegression::printRC(psVector VecB, psVector VecBstd,
     {
       ddata = VecB[jj];
       for (kk = 0; kk < nInputs_; kk++)
-        ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
+        ddata /= sqrt(1.0+MatPCEPerms_.getEntry(jj,kk)*2); 
       coef = coef + ddata * ddata;
     }
     printf("* Variance = %12.4e\n", coef);
@@ -1222,12 +1359,12 @@ int GradLegendreRegression::printRC(psVector VecB, psVector VecBstd,
       {
         flag = 1;
         for (kk = 0; kk < nInputs_; kk++)
-          if (kk != ii && pcePerms_[jj][kk] != 0) flag = 0;
+          if (kk != ii && MatPCEPerms_.getEntry(jj,kk) != 0) flag = 0;
         if (flag == 1)
         {
           ddata = VecB[jj];
           for (kk = 0; kk < nInputs_; kk++)
-            ddata /= sqrt(1.0+pcePerms_[jj][kk]*2); 
+            ddata /= sqrt(1.0+MatPCEPerms_.getEntry(jj,kk)*2); 
           coef = coef + ddata * ddata;
         }
       }
@@ -1256,6 +1393,7 @@ int GradLegendreRegression::GenPermutations()
   int  ii, kk, orderTmp, rvTmp, M;
   char pString[500];
 
+  //**/ search for maximum order
   M = nSamples_ * (nInputs_ + 1);
   if (pOrder_ <= 0)
   {
@@ -1295,29 +1433,31 @@ int GradLegendreRegression::GenPermutations()
   printf("* GradLegendreRegression: order of polynomials   = %d\n", pOrder_);
   printf("* GradLegendreRegression: number of permutations = %d\n",numPerms_);
    
-  pcePerms_ = new int*[numPerms_];
-  for (ii = 0; ii < numPerms_; ii++) pcePerms_[ii] = new int[nInputs_];
-  checkAllocate(pcePerms_[numPerms_-1],
-                "pcePerms in GradLegendre::genPermutations");
+  //**/ construct the permutations
+  MatPCEPerms_.setFormat(PS_MAT2D);
+  MatPCEPerms_.setDim(numPerms_, nInputs_);
 
   numPerms_ = 0;
   for (kk = 0; kk <= pOrder_; kk++)
   {
     orderTmp = kk;
     rvTmp = 0;
-    pcePerms_[numPerms_][0] = orderTmp;
-    for (ii = 1; ii < nInputs_; ii++) pcePerms_[numPerms_][ii] = 0;
-    while (pcePerms_[numPerms_][nInputs_-1] != kk)
+    MatPCEPerms_.setEntry(numPerms_, 0, orderTmp);
+    for (ii = 1; ii < nInputs_; ii++) 
+      MatPCEPerms_.setEntry(numPerms_, ii, 0);
+    while (MatPCEPerms_.getEntry(numPerms_, nInputs_-1) != kk)
     {
       numPerms_++;
       for (ii = 0; ii < nInputs_; ii++)
-        pcePerms_[numPerms_][ii] = pcePerms_[numPerms_-1][ii];
+        MatPCEPerms_.setEntry(numPerms_, ii, 
+                              MatPCEPerms_.getEntry(numPerms_-1, ii)); 
       if (orderTmp > 1) rvTmp = 1;
       else              rvTmp++;
-      pcePerms_[numPerms_][rvTmp-1] = 0;
-      orderTmp = pcePerms_[numPerms_-1][rvTmp-1];
-      pcePerms_[numPerms_][0] = orderTmp - 1;
-      pcePerms_[numPerms_][rvTmp] = pcePerms_[numPerms_-1][rvTmp] + 1;
+      MatPCEPerms_.setEntry(numPerms_, rvTmp-1, 0);
+      orderTmp = MatPCEPerms_.getEntry(numPerms_-1, rvTmp-1);
+      MatPCEPerms_.setEntry(numPerms_, 0, orderTmp-1);
+      MatPCEPerms_.setEntry(numPerms_, rvTmp, 
+                        MatPCEPerms_.getEntry(numPerms_-1, rvTmp)+1); 
     }
     numPerms_++;
   }
@@ -1338,6 +1478,10 @@ int GradLegendreRegression::EvalLegendrePolynomials(double X, double *LTable)
       LTable[ii] = ((2 * ii - 1) * X * LTable[ii-1] -
                     (ii - 1) * LTable[ii-2]) / ii;
   }
+  //**/ do not normalize (the Legendre form is harder to recognize)
+  //**/ should use this instead of sqrt(0.5+2*ii) since
+  //**/ need to compute 1/2 int phi_i^2 dx
+  //**/for (ii = 0; ii <= pOrder_; ii++) LTable[ii] *= sqrt(1.0+2.0*ii);
   return 0;
 }
 
@@ -1357,6 +1501,10 @@ int GradLegendreRegression::EvalLegendrePolynomialsDerivative(double X,
       DTable[ii] = ((2 * ii - 1) * X * DTable[ii-1] -
                     ii * DTable[ii-2]) / (ii - 1.0);
   }
+  //**/ do not normalize (the Legendre form is harder to recognize)
+  //**/ should use this instead of sqrt(0.5+2*ii) since
+  //**/ need to compute 1/2 int phi_i^2 dx
+  //**/for (ii = 0; ii <= pOrder_; ii++) DTable[ii] *= sqrt(1.0+2.0*ii);
   return 0;
 }
 
@@ -1386,7 +1534,15 @@ double GradLegendreRegression::setParams(int targc, char **targv)
   }
   else if (targc == 2 && !strcmp(targv[0], "deriv_sample"))
   {
-    derivSample_ = (double *) targv[1];
+    int    length = *(int *) targv[1];
+    double *derivSample = (double *) targv[2];
+    if (length <= 0)
+    {
+      printf("LegendreRegression setParams ERROR: \n");
+      printf("                   invalid derivative sample.\n");
+      return -1;
+    }
+    VecDerivSample_.load(length, derivSample);
   }
   else
   {

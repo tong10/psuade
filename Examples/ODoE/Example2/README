@@ -1,0 +1,11 @@
+This directory contains the usage information for
+- odoe_pv (use GP to estimate prediction variances)
+- odoe_dmetric (use inputs of a sample) 
+- odoe_ametric (use inputs of a sample)
+- odoe_entropy (use inputs of a sample)
+
+For odoe_pv, follow steps in psScriptpv.in
+
+For the others, follow steps in psScriptADE.in
+
+

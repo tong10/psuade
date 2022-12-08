@@ -1,0 +1,24 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable   1 X1 = 0  1
+   variable   2 X2 = 0  1
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 100
+   randomize
+   random_seed = 13495037
+END
+APPLICATION
+   driver = NONE
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

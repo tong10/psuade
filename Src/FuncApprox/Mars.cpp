@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 #include "Mars.h"
 #include "sysdef.h"
@@ -56,70 +57,56 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
   int  ss, ii;
   char pString[501], *cString, winput1[500], winput2[500];
 
+  //**/ ----------------------------------------------------------------
+  //**/ set identifier
+  //**/ ----------------------------------------------------------------
   faID_ = PSUADE_RS_MARS;
 
+  //**/ ----------------------------------------------------------------
+  //**/ default number of basis functions
+  //**/ nBasisFcns_ = nSamples;
+  //**/ ----------------------------------------------------------------
   nBasisFcns_ = 100;
   if (nBasisFcns_ > nSamples) nBasisFcns_ = nSamples - 1;
 
+  //**/ ----------------------------------------------------------------
+  //**/ default interaction = maximum
+  //**/ ----------------------------------------------------------------
   if (nInputs >= 8) maxVarPerBasis_ = 8;
   else              maxVarPerBasis_ = nInputs;
 
-  varFlags_ = new int[nInputs];
-  checkAllocate(varFlags_, "varFlags in Mars");
+  //**/ ----------------------------------------------------------------
+  //**/ display banner
+  //**/ ----------------------------------------------------------------
+  if (psConfig_.InteractiveIsOn())
+  { 
+    printAsterisks(PL_INFO, 0);
+    printOutTS(PL_INFO,
+         "*           MARS Model\n");
+    printOutTS(PL_INFO,
+         "* Default number of basis functions = %d\n",nBasisFcns_);
+    printOutTS(PL_INFO,
+         "* Default degree of interactions    = %d\n",maxVarPerBasis_);
+    printEquals(PL_INFO, 0);
+  }
+
+  //**/ ----------------------------------------------------------------
+  //**/ declare all being ordinal variable and no restrictions
+  //**/ 1 : ordinal variable - no restrictions
+  //**/ 0 : ordinal variable - exclude from model
+  //**/ -1 : categorical variable - no restrictions
+  //**/ ----------------------------------------------------------------
+  varFlags_.setLength(nInputs);
   for (ii = 0; ii < nInputs; ii++) varFlags_[ii] = 1;
-  for (ii = 0; ii < nSamples_; ii++) weights_[ii] = 1000.0;
+  for (ii = 0; ii < nSamples_; ii++) VecWghts_[ii] = 1.0;
   chooseWght_ = 0;
   normalizeY_ = 0;
 
-  if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-  {
-    cString = psConfig_->getParameter("MARS_num_bases");
-    if (cString != NULL)
-    {
-      sscanf(cString, "%s %s %d", winput1, winput2, &ii);
-      if (ii < 10 || ii > nSamples)
-      {
-        printOutTS(PL_INFO,
-             "Mars INFO: nbasis from config file not valid.\n");
-        printOutTS(PL_INFO,
-             "           nbasis kept at %d.\n", nBasisFcns_);
-      }
-      else 
-      {
-        nBasisFcns_ = ii;
-        printOutTS(PL_INFO,
-             "Mars INFO: number of basis set to %d (config).\n",
-             nBasisFcns_);
-      }
-    }
-    cString = psConfig_->getParameter("MARS_interaction");
-    if (cString != NULL)
-    {
-      sscanf(cString, "%s %s %d", winput1, winput2, &ii);
-      if (ii > nInputs || ii < 1)
-      {
-        printOutTS(PL_INFO,
-             "Mars INFO: interaction from config file not valid.\n");
-        printOutTS(PL_INFO,
-             "           interaction kept at %d.\n", maxVarPerBasis_);
-      }
-      else 
-      {
-        maxVarPerBasis_ = ii;
-        printOutTS(PL_INFO,
-             "Mars INFO: interaction set to %d (config).\n", 
-             maxVarPerBasis_);
-      }
-    }
-    cString = psConfig_->getParameter("normalize_outputs");
-    if (cString != NULL) 
-    {
-      printf("Mars INFO: output to be normalized.\n");
-      normalizeY_ = 1;
-    }
-  }
-
-  if (psRSExpertMode_ == 1 && isScreenDumpModeOn() == 1)
+  //**/ ----------------------------------------------------------------
+  //**/ change Mars parameters (in expert mode only)
+  //**/ (Note: during CV, both rs_expert and interactive are turned off)
+  //**/ ----------------------------------------------------------------
+  if (psConfig_.RSExpertModeIsOn() && psConfig_.InteractiveIsOn())
   {
     printOutTS(PL_INFO,
          "Mars: Current number of basis functions = %d\n", nBasisFcns_);
@@ -142,13 +129,81 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     sprintf(pString, "Mars: normalize output? (y or n) ");
     getString(pString, winput2);
     if (winput2[0] == 'y') normalizeY_ = 1;
+    //**/================================================================
+    //**/ July 2013 : almost never get used ==> disabled
+    //**/printf("Mars: current weight of each sample point is set to 1.\n");
+    //**/printf("      Other option (1) is to set weight = abs(output)\n");
+    //**/sprintf(pString, "Change to option (1) ? (1 - yes, 0 - no) ");
+    //**/chooseWght_ = getInt(0, 1, pString);
+    //**/================================================================
+    sprintf(pString, "MARS_num_bases = %d", nBasisFcns_);
+    psConfig_.putParameter(pString);
+    sprintf(pString, "MARS_interaction = %d", maxVarPerBasis_);
+    psConfig_.putParameter(pString);
+    if (normalizeY_ == 1)
+    {
+      sprintf(pString, "normalize_outputs");
+      psConfig_.putParameter(pString);
+    }
+  }
+  else
+  {
+    //**/ --------------------------------------------------------------
+    //**/ see if parameter available from config file, read them
+    //**/ (only if rs expert mode is off)
+    //**/ --------------------------------------------------------------
+    cString = psConfig_.getParameter("MARS_num_bases");
+    if (cString != NULL)
+    {
+      sscanf(cString, "%s %s %d", winput1, winput2, &ii);
+      if (ii < 10 || ii > nSamples)
+      {
+        printOutTS(PL_INFO,
+             "Mars INFO: nbasis from config file not valid.\n");
+        printOutTS(PL_INFO,
+             "           nbasis kept at %d.\n", nBasisFcns_);
+      }
+      else 
+      {
+        nBasisFcns_ = ii;
+        printOutTS(PL_INFO,
+             "Mars INFO: number of basis set to %d (config).\n",
+             nBasisFcns_);
+      }
+    }
+    cString = psConfig_.getParameter("MARS_interaction");
+    if (cString != NULL)
+    {
+      sscanf(cString, "%s %s %d", winput1, winput2, &ii);
+      if (ii > nInputs || ii < 1)
+      {
+        printOutTS(PL_INFO,
+             "Mars INFO: interaction from config file not valid.\n");
+        printOutTS(PL_INFO,
+             "           interaction kept at %d.\n", maxVarPerBasis_);
+      }
+      else 
+      {
+        maxVarPerBasis_ = ii;
+        printOutTS(PL_INFO,
+             "Mars INFO: interaction set to %d (config).\n", 
+             maxVarPerBasis_);
+      }
+    }
+    cString = psConfig_.getParameter("normalize_outputs");
+    if (cString != NULL) 
+    {
+      printf("Mars INFO: output to be normalized.\n");
+      normalizeY_ = 1;
+    }
   }
 
-  wgts_ = new float[nSamples];
-  checkAllocate(wgts_, "wgts in Mars");
-  for (ss = 0; ss < nSamples; ss++) wgts_[ss] = 1.0;
-  fm_ = NULL;
-  im_ = NULL;
+  //**/ ----------------------------------------------------------------
+  //**/ default MARS weight for each variable = 1.0
+  //**/ ----------------------------------------------------------------
+  marsWghts_.setLength(nSamples);
+  for (ss = 0; ss < nSamples; ss++) marsWghts_[ss] = 1.0;
+  //**/ this variable is used to turn off rsgen for bootstrapped MARS
   noGen_ = 0;
 #else
   printf("PSUADE ERROR : Mars not installed.\n");
@@ -161,10 +216,6 @@ Mars::Mars(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 // ------------------------------------------------------------------------
 Mars::~Mars()
 {
-  if (wgts_     != NULL) delete [] wgts_;
-  if (varFlags_ != NULL) delete [] varFlags_;
-  if (fm_       != NULL) delete [] fm_;
-  if (im_       != NULL) delete [] im_;
 }
 
 // ************************************************************************
@@ -174,80 +225,1100 @@ int Mars::initialize(double *XIn, double *YIn)
 {
 #ifdef HAVE_MARS
   int    length, ss, ii, nsm, nin, nfm, nim, errflag, count;
-  double **X, *XX, *Y, dmean, dstd;
-  char   *cStr, pString[500], line[1001], *cString;
-  char   word[501], equal[101];
+  double dmean, dstd;
+  char   *cStr, pString[500], line[1001], *cString, word[501], equal[101];
   FILE   *fp=NULL;
+  psVector vecXT, vecMarsY;
+  psMatrix matX2D;
 
-  XX = new double[nSamples_*nInputs_];
-  checkAllocate(XX, "XX in Mars::initialize");
-  initInputScaling(XIn, XX, 1);
-  Y = new double[nSamples_];
-  checkAllocate(Y, "Y in Mars::initialize");
+  //**/ ----------------------------------------------------------------
+  //**/ check for repeated points
+  //**/ ----------------------------------------------------------------
+  //**/ Cannot use because it will screw up MarsBag
+  //**/errflag = checkRepeatedSamplePts(nSamples_,nInputs_,XIn);
+  //**/if (errflag != 0)
+  //**/{
+  //**/printf("ERROR: The current MARS setup does not allow samples with\n");
+  //**/printf("repeated sample points. Please fix it and run again.\n"); 
+  //**/exit(1);
+  //**/}
+
+  //**/ ----------------------------------------------------------------
+  //**/ prescale
+  //**/ ----------------------------------------------------------------
+  vecXT.setLength(nSamples_*nInputs_);
+  initInputScaling(XIn, vecXT.getDVector(), 1);
+  vecMarsY.setLength(nSamples_);
   if (normalizeY_ == 1)
-  {
-    initOutputScaling(YIn, Y);
-  }
-  else
-  {
-    for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-    YMean_ = 0.0;
-    YStd_ = 1.0;
-  }
+       initOutputScaling(YIn, vecMarsY.getDVector());
+  else vecMarsY.load(nSamples_, YIn);
    
-  if (fm_ != NULL) delete [] fm_;
-  if (im_ != NULL) delete [] im_;
+  //**/ ----------------------------------------------------------------
+  //**/ set MARS parameters
+  //**/ ----------------------------------------------------------------
   length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_+ 6) +
            2 * nInputs_ + nSamples_ * nInputs_;
-  fm_    = new float[length];
-  checkAllocate(fm_, "fm in Mars::initialize");
+  fm_.setLength(length);
   for (ii = 0; ii < length; ii++) fm_[ii] = PSUADE_UNDEFINED;
   length = 21 + nBasisFcns_ * (3 * maxVarPerBasis_ + 8);
-  im_    = new int[length];
-  checkAllocate(im_, "im in Mars::initialize");
+  im_.setLength(length);
   for (ii = 0; ii < length; ii++) im_[ii] = -9999;
   if (chooseWght_ == 1)
   {
     for (ss = 0; ss < nSamples_; ss++)
     {
-      if (PABS(Y[ss]) < 1.0e-12) wgts_[ss] = 1.0;
-      else                       wgts_[ss] = (float) PABS(Y[ss]);
+      if (PABS(vecMarsY[ss]) < 1.0e-12) marsWghts_[ss] = 1.0;
+      else marsWghts_[ss] = (float) PABS(vecMarsY[ss]);
     }
   }
   else
   {
-    for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
+    for (ss = 0; ss < nSamples_; ss++) 
+      marsWghts_[ss] = (float) VecWghts_[ss];
   }
 
-  X = new double*[nSamples_];
-  for (ss = 0; ss < nSamples_; ss++) X[ss] = new double[nInputs_];
-  checkAllocate(X[nSamples_-1], "X in Mars::initialize");
+  //**/ ----------------------------------------------------------------
+  //**/ call Mars to process the sample data
+  //**/ ----------------------------------------------------------------
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(nSamples_, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
   for (ss = 0; ss < nSamples_; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) X[ss][ii] = XX[ss*nInputs_+ii];
-  delete [] XX;
+    for (ii = 0; ii < nInputs_; ii++)
+      MX2D[ss][ii] = vecXT[ss*nInputs_+ii];
 
   if (outputLevel_ >= 2) 
     printOutTS(PL_INFO,"Mars: nBasis,maxVarPerBasis,nSamples = %d %d %d\n", 
          nBasisFcns_, maxVarPerBasis_, nSamples_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn() || nSamples_ < 10)
   {
     printf("Entering Mars (process)\n");
     printf("If it crashes here, it is mars_process problem.\n");
     printf("One way to solve the problem is to use different nSamples.\n");
   }
-  mars_process(nSamples_, nInputs_, X, Y, wgts_, nBasisFcns_,
-               maxVarPerBasis_, varFlags_, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1) 
+  mars_process(nSamples_, nInputs_, MX2D, vecMarsY.getDVector(), 
+               marsWghts_.getFVector(), nBasisFcns_, maxVarPerBasis_, 
+               varFlags_.getIVector(), fm_.getFVector(), im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn()) 
     printOutTS(PL_INFO,"Returned from Mars (process).\n");
-  for (ss = 0; ss < nSamples_; ss++) delete [] X[ss];
-  delete [] X;
 
-  if (noGen_ == 1 || psRSCodeGen_ == 0) return 0;
-  fp = fopen("psuade_rs.info", "w");
+  //**/ ----------------------------------------------------------------
+  //**/ store response surface information
+  //**/ ----------------------------------------------------------------
+  if (noGen_ == 1 || (!psConfig_.RSCodeGenIsOn())) return 0;
+  genRSCode();
+  return 0;
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+  return -1;
+#endif
+}
+
+// ************************************************************************
+// Generate results for display
+// ------------------------------------------------------------------------
+int Mars::genNDGridData(double *XIn, double *YIn, int *NOut, double **XOut, 
+                        double **YOut)
+{
+#ifdef HAVE_MARS
+  int    totPts, ss, ii;
+  psVector vecHX, vecXT;
+  psMatrix matX2D;
+
+  //**/ ----------------------------------------------------------------
+  //**/ call initialize 
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999) return 0;
+  
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_;
+  for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
+  vecHX.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++) 
+    vecHX[ii] = (VecUBs_[ii]-VecLBs_[ii])/(double) (nPtsPerDim_-1); 
+ 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(nInputs_*totPts);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector(); 
+  (*YOut) = vecYOut.takeDVector(); 
+  (*NOut) = totPts;
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(totPts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  vecXT.setLength(nInputs_);
+ 
+  //**/ ----------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nInputs_; ii++) vecXT[ii] = VecLBs_[ii];
+  for (ss = 0; ss < totPts; ss++)
+  {
+    for (ii = 0; ii < nInputs_; ii++ ) MX2D[ss][ii] = vecXT[ii];
+    for (ii = 0; ii < nInputs_; ii++ ) 
+    {
+      vecXT[ii] += vecHX[ii];
+      if (vecXT[ii] < VecUBs_[ii] || 
+           PABS(vecXT[ii] - VecUBs_[ii]) < 1.0E-7) break;
+      else vecXT[ii] = VecLBs_[ii];
+    }
+  }
+ 
+  //**/ normalize the inputs
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    for (ss = 0; ss < totPts; ss++)
+      MX2D[ss][ii] = (MX2D[ss][ii]-VecXMeans_[ii])/VecXStds_[ii];
+  } 
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+  {
+    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
+  }
+  mars_fmod(totPts,nInputs_,MX2D,*YOut,fm_.getFVector(),
+            im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn()) 
+    printf("Returned from Mars (fmod).\n");
+
+  //**/ ----------------------------------------------------------------
+  //**/ reverse normalize the outputs
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < totPts; ii++)
+     (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+  return -1;
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// Generate results for display
+// ------------------------------------------------------------------------
+int Mars::gen1DGridData(double *XIn, double *YIn, int ind1, 
+                        double *settings, int *NOut, double **XOut, 
+                        double **YOut)
+{
+#ifdef HAVE_MARS
+  int    ss, ii, totPts;
+  double HX;
+  psMatrix matX2D;
+
+  //**/ ----------------------------------------------------------------
+  //**/ call initialize 
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999) return 0;
+  
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_;
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+
+  //**/ allocate storage for the data points
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(totPts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ss = 0; ss < totPts; ss++) 
+  {
+    for (ii = 0; ii < nInputs_; ii++)
+    {
+      MX2D[ss][ii] = settings[ii]; 
+      MX2D[ss][ii] = (MX2D[ss][ii] - VecXMeans_[ii])/VecXStds_[ii];
+    }
+  }
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector(); 
+  (*YOut) = vecYOut.takeDVector(); 
+  (*NOut) = totPts;
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ----------------------------------------------------------------
+  for (ss = 0; ss < totPts; ss++) 
+  {
+    MX2D[ss][ind1] = HX * ss + VecLBs_[ind1];
+    MX2D[ss][ind1] = (MX2D[ss][ind1] - VecXMeans_[ind1]) / 
+                      VecXStds_[ind1];
+    (*XOut)[ss] = HX * ss + VecLBs_[ind1];
+    (*YOut)[ss] = 0.0;
+  }
+
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+  {
+    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
+  }
+  mars_fmod(totPts, nInputs_, MX2D, *YOut, fm_.getFVector(), 
+            im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn()) 
+    printf("Returned from Mars (fmod).\n");
+ 
+  //**/ ----------------------------------------------------------------
+  //**/ reverse normalize the outputs
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+  return -1;
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// Generate results for display
+// ------------------------------------------------------------------------
+int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
+                        double *settings, int *NOut, double **XOut, 
+                        double **YOut)
+{
+#ifdef HAVE_MARS
+  int    ss, ii, jj, totPts, index;
+  psVector vecHX;
+  psMatrix matX2D;
+
+  //**/ ----------------------------------------------------------------
+  //**/ call initialize 
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999) return 0;
+ 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1]-VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2]-VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(totPts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ss = 0; ss < totPts; ss++) 
+  {
+    for (ii = 0; ii < nInputs_; ii++)
+    {
+      MX2D[ss][ii] = settings[ii]; 
+      MX2D[ss][ii] = (MX2D[ss][ii] - VecXMeans_[ii]) / 
+                      VecXStds_[ii];
+    }
+  }
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*2);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector(); 
+  (*YOut) = vecYOut.takeDVector(); 
+  (*NOut) = totPts;
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++)
+    {
+      index = ii * nPtsPerDim_ + jj;
+      MX2D[index][ind1] = vecHX[0] * ii + VecLBs_[ind1];
+      MX2D[index][ind1] = (MX2D[index][ind1] - VecXMeans_[ind1]) / 
+                           VecXStds_[ind1];
+      MX2D[index][ind2] = vecHX[1] * jj + VecLBs_[ind2];
+      MX2D[index][ind2] = (MX2D[index][ind2] - VecXMeans_[ind2]) /
+                           VecXStds_[ind2];
+      (*XOut)[index*2]   = vecHX[0] * ii + VecLBs_[ind1];
+      (*XOut)[index*2+1] = vecHX[1] * jj + VecLBs_[ind2];
+    }
+  }
+
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn()) 
+  {
+    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
+  }
+  mars_fmod(totPts, nInputs_, MX2D, *YOut, fm_.getFVector(), 
+            im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+    printf("Returned from Mars (fmod).\n");
+  
+  //**/ ----------------------------------------------------------------
+  //**/ reverse normalize the outputs
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+  return -1;
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// Generate 3D results for display
+// ------------------------------------------------------------------------
+int Mars::gen3DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
+                        double *settings,int *NOut, double **XOut, 
+                        double **YOut)
+{
+#ifdef HAVE_MARS
+  int    ss, ii, jj, ll, totPts, index;
+  psVector vecHX;
+  psMatrix matX2D;
+
+  //**/ ----------------------------------------------------------------
+  //**/ call initialize 
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999) return 0;
+ 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1]-VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2]-VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3]-VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
+
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(totPts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ss = 0; ss < totPts; ss++) 
+    for (ii = 0; ii < nInputs_; ii++) MX2D[ss][ii] = settings[ii]; 
+
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*3);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector(); 
+  (*YOut) = vecYOut.takeDVector(); 
+  (*NOut) = totPts;
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++)
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++)
+      {
+        index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
+        MX2D[index][ind1] = vecHX[0] * ii + VecLBs_[ind1];
+        MX2D[index][ind1] = (MX2D[index][ind1] - VecXMeans_[ind1]) / 
+                             VecXStds_[ind1];
+        MX2D[index][ind2] = vecHX[1] * jj + VecLBs_[ind2];
+        MX2D[index][ind2] = (MX2D[index][ind2] - VecXMeans_[ind2]) / 
+                             VecXStds_[ind2];
+        MX2D[index][ind3] = vecHX[2] * ll + VecLBs_[ind3];
+        MX2D[index][ind3] = (MX2D[index][ind3] - VecXMeans_[ind3]) / 
+                             VecXStds_[ind3];
+        (*XOut)[index*3]   = vecHX[0] * ii + VecLBs_[ind1];
+        (*XOut)[index*3+1] = vecHX[1] * jj + VecLBs_[ind2];
+        (*XOut)[index*3+2] = vecHX[2] * ll + VecLBs_[ind3];
+      }
+    }
+  }
+
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+  {
+    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
+  }
+  mars_fmod(totPts, nInputs_, MX2D, *YOut, fm_.getFVector(), 
+            im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+    printOutTS(PL_INFO,"Returned from Mars (fmod).\n");
+
+  //**/ ----------------------------------------------------------------
+  //**/ reverse normalize the outputs
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+  return -1;
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// Generate 4D results for display
+// ------------------------------------------------------------------------
+int Mars::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
+                        int ind4, double *settings, int *NOut, 
+                        double **XOut, double **YOut)
+{
+#ifdef HAVE_MARS
+  int    ss, ii, jj, ll, mm, totPts, index;
+  psVector vecHX;
+  psMatrix matX2D;
+
+  //**/ ----------------------------------------------------------------
+  //**/ call initialize 
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999) 
+  {
+    (*XOut) = NULL;
+    (*YOut) = NULL;
+    return 0;
+  }
+  
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1]-VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2]-VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3]-VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4]-VecLBs_[ind4]) / (nPtsPerDim_ - 1); 
+
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(totPts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ss = 0; ss < totPts; ss++) 
+    for (ii = 0; ii < nInputs_; ii++) MX2D[ss][ii] = settings[ii]; 
+
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*4);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector(); 
+  (*YOut) = vecYOut.takeDVector(); 
+  (*NOut) = totPts;
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++)
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++)
+      {
+        for (mm = 0; mm < nPtsPerDim_; mm++)
+        {
+          index = ii*nPtsPerDim_*nPtsPerDim_ * nPtsPerDim_ +
+                  jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
+          MX2D[index][ind1] = vecHX[0] * ii + VecLBs_[ind1];
+          MX2D[index][ind1] = (MX2D[index][ind1]-VecXMeans_[ind1])/
+                               VecXStds_[ind1];
+          MX2D[index][ind2] = vecHX[1] * jj + VecLBs_[ind2];
+          MX2D[index][ind2] = (MX2D[index][ind2]-VecXMeans_[ind2])/
+                               VecXStds_[ind2];
+          MX2D[index][ind3] = vecHX[2] * ll + VecLBs_[ind3];
+          MX2D[index][ind3] = (MX2D[index][ind3]-VecXMeans_[ind3])/
+                               VecXStds_[ind3];
+          MX2D[index][ind4] = vecHX[3] * mm + VecLBs_[ind4];
+          MX2D[index][ind4] = (MX2D[index][ind4]-VecXMeans_[ind4])/
+                               VecXStds_[ind4];
+          (*XOut)[index*4]   = vecHX[0] * ii + VecLBs_[ind1];
+          (*XOut)[index*4+1] = vecHX[1] * jj + VecLBs_[ind2];
+          (*XOut)[index*4+2] = vecHX[2] * ll + VecLBs_[ind3];
+          (*XOut)[index*4+3] = vecHX[3] * mm + VecLBs_[ind4];
+        }
+      }
+    }
+  }
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn()) 
+  {
+    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
+  }
+  mars_fmod(totPts, nInputs_, MX2D, *YOut, fm_.getFVector(), 
+            im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+    printOutTS(PL_INFO,"Returned from Mars (fmod).\n");
+
+  //**/ ----------------------------------------------------------------
+  //**/ reverse normalize the outputs
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+  return -1;
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// Generate results to a file called psuade_grid_data
+// ------------------------------------------------------------------------
+int Mars::writeToFileGrid2DData(double *XIn, double *YIn, int ind1,
+                                int ind2, double *settings)
+{
+#ifdef HAVE_MARS
+  int    ss, ii, jj, totPts, index;
+  double dtmp;
+  FILE   *fp;
+  psVector vecHX, vecMarsY;
+  psMatrix matX2D;
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the regression coefficients
+  //**/ ----------------------------------------------------------------
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(nSamples_, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ss = 0; ss < nSamples_; ss++) 
+    for (ii = 0; ii < nInputs_; ii++) MX2D[ss][ii] = XIn[nInputs_*ss+ii];
+
+  //**/ ----------------------------------------------------------------
+  //**/ load the weights
+  //**/ ----------------------------------------------------------------
+  if (chooseWght_ == 1)
+  {
+    for (ss = 0; ss < nSamples_; ss++)
+    {
+      if (PABS(YIn[ss]) < 1.0e-12) marsWghts_[ss] = 1.0;
+      else                         marsWghts_[ss] = (float) PABS(YIn[ss]);
+    }
+  }
+  else
+  {
+    for (ss = 0; ss < nSamples_; ss++) 
+      marsWghts_[ss] = (float) VecWghts_[ss];
+  }
+
+  //**/ ----------------------------------------------------------------
+  //**/ call mars 
+  //**/ ----------------------------------------------------------------
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn() || nSamples_ < 10)
+  {
+    printOutTS(PL_INFO,"Entering Mars (process)\n");
+    printOutTS(PL_INFO,
+         "If it crashes here, it is mars_process problem.\n");
+    printOutTS(PL_INFO,
+         "One way to solve the problem is to use different nSamples.\n");
+  }
+  mars_process(nSamples_, nInputs_, MX2D, YIn, marsWghts_.getFVector(), 
+               nBasisFcns_, maxVarPerBasis_, varFlags_.getIVector(), 
+               fm_.getFVector(), im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+    printOutTS(PL_INFO,"Returned from Mars (process)\n");
+
+  //**/ length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
+  //**/          2 * nInputs_ + nSamples_;
+  //**/ printf("mars_process : fm_ length = %d (%d) \n",im_[0],length);
+  //**/ length = 21 + nBasisFcns_ * ( 3 * maxVarPerBasis_ + 8);
+  //**/ printf("mars_process : im_ length = %d (%d) \n",im_[1],length);
+
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1]-VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2]-VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(totPts, nInputs_);
+  MX2D = matX2D.getMatrix2D();
+  for (ss = 0; ss < totPts; ss++) 
+    for (ii = 0; ii < nInputs_; ii++) MX2D[ss][ii] = settings[ii]; 
+
+  vecMarsY.setLength(2 * totPts);
+
+  //**/ ----------------------------------------------------------------
+  //**/ generate the data points 
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      index = ii * nPtsPerDim_ + jj;
+      MX2D[index][ind1] = vecHX[0] * ii + VecLBs_[ind1];
+      MX2D[index][ind2] = vecHX[1] * jj + VecLBs_[ind2];
+    }
+  }
+
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+  {
+    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
+    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
+  }
+  mars_fmod(totPts, nInputs_, MX2D, vecMarsY.getDVector(), 
+            fm_.getFVector(), im_.getIVector());
+  if (outputLevel_ >= 2 || psConfig_.MasterModeIsOn())
+    printOutTS(PL_INFO,"Returned from Mars (fmod)\n");
+
+  fp = fopen("psuade_grid_data", "w");
+  if(fp == NULL)
+  {
+    printOutTS(PL_ERROR,"fopen returned NULL in file %s line %d, exiting\n", 
+           __FILE__, __LINE__);
+    exit(1);
+  }
+  fprintf(fp, "%d\n",nPtsPerDim_);
+  dtmp = VecLBs_[ind1];
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    fprintf(fp, "%e\n", dtmp);
+    dtmp += vecHX[0];
+  }
+  fprintf(fp, "%d\n",nPtsPerDim_);
+  dtmp = VecLBs_[ind2];
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    fprintf(fp, "%e\n", dtmp);
+    dtmp += vecHX[1];
+  }
+  for (ii = 0; ii < nPtsPerDim_; ii++)
+    for (jj = 0; jj < nPtsPerDim_; jj++)
+      fprintf(fp, "%e\n", vecMarsY[ii*nPtsPerDim_+jj]);
+  fclose(fp);
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+#endif
+  return 0;
+}
+
+// ************************************************************************
+// Evaluate a given point 
+// ------------------------------------------------------------------------
+double Mars::evaluatePoint(double *X)
+{
+  double Y=0.0;
+#ifdef HAVE_MARS
+  int    ii, iOne=1;
+  psMatrix matX2D;
+
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : Mars not initialized.\n");
+    exit(1);
+  }
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(iOne, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ii = 0; ii < nInputs_; ii++)
+    MX2D[0][ii] = (X[ii] - VecXMeans_[ii]) / VecXStds_[ii]; 
+  mars_fmod(iOne,nInputs_,MX2D,&Y,fm_.getFVector(),im_.getIVector());
+  Y = Y * YStd_ + YMean_;
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+#endif
+  return Y;
+}
+
+// ************************************************************************
+// Evaluate a number of points
+// ------------------------------------------------------------------------
+double Mars::evaluatePoint(int npts, double *X, double *Y)
+{
+#ifdef HAVE_MARS
+  int ii, kk;
+  psMatrix matX2D;
+
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : Mars not initialized.\n");
+    exit(1);
+  }
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(npts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (kk = 0; kk < npts; kk++)
+  {
+    for (ii = 0; ii < nInputs_; ii++) 
+      MX2D[kk][ii] = (X[kk*nInputs_+ii] - VecXMeans_[ii])/VecXStds_[ii]; 
+  }
+  mars_fmod(npts,nInputs_,MX2D, Y, fm_.getFVector(), im_.getIVector());
+  for (kk = 0; kk < npts; kk++) Y[kk] = Y[kk] * YStd_ + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+#endif
+  return 0.0;
+}
+
+// ************************************************************************
+// Evaluate a given point with standard deviation
+// ------------------------------------------------------------------------
+double Mars::evaluatePointFuzzy(double *X, double &std)
+{
+  double Y=0.0;
+#ifdef HAVE_MARS
+  int ii, iOne=1;
+  psMatrix matX2D;
+
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : Mars not initialized.\n");
+    exit(1);
+  }
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(iOne, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (ii = 0; ii < nInputs_; ii++)
+    MX2D[0][ii] = (X[ii] - VecXMeans_[ii]) / VecXStds_[ii]; 
+  mars_fmod(iOne,nInputs_,MX2D, &Y, fm_.getFVector(), im_.getIVector());
+  Y = Y * YStd_ + YMean_;
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+#endif
+  std = 0.0;
+  return Y;
+}
+
+// ************************************************************************
+// Evaluate a number of points with standard deviations
+// ------------------------------------------------------------------------
+double Mars::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystd)
+{
+#ifdef HAVE_MARS
+  int ii, kk;
+  psMatrix matX2D;
+
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : Mars not initialized.\n");
+    exit(1);
+  }
+  matX2D.setFormat(PS_MAT2D);
+  matX2D.setDim(npts, nInputs_);
+  double **MX2D = matX2D.getMatrix2D();
+  for (kk = 0; kk < npts; kk++)
+  {
+    for (ii = 0; ii < nInputs_; ii++)
+      MX2D[kk][ii] = (X[kk*nInputs_+ii]-VecXMeans_[ii])/VecXStds_[ii]; 
+    Ystd[kk] = 0.0;
+  }
+  mars_fmod(npts,nInputs_,MX2D,Y, fm_.getFVector(), im_.getIVector());
+  for (kk = 0; kk < npts; kk++) Y[kk] = Y[kk] * YStd_ + YMean_;
+
+#else
+  printf("PSUADE ERROR : Mars not installed.\n");
+#endif
+  return 0.0;
+}
+
+// ************************************************************************
+// print MARS output information
+// ------------------------------------------------------------------------
+void Mars::printStat()
+{
+  int    lineLeng=500, i1, i2, nk=0, ind1, ind2;
+  double dtmp;
+  char   line[500], word1[100], word2[100], word3[100];
+  FILE   *fp;
+  psVector vecCoefs;
+#if 0
+  int    nGroups, *groupMembers, ivars, parent;
+  double *vars, *knots, dtmp1, dtmp2, dtmp3, dtmp4, dtmp5, dtmp6;
+#endif
+
+  // first get the nk parameter
+  fp = fopen(".psuade_mars", "r");
+  if (fp == NULL) 
+  {
+    printf("Mars importance information not available.\n");
+    return;
+  }
+  while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
+  {
+    sscanf(line,"%s %s", word1, word2);
+    if (!strcmp(word1,"input") && !strcmp(word2,"parameters"))
+    {
+      fgets(line, lineLeng, fp);
+      fgets(line, lineLeng, fp);
+      sscanf(line,"%d %d %d", &i1, &i2, &nk);
+      break;
+    }
+  }
+  fclose(fp);
+  if (nk <= 0) 
+  {
+    printf("Mars::printStat ERROR - no. of basis functions = %d <= 0.\n",
+           nk);
+    return;
+  }
+
+  //**/ now read the basis function coefficients
+  vecCoefs.setLength(nk+1);
+  for (i1 = 0; i1 <= nk; i1++) vecCoefs[i1] = -9999.0;
+  while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
+  {
+    sscanf(line,"%s %s", word1, word2);
+    if (!strcmp(word1,"final") && !strcmp(word2,"model"))
+    {
+      for (i1 = 0; i1 <= nk; i1+=6)
+      {
+        fgets(line, lineLeng, fp);
+        fscanf(fp, "%s", word3);
+        if (strcmp(word3, "bsfn:")) 
+        {
+          //**/printf("Mars::printStat WARNING reading coefficients(%s)\n",
+          //**/       word3);
+          //**/printf("%s\n", line);
+          nk = i1 - 1;
+          break;
+        }
+        else
+        {
+          for (i2 = 0; i2 < 6; i2++)
+          {
+            fscanf(fp, "%d", &ind1);
+            if (ind1 != (i1 + i2))
+            {
+              printf("Mars : nk reset from %d to %d\n", nk, i1+i2-1);
+              nk = i1 + i2 - 1; 
+              break;
+            }
+          }
+          if (i2 == 6) fgets(line, lineLeng, fp);
+        } 
+        fscanf(fp, "%s", word3);
+        if (strcmp(word3, "coef:")) 
+        {
+          printf("Mars::printStat WARNING reading coefficients (%s).\n",
+                 word3);
+          printf("%s\n", line);
+        }
+        for (i2 = 0; i2 < 6; i2++) 
+        {
+          if (i1+i2 <= nk) 
+          {
+            fscanf(fp, "%lg", &dtmp);
+            vecCoefs[i1+i2] = dtmp;
+          }
+        }
+        fgets(line, lineLeng, fp);
+      }
+      break;
+    }
+  }
+  fclose(fp);
+  if (vecCoefs[nk] == -9999.0)
+  {
+    printf("Mars::printStat ERROR - invalid Mars coefficients.\n");
+    return;
+  }
+ 
+  //**/ read the basis function informatiion
+  fp = fopen(".psuade_mars", "r");
+  if(fp == NULL)
+  {
+    printf("fopen returned NULL in file %s line %d, exiting\n",
+           __FILE__, __LINE__);
+    exit(1);
+  }
+  while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
+  {
+    sscanf(line,"%s %s", word1, word2);
+    if (!strcmp(word1,"anova") && !strcmp(word2,"decomposition"))
+    {
+      printf("\n Mars ANOVA Decomposition\n");
+      fgets(line, lineLeng, fp);
+      printf("%s", line);
+      fgets(line, lineLeng, fp);
+      ind2 = 1;
+      sscanf(line, "%d", &ind1);
+      while (ind2 == ind1)
+      {
+        printf("%s", line);
+        fgets(line, lineLeng, fp);
+        ind1 = -1;
+        sscanf(line, "%d", &ind1);
+        ind2++;
+      }
+      break;
+    }
+  }
+  fclose(fp);
+  unlink(".psuade_mars");
+}
+
+// ************************************************************************
+// set parameters
+// ------------------------------------------------------------------------
+double Mars::setParams(int targc, char **targv)
+{
+  int    lineLeng=500, ii, jj, nCount;
+  double dmax, dtmp;
+  char   line[500], word1[500], word2[500], word3[500];
+  FILE   *fp, *fp2;
+  psVector  vecDT;
+  psIVector vecIT;
+
+  if (targc > 0 && !strcmp(targv[0], "rank"))
+  {
+    fp = fopen(".psuade_mars", "r");
+    if (fp != NULL)
+    {
+      nCount = 0;
+      strcpy(word1, "none");
+      vecDT.setLength(nInputs_);
+      vecIT.setLength(nInputs_);
+      while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
+      {
+        sscanf(line,"%s %s %s", word1, word2, word3);
+        if (!strcmp(word1,"relative") && !strcmp(word2,"variable") && 
+            !strcmp(word3,"importance:"))
+        {
+          fgets(line, lineLeng, fp);
+          fgets(line, lineLeng, fp);
+          if (feof(fp) == 0)
+          {
+            for (ii = 0; ii < nInputs_; ii+=6)
+            {
+              for (jj = 0; jj < 6; jj++)
+              {
+                if (ii+jj < nInputs_)
+                {
+                  fscanf(fp,"%lg", &dtmp);
+                  vecDT[ii+jj] = dtmp;
+                  nCount++;
+                }
+              }
+              fgets(line, lineLeng, fp);
+              fgets(line, lineLeng, fp);
+              fgets(line, lineLeng, fp);
+            }
+          }
+        }
+      }
+      if (nCount != nInputs_)
+      {
+        printf("* Mars gives insufficient importance measures.\n");
+        printf("* To inspect Mars output, examine .psuade_mars.\n");
+      }
+      else
+      {
+        dmax = vecDT[0];
+        for (ii = 1; ii < nInputs_; ii++) 
+          if (vecDT[ii] > dmax) dmax = vecDT[ii];
+        for (ii = 0; ii < nInputs_; ii++) vecDT[ii] /= (dmax / 100.0);
+
+        //**/ output to a matlab file
+        if (plotScilab()) fp2 = fopen("scilabmarsa.sci", "w");
+        else              fp2 = fopen("matlabmarsa.m", "w");
+        if (fp2 == NULL)
+        {
+          printf("Mars ERROR: cannot open matlab/scilab file.\n");
+          return -1.0;
+        }
+        fwritePlotCLF(fp2);
+        fprintf(fp2, "n = %d;\n", nInputs_);
+        fprintf(fp2, "Y = [\n");
+        for (ii = 0; ii < nInputs_; ii++)
+          fprintf(fp2, "%24.16e\n", vecDT[ii]);
+        fprintf(fp2, "];\n");
+        fprintf(fp2, "ymax = max(Y);\n");
+        fprintf(fp2, "ymin = min(Y);\n");
+        fprintf(fp2, "if (ymax == ymin)\n");
+        fprintf(fp2, "   ymax = ymax * 1.01;\n");
+        fprintf(fp2, "   ymin = ymin * 0.99;\n");
+        fprintf(fp2, "end;\n");
+        fprintf(fp2, "if (ymax == ymin)\n");
+        fprintf(fp2, "   ymax = ymax + 0.01;\n");
+        fprintf(fp2, "   ymin = ymin - 0.01;\n");
+        fprintf(fp2,"end;\n");
+        fprintf(fp2, "bar(Y,0.8);\n");
+        fwritePlotAxes(fp2);
+        fwritePlotTitle(fp2, "MARS Rankings");
+        fwritePlotXLabel(fp2, "Input parameters");
+        fwritePlotYLabel(fp2, "MARS ranks");
+        if (plotScilab())
+        {
+          fprintf(fp, "a=gca();\n");
+          fprintf(fp, "a.data_bounds=[0, ymin-0.01*(ymax-ymin); ");
+          fprintf(fp, "n+1, ymax+0.01*(ymax-ymin)];\n");
+        }
+        else
+        {
+          fprintf(fp,"axis([0 n+1 ymin-0.01*(ymax-ymin) ");
+          fprintf(fp,"ymax+0.01*(ymax-ymin)])\n");
+        }
+        fclose(fp2);
+        if (plotScilab())
+             printf("Mars ranking is now in scilabmarsa.sci.\n");
+        else printf("Mars ranking is now in matlabmarsa.m.\n");
+
+        for (ii = 0; ii < nInputs_; ii++) vecIT[ii] = ii;
+        sortDbleList2a(nInputs_, vecDT.getDVector(), vecIT.getIVector());
+        printAsterisks(PL_INFO, 0);
+        printf("* Mars screening rankings \n");
+        printAsterisks(PL_INFO, 0);
+        for (ii = nInputs_-1; ii >= 0; ii--)
+          printf("*  Rank %3d : Input = %3d (score = %4.1f)\n", 
+                 nInputs_-ii, vecIT[ii]+1, vecDT[ii]);
+        printAsterisks(PL_INFO, 0);
+      }
+      fclose(fp);
+    }
+    else printf("Mars: cannot rank - .psuade_mars file not found.\n");
+  }
+  else if (targc == 3 && !strcmp(targv[0], "mars_params"))
+  {
+    ii = *(int *) targv[1];
+    if (ii > 0)
+    {
+      nBasisFcns_ = ii;
+      if (nBasisFcns_ < 20) nBasisFcns_ = 20;
+      if (outputLevel_ >= 2)
+        printOutTS(PL_INFO,
+             "Mars: numBasis    set to = %d.\n", nBasisFcns_);
+    }
+    jj = *(int *) targv[2];
+    if (jj > 0)
+    {
+      maxVarPerBasis_ = jj;
+      if (maxVarPerBasis_ < 1) maxVarPerBasis_ = 1;
+      if (outputLevel_ >= 2)
+      printOutTS(PL_INFO,
+           "Mars: varPerBasis set to = %d.\n", maxVarPerBasis_);
+    }
+  }
+  else if (targc == 1 && !strcmp(targv[0], "no_gen"))
+  {
+    noGen_ = 1;
+  }
+  else 
+  {
+    printf("Mars setParams ERROR: invalid command.\n");
+  }
+  return 0.0;
+}
+
+// ************************************************************************
+// generate C and Python codes
+// ------------------------------------------------------------------------
+void Mars::genRSCode()
+{
+  int  ii, length, count;
+  FILE *fp = fopen("psuade_rs.info", "w");
   if (fp == NULL)
   {
     printf("ERROR: Cannot open file psuade_rs.info.\n");
-    return 0;
+    return;
   }
   fprintf(fp,"/* This file contains information to re-construct MARS\n");
   fprintf(fp,"   response surface offline. Follow the steps below:\n");
@@ -267,7 +1338,7 @@ int Mars::initialize(double *XIn, double *YIn)
   fprintf(fp,"  int    i, iOne=1, nInps;\n");
   fprintf(fp,"  double X[%d], Y, Std;\n",nInputs_);
   fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
-  fprintf(fp,"  if (argc != 3) {\n");
+  fprintf(fp,"  if (argc < 3) {\n");
   fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
   fprintf(fp,"     exit(1);\n");
   fprintf(fp,"  }\n");
@@ -434,7 +1505,7 @@ int Mars::initialize(double *XIn, double *YIn)
   fprintf(fp,"XM[%d] = \n", nInputs_);
   fprintf(fp,"{\n");
   for (ii = 0; ii < nInputs_; ii++)
-    fprintf(fp, " %24.16e , \n",XMeans_[ii]);
+    fprintf(fp, " %24.16e , \n",VecXMeans_[ii]);
   fprintf(fp,"};\n");
   fprintf(fp,"/* \n");
   fprintf(fp,"XS %d \n",count);
@@ -443,7 +1514,7 @@ int Mars::initialize(double *XIn, double *YIn)
   fprintf(fp,"XS[%d] = \n", nInputs_);
   fprintf(fp,"{\n");
   for (ii = 0; ii < nInputs_; ii++)
-    fprintf(fp, " %24.16e , \n",XStds_[ii]);
+    fprintf(fp, " %24.16e , \n",VecXStds_[ii]);
   fprintf(fp,"};\n");
   fprintf(fp,"/* ====================================*/\n");
   fprintf(fp,"int    *getIm() {return IM;}\n");
@@ -458,7 +1529,7 @@ int Mars::initialize(double *XIn, double *YIn)
   if (fp == NULL)
   {
     printOutTS(PL_ERROR,"ERROR: Cannot open file psuade_rs.py.\n");
-    return 0;
+    return;
   }
   fwriteRSPythonHeader(fp);
   fprintf(fp,"#==================================================\n");
@@ -492,11 +1563,11 @@ int Mars::initialize(double *XIn, double *YIn)
   fprintf(fp,"]\n"); 
   fprintf(fp,"XM = [\n");
   for (ii = 0; ii < nInputs_; ii++)
-    fprintf(fp, " %24.16e , \n",XMeans_[ii]);
+    fprintf(fp, " %24.16e , \n",VecXMeans_[ii]);
   fprintf(fp,"]\n");
   fprintf(fp,"XS = [\n");
   for (ii = 0; ii < nInputs_; ii++)
-    fprintf(fp, " %24.16e , \n",XStds_[ii]);
+    fprintf(fp, " %24.16e , \n",VecXStds_[ii]);
   fprintf(fp,"]\n");
   fprintf(fp,"###################################################\n");
   fprintf(fp,"def icat(X, input, fm, indcm) :\n");
@@ -594,11 +1665,12 @@ int Mars::initialize(double *XIn, double *YIn)
   fclose(fp);
   printf("FILE psuade_rs.py contains the Python MARS interpolator\n");
 
+  //**/ matlab functions
   fp = fopen("ps_mars_data.m", "w");
   if (fp == NULL)
   {
     printOutTS(PL_ERROR,"ERROR: Cannot open file ps_mars_data.m.\n");
-    return 0;
+    return;
   }
   length = 3 + nBasisFcns_ * (5 * maxVarPerBasis_ + nSamples_ + 6) +
            2 * nInputs_ + nSamples_;
@@ -626,18 +1698,18 @@ int Mars::initialize(double *XIn, double *YIn)
   fprintf(fp,"];\n"); 
   fprintf(fp,"XM = [\n");
   for (ii = 0; ii < nInputs_; ii++)
-    fprintf(fp, " %24.16e\n",XMeans_[ii]);
+    fprintf(fp, " %24.16e\n",VecXMeans_[ii]);
   fprintf(fp,"];\n");
   fprintf(fp,"XS = [\n");
   for (ii = 0; ii < nInputs_; ii++)
-    fprintf(fp, " %24.16e\n",XStds_[ii]);
+    fprintf(fp, " %24.16e\n",VecXStds_[ii]);
   fprintf(fp,"];\n");
   fclose(fp);
   fp = fopen("ps_mars_interp.m", "w");
   if (fp == NULL)
   {
     printOutTS(PL_ERROR,"ERROR: Cannot open file ps_mars_interp.m.\n");
-    return 0;
+    return;
   }
   fprintf(fp,"%%=================================================\n");
   fprintf(fp,"%% MARS interpolation\n");
@@ -716,7 +1788,7 @@ int Mars::initialize(double *XIn, double *YIn)
   if (fp == NULL)
   {
     printOutTS(PL_ERROR,"ERROR: Cannot open file ps_mars_icat.m.\n");
-    return 0;
+    return;
   }
    fprintf(fp,"function y=icat(dt,ind,FM,indcm)\n");
   fprintf(fp,"j0=fix(FM(indcm+1*2*ind)+0.1);j1=j0;\n");
@@ -749,883 +1821,5 @@ int Mars::initialize(double *XIn, double *YIn)
   printf("   then create a row vector x of length %d, and then\n",
          nInputs_);
   printf("   call ps_mars_interp.m.\n");
-  return 0;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-  return -1;
-#endif
-}
-
-// ************************************************************************
-// Generate results for display
-// ------------------------------------------------------------------------
-int Mars::genNDGridData(double *XIn, double *YIn, int *NN, double **XX, 
-                        double **YY)
-{
-#ifdef HAVE_MARS
-  int    totPts, ss, ii;
-  double *HX, *Xloc, **X2;
-
-  initialize(XIn, YIn);
-  if ((*NN) == -999) return 0;
-  
-  totPts = nPtsPerDim_;
-  for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-  HX = new double[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++) 
-    HX[ii] = (upperBounds_[ii]-lowerBounds_[ii]) / (double) (nPtsPerDim_-1); 
- 
-  (*XX) = new double[nInputs_ * totPts];
-  (*YY) = new double[totPts];
-  (*NN) = totPts;
-  X2 = new double*[totPts];
-  checkAllocate(X2, "X2 in Mars::genNDGrid");
-  for (ss = 0; ss < totPts; ss++) X2[ss] = new double[nInputs_];
-  Xloc  = new double[nInputs_];
- 
-  for (ii = 0; ii < nInputs_; ii++) Xloc[ii] = lowerBounds_[ii];
-  for (ss = 0; ss < totPts; ss++)
-  {
-    for (ii = 0; ii < nInputs_; ii++ ) X2[ss][ii] = Xloc[ii];
-    for (ii = 0; ii < nInputs_; ii++ ) 
-    {
-      Xloc[ii] += HX[ii];
-      if (Xloc[ii] < upperBounds_[ii] || 
-           PABS(Xloc[ii] - upperBounds_[ii]) < 1.0E-7) break;
-      else Xloc[ii] = lowerBounds_[ii];
-    }
-  }
- 
-  for (ii = 0; ii < nInputs_; ii++)
-  {
-    for (ss = 0; ss < totPts; ss++)
-      X2[ss][ii] = (X2[ss][ii] - XMeans_[ii]) / XStds_[ii];
-  } 
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-  {
-    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
-    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
-  }
-  mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1) 
-    printf("Returned from Mars (fmod).\n");
-
-  for (ii = 0; ii < totPts; ii++)
-     (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
-
-  delete [] Xloc;
-  for (ss = 0; ss < totPts; ss++ ) delete [] X2[ss];
-  delete [] X2;
-  delete [] HX;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-  return -1;
-#endif
-  return 0;
-}
-
-// ************************************************************************
-// Generate results for display
-// ------------------------------------------------------------------------
-int Mars::gen1DGridData(double *XIn, double *YIn, int ind1, 
-                        double *settings, int *NN, double **XX, double **YY)
-{
-#ifdef HAVE_MARS
-  int    ss, ii, totPts;
-  double HX, **X2;
-
-  initialize(XIn, YIn);
-  if ((*NN) == -999) return 0;
-  
-  totPts = nPtsPerDim_;
-  HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-
-  X2 = new double*[totPts];
-  for (ss = 0; ss < totPts; ss++) 
-  {
-    X2[ss] = new double[nInputs_];
-    checkAllocate(X2[ss], "X2 in Mars::gen1DGrid");
-    for (ii = 0; ii < nInputs_; ii++)
-    {
-      X2[ss][ii] = settings[ii]; 
-      X2[ss][ii] = (X2[ss][ii] - XMeans_[ii]) / XStds_[ii];
-    }
-  }
-  (*XX) = new double[totPts];
-  (*YY) = new double[totPts];
-  checkAllocate(*YY, "YY in Mars::gen1DGrid");
-  (*NN) = totPts;
-
-  for (ss = 0; ss < totPts; ss++) 
-  {
-    X2[ss][ind1]  = HX * ss + lowerBounds_[ind1];
-    X2[ss][ind1] = (X2[ss][ind1] - XMeans_[ind1]) / XStds_[ind1];
-    (*XX)[ss]     = HX * ss + lowerBounds_[ind1];
-    (*YY)[ss]     = 0.0;
-  }
-
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-  {
-    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
-    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
-  }
-  mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1) 
-    printf("Returned from Mars (fmod).\n");
- 
-  for (ii = 0; ii < totPts; ii++)
-    (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
-
-  for (ss = 0; ss < totPts; ss++) delete [] X2[ss];
-  delete [] X2;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-  return -1;
-#endif
-  return 0;
-}
-
-// ************************************************************************
-// Generate results for display
-// ------------------------------------------------------------------------
-int Mars::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
-                        double *settings, int *NN, double **XX, double **YY)
-{
-#ifdef HAVE_MARS
-  int    ss, ii, jj, totPts, index;
-  double *HX, **X2;
-
-  initialize(XIn, YIn);
-  if ((*NN) == -999) return 0;
- 
-  totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-
-  X2 = new double*[totPts];
-  for (ss = 0; ss < totPts; ss++) 
-  {
-    X2[ss] = new double[nInputs_];
-    checkAllocate(X2[ss], "X2 in Mars::gen2DGrid");
-    for (ii = 0; ii < nInputs_; ii++)
-    {
-      X2[ss][ii] = settings[ii]; 
-      X2[ss][ii] = (X2[ss][ii] - XMeans_[ii]) / XStds_[ii];
-    }
-  }
-  (*XX) = new double[2*totPts];
-  (*YY) = new double[totPts];
-  checkAllocate(*YY, "YY in Mars::gen2DGrid");
-  (*NN) = totPts;
-
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
-  {
-    for (jj = 0; jj < nPtsPerDim_; jj++)
-    {
-      index = ii * nPtsPerDim_ + jj;
-      X2[index][ind1]  = HX[0] * ii + lowerBounds_[ind1];
-      X2[index][ind1] = (X2[index][ind1] - XMeans_[ind1]) / XStds_[ind1];
-      X2[index][ind2]  = HX[1] * jj + lowerBounds_[ind2];
-      X2[index][ind2] = (X2[index][ind2] - XMeans_[ind2]) / XStds_[ind2];
-      (*XX)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-      (*XX)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
-    }
-  }
-
-  if (outputLevel_ >= 2 || psMasterMode_ == 1) 
-  {
-    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
-    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
-  }
-  mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-    printf("Returned from Mars (fmod).\n");
-  
-  for (ii = 0; ii < totPts; ii++)
-    (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
-
-  for (ss = 0; ss < totPts; ss++) delete [] X2[ss];
-  delete [] X2;
-  delete [] HX;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-  return -1;
-#endif
-  return 0;
-}
-
-// ************************************************************************
-// Generate 3D results for display
-// ------------------------------------------------------------------------
-int Mars::gen3DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
-                        double *settings,int *NN, double **XX, double **YY)
-{
-#ifdef HAVE_MARS
-  int    ss, ii, jj, ll, totPts, index;
-  double *HX, **X2;
-
-  initialize(XIn, YIn);
-  if ((*NN) == -999) return 0;
- 
-  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[3];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-
-  X2 = new double*[totPts];
-  for (ss = 0; ss < totPts; ss++) 
-  {
-    X2[ss] = new double[nInputs_];
-    checkAllocate(X2[ss], "X2 in Mars::gen3DGrid");
-    for (ii = 0; ii < nInputs_; ii++) X2[ss][ii] = settings[ii]; 
-  }
-  (*XX) = new double[3*totPts];
-  (*YY) = new double[totPts];
-  checkAllocate(*YY, "YY in Mars::gen3DGrid");
-  (*NN) = totPts;
-
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
-  {
-    for (jj = 0; jj < nPtsPerDim_; jj++)
-    {
-      for (ll = 0; ll < nPtsPerDim_; ll++)
-      {
-        index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-        X2[index][ind1]  = HX[0] * ii + lowerBounds_[ind1];
-        X2[index][ind1] = (X2[index][ind1] - XMeans_[ind1]) / XStds_[ind1];
-        X2[index][ind2]  = HX[1] * jj + lowerBounds_[ind2];
-        X2[index][ind2] = (X2[index][ind2] - XMeans_[ind2]) / XStds_[ind2];
-        X2[index][ind3]  = HX[2] * ll + lowerBounds_[ind3];
-        X2[index][ind3] = (X2[index][ind3] - XMeans_[ind3]) / XStds_[ind3];
-        (*XX)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-        (*XX)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-        (*XX)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
-      }
-    }
-  }
-
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-  {
-    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
-    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
-  }
-  mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-    printOutTS(PL_INFO,"Returned from Mars (fmod).\n");
-
-  for (ii = 0; ii < totPts; ii++)
-    (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
-
-  for (ss = 0; ss < totPts; ss++) delete [] X2[ss];
-  delete [] X2;
-  delete [] HX;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-  return -1;
-#endif
-  return 0;
-}
-
-// ************************************************************************
-// Generate 4D results for display
-// ------------------------------------------------------------------------
-int Mars::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
-                        int ind4, double *settings, int *NN, double **XX, 
-                        double **YY)
-{
-#ifdef HAVE_MARS
-  int    ss, ii, jj, ll, mm, totPts, index;
-  double *HX, **X2;
-
-  initialize(XIn, YIn);
-  if ((*NN) == -999) 
-  {
-    (*XX) = NULL;
-    (*YY) = NULL;
-    return 0;
-  }
-  
-  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[4];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-  HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-  HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
-
-  X2 = new double*[totPts];
-  for (ss = 0; ss < totPts; ss++) 
-  {
-    X2[ss] = new double[nInputs_];
-    checkAllocate(X2[ss], "X2 in Mars::gen4DGrid");
-    for (ii = 0; ii < nInputs_; ii++) X2[ss][ii] = settings[ii]; 
-  }
-  (*XX) = new double[4*totPts];
-  (*YY) = new double[totPts];
-  checkAllocate(*YY, "YY in Mars::gen4DGrid");
-  (*NN) = totPts;
-
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
-  {
-    for (jj = 0; jj < nPtsPerDim_; jj++)
-    {
-      for (ll = 0; ll < nPtsPerDim_; ll++)
-      {
-        for (mm = 0; mm < nPtsPerDim_; mm++)
-        {
-          index = ii*nPtsPerDim_*nPtsPerDim_ * nPtsPerDim_ +
-                  jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-          X2[index][ind1]  = HX[0] * ii + lowerBounds_[ind1];
-          X2[index][ind1]  = (X2[index][ind1]-XMeans_[ind1])/XStds_[ind1];
-          X2[index][ind2]  = HX[1] * jj + lowerBounds_[ind2];
-          X2[index][ind2]  = (X2[index][ind2]-XMeans_[ind2])/XStds_[ind2];
-          X2[index][ind3]  = HX[2] * ll + lowerBounds_[ind3];
-          X2[index][ind3]  = (X2[index][ind3]-XMeans_[ind3])/XStds_[ind3];
-          X2[index][ind4]  = HX[3] * mm + lowerBounds_[ind4];
-          X2[index][ind4]  = (X2[index][ind4]-XMeans_[ind4])/XStds_[ind4];
-          (*XX)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-          (*XX)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-          (*XX)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-          (*XX)[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
-        }
-      }
-    }
-  }
-  if (outputLevel_ >= 2 || psMasterMode_ == 1) 
-  {
-    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
-    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
-  }
-  mars_fmod(totPts, nInputs_, X2, *YY, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-    printOutTS(PL_INFO,"Returned from Mars (fmod).\n");
-
-  for (ii = 0; ii < totPts; ii++)
-    (*YY)[ii] = ((*YY)[ii] * YStd_) + YMean_;
-
-  for (ss = 0; ss < totPts; ss++) delete [] X2[ss];
-  delete [] X2;
-  delete [] HX;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-  return -1;
-#endif
-  return 0;
-}
-
-// ************************************************************************
-// Generate results to a file called psuade_grid_data
-// ------------------------------------------------------------------------
-int Mars::writeToFileGrid2DData(double *XX, double *Y, int ind1,
-                                int ind2, double *settings)
-{
-#ifdef HAVE_MARS
-  int    ss, ii, jj, totPts, index;
-  double *HX, **X2, dtmp, *YY, **X;
-  FILE   *fp;
-
-  X = new double*[nSamples_];
-  for (ss = 0; ss < nSamples_; ss++) X[ss] = new double[nInputs_];
-  checkAllocate(X[nSamples_-1], "X in Mars::writeToFile");
-  for (ss = 0; ss < nSamples_; ss++) 
-    for (ii = 0; ii < nInputs_; ii++) X[ss][ii] = XX[nInputs_*ss+ii];
-
-  if (chooseWght_ == 1)
-  {
-    for (ss = 0; ss < nSamples_; ss++)
-    {
-      if (PABS(Y[ss]) < 1.0e-12) wgts_[ss] = 1.0;
-      else                       wgts_[ss] = (float) PABS(Y[ss]);
-    }
-  }
-  else
-  {
-    for (ss = 0; ss < nSamples_; ss++) wgts_[ss] = (float) weights_[ss];
-  }
-
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-  {
-    printOutTS(PL_INFO,"Entering Mars (process)\n");
-    printOutTS(PL_INFO,
-         "If it crashes here, it is mars_process problem.\n");
-    printOutTS(PL_INFO,
-         "One way to solve the problem is to use different nSamples.\n");
-  }
-  mars_process(nSamples_, nInputs_, X, Y, wgts_, nBasisFcns_,
-               maxVarPerBasis_, varFlags_, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-    printOutTS(PL_INFO,"Returned from Mars (process)\n");
-  for (ss = 0; ss < nSamples_; ss++) delete [] X[ss];
-  delete [] X;
-
-  totPts = nPtsPerDim_ * nPtsPerDim_;
-  HX = new double[2];
-  HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-  HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-
-  X2 = new double*[totPts];
-  for (ss = 0; ss < totPts; ss++) 
-  {
-    X2[ss] = new double[nInputs_];
-    for (ii = 0; ii < nInputs_; ii++) X2[ss][ii] = settings[ii]; 
-  }
-  YY = new double[2 * totPts];
-
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
-  {
-    for (jj = 0; jj < nPtsPerDim_; jj++) 
-    {
-      index = ii * nPtsPerDim_ + jj;
-      X2[index][ind1] = HX[0] * ii + lowerBounds_[ind1];
-      X2[index][ind2] = HX[1] * jj + lowerBounds_[ind2];
-    }
-  }
-
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-  {
-    printOutTS(PL_INFO,"Entering Mars (fmod)\n");
-    printOutTS(PL_INFO,"If it crashes here, it is mars_fmod problem.\n");
-  }
-  mars_fmod(totPts, nInputs_, X2, YY, fm_, im_);
-  if (outputLevel_ >= 2 || psMasterMode_ == 1)
-    printOutTS(PL_INFO,"Returned from Mars (fmod)\n");
-
-  fp = fopen("psuade_grid_data", "w");
-  if(fp == NULL)
-  {
-    printOutTS(PL_ERROR,"fopen returned NULL in file %s line %d, exiting\n", 
-           __FILE__, __LINE__);
-    exit(1);
-  }
-  fprintf(fp, "%d\n",nPtsPerDim_);
-  dtmp = lowerBounds_[ind1];
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
-  {
-    fprintf(fp, "%e\n", dtmp);
-    dtmp += HX[0];
-  }
-  fprintf(fp, "%d\n",nPtsPerDim_);
-  dtmp = lowerBounds_[ind2];
-  for (ii = 0; ii < nPtsPerDim_; ii++) 
-  {
-    fprintf(fp, "%e\n", dtmp);
-    dtmp += HX[1];
-  }
-  for (ii = 0; ii < nPtsPerDim_; ii++)
-    for (jj = 0; jj < nPtsPerDim_; jj++)
-      fprintf(fp, "%e\n", YY[ii*nPtsPerDim_+jj]);
-  fclose(fp);
-
-  for (ii = 0; ii < totPts; ii++) delete [] X2[ii];
-  delete [] X2;
-  delete [] YY;
-  delete [] HX;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-#endif
-  return 0;
-}
-
-// ************************************************************************
-// Evaluate a given point 
-// ------------------------------------------------------------------------
-double Mars::evaluatePoint(double *X)
-{
-  double Y=0.0;
-#ifdef HAVE_MARS
-  int    ii;
-  double **X2;
-
-  if (XMeans_ == NULL)
-  {
-    printf("PSUADE ERROR : Mars not initialized.\n");
-    exit(1);
-  }
-  X2    = new double*[1];
-  X2[0] = new double[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++)
-    X2[0][ii] = (X[ii] - XMeans_[ii]) / XStds_[ii]; 
-  mars_fmod(1, nInputs_, X2, &Y, fm_, im_);
-  Y = Y * YStd_ + YMean_;
-  delete [] X2[0];
-  delete [] X2;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-#endif
-  return Y;
-}
-
-// ************************************************************************
-// Evaluate a number of points
-// ------------------------------------------------------------------------
-double Mars::evaluatePoint(int npts, double *X, double *Y)
-{
-#ifdef HAVE_MARS
-  int    ii, kk;
-  double **X2;
-
-  if (XMeans_ == NULL)
-  {
-    printf("PSUADE ERROR : Mars not initialized.\n");
-    exit(1);
-  }
-  X2 = new double*[npts];
-  checkAllocate(X2, "X2 in Mars::evaluatePoint");
-  for (kk = 0; kk < npts; kk++)
-  {
-    X2[kk] = new double[nInputs_];
-    for (ii = 0; ii < nInputs_; ii++) 
-      X2[kk][ii] = (X[kk*nInputs_+ii] - XMeans_[ii]) / XStds_[ii]; 
-  }
-  mars_fmod(npts, nInputs_, X2, Y, fm_, im_);
-  for (kk = 0; kk < npts; kk++) Y[kk] = Y[kk] * YStd_ + YMean_;
-
-  for (kk = 0; kk < npts; kk++) delete [] X2[kk];
-  delete [] X2;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-#endif
-  return 0.0;
-}
-
-// ************************************************************************
-// Evaluate a given point with standard deviation
-// ------------------------------------------------------------------------
-double Mars::evaluatePointFuzzy(double *X, double &std)
-{
-  double Y=0.0;
-#ifdef HAVE_MARS
-  int    ii;
-  double **X2;
-
-  if (XMeans_ == NULL)
-  {
-    printf("PSUADE ERROR : Mars not initialized.\n");
-    exit(1);
-  }
-  X2    = new double*[1];
-  X2[0] = new double[nInputs_];
-  for (ii = 0; ii < nInputs_; ii++)
-    X2[0][ii] = (X[ii] - XMeans_[ii]) / XStds_[ii]; 
-  mars_fmod(1, nInputs_, X2, &Y, fm_, im_);
-  Y = Y * YStd_ + YMean_;
-  delete [] X2[0];
-  delete [] X2;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-#endif
-  std = 0.0;
-  return Y;
-}
-
-// ************************************************************************
-// Evaluate a number of points with standard deviations
-// ------------------------------------------------------------------------
-double Mars::evaluatePointFuzzy(int npts,double *X, double *Y,double *Ystd)
-{
-#ifdef HAVE_MARS
-  int    ii, kk;
-  double **X2;
-
-  if (XMeans_ == NULL)
-  {
-    printf("PSUADE ERROR : Mars not initialized.\n");
-    exit(1);
-  }
-  X2 = new double*[npts];
-  checkAllocate(X2, "X2 in Mars::evaluatePointFuzzy");
-  for (kk = 0; kk < npts; kk++)
-  {
-    X2[kk] = new double[nInputs_];
-    for (ii = 0; ii < nInputs_; ii++)
-      X2[kk][ii] = (X[kk*nInputs_+ii] - XMeans_[ii]) / XStds_[ii]; 
-    Ystd[kk] = 0.0;
-  }
-  mars_fmod(npts, nInputs_, X2, Y, fm_, im_);
-  for (kk = 0; kk < npts; kk++) Y[kk] = Y[kk] * YStd_ + YMean_;
-
-  for (kk = 0; kk < npts; kk++) delete [] X2[kk];
-  delete [] X2;
-#else
-  printf("PSUADE ERROR : Mars not installed.\n");
-#endif
-  return 0.0;
-}
-
-// ************************************************************************
-// print MARS output information
-// ------------------------------------------------------------------------
-void Mars::printStat()
-{
-  int    lineLeng=500, i1, i2, nk=0, ind1, ind2;
-  double *coefs;
-  char   line[500], word1[100], word2[100], word3[100];
-  FILE   *fp;
-#if 0
-  int    nGroups, *groupMembers, ivars, parent;
-  double *vars, *knots, dtmp1, dtmp2, dtmp3, dtmp4, dtmp5, dtmp6;
-#endif
-
-  // first get the nk parameter
-  fp = fopen(".psuade_mars", "r");
-  if (fp == NULL) 
-  {
-    printf("Mars importance information not available.\n");
-    return;
-  }
-  while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
-  {
-    sscanf(line,"%s %s", word1, word2);
-    if (!strcmp(word1,"input") && !strcmp(word2,"parameters"))
-    {
-      fgets(line, lineLeng, fp);
-      fgets(line, lineLeng, fp);
-      sscanf(line,"%d %d %d", &i1, &i2, &nk);
-      break;
-    }
-  }
-  fclose(fp);
-  if (nk <= 0) 
-  {
-    printf("Mars::printStat ERROR - no. of basis functions = %d <= 0.\n",
-           nk);
-    return;
-  }
-
-  coefs = new double[nk+1];
-  for (i1 = 0; i1 <= nk; i1++) coefs[i1] = -9999.0;
-  while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
-  {
-    sscanf(line,"%s %s", word1, word2);
-    if (!strcmp(word1,"final") && !strcmp(word2,"model"))
-    {
-      for (i1 = 0; i1 <= nk; i1+=6)
-      {
-        fgets(line, lineLeng, fp);
-        fscanf(fp, "%s", word3);
-        if (strcmp(word3, "bsfn:")) 
-        {
-          nk = i1 - 1;
-          break;
-        }
-        else
-        {
-          for (i2 = 0; i2 < 6; i2++)
-          {
-            fscanf(fp, "%d", &ind1);
-            if (ind1 != (i1 + i2))
-            {
-              printf("Mars : nk reset from %d to %d\n", nk, i1+i2-1);
-              nk = i1 + i2 - 1; 
-              break;
-            }
-          }
-          if (i2 == 6) fgets(line, lineLeng, fp);
-        } 
-        fscanf(fp, "%s", word3);
-        if (strcmp(word3, "coef:")) 
-        {
-          printf("Mars::printStat WARNING reading coefficients (%s).\n",
-                 word3);
-          printf("%s\n", line);
-        }
-        for (i2 = 0; i2 < 6; i2++) 
-          if (i1+i2 <= nk) fscanf(fp, "%lg", &coefs[i1+i2]);
-        fgets(line, lineLeng, fp);
-      }
-      break;
-    }
-  }
-  fclose(fp);
-  if (coefs[nk] == -9999.0)
-  {
-    printf("Mars::printStat ERROR - invalid Mars coefficients.\n");
-    delete [] coefs;
-    return;
-  }
- 
-  fp = fopen(".psuade_mars", "r");
-  if(fp == NULL)
-  {
-    printf("fopen returned NULL in file %s line %d, exiting\n",
-           __FILE__, __LINE__);
-    exit(1);
-  }
-  while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
-  {
-    sscanf(line,"%s %s", word1, word2);
-    if (!strcmp(word1,"anova") && !strcmp(word2,"decomposition"))
-    {
-      printf("\n Mars ANOVA Decomposition\n");
-      fgets(line, lineLeng, fp);
-      printf("%s", line);
-      fgets(line, lineLeng, fp);
-      ind2 = 1;
-      sscanf(line, "%d", &ind1);
-      while (ind2 == ind1)
-      {
-        printf("%s", line);
-        fgets(line, lineLeng, fp);
-        ind1 = -1;
-        sscanf(line, "%d", &ind1);
-        ind2++;
-      }
-      break;
-    }
-  }
-  fclose(fp);
-}
-
-// ************************************************************************
-// set parameters
-// ------------------------------------------------------------------------
-double Mars::setParams(int targc, char **targv)
-{
-  int    lineLeng=500, *iArray, ii, jj, nCount;
-  double *dArray, dmax;
-  char   line[500], word1[500], word2[500], word3[500];
-  FILE   *fp, *fp2;
-
-  if (targc > 0 && !strcmp(targv[0], "rank"))
-  {
-    fp = fopen(".psuade_mars", "r");
-    if (fp != NULL)
-    {
-      nCount = 0;
-      strcpy(word1, "none");
-      dArray = new double[nInputs_];
-      iArray = new int[nInputs_];
-      while ((fgets(line, lineLeng, fp) != NULL) && (feof(fp) == 0))
-      {
-        sscanf(line,"%s %s %s", word1, word2, word3);
-        if (!strcmp(word1,"relative") && !strcmp(word2,"variable") && 
-            !strcmp(word3,"importance:"))
-        {
-          fgets(line, lineLeng, fp);
-          fgets(line, lineLeng, fp);
-          if (feof(fp) == 0)
-          {
-            for (ii = 0; ii < nInputs_; ii+=6)
-            {
-              for (jj = 0; jj < 6; jj++)
-              {
-                if (ii+jj < nInputs_)
-                {
-                  fscanf(fp,"%lg", &(dArray[ii+jj]));
-                  nCount++;
-                }
-              }
-              fgets(line, lineLeng, fp);
-              fgets(line, lineLeng, fp);
-              fgets(line, lineLeng, fp);
-            }
-          }
-        }
-      }
-      if (nCount != nInputs_)
-      {
-        printf("* Mars gives insufficient importance measures.\n");
-        printf("* To inspect Mars output, examine .psuade_mars.\n");
-      }
-      else
-      {
-        dmax = dArray[0];
-        for (ii = 1; ii < nInputs_; ii++) 
-          if (dArray[ii] > dmax) dmax = dArray[ii];
-        for (ii = 0; ii < nInputs_; ii++) dArray[ii] /= (dmax / 100.0);
-
-        if (psPlotTool_ == 1) fp2 = fopen("scilabmarsa.sci", "w");
-        else                  fp2 = fopen("matlabmarsa.m", "w");
-        if (fp2 == NULL)
-        {
-          printf("Mars ERROR: cannot open matlab/scilab file.\n");
-          delete [] dArray;
-          delete [] iArray;
-          return -1.0;
-        }
-        fwritePlotCLF(fp2);
-        fprintf(fp2, "n = %d;\n", nInputs_);
-        fprintf(fp2, "Y = [\n");
-        for (ii = 0; ii < nInputs_; ii++)
-          fprintf(fp2, "%24.16e\n", dArray[ii]);
-        fprintf(fp2, "];\n");
-        fprintf(fp2, "ymax = max(Y);\n");
-        fprintf(fp2, "ymin = min(Y);\n");
-        fprintf(fp2, "if (ymax == ymin)\n");
-        fprintf(fp2, "   ymax = ymax * 1.01;\n");
-        fprintf(fp2, "   ymin = ymin * 0.99;\n");
-        fprintf(fp2, "end;\n");
-        fprintf(fp2, "if (ymax == ymin)\n");
-        fprintf(fp2, "   ymax = ymax + 0.01;\n");
-        fprintf(fp2, "   ymin = ymin - 0.01;\n");
-        fprintf(fp2,"end;\n");
-        fprintf(fp2, "bar(Y,0.8);\n");
-        fwritePlotAxes(fp2);
-        fwritePlotTitle(fp2, "MARS Rankings");
-        fwritePlotXLabel(fp2, "Input parameters");
-        fwritePlotYLabel(fp2, "MARS ranks");
-        if (psPlotTool_ == 1)
-        {
-          fprintf(fp, "a=gca();\n");
-          fprintf(fp, "a.data_bounds=[0, ymin-0.01*(ymax-ymin); ");
-          fprintf(fp, "n+1, ymax+0.01*(ymax-ymin)];\n");
-        }
-        else
-        {
-          fprintf(fp,"axis([0 n+1 ymin-0.01*(ymax-ymin) ");
-          fprintf(fp,"ymax+0.01*(ymax-ymin)])\n");
-        }
-        fclose(fp2);
-        if (psPlotTool_ == 1)
-             printf("Mars ranking is now in scilabmarsa.sci.\n");
-        else printf("Mars ranking is now in matlabmarsa.m.\n");
-
-        for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-        sortDbleList2a(nInputs_, dArray, iArray);
-        printAsterisks(PL_INFO, 0);
-        printf("* Mars screening rankings \n");
-        printAsterisks(PL_INFO, 0);
-        for (ii = nInputs_-1; ii >= 0; ii--)
-          printf("*  Rank %3d : Input = %3d (score = %4.1f)\n", 
-                 nInputs_-ii, iArray[ii]+1, dArray[ii]);
-        printAsterisks(PL_INFO, 0);
-      }
-      delete [] dArray;
-      delete [] iArray;
-      fclose(fp);
-    }
-    else printf("Mars: cannot rank - .psuade_mars file not found.\n");
-  }
-  else if (targc == 3 && !strcmp(targv[0], "mars_params"))
-  {
-    ii = *(int *) targv[1];
-    if (ii > 0)
-    {
-      nBasisFcns_ = ii;
-      if (nBasisFcns_ < 20) nBasisFcns_ = 20;
-      if (outputLevel_ >= 2)
-        printOutTS(PL_INFO,
-             "Mars: numBasis    set to = %d.\n", nBasisFcns_);
-    }
-    jj = *(int *) targv[2];
-    if (jj > 0)
-    {
-      maxVarPerBasis_ = jj;
-      if (maxVarPerBasis_ < 1) maxVarPerBasis_ = 1;
-      if (outputLevel_ >= 2)
-      printOutTS(PL_INFO,
-           "Mars: varPerBasis set to = %d.\n", maxVarPerBasis_);
-    }
-  }
-  else if (targc == 1 && !strcmp(targv[0], "no_gen"))
-  {
-    noGen_ = 1;
-  }
-  else 
-  {
-    printf("Mars setParams ERROR: invalid command.\n");
-  }
-  return 0.0;
 }
 

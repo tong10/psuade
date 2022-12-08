@@ -71,6 +71,7 @@ void SCEPOptimizer::optimize(oData *odata)
    double paramSpaceConvergence, percentChange=1;
    char   pString[1000], *cString, winput[1000];
 
+   //**/ ------ prepare object variables ------
    nInputs  = odata->nInputs_;
    nOutputs = odata->nOutputs_;
    odata_   = odata;
@@ -87,20 +88,18 @@ void SCEPOptimizer::optimize(oData *odata)
    maxfun = odata->maxFEval_;
    paramSpaceConvergence = odata->tolerance_;
 
+   //**/ ask for which option
    psSCEPInputTypes_ = new int[nInputs];
    for (ii = 0; ii < nInputs; ii++) psSCEPInputTypes_[ii] = 0;
-   if (psConfig_ != NULL)
+   for (ii = 0; ii < nInputs; ii++)
    {
-      for (ii = 0; ii < nInputs; ii++)
+      sprintf(pString,"iiscrete%d", ii+1);
+      cString = psConfig_.getParameter(pString);
+      if (cString != NULL) 
       {
-         sprintf(pString,"iiscrete%d", ii+1);
-         cString = psConfig_->getParameter(pString);
-         if (cString != NULL) 
-         {
-            psSCEPInputTypes_[ii] = 1;
-            if (printLevel > 0)
-               printf("SCE input %4d is discrete\n",ii+1);
-         }
+         psSCEPInputTypes_[ii] = 1;
+         if (printLevel > 0)
+            printf("SCE input %4d is discrete\n",ii+1);
       }
    }
    isum = 0;
@@ -163,9 +162,11 @@ void SCEPOptimizer::optimize(oData *odata)
    sampler -> getSamples(nPtsMultiple, nInputs, 1, Xinit, Yinit, Sinit);
    delete [] Sinit;
 
+   //**/ determine whether to include initial point in starting population  
    if ( includeInitialPoint == 1 )
       for (ii = 0; ii < nInputs; ++ii) Xinit[ii] = odata->initialX_[ii];
 
+   //**/ massage integer variables
    if (psSCEPInputTypes_ != NULL)
    {
       for (ii = 0; ii < nInputs; ii++)
@@ -182,6 +183,8 @@ void SCEPOptimizer::optimize(oData *odata)
    }
    odata->funcIO_->setDriver(1);
 
+   //**/ determine function value at each sample point
+   //**/ discard samples that violates constraints
    int nPtsTrue=0, numRuns, numFails=0;
    while ((nPtsTrue < nPts) && ((nPtsTrue+numFails) < nPtsMultiple))
    {
@@ -218,6 +221,9 @@ void SCEPOptimizer::optimize(oData *odata)
    nComplex = nPts / nMemPerComplex;
    printf("SCEP INFO: current number of complexes = %d\n", nComplex);
 
+   //**/ Sort the population in order of increasing function values;
+   //**/ Reorganize x so that order of points corresponds to increasing 
+   //**/ function value
    int    *sortArray = new int[nPts];
    double *dsortArray = new double[nPts];
    for (ii = 0; ii < nPts; ++ii) 
@@ -227,6 +233,7 @@ void SCEPOptimizer::optimize(oData *odata)
    }
    sortDbleList2a(nPts, dsortArray, sortArray); 
 
+   //**/ Use sortArray as indices for sorting x1 into x
    double *X = new double[nPts*nInputs];
    double *Y = new double[nPts*nInputs];
    for (ii = 0; ii < nPts; ii++)
@@ -245,6 +252,7 @@ void SCEPOptimizer::optimize(oData *odata)
    sortArray = NULL;
    dsortArray = NULL;
 
+   //**/ Record the best and worst points
    double Xbest[nInputs]; 
    double Xworst[nInputs]; 
    for (ii = 0; ii < nInputs; ++ii)
@@ -255,6 +263,7 @@ void SCEPOptimizer::optimize(oData *odata)
    double Ybest  = Y[0];
    double Yworst = Y[(nPts-1)*nOutputs];
 
+   //**/ Compute the normalized geometric range of the parameters
    double geoRange = georange(nInputs, nPts, X, ranges);
 
    // Check for convergency 
@@ -282,6 +291,14 @@ void SCEPOptimizer::optimize(oData *odata)
       printEquals(PL_INFO, 0);
    }
 
+   //**/ -----------------------------------------------------------------
+   //**/ -----------------------------------------------------------------
+   //**/ evolveComplex
+   //**/ Begin Evolution Loops!!!!!
+   //**/ XC: coordinates of complex
+   //**/ YC: function value at each point of complex
+   //**/ s:  coordinates of simplex
+   //**/ sf: function value at each point of simplex
    double criter[1000];
    double criter_change = 100000;
    int    **partition, **simIndex, ic, flag, iter, iz, nLoop=0;
@@ -289,6 +306,7 @@ void SCEPOptimizer::optimize(oData *odata)
    double *XC2 = new double[nMemPerComplex*nInputs];
    double *X2 = new double[nInputs*nPts];
 
+   //**/ memory allocation
    XC = new double*[nComplex];
    YC = new double*[nComplex];
    partition = new int*[nComplex];
@@ -310,14 +328,17 @@ void SCEPOptimizer::optimize(oData *odata)
    }
    sortArray = new int[nPts];
 
+   //**/ iterate
    while ((odata->numFuncEvals_ < maxfun) && 
           (geoRange > paramSpaceConvergence) && 
           (criter_change > percentChange)) 
    {
       nLoop += 1;
 
+      //**/ ------------- LOOP ON COMPLEXES ------------// 
       for (ic = 0; ic < nComplex; ++ic)
       {
+         //**/ Partition the population into complexes (sub-populations)
        
          for (ii = 0; ii < nMemPerComplex; ++ii)
          {
@@ -327,10 +348,16 @@ void SCEPOptimizer::optimize(oData *odata)
          }
       }
 
+      //**/ -----EVOLVE SIMPLEX WITHIN COMPLEX FOR nEvoStep STEPS
       for (ii = 0; ii < nEvoStep; ++ii)
       {
          for (ic = 0; ic < nComplex; ++ic)
          {
+            //**/ Select simplex by sampling the complex according to a 
+            //**/ linear probability distribution
+            //**/ simIndex = array containing indices of simplex points 
+            //**/            from XC
+            //**/ simPosition = sampled position for simplex
             simIndex[ic][0] = 0; 
             flag = 0;
             for (jj = 1; jj < nMemPerSimplex; ++jj)
@@ -352,8 +379,12 @@ void SCEPOptimizer::optimize(oData *odata)
  	       }
  	       simIndex[ic][jj] = (int) simPosition;
             }
+            //**/ Sort simIndex positions
             sortIntList(nMemPerSimplex, simIndex[ic]);
 	
+            //**/ Construct the simplex
+            //**/ XS = simplex coordinates
+            //**/ YS = simplex point function values 
             for (jj = 0; jj != nMemPerSimplex; ++jj)
             {
 	       YS[ic][jj] = YC[ic][simIndex[ic][jj]];
@@ -363,15 +394,18 @@ void SCEPOptimizer::optimize(oData *odata)
             }
          }
 
+         //**/ Call function that generates new point in a simplex
          newPoint(YNew,&iCall,nComplex,nInputs,nOutputs,nMemPerSimplex,
                   maxfun, XS, YS, XNew, odata);
       
          for (ic = 0; ic < nComplex; ++ic)
          {
+            //**/ Replace the worst point in the Simplex with the new point
             for (jj = 0; jj < nInputs; ++jj)
                XS[ic][nInputs*(nMemPerSimplex-1) + jj] = XNew[ic*nInputs+jj];
             YS[ic][nMemPerSimplex-1] = YNew[ic];  
 
+            //**/ Replace the simplex into the complex
             for (jj = 0; jj < nMemPerSimplex; jj++)
             {
 	       YC[ic][simIndex[ic][jj]] = YS[ic][jj];
@@ -380,9 +414,13 @@ void SCEPOptimizer::optimize(oData *odata)
                       XS[ic][jj*nInputs + kk];
             }
 
+            //**/ Sort the complex
             for (jj = 0; jj < nPts; ++jj) sortArray[jj] = jj;
             sortDbleList2a(nMemPerComplex, YC[ic], sortArray);
 
+            //**/ Use sortArray as indices for sorting XC
+            //**/ Transfer contents of XC to XC2 so that we don't 
+            //**/ overwrite values while sorting
             for (jj = 0; jj < nMemPerComplex*nInputs; jj++) 
                XC2[jj] = XC[ic][jj];
 
@@ -391,9 +429,11 @@ void SCEPOptimizer::optimize(oData *odata)
 	       for (kk = 0; kk < nInputs; kk++)
 	          XC[ic][jj*nInputs + kk] = XC2[sortArray[jj]*nInputs + kk];
             }
+            //**/ End of inner loop for competitive evolution of simplexes
          }
       }
 	  
+      //**/ Replace the complex back into the population;
       for (ic = 0; ic < nComplex; ++ic)
       {
          for (ii = 0; ii < nMemPerComplex; ii++)
@@ -404,11 +444,15 @@ void SCEPOptimizer::optimize(oData *odata)
          }
       }
 
+      //**/ Shuffle the complexes by sorting Y and X
       for (ii = 0; ii < nPts; ++ii) sortArray[ii] = ii;
       sortDbleList2a(nPts, Y, sortArray); 
 
+      //**/ Transfer contents of X to X2 so that we don't overwrite 
+      //**/ values while sorting
       for (ii = 0; ii < nPts*nInputs; ii++) X2[ii] = X[ii];
 
+      //**/ Use sortArray as indices for sorting x
       for (ii = 0; ii != nPts; ++ii)
       {
          for (jj = 0; jj != nInputs; ++jj)
@@ -425,8 +469,10 @@ void SCEPOptimizer::optimize(oData *odata)
       Ybest = Y[0];
       Yworst = Y[(nPts-1)*nOutputs];
 
+      //**/ Compute the normalized geometric range of the parameters
       geoRange = georange(nInputs, nPts, X,  ranges);
 
+      //**/ Check for convergency
       if (printLevel > 0 && odata->numFuncEvals_ >= maxfun)
       {
          printf("*** Optimization search terminated because the limit on\n");
@@ -480,6 +526,7 @@ void SCEPOptimizer::optimize(oData *odata)
          }
       }
    } 
+   //**/ End of the while loop
    delete [] sortArray;
    delete [] XC2;
    for (ic = 0; ic < nComplex; ic++)
@@ -519,6 +566,7 @@ void SCEPOptimizer::optimize(oData *odata)
 // -----------------------------------------------------------------------
 double SCEPOptimizer::georange(int nInputs,int nPts,double* x,double* ranges)
 {
+   //**/ Step 1: determine max and min of each parameter
    int    ii, jj, count=0;
    double y[nInputs], maxval, minval, sum, mean;
    for (ii = 0; ii != nInputs; ++ii)
@@ -534,11 +582,15 @@ double SCEPOptimizer::georange(int nInputs,int nPts,double* x,double* ranges)
       if (y[ii] > 0) count++;
    }
 
+   //**/ Step 2: divide each element of y by each corresponding 
+   //**/ element of ranges
    for (ii = 0; ii != nInputs; ++ii) y[ii] = y[ii] / ranges[ii];
 
+   //**/ Step 3: compute log of each element of y
    for (ii = 0; ii != nInputs; ++ii) 
       if (y[ii] > 0) y[ii] = log(y[ii]);
 
+   //**/ Step 4: Compute mean of elements in y and exponentiate the result
    sum = 0.0;
    for (ii = 0; ii != nInputs; ++ii) 
       if (y[ii] > 0) sum += y[ii];
@@ -550,6 +602,16 @@ double SCEPOptimizer::georange(int nInputs,int nPts,double* x,double* ranges)
 // **********************************************************************
 // newPoint function: generates a new point in a simplex
 // ----------------------------------------------------------------------
+//**/ s = the sorted simplex in order of increasing function values
+//**/ sf = function values in increasing order
+//**/LIST OF LOCAL VARIABLES
+//**/ XWorst = the worst point of the simplex
+//**/ secWorst = the second worst point of the simplex
+//**/ YBest = function value of the best point
+//**/ YWorst = function value of the worst point
+//**/ XNew = new generated simplex point
+//**/ YNew = function value of new point
+//**/ centroid = centroid of simplex excluding worst point
 // ----------------------------------------------------------------------
 void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex, 
                              int nInputs, int nOutputs, int nMemPerSimplex, 
@@ -564,10 +626,12 @@ void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex,
 
    for (ic = 0; ic < nComplex; ic++)
    {
+      //**/ Assign the best and worst points
       for (ii = 0; ii < nInputs; ii++)
          XWorst[ic*nInputs+ii] = XS[ic][nInputs*(nMemPerSimplex-1)+ii];
       YWorst[ic] = YS[ic][nMemPerSimplex-1];
 
+      //**/ Compute the centroid of the simplex excluding the worst point
       for (ii = 0; ii != nInputs; ++ii)
       { 
          sum = 0.0;
@@ -576,10 +640,12 @@ void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex,
          centroid[ic*nComplex+ii]= sum/(nMemPerSimplex-1);
       }
 
+      //**/ Attempt a reflection point
       for (ii = 0; ii < nInputs; ii++)
          XNew[ic*nInputs+ii] = centroid[ic*nComplex+ii]+alpha*
                               (centroid[ic*nComplex+ii]-XWorst[ic*nInputs+ii]);
 
+      //**/ Check if it is outside the bounds
       for (ii = 0; ii != nInputs; ++ii)
       {
          X1[ii] = XNew[ii] - odata->lowerBounds_[ii];
@@ -601,6 +667,7 @@ void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex,
                        (odata->upperBounds_[ii] - odata->lowerBounds_[ii]);
       }
 
+      //**/ massage integer variables before evaluation
       if (psSCEPInputTypes_ != NULL)
       {
          for (ii = 0; ii < nInputs; ii++)
@@ -616,6 +683,7 @@ void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex,
    evaluateFunction(nComplex, XNew, YNew1);
    *iCall += nComplex;
 
+   //**/ Reflection failed; now attempt a contraction step
    for (ic = 0; ic < nComplex; ic++)
    {
       if (YNew1[ic*nOutputs] > YWorst[ic])
@@ -623,6 +691,7 @@ void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex,
          for (ii = 0; ii < nInputs; ii++)
             XNew[ic*nInputs+ii] = XWorst[ic*nInputs+ii]+beta*
                        (centroid[ic*nComplex+ii]-XWorst[ic*nInputs+ii]);
+         //**/ massage integer variables
          if (psSCEPInputTypes_ != NULL)
          {
             for (ii = 0; ii < nInputs; ii++)
@@ -637,6 +706,7 @@ void SCEPOptimizer::newPoint(double *YNew, int* iCall, int nComplex,
          evaluateFunction(1, &XNew[ic*nInputs], &YNew1[ic]);
          *iCall += 1;
 
+         //**/ Both reflection and contraction have failed, try a random point
          if (YNew1[ic] > YWorst[ic])
          {
             for (ii = 0; ii < nInputs ; ii++)
@@ -680,13 +750,16 @@ void SCEPOptimizer::evaluateFunction(int nSamp, double *XValues,
    int    ii, jj, index, funcID, nInputs, nOutputs;
    double Ymin;
 
+   //**/ ------ fetch data ------
    nInputs  = odata_->nInputs_;
    nOutputs = odata_->nOutputs_;
 
+   //**/ ------ run simulation ------
    funcID = odata_->numFuncEvals_;
    odata_->funcIO_->evaluate(nSamp,nInputs,XValues,nOutputs,YValues,funcID);
    odata_->numFuncEvals_ += nSamp;
 
+   //**/ ------ store optimal information ------
    Ymin  = PSUADE_UNDEFINED;
    index = -1;
    for (ii = 0; ii < nSamp; ii++)

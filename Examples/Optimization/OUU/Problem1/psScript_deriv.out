@@ -1,0 +1,447 @@
+**********************************************************************
+*      Welcome to PSUADE (version 1.7.7)
+**********************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (1.7.7)
+(for help, enter <help>)
+======================================================================
+psuade> INFO: Creating a sample assuming all uncertain parameters
+      are uniformly distributed.
+PSUADE INFO: no driver given. The sample points
+             will be used for optimization only.
+PSUADE run: output level = 2
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 1 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: if evaluation should be fast but is slow, check save frequency.
+Note: use psuade_pmachine to dynamically change max jobs.
+Note: use psuade_stop to terminate gracefully.
+======================================================================
+PSUADE run: running sample, nSamples = 4 
+**********************************************************************
+PSUADE : Search for local minima in sample space.
+         number of samples = 4
+	 optimization starting point 1 : 
+		  -1.00000000e+00
+		  -1.00000000e+01
+		  -1.00000000e+01
+		  -3.00000000e+00
+		  -3.00000000e+00
+		  -3.00000000e+00
+				 Y =   1.00000000e+35
+	 optimization starting point 2 : 
+		  -2.50000000e-01
+		   0.00000000e+00
+		   0.00000000e+00
+		   0.00000000e+00
+		   0.00000000e+00
+		   0.00000000e+00
+				 Y =   1.00000000e+35
+	 optimization starting point 3 : 
+		  -6.25000000e-01
+		   5.00000000e+00
+		  -5.00000000e+00
+		   1.50000000e+00
+		  -1.50000000e+00
+		   1.50000000e+00
+				 Y =   1.00000000e+35
+	 optimization starting point 4 : 
+		   1.25000000e-01
+		  -5.00000000e+00
+		   5.00000000e+00
+		  -1.50000000e+00
+		   1.50000000e+00
+		  -1.50000000e+00
+				 Y =   1.00000000e+35
+**********************************************************************
+**********************************************************************
+PSUADE OPTIMIZATION 1 (4) : 
+	 starting X(     1) =  -1.00000000e+00
+	 starting X(     2) =  -1.00000000e+01
+	 starting X(     3) =  -1.00000000e+01
+	 starting X(     4) =  -3.00000000e+00
+	 starting X(     5) =  -3.00000000e+00
+	 starting X(     6) =  -3.00000000e+00
+	 starting Y =   1.00000000e+35
+**********************************************************************
+**********************************************************************
+*     1- OR 2-STAGE OPTIMIZATION UNDER UNCERTAINTY (OUU)
+======================================================================
+This optimization capability solves the following problem:
+
+   minimize_Z1 { Phi_{Z3,Z4} [ G(Z1,Z2,Z3,Z4) ] } 
+
+   subject to either:
+    (a) bound constraints on Z1, Z2, and Z4 (use bobyqa); or 
+    (b) no constraint on Z1, Z2, and Z4 (use newuoa); or
+    (c) inequality constraints on Z1,Z2,Z3,Z4 (use cobyla)
+    as the level-1 optimizer.)
+
+   Z3 is a set of discrete parameters for which a sample
+
+   is to be provided by the user. 
+
+   (0) How to perform regular optimization? 
+       In this case 
+       - Z1 will be the optimization variables
+       - Z2 should be an empty set
+       - Z3 should be an empty set
+       - Z4 should be an empty set
+       - G(Z1,Z3,Z4)=G(Z1) is the simulator (opt_driver)
+   (1) How to perform 1-level OUU? 
+       In this case 
+       - Z1: the optimization variables
+       - Z2: should be an empty set
+       - Z3: parameters that you will provide a sample for.
+       - Z4: parameters that you do not provide a sample.
+         (optionally, you can choose sampling schemed and
+          whether you want response surface for Z4).
+       - G(Z1,Z3,Z4) is the simulator (opt_driver)
+
+   (2) How to perform 2-level OUU? 
+       In this case 
+       - Z1: the optimization variables
+       - Z2: the set of level-2 optimization parameters.
+         If Z2 do not need to be published outside of the G
+         function, then it can be specified as an empty set.
+       - Z3: parameters that you will provide a sample for.
+       - Z4: parameters that you do not provide a sample.
+       - There are 2 options to how to set up G(Z1,Z2,Z3,Z4):
+         (a) A user-provided level 2 optimizer that does
+
+              G(Z1,Z2,Z3,Z4) = minimize_Z2{F(Z1,Z2,Z3,Z4)}
+
+             where F(Z1,Z2,Z3,Z4) is embedded in G(Z1,...)
+
+             In this case, the user will provide G(Z1,...)
+             via opt_driver (i.e. opt_driver = gfunction)
+         (b) A user-provided function F(Z1,...) such that
+
+              G(Z1,Z2,Z3,Z4) = minimize_Z2 {F(Z1,Z2,Z3,Z4)}
+
+             In this case, user is expected to provide the
+             F(Z1,...) function via 'opt_driver = ffunction'
+             and OUU provides the optimizer (BOBYQA).
+
+   In case 1 and 2, Phi_{Z3,Z4} is a functional on G(Z1,...)
+   with respect to Z3 and Z4, e.g. Phi_{Z3,Z4} may be:
+   1. mean of G(Z1,Z2,Z3,Z4) with respect to Z3,Z4 (default)
+   2. mean of G(Z1,Z2,Z3,Z4) + alpha * std dev of G(Z1,...)
+   3. G(Z1,Z2,Z3*,Z4*) such that 
+         Prob(G(Z1,Z2,Z3,Z4)>G(Z1,Z2,Z3*,Z4*)) = epsilon
+   4. min_{Z3,Z4} G(Z1,Z2,Z3,Z4) given Z1,Z2 (robust opt.)
+======================================================================
+In the above formulation, the total no. of parameters M = 6
+These parameters are to be divided into four groups:
+(1) Stage 1 optimization parameters Z1 (M1 >= 1) 
+(2) Stage 2 optimization (recourse) parameters Z2
+(3) uncertain parameters Z3 (with a user-provided sample) 
+(4) uncertain parameters Z4 
+    - continuous parameters (PSUADE to generate sample), or
+    - a large sample (created by PSUADE from RS) 
+Thus, the first M1+M2 parameters are considered to be
+optimization parameters, and M3+M4 are uncertain parameters
+so that M = M1 + M2 + M3 + M4.
+======================================================================
+To reuse simulation results (e.g. from before abrupt
+termination), turn on save_history and use_history
+optimization options in the ANALYSIS section (e.g.
+optimization save_history). You will see a text file
+called 'psuade_ouu_history' afterward.
+**********************************************************************
+IF YOU ARE READY TO MOVE ON, ENTER 'y' AND RETURN : ======================================================================
+M1 = number of design (level 1 optim.) parameters
+Enter M1 (between 1 and 6) : M3 = number of discrete (scenario) parameters
+Enter M3 (between 0 and 3) : ----------------------------------------------------------------------
+Number of first  stage optimization parameters = 3
+Number of second stage optimization parameters = 0
+Number of discrete   uncertain parameters      = 0
+Number of continuous uncertain parameters      = 3
+----------------------------------------------------------------------
+In the following, please select type for each variable:
+  1. design variable (level 1 optimization parameter)
+  2. operating variable (level 2 optimization parameter)
+  3. discrete uncertain variable (a sample will be given)
+  4. continuous uncertain variable
+NOTE: make sure your specification matches with above.
+Type for variable 1 ? Type for variable 2 ? Type for variable 3 ? Type for variable 4 ? Type for variable 5 ? Type for variable 6 ? ======================================================================
+Input    1 is a design parameter.
+Input    2 is a design parameter.
+Input    3 is a design parameter.
+Input    4 is a continuous uncertain parameter.
+Input    5 is a continuous uncertain parameter.
+Input    6 is a continuous uncertain parameter.
+PDF type for Input     4 = Uniform
+PDF type for Input     5 = Uniform
+PDF type for Input     6 = Uniform
+======================================================================
+OUUOptimizer: setting optimization simulation driver.
+**********************************************************************
+OUUOptimizer: max fevals = 1000000
+OUUOptimizer: tolerance  = 1.000000e-06
+======================================================================
+======================================================================
+Select which functional Phi_{Z3,Z4} to use: 
+  1. mean of G(Z1,...) with respect to Z3,Z4 (default)
+  2. mean of G(Z1,...) + beta * std dev of G(Z1,...)
+Enter your choice of functional (1 or 2) : OUUOptimizer: generating a sample for Z4. Two options:
+(1) Users can upload a sample to PSUADE
+(2) PSUADE can internally create a sample
+Select option 1 or 2 : ======================================================================
+PSUADE will create a sample (size will be selected later)
+for Z4. Since the sample should be small for computational
+efficiency, and accuracy of statistics depends on sample
+size, you have the option to add one more step in OUU by
+estimating the statistics with a large sample evaluated on
+the response surfaces built from the small sample.
+Use response surface for Z4 to compute statistics? (y or n) ======================================================================
+OUUOptimizer uses a Z4 sample to estimate the objective
+Default sampling method = Latin hypercube
+Default sample size     = 100
+Available sampling method: 
+   (1) LHS, 
+   (2) factorial, or
+   (3) quasi-MC.
+Select sampling method (1, 2 or 3) : Enter sample size (>= 2, <= 1000) : Latin hypercube/QMC has sample size = 200
+======================================================================
+Since no recourse variable (for level 2 optimization) has
+been specified, PSUADE presumes that you are either doing
+1-level OUU, or you are providing the inner optimization
+solver in opt_driver.
+======================================================================
+Each simulation calls the opt_driver with 1 sample point.
+For higher efficiency (less I/O), you have the option to
+provide in 'ensemble_opt_driver' an executable that can
+run multiple sample points. In this case, OUU calls the
+ensemble executable with the following sequence: 
+    <ensemble_opt_driver> <sampleFile> <outputFile>
+
+where <sampleFile> is in the following format:
+   line 1: <nSamples>
+   line 2: Sample point 1 input values
+   line 3: Sample point 2 input values
+   line n: ...
+
+and <outputFile> should have all sample output values.
+
+Use ensemble opt driver for ensemble runs ? (y or n) ======================================================================
+You can configure OUU to run the ensemble simulations in
+parallel/asynchronous using the Linux fork/join. If 'n'
+is entered below, the opt_driver simulator will be
+evaluated sequentially (one sample point at a time).
+If 'y' is selected instead, be careful, because PSUADE
+PSUADE will launch 200 jobs simultaneously, which may
+jam up the job queuing system.
+Turn on asynchronous mode ? (y or n) ======================================================================
+**********************************************************************
+OPTIMIZATION UNDER UNCERTAINTY BEGINS
+** Optimizer = LBFGS (derivative-based)
+----------------------------------------------------------------------
+OUUOptimizer initial X   1 = -1.000000e+00
+OUUOptimizer initial X   2 = -1.000000e+01
+OUUOptimizer initial X   3 = -1.000000e+01
+======================================================================
+OUUOptimizer: calling lbfgs
+At X0, 3 variables are exactly at the bounds
+At iterate     0, f(x)= 4.53e+02, ||proj grad||_infty = 2.00e+01
+At iterate     2, f(x)= 2.52e+01, ||proj grad||_infty = 2.66e+00
+At iterate     4, f(x)= 2.49e+01, ||proj grad||_infty = 1.07e+00
+At iterate     6, f(x)= 2.46e+01, ||proj grad||_infty = 1.16e-03
+Cauchy                time 0.000e+00 seconds.
+Subspace minimization time 0.000e+00 seconds.
+Line search           time 0.000e+00 seconds.
+ Total User time 0.000e+00 seconds.
+Final Input X    1 =  -4.6645963759946002e-01
+Final Input X    2 =  -4.6645721986596184e-01
+Final Input X    3 =  -3.0085718312667409e-01
+Final objective function value =   2.45812967e+01
+Total number of iterations     = 18
+OUUOptimizer: total number of evaluations = 2000
+	 OUUOptimizer number of function evaluations = 2000
+	 optimum  X(     1) =  -4.66459638e-01
+	 optimum  X(     2) =  -4.66457220e-01
+	 optimum  X(     3) =  -3.00857183e-01
+	 optimum  X(     4) =   0.00000000e+00
+	 optimum  X(     5) =   0.00000000e+00
+	 optimum  X(     6) =   0.00000000e+00
+			 optimum Y =   2.45812967e+01
+**********************************************************************
+**********************************************************************
+PSUADE OPTIMIZATION 2 (4) : 
+	 starting X(     1) =  -2.50000000e-01
+	 starting X(     2) =   0.00000000e+00
+	 starting X(     3) =   0.00000000e+00
+	 starting X(     4) =   0.00000000e+00
+	 starting X(     5) =   0.00000000e+00
+	 starting X(     6) =   0.00000000e+00
+	 starting Y =   1.00000000e+35
+**********************************************************************
+OPTIMIZATION UNDER UNCERTAINTY BEGINS
+** Optimizer = LBFGS (derivative-based)
+----------------------------------------------------------------------
+OUUOptimizer initial X   1 = -2.500000e-01
+OUUOptimizer initial X   2 = 0.000000e+00
+OUUOptimizer initial X   3 = 0.000000e+00
+======================================================================
+OUUOptimizer: calling lbfgs
+At X0, 0 variables are exactly at the bounds
+At iterate     0, f(x)= 2.62e+01, ||proj grad||_infty = 7.50e-01
+At iterate     2, f(x)= 2.47e+01, ||proj grad||_infty = 9.55e-01
+At iterate     4, f(x)= 2.46e+01, ||proj grad||_infty = 2.88e-01
+At iterate     6, f(x)= 2.46e+01, ||proj grad||_infty = 1.25e-03
+At iterate     8, f(x)= 2.46e+01, ||proj grad||_infty = 1.12e-05
+Cauchy                time 0.000e+00 seconds.
+Subspace minimization time 0.000e+00 seconds.
+Line search           time 0.000e+00 seconds.
+ Total User time 0.000e+00 seconds.
+Final Input X    1 =  -4.6645951843334982e-01
+Final Input X    2 =  -4.6646003309614098e-01
+Final Input X    3 =  -3.0085537758628877e-01
+Final objective function value =   2.45812967e+01
+Total number of iterations     = 19
+OUUOptimizer: total number of evaluations = 2000
+	 OUUOptimizer number of function evaluations = 2000
+	 optimum  X(     1) =  -4.66459518e-01
+	 optimum  X(     2) =  -4.66460033e-01
+	 optimum  X(     3) =  -3.00855378e-01
+	 optimum  X(     4) =   0.00000000e+00
+	 optimum  X(     5) =   0.00000000e+00
+	 optimum  X(     6) =   0.00000000e+00
+			 optimum Y =   2.45812967e+01
+**********************************************************************
+**********************************************************************
+PSUADE OPTIMIZATION 3 (4) : 
+	 starting X(     1) =  -6.25000000e-01
+	 starting X(     2) =   5.00000000e+00
+	 starting X(     3) =  -5.00000000e+00
+	 starting X(     4) =   1.50000000e+00
+	 starting X(     5) =  -1.50000000e+00
+	 starting X(     6) =   1.50000000e+00
+	 starting Y =   1.00000000e+35
+**********************************************************************
+OPTIMIZATION UNDER UNCERTAINTY BEGINS
+** Optimizer = LBFGS (derivative-based)
+----------------------------------------------------------------------
+OUUOptimizer initial X   1 = -6.250000e-01
+OUUOptimizer initial X   2 = 5.000000e+00
+OUUOptimizer initial X   3 = -5.000000e+00
+======================================================================
+OUUOptimizer: calling lbfgs
+At X0, 0 variables are exactly at the bounds
+At iterate     0, f(x)= 1.40e+02, ||proj grad||_infty = 1.50e+01
+At iterate     2, f(x)= 2.73e+01, ||proj grad||_infty = 3.08e+00
+At iterate     4, f(x)= 2.59e+01, ||proj grad||_infty = 2.18e+00
+At iterate     6, f(x)= 2.46e+01, ||proj grad||_infty = 5.44e-02
+At iterate     8, f(x)= 2.46e+01, ||proj grad||_infty = 1.12e-03
+Cauchy                time 0.000e+00 seconds.
+Subspace minimization time 0.000e+00 seconds.
+Line search           time 0.000e+00 seconds.
+ Total User time 0.000e+00 seconds.
+Final Input X    1 =  -4.6645790899159606e-01
+Final Input X    2 =  -4.6642395552111682e-01
+Final Input X    3 =  -3.0085488259135185e-01
+Final objective function value =   2.45812967e+01
+Total number of iterations     = 23
+OUUOptimizer: total number of evaluations = 2600
+	 OUUOptimizer number of function evaluations = 2600
+	 optimum  X(     1) =  -4.66457909e-01
+	 optimum  X(     2) =  -4.66423956e-01
+	 optimum  X(     3) =  -3.00854883e-01
+	 optimum  X(     4) =   0.00000000e+00
+	 optimum  X(     5) =   0.00000000e+00
+	 optimum  X(     6) =   0.00000000e+00
+			 optimum Y =   2.45812967e+01
+**********************************************************************
+**********************************************************************
+PSUADE OPTIMIZATION 4 (4) : 
+	 starting X(     1) =   1.25000000e-01
+	 starting X(     2) =  -5.00000000e+00
+	 starting X(     3) =   5.00000000e+00
+	 starting X(     4) =  -1.50000000e+00
+	 starting X(     5) =   1.50000000e+00
+	 starting X(     6) =  -1.50000000e+00
+	 starting Y =   1.00000000e+35
+**********************************************************************
+OPTIMIZATION UNDER UNCERTAINTY BEGINS
+** Optimizer = LBFGS (derivative-based)
+----------------------------------------------------------------------
+OUUOptimizer initial X   1 = 1.250000e-01
+OUUOptimizer initial X   2 = -5.000000e+00
+OUUOptimizer initial X   3 = 5.000000e+00
+======================================================================
+OUUOptimizer: calling lbfgs
+At X0, 0 variables are exactly at the bounds
+At iterate     0, f(x)= 1.52e+02, ||proj grad||_infty = 1.50e+01
+At iterate     2, f(x)= 2.51e+01, ||proj grad||_infty = 1.29e+00
+At iterate     4, f(x)= 2.46e+01, ||proj grad||_infty = 4.77e-01
+At iterate     6, f(x)= 2.46e+01, ||proj grad||_infty = 6.78e-04
+At iterate     8, f(x)= 2.46e+01, ||proj grad||_infty = 6.42e-06
+Cauchy                time 0.000e+00 seconds.
+Subspace minimization time 0.000e+00 seconds.
+Line search           time 0.000e+00 seconds.
+ Total User time 0.000e+00 seconds.
+Final Input X    1 =  -4.6645976920044296e-01
+Final Input X    2 =  -4.6645964762861664e-01
+Final Input X    3 =  -3.0085563173389257e-01
+Final objective function value =   2.45812967e+01
+Total number of iterations     = 20
+OUUOptimizer: total number of evaluations = 2200
+	 OUUOptimizer number of function evaluations = 2200
+	 optimum  X(     1) =  -4.66459769e-01
+	 optimum  X(     2) =  -4.66459648e-01
+	 optimum  X(     3) =  -3.00855632e-01
+	 optimum  X(     4) =   0.00000000e+00
+	 optimum  X(     5) =   0.00000000e+00
+	 optimum  X(     6) =   0.00000000e+00
+			 optimum Y =   2.45812967e+01
+**********************************************************************
+	 OUU total number of function evaluations = 8800
+**********************************************************************
+PSUADE Optimization Results.
+PSUADE Optimization : local optima 1 (4) - 
+		X     1 =  -4.66459638e-01
+		X     2 =  -4.66457220e-01
+		X     3 =  -3.00857183e-01
+		X     4 = 0
+		X     5 = 0
+		X     6 = 0
+			Ymin =   2.45812967e+01
+PSUADE Optimization : local optima 2 (4) - 
+		X     1 =  -4.66459518e-01
+		X     2 =  -4.66460033e-01
+		X     3 =  -3.00855378e-01
+		X     4 = 0
+		X     5 = 0
+		X     6 = 0
+			Ymin =   2.45812967e+01
+PSUADE Optimization : local optima 3 (4) - 
+		X     1 =  -4.66457909e-01
+		X     2 =  -4.66423956e-01
+		X     3 =  -3.00854883e-01
+		X     4 = 0
+		X     5 = 0
+		X     6 = 0
+			Ymin =   2.45812967e+01
+PSUADE Optimization : local optima 4 (4) - 
+		X     1 =  -4.66459769e-01
+		X     2 =  -4.66459648e-01
+		X     3 =  -3.00855632e-01
+		X     4 = 0
+		X     5 = 0
+		X     6 = 0
+			Ymin =   2.45812967e+01
+##################################################
+PSUADE OPTIMIZATION : CURRENT GLOBAL MINIMUM - 
+		X     1 =  -4.66459769e-01
+		X     2 =  -4.66459648e-01
+		X     3 =  -3.00855632e-01
+		X     4 = 0
+		X     5 = 0
+		X     6 = 0
+			Ymin =   2.45812967e+01
+##################################################
+**********************************************************************
+======================================================================
+psuade> 

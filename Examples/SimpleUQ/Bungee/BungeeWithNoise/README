@@ -1,0 +1,44 @@
+This is the Bungee problem but it adds 37 additional random
+inputs for comparing between direct variance decomposition 
+vs. screening
+
+Bungee Problem:
+
+The function is
+
+   hmin = H - 2Mg/ k sigma + 5 * rand(0,1) * sin(X[i] * 2 * pi)
+
+where H is the distance of the jumping platform to the ground
+      M is the mass (kg)
+      sigma is the number of strands in the cord
+      g is gravity (9.8m/s2)
+      k is the elastic constrant of one strand (N/m) = 1.5
+
+H is uniformly distributed [40,60]
+M = U(67 kg, 74 kg)
+sigma = U(20,40)
+noise for 37 inputs = 0.01 * random(0,1) * cos(5x_j), j=3,40
+
+99.99% for 4 standard deviations
+ 
+sensitivity indices
+H ~0.45
+M ~0.01
+sig ~0.54
+coefficients for 37 inputs
+
+-----------------------------------------------
+To run MOAT:
+cc -o simulator simulator.c -lm
+psuade psuadeMOAT.in
+
+-----------------------------------------------
+To run main effect on raw sample:
+cc -o simulator simulator.c -lm
+psuade psuadeME.in
+
+-----------------------------------------------
+Use MARS and the rssobol1
+cc -o simulator simulator.c -lm
+psuade psuadeRSSobol1.in
+

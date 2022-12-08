@@ -31,8 +31,8 @@
 #include "Psuade.h"
 #include "sysdef.h"
 #include "PsuadeUtil.h"
-#include "Matrix.h"
-#include "Vector.h"
+#include "psMatrix.h"
+#include "psVector.h"
 #include "Sampling.h"
 #include "PDFManager.h"
 #include "PrintingTS.h"
@@ -42,6 +42,7 @@
 // ------------------------------------------------------------------------
 #define CSMaxSampleSize        100
 #define CSMaxSignificanceLevels  5
+//**/  Upper 0.1 0.05 0.025 0.01 0.001 (one-sided)
 static double CSUTable[CSMaxSampleSize][CSMaxSignificanceLevels] =
 {
   {   2.706,   3.841,   5.024,   6.635,  10.828},
@@ -146,6 +147,7 @@ static double CSUTable[CSMaxSampleSize][CSMaxSignificanceLevels] =
   { 118.498, 124.342, 129.561, 135.807, 149.449},
 };
 
+//**/  Lower 0.9 0.95 0.975 0.99 0.999 (one-sided)
 static double CSLTable[CSMaxSampleSize][CSMaxSignificanceLevels] =
 {
    {       .016,     .004,     .001,     .000,     .000},
@@ -255,7 +257,7 @@ static double CSLTable[CSMaxSampleSize][CSMaxSignificanceLevels] =
 // ------------------------------------------------------------------------
 OneSampleAnalyzer::OneSampleAnalyzer() : Analyzer()
 {
-   setName("1SAMPLE");
+  setName("1SAMPLE");
 }
 
 // ************************************************************************
@@ -270,59 +272,68 @@ OneSampleAnalyzer::~OneSampleAnalyzer()
 // ------------------------------------------------------------------------
 double OneSampleAnalyzer::analyze(aData &adata)
 {
-   int    testOption=-1, length, ss;
-   double retval, *Y;
-   char   filename[500], lineIn[500];
-   FILE   *file;
+  int    testOption=-1, length, ss;
+  double ddata;
+  char   filename[501], lineIn[501];
+  FILE   *file;
                                                                                 
-   (void) adata;
+  (void) adata;
 
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, "* The available 1-sample tests are: \n");
-   printEquals(PL_INFO, 0);
-   while (testOption < 1 || testOption > 2)
-   {
-      printf( "Choose your test: \n");
-      printf("(1) Chi-squared test (sample std dev test)\n");
-      printf("(2) Distribution fit (sample mean and/or std dev test)\n");
-      printf("Your choice (1 or 2): ");
-      scanf("%d", &testOption);
-   }
+  printAsterisks(PL_INFO, 0);
+  printOutTS(PL_INFO, "* The available 1-sample tests are: \n");
+  printEquals(PL_INFO, 0);
+  while (testOption < 1 || testOption > 2)
+  {
+    printf( "Choose your test: \n");
+    printf("(1) Chi-squared test (sample std dev test)\n");
+    printf("(2) Distribution fit (sample mean and/or std dev test)\n");
+    printf("Your choice (1 or 2): ");
+    scanf("%d", &testOption);
+  }
 
-   printf("Enter your data file (format: N Y1 Y2 .. YN) : ");
-   // Bill Oliver added width specifier for defensive programming
-   scanf("%499s", filename);
-   fgets(lineIn,500,stdin);
-   file = fopen(filename, "r");
-   if (file == NULL)
-   {
-      printOutTS(PL_INFO, "OneSampleAnalyzer ERROR: file %s does not exist.\n",filename);
-      return PSUADE_UNDEFINED;
-   }
-   fscanf(file, "%d", &length);
-   if (length <= 1)
-   {
-      printOutTS(PL_ERROR, "OneSampleAnalyzer ERROR: file has invalid length %d.\n",length);
-      fclose(file);
-      return PSUADE_UNDEFINED;
-   }
-   Y = new double[length];
-   checkAllocate(Y, "Y in OneSample::analyze");
-   for (ss = 0; ss < length; ss++) fscanf(file, "%lg", &Y[ss]);
-   fclose(file);
+  //**/ ---------------------------------------------------------------
+  //**/ check and read input data file
+  //**/ ---------------------------------------------------------------
+  printf("Enter your data file (format: N Y1 Y2 .. YN) : ");
+  scanf("%499s", filename);
+  fgets(lineIn,500,stdin);
+  file = fopen(filename, "r");
+  if (file == NULL)
+  {
+    printOutTS(PL_INFO, 
+       "OneSampleAnalyzer ERROR: file %s does not exist.\n",filename);
+    return PSUADE_UNDEFINED;
+  }
+  fscanf(file, "%d", &length);
+  if (length <= 1)
+  {
+    printOutTS(PL_ERROR, 
+      "OneSampleAnalyzer ERROR: file has invalid length %d.\n",length);
+    fclose(file);
+    return PSUADE_UNDEFINED;
+  }
+  psVector vecYT;
+  vecYT.setLength(length);
+  for (ss = 0; ss < length; ss++) 
+  {
+    fscanf(file, "%lg", &ddata);
+    vecYT[ss] = ddata;
+  }
+  fclose(file);
 
-   switch(testOption)
-   {
-      case 1:
-         retval = CSAnalyze(length, Y, 2);
+  //**/ ---------------------------------------------------------------
+  //**/ call corresponding function 
+  //**/ ---------------------------------------------------------------
+  switch(testOption)
+  {
+    case 1:
+         ddata = CSAnalyze(length, vecYT.getDVector(), 2);
          break;
-      case 2:
-         retval = DFAnalyze(length, Y, 1);
+    case 2:
+         ddata = DFAnalyze(length, vecYT.getDVector(), 2);
          break;
-   }
-
-   delete [] Y;
-   return retval;
+  }
+  return ddata;
 }
 
 // *************************************************************************
@@ -330,86 +341,96 @@ double OneSampleAnalyzer::analyze(aData &adata)
 // -------------------------------------------------------------------------
 double OneSampleAnalyzer::CSAnalyze(int length, double *Y, int pLevel)
 {
-   double tval, cvalU, cvalL, dtemp, retval, newStd, mean, var;
-   char   lineIn[500];
+  double tval, cvalU, cvalL, dtemp, retval, newStd, mean, var;
+  char   lineIn[500];
 
+  //**/ ---------------------------------------------------------------
+  //**/ get target standard deviation
+  //**/ ---------------------------------------------------------------
+  printAsterisks(PL_INFO, 0);
+  printAsterisks(PL_INFO, 0);
+  printOutTS(PL_INFO, "* CHI-SQUARED TEST: \n");
+  printOutTS(PL_INFO, 
+    "*    NULL HYPOTHESIS H0: dataset std dev differs from a target\n");
+  printEquals(PL_INFO, 0);
 
-   printAsterisks(PL_INFO, 0);
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO, " CHI-SQUARED TEST: \n\n");
-   printOutTS(PL_INFO, " NULL HYPOTHESIS H0: dataset std dev differs from a target\n");
-   printEquals(PL_INFO, 0);
+  if (length > 100)
+  {
+    printOutTS(PL_ERROR, 
+       "Chi-squared test ERROR: sample size needs to be <= 100\n");
+    printOutTS(PL_ERROR, 
+       "       because the table for larger sample is not ready.\n");
+    return PSUADE_UNDEFINED;
+  }
 
-   if (length > 100)
-   {
-      printOutTS(PL_ERROR, "Chi-squared test ERROR: sample size needs to be <= 100\n");
-      printOutTS(PL_ERROR, "       because the table for larger sample is not ready.\n");
-      return PSUADE_UNDEFINED;
-   }
-
-   computeMeanVariance(length, Y, &mean, &var);
-   newStd = 0.0;
-   while (newStd <= 0.0)
-   {
-      printf("Sample std deviation  = %e\n", sqrt(var));
-      printf("What is the target standard deviation? (> 0) ");
-      scanf("%lg", &newStd);
-   }
-   fgets(lineIn,500,stdin);
-   dtemp = var / (newStd * newStd);
-   tval = (length - 1.0) * dtemp;
-   if (pLevel > 0)
-   {
-      printOutTS(PL_INFO, "Sample mean           = %e\n", mean);
-      printOutTS(PL_INFO, "Sample std deviation  = %e\n", sqrt(var));
-      printOutTS(PL_INFO, "Targe  std deviation  = %e\n", newStd);
-      printOutTS(PL_INFO, "Size of dataset       = %d\n", length);
-      printOutTS(PL_INFO, "Chi-squared statistic = %e\n", tval);
-      printOutTS(PL_INFO, "(statistic is (N-1) (ssd/tsd)^2 where ssd is the sample\n");
-      printOutTS(PL_INFO, " std. deviation and tsd is the target standard deviation.)\n");
-      printEquals(PL_INFO, 0);
-   }
-   printOutTS(PL_INFO, "Significance level    = 0.1 \n");
-   if (length > CSMaxSampleSize+1) cvalU = CSUTable[CSMaxSampleSize-1][1];
-   else                            cvalU = CSUTable[length-2][1];
-   if (length > CSMaxSampleSize+1) cvalL = CSLTable[CSMaxSampleSize-1][1];
-   else                            cvalL = CSLTable[length-2][1];
-   printOutTS(PL_INFO, "Upper, lower bounds of chi-squared = %12.4e, %12.4e\n",
-          cvalU,cvalL);
-   if (tval > cvalU || tval < cvalL )
-   {
-      printOutTS(PL_INFO, "ACCEPT NULL HYPOTHESIS (stdev ~ %e.)\n", newStd);
-      retval = 0.0;
-   }
-   else
-   {
-      printOutTS(PL_INFO, "REJECT NULL HYPOTHESIS (stdev ~ %e).\n", newStd);
-      retval = 1.0;
-   }
-   printEquals(PL_INFO, 0);
-   printOutTS(PL_INFO, "Significance level    = 0.05 \n");
-   if (length > CSMaxSampleSize+1) cvalU = CSUTable[CSMaxSampleSize-1][2];
-   else                            cvalU = CSUTable[length-2][2];
-   if (length > CSMaxSampleSize+1) cvalL = CSLTable[CSMaxSampleSize-1][2];
-   else                            cvalL = CSLTable[length-2][2];
-   printOutTS(PL_INFO, "Upper, lower bounds of chi-squared = %12.4e, %12.4e\n",
-          cvalU,cvalL);
-   if (tval > cvalU || tval < cvalL )
-   {
-      printOutTS(PL_INFO, "ACCEPT NULL HYPOTHESIS (stdev ~ %e.)\n", newStd);
-      retval = 0.0;
-   }
-   else
-   {
-      printOutTS(PL_INFO, "REJECT NULL HYPOTHESIS (stdev ~ %e).\n", newStd);
-      retval = 1.0;
-   }
-   if (pLevel > 0)
-   {
-      printAsterisks(PL_INFO, 0);
-      printAsterisks(PL_INFO, 0);
-   }
-   return retval;
+  //**/ ---------------------------------------------------------------
+  //**/ compute statistic (2-sided test with alpha =0.05) 
+  //**/ ---------------------------------------------------------------
+  computeMeanVariance(length, Y, &mean, &var);
+  newStd = 0.0;
+  while (newStd <= 0.0)
+  {
+    printf("Sample std deviation  = %13.5e\n", sqrt(var));
+    printf("What is the target standard deviation? (> 0) ");
+    scanf("%lg", &newStd);
+  }
+  fgets(lineIn,500,stdin);
+  dtemp = var / (newStd * newStd);
+  tval = (length - 1.0) * dtemp;
+  if (pLevel > 0)
+  {
+    printOutTS(PL_INFO, "Sample mean           = %13.5e\n", mean);
+    printOutTS(PL_INFO, "Sample std deviation  = %13.5e\n", sqrt(var));
+    printOutTS(PL_INFO, "Target std deviation  = %13.5e\n", newStd);
+    printOutTS(PL_INFO, "Size of dataset       = %d\n", length);
+    printOutTS(PL_INFO, "Chi-squared statistic = %13.5e\n", tval);
+    printOutTS(PL_INFO, 
+       "(statistic is (N-1) (ssd/tsd)^2 where ssd is the sample\n");
+    printOutTS(PL_INFO, 
+       " std. deviation and tsd is the target standard deviation.)\n");
+    printEquals(PL_INFO, 0);
+  }
+  printOutTS(PL_INFO, "Significance level    = 0.1 \n");
+  if (length > CSMaxSampleSize+1) cvalU = CSUTable[CSMaxSampleSize-1][1];
+  else                            cvalU = CSUTable[length-2][1];
+  if (length > CSMaxSampleSize+1) cvalL = CSLTable[CSMaxSampleSize-1][1];
+  else                            cvalL = CSLTable[length-2][1];
+  printOutTS(PL_INFO, 
+     "Upper, lower bounds of chi-squared = %12.4e, %12.4e\n",cvalU,cvalL);
+  if (tval > cvalU || tval < cvalL )
+  {
+    printOutTS(PL_INFO, "ACCEPT NULL HYPOTHESIS (stdev ~ %e.)\n", newStd);
+    retval = 0.0;
+  }
+  else
+  {
+    printOutTS(PL_INFO, "REJECT NULL HYPOTHESIS (stdev ~ %e).\n", newStd);
+    retval = 1.0;
+  }
+  printEquals(PL_INFO, 0);
+  printOutTS(PL_INFO, "Significance level    = 0.05 \n");
+  if (length > CSMaxSampleSize+1) cvalU = CSUTable[CSMaxSampleSize-1][2];
+  else                            cvalU = CSUTable[length-2][2];
+  if (length > CSMaxSampleSize+1) cvalL = CSLTable[CSMaxSampleSize-1][2];
+  else                            cvalL = CSLTable[length-2][2];
+  printOutTS(PL_INFO,"Upper, lower bounds of chi-squared = %12.4e, %12.4e\n",
+             cvalU,cvalL);
+  if (tval > cvalU || tval < cvalL )
+  {
+    printOutTS(PL_INFO, "ACCEPT NULL HYPOTHESIS (stdev ~ %e.)\n", newStd);
+    retval = 0.0;
+  }
+  else
+  {
+    printOutTS(PL_INFO, "REJECT NULL HYPOTHESIS (stdev ~ %e).\n", newStd);
+    retval = 1.0;
+  }
+  if (pLevel > 0)
+  {
+    printAsterisks(PL_INFO, 0);
+    printAsterisks(PL_INFO, 0);
+  }
+  return retval;
 }
 
 // *************************************************************************
@@ -417,162 +438,192 @@ double OneSampleAnalyzer::CSAnalyze(int length, double *Y, int pLevel)
 // -------------------------------------------------------------------------
 double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
 {
-   int    meanNpts, stdevNpts, im, is, gtype, nSamp, inc, imKeep, isKeep;
-   double mean, var, stdev, meanL, meanU, stdevL, stdevU, delMean, delStd;
-   double *sInputs, gLower, gUpper, curMean, curStdev;
-   double targetMean, targetStdev, minRetVal, retval;
-   char   pString[500], lineIn[500];
-   FILE   *fp=NULL;
-   PDFManager *pdfman;
-   psMatrix   corMat;
-   psVector   vecOut, vecUpper, vecLower;
-   TwoSampleAnalyzer *tsPtr;
+  int    meanNpts, stdevNpts, im, is, gtype, nSamp, inc, imKeep, isKeep;
+  double mean, var, stdev, meanL, meanU, stdevL, stdevU, delMean, delStd;
+  double gLower, gUpper, curMean, curStdev;
+  double targetMean, targetStdev, minRetVal, retval;
+  char   pString[500], lineIn[500];
+  FILE   *fp=NULL;
+  PDFManager *pdfman;
+  psMatrix   corMat;
+  psVector   vecOut, vecUpper, vecLower;
+  TwoSampleAnalyzer *tsPtr=NULL;
 
-   computeMeanVariance(length, Y, &mean, &var);
-   stdev = sqrt(var);
-   printOutTS(PL_INFO, "Sample mean               = %e\n", mean);
-   printOutTS(PL_INFO, "Sample standard deviation = %e\n", stdev);
-   meanL = meanU = 0.0;
-   meanNpts = 0;
-   while (meanL >= meanU || meanNpts <= 1)
-   {
-      printf("Enter the lower bound of mean to search : ");
-      scanf("%lg", &meanL);
-      printf("Enter the upper bound of mean to search : ");
-      scanf("%lg", &meanU);
-      printf("Enter number of points for the mean search (e.g., 100): ");
-      scanf("%d", &meanNpts);
-      if (meanL >= meanU) 
-         printOutTS(PL_INFO, "lower bound %e >= upper bound %e\n",meanL,meanU);
-      if (meanNpts <= 1)
+  //**/ ---------------------------------------------------------------
+  //**/ first compute basic statistic and ask for ranges to search
+  //**/ ---------------------------------------------------------------
+  computeMeanVariance(length, Y, &mean, &var);
+  stdev = sqrt(var);
+  printOutTS(PL_INFO, "Sample mean               = %13.5e\n", mean);
+  printOutTS(PL_INFO, "Sample standard deviation = %13.5e\n", stdev);
+  meanL = meanU = 0.0;
+  meanNpts = 0;
+  while (meanL >= meanU || meanNpts <= 1)
+  {
+    printf("Enter the lower bound of mean to search : ");
+    scanf("%lg", &meanL);
+    printf("Enter the upper bound of mean to search : ");
+    scanf("%lg", &meanU);
+    printf("Enter number of points for the mean search (e.g., 100): ");
+    scanf("%d", &meanNpts);
+    if (meanL >= meanU) 
+      printOutTS(PL_INFO, "lower bound %e >= upper bound %e\n",meanL,meanU);
+    if (meanNpts <= 1)
+    {
+      printOutTS(PL_INFO, "number of points has to be > 1.\n");
+      fgets(lineIn,500,stdin);
+    }
+  }
+  stdevL = stdevU = 0.0;
+  stdevNpts = 0;
+  while (stdevL >= stdevU || stdevNpts <= 1)
+  {
+    printf("Enter the lower bound of std dev to search : ");
+    scanf("%lg", &stdevL);
+    printf("Enter the upper bound of std dev to search : ");
+    scanf("%lg", &stdevU);
+    printf("Enter number of points for std dev search (e.g., 100): ");
+    scanf("%d", &stdevNpts);
+    if (stdevL >= stdevU) 
+      printOutTS(PL_INFO, "lower bound %e >= upper bound %e\n",stdevL,stdevU);
+    if (stdevNpts <= 1)
+    {
+      printOutTS(PL_INFO, "number of points has to be > 1.\n");
+      fgets(lineIn,500,stdin);
+    }
+  }
+  fgets(lineIn,500,stdin);
+
+  //**/ ---------------------------------------------------------------
+  //**/ set up sampler to search
+  //**/ ---------------------------------------------------------------
+  delMean = (meanU - meanL) / (double) meanNpts;
+  delStd  = (stdevU - stdevL) / (double) stdevNpts;
+  tsPtr = new TwoSampleAnalyzer();
+  sprintf(pString, "Distribution type = (1) Normal (2) Lognormal : ");
+  gtype = getInt(1, 2, pString);
+  if      (gtype == 1) gtype = PSUADE_PDF_NORMAL;
+  else if (gtype == 2) gtype = PSUADE_PDF_LOGNORMAL;
+  nSamp = length;
+
+  //**/ ---------------------------------------------------------------
+  //**/ search for the best distribution parameters (mean, std dev)
+  //**/ ---------------------------------------------------------------
+  if (pLevel > 0)
+  {
+    if (plotMatlab()) fp = fopen("matlabdf.m", "w");
+    else              fp = fopen("scilabdf.sci", "w");
+  }
+  if (fp != NULL) fprintf(fp, "Amat = [\n");
+  targetMean = 0.0;
+  targetStdev = 0.0;
+  minRetVal = PSUADE_UNDEFINED;
+  inc = meanNpts * stdevNpts / 100;
+  if (inc <= 0) inc = 1;
+  if (pLevel > 0) printOutTS(PL_INFO, "Begin processing ... \n");
+  imKeep = isKeep = 0;
+  for (im = 0; im < meanNpts; im++)
+  {
+    for (is = 0; is < stdevNpts; is++)
+    {
+      if ((im*stdevNpts+is) % inc == 0) printOutTS(PL_INFO, ".");
+      curMean = meanL + im * (meanU - meanL) / (double) meanNpts; 
+      curStdev = stdevL + is * (stdevU - stdevL) / (double) stdevNpts; 
+      gLower = curMean - 5.0 * curStdev; 
+      gUpper = curMean + 5.0 * curStdev; 
+      corMat.setDim(1,1);
+      corMat.setEntry(0,0, 1.0e0);
+      pdfman = new PDFManager();
+      pdfman->initialize(1,&gtype,&curMean,&curStdev,corMat,NULL,NULL);
+      vecOut.setLength(nSamp);
+      vecUpper.load(1, &gUpper);
+      vecLower.load(1, &gLower);
+      pdfman->genSample(nSamp, vecOut, vecLower, vecUpper);
+      delete pdfman;
+      retval = tsPtr->KSAnalyze(length, Y, nSamp, vecOut.getDVector(), 0);
+      if (fp != NULL) fprintf(fp, "%e\n", retval);
+      if (retval < minRetVal)
       {
-         printOutTS(PL_INFO, "number of points has to be > 1.\n");
-         fgets(lineIn,500,stdin);
+        isKeep = is;
+        imKeep = im;
+        minRetVal = retval;
+        targetMean = curMean;
+        targetStdev = curStdev;
+        //printf("Current best mean, std = %e %e : KS metric = %e\n",
+        //       curMean,curStdev,retval);
       }
-   }
-   stdevL = stdevU = 0.0;
-   stdevNpts = 0;
-   while (stdevL >= stdevU || stdevNpts <= 1)
-   {
-      printf("Enter the lower bound of std dev to search : ");
-      scanf("%lg", &stdevL);
-      printf("Enter the upper bound of std dev to search : ");
-      scanf("%lg", &stdevU);
-      printf("Enter number of points for std dev search (e.g., 100): ");
-      scanf("%d", &stdevNpts);
-      if (stdevL >= stdevU) 
-         printOutTS(PL_INFO, "lower bound %e >= upper bound %e\n",stdevL,stdevU);
-      if (stdevNpts <= 1)
-      {
-         printOutTS(PL_INFO, "number of points has to be > 1.\n");
-         fgets(lineIn,500,stdin);
-      }
-   }
-   fgets(lineIn,500,stdin);
+    }
+  }
+  printOutTS(PL_INFO, "\n");
 
-   delMean = (meanU - meanL) / (double) meanNpts;
-   delStd  = (stdevU - stdevL) / (double) stdevNpts;
-   tsPtr = new TwoSampleAnalyzer();
-   sprintf(pString, "Distribution type = (1) Normal (2) Lognormal : ");
-   gtype = getInt(1, 2, pString);
-   if      (gtype == 1) gtype = PSUADE_PDF_NORMAL;
-   else if (gtype == 2) gtype = PSUADE_PDF_LOGNORMAL;
-   nSamp = 1000;
+  //**/ ---------------------------------------------------------------
+  //**/ once found, output the K-S statistic by re-run
+  //**/ ---------------------------------------------------------------
+  curMean = meanL + imKeep * (meanU - meanL) / (double) meanNpts; 
+  curStdev = stdevL + isKeep * (stdevU - stdevL) / (double) stdevNpts; 
+  gLower = curMean - 5.0 * curStdev; 
+  gUpper = curMean + 5.0 * curStdev; 
+  corMat.setDim(1,1);
+  corMat.setEntry(0,0, 1.0e0);
+  pdfman = new PDFManager();
+  pdfman->initialize(1, &gtype, &curMean, &curStdev, corMat, NULL,NULL);
+  vecOut.setLength(nSamp);
+  vecUpper.load(1, &gUpper);
+  vecLower.load(1, &gLower);
+  pdfman->genSample(nSamp, vecOut, vecLower, vecUpper);
+  delete pdfman;
+  retval = tsPtr->KSAnalyze(length, Y, nSamp, vecOut.getDVector(), 0);
 
-   if (pLevel > 0 && psPlotTool_ == 0) fp = fopen("matlabdf.m", "w");
-   if (fp != NULL) fprintf(fp, "Amat = [\n");
-   targetMean = 0.0;
-   targetStdev = 0.0;
-   minRetVal = PSUADE_UNDEFINED;
-   inc = meanNpts * stdevNpts / 100;
-   if (pLevel > 0) printOutTS(PL_INFO, "Begin processing ... \n");
-   imKeep = isKeep = 0;
-   for (im = 0; im < meanNpts; im++)
-   {
-      for (is = 0; is < stdevNpts; is++)
-      {
-         if ((im*stdevNpts+is) % inc == 0) printOutTS(PL_INFO, ".");
-         curMean = meanL + im * (meanU - meanL) / (double) meanNpts; 
-         curStdev = stdevL + is * (stdevU - stdevL) / (double) stdevNpts; 
-         gLower = curMean - 5.0 * curStdev; 
-         gUpper = curMean + 5.0 * curStdev; 
-         corMat.setDim(1,1);
-         corMat.setEntry(0,0, 1.0e0);
-         pdfman = new PDFManager();
-         pdfman->initialize(1,&gtype,&curMean,&curStdev,corMat,NULL,NULL);
-         vecOut.setLength(nSamp);
-         vecUpper.load(1, &gUpper);
-         vecLower.load(1, &gLower);
-         pdfman->genSample(nSamp, vecOut, vecLower, vecUpper);
-         delete pdfman;
-         sInputs = vecOut.getDVector();
-         retval = tsPtr->KSAnalyze(length, Y, nSamp, sInputs, 0);
-         if (fp != NULL) fprintf(fp, "%e\n", retval);
-         if (retval < minRetVal)
-         {
-            isKeep = is;
-            imKeep = im;
-            minRetVal = retval;
-            targetMean = curMean;
-            targetStdev = curStdev;
-         }
-      }
-   }
-   printOutTS(PL_INFO, "\n");
-
-   curMean = meanL + imKeep * (meanU - meanL) / (double) meanNpts; 
-   curStdev = stdevL + isKeep * (stdevU - stdevL) / (double) stdevNpts; 
-   gLower = curMean - 5.0 * curStdev; 
-   gUpper = curMean + 5.0 * curStdev; 
-   corMat.setDim(1,1);
-   corMat.setEntry(0,0, 1.0e0);
-   pdfman = new PDFManager();
-   pdfman->initialize(1, &gtype, &curMean, &curStdev, corMat, NULL,NULL);
-   vecOut.setLength(nSamp);
-   vecUpper.load(1, &gUpper);
-   vecLower.load(1, &gLower);
-   pdfman->genSample(nSamp, vecOut, vecLower, vecUpper);
-   delete pdfman;
-   sInputs = vecOut.getDVector();
-   retval = tsPtr->KSAnalyze(length, Y, nSamp, sInputs, 0);
-
-   if (pLevel > 0)
-   {
+  //**/ ---------------------------------------------------------------
+  //**/ output results and create matlab response surface file
+  //**/ ---------------------------------------------------------------
+  if (pLevel > 0)
+  {
+    printOutTS(PL_INFO, 
+       "Distribution fitting: best mean    = %13.5e\n", targetMean);
+    printOutTS(PL_INFO, 
+       "Distribution fitting: best std dev = %13.5e\n", targetStdev);
+  }
+  if (fp != NULL)
+  {
+    fprintf(fp, "];\n");
+    fprintf(fp, "Amat = reshape(Amat,%d,%d);\n",meanNpts,stdevNpts);
+    fprintf(fp, "M = [\n");
+    for (im = 0; im < meanNpts; im++)
+    {
+      curMean = meanL + im * (meanU - meanL) / (double) meanNpts; 
+      fprintf(fp, "%e\n", curMean);
+    }
+    fprintf(fp, "];\n");
+    fprintf(fp, "S = [\n");
+    for (is = 0; is < stdevNpts; is++)
+    {
+      curStdev = stdevL + is * (stdevU - stdevL) / (double) stdevNpts; 
+      fprintf(fp, "%e\n", curStdev);
+    }
+    fprintf(fp, "];\n");
+    fprintf(fp, "mesh(M,S,Amat)\n");
+    fwritePlotAxes(fp);
+    strcpy(pString, "target means");
+    fwritePlotXLabel(fp, pString);
+    strcpy(pString, "target standard deviations");
+    fwritePlotYLabel(fp, pString);
+    strcpy(pString, "Excess KS D-statistic");
+    fwritePlotZLabel(fp, pString);
+    if (plotMatlab())
       printOutTS(PL_INFO, 
-         "Distribution fitting: best mean    = %e\n", targetMean);
+       "The response surface for excess D-statistic is in matlabdf.m\n");
+    else
       printOutTS(PL_INFO, 
-         "Distribution fitting: best std dev = %e\n", targetStdev);
-   }
-   if (fp != NULL)
-   {
-      fprintf(fp, "];\n");
-      fprintf(fp, "Amat = reshape(Amat,%d,%d);\n",meanNpts,stdevNpts);
-      fprintf(fp, "M = [\n");
-      for (im = 0; im < meanNpts; im++)
-      {
-         curMean = meanL + im * (meanU - meanL) / (double) meanNpts; 
-         fprintf(fp, "%e\n", curMean);
-      }
-      fprintf(fp, "];\n");
-      fprintf(fp, "S = [\n");
-      for (is = 0; is < stdevNpts; is++)
-      {
-         curStdev = stdevL + is * (stdevU - stdevL) / (double) stdevNpts; 
-         fprintf(fp, "%e\n", curStdev);
-      }
-      fprintf(fp, "];\n");
-      fprintf(fp, "mesh(M,S,Amat)\n");
-      fprintf(fp, "xlabel('target means')\n");
-      fprintf(fp, "ylabel('target standard deviations')\n");
-      fprintf(fp, "zlabel('Excess KS D-statistic')\n");
-      printOutTS(PL_INFO, 
-         "The response surface for excess D-statistic is in matlabdf.m.\n");
-   }
+       "The response surface for excess D-statistic is in scilabdf.sci\n");
+  }
 
-   delete tsPtr;
-   // releasing the file pointer Bill Oliver change
-   if(fp != NULL) fclose(fp);
-   return 0.0;
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
+  delete tsPtr;
+  if (fp != NULL) fclose(fp);
+  return 0.0;
 }
 
 // *************************************************************************
@@ -581,158 +632,156 @@ double OneSampleAnalyzer::DFAnalyze(int length, double *Y, int pLevel)
 int OneSampleAnalyzer::computeMeanVariance(int nSamples, double *Y, 
                                            double *mean, double *variance)
 {
-   int    ss;
-   double meanTmp, varTmp;
-
-   meanTmp = 0.0;
-   for (ss = 0; ss < nSamples; ss++) meanTmp += Y[ss];
-   meanTmp /= (double) nSamples;
-   varTmp = 0.0;
-   for (ss = 0; ss < nSamples; ss++)
-      varTmp += ((Y[ss] - meanTmp) * (Y[ss] - meanTmp));
-   varTmp /= (double) (nSamples - 1);
-   (*mean)     = meanTmp;
-   (*variance) = varTmp;
-   return 0;
+  int ss;
+  double meanTmp = 0.0;
+  for (ss = 0; ss < nSamples; ss++) meanTmp += Y[ss];
+  meanTmp /= (double) nSamples;
+  double varTmp = 0.0;
+  for (ss = 0; ss < nSamples; ss++)
+    varTmp += ((Y[ss] - meanTmp) * (Y[ss] - meanTmp));
+  varTmp /= (double) (nSamples - 1);
+  (*mean)     = meanTmp;
+  (*variance) = varTmp;
+  return 0;
 }
 
 // *************************************************************************
 // Compute inverse chi-squared information
+//**/ (May, 2009: This works only for dofs <= 250)
+//**/ converted from James Filliben's fortran code chsppf.f
 // -------------------------------------------------------------------------
 int OneSampleAnalyzer::inverseChiSquared(double percent, int dofs, 
                                          double &retdata)
 {
-   int    icount, info;
-   double C, D[10], dnu, gamma, dp, z, den, z2, z3, z4, z5, A, B, G;
-   double xmin, xmin0, xmax, pcalc, xlower, xupper, xmid, xdel, dx;
+  int    icount, info;
+  double C, D[10], dnu, gamma, dp, z, den, z2, z3, z4, z5, A, B, G;
+  double xmin, xmin0, xmax, pcalc, xlower, xupper, xmid, xdel, dx;
 
-   C = 0.918938533204672741;
-   D[0] = 0.0833333333333333333;
-   D[1] = -0.00277777777777777778;
-   D[2] = 0.000793650793650793651;
-   D[3] = -0.000595238095238095238;
-   D[4] = 0.0008417508417508417151;
-   D[5] = -0.00191752691752691753;
-   D[6] = 0.00641025641025641025;
-   D[7] = -0.02955065359147712418;
-   D[8] = 0.179644372368830573;
-   D[9] = -1.39243221690590111;
+  C = 0.918938533204672741;
+  D[0] = 0.0833333333333333333;
+  D[1] = -0.00277777777777777778;
+  D[2] = 0.000793650793650793651;
+  D[3] = -0.000595238095238095238;
+  D[4] = 0.0008417508417508417151;
+  D[5] = -0.00191752691752691753;
+  D[6] = 0.00641025641025641025;
+  D[7] = -0.02955065359147712418;
+  D[8] = 0.179644372368830573;
+  D[9] = -1.39243221690590111;
 
-   dnu   = (double) dofs; 
-   gamma = 0.5 * dnu;
-   dp    = percent;
+  dnu   = (double) dofs; 
+  gamma = 0.5 * dnu;
+  dp    = percent;
 
-   z = gamma;
-   den = 1.0;
-   while (z < 10.0)
-   {
-      den *= z;
-      z = z + 1.0;
-   }
-   z2 = z * z;
-   z3 = z * z2;
-   z4 = z2 * z2;
-   z5 = z2 * z3;
-   A  = (z - 0.5) * log(z) - z + C;
-   B  = D[0]/z + D[1]/z3 + D[2]/z5 + D[3]/(z2*z5) + D[4]/(z4*z5) +
-        D[5]/(z*z5*z5)+D[6]/(z3*z5*z5)+D[7]/(z5*z5*z5)+D[8]/(z2*z5*z5*z5);
-   G  = exp(A+B)/den;
+  z = gamma;
+  den = 1.0;
+  while (z < 10.0)
+  {
+    den *= z;
+    z = z + 1.0;
+  }
+  z2 = z * z;
+  z3 = z * z2;
+  z4 = z2 * z2;
+  z5 = z2 * z3;
+  A  = (z - 0.5) * log(z) - z + C;
+  B  = D[0]/z + D[1]/z3 + D[2]/z5 + D[3]/(z2*z5) + D[4]/(z4*z5) +
+       D[5]/(z*z5*z5)+D[6]/(z3*z5*z5)+D[7]/(z5*z5*z5)+D[8]/(z2*z5*z5*z5);
+  G  = exp(A+B)/den;
 
-   xmin0 = pow(dp * gamma * G, 1.0/gamma);
-   xmin  = xmin0;
-   icount = 1;
-   while (icount <= 30000)
-   {
-      xmax = xmin0 * (double) icount;
-      dx = xmax;
-      info = iterate(gamma, dx, G, pcalc);
-      if (info == 1)
+  xmin0 = pow(dp * gamma * G, 1.0/gamma);
+  xmin  = xmin0;
+  icount = 1;
+  while (icount <= 30000)
+  {
+    xmax = xmin0 * (double) icount;
+    dx = xmax;
+    info = iterate(gamma, dx, G, pcalc);
+    if (info == 1) return 0;
+
+    if (pcalc >= dp)
+    {
+      xmid = 0.5 * (xmin + xmax);
+      xlower = xmin;
+      xupper = xmax;
+      icount = 0;
+      while (1)
       {
-         return 0;
+        dx = xmid;
+        info = iterate(gamma, dx, G, pcalc);
+        if (info == 1)
+        {
+          retdata = 0.0; 
+          return 1;
+        }
+        if (pcalc == dp) 
+        {
+          retdata = 2.0*xmid;
+          return 0;
+        }
+        else if (pcalc >  dp)
+        {
+          xupper = xmid;
+          xmid = 0.5 * (xmid + xlower);
+        } 
+        else
+        {
+          xlower = xmid;
+          xmid = 0.5 * (xmid + xupper);
+        }
+        xdel = xmid - xlower;
+        if (xdel < 0) xdel = - xdel;
+        icount++;
+        if (xdel < 1.0e-10 || icount > 100)
+        {
+          retdata = 2.0*xmid;
+          return 0;
+        }
       }
-      if (pcalc >= dp)
-      {
-         xmid = 0.5 * (xmin + xmax);
-         xlower = xmin;
-         xupper = xmax;
-         icount = 0;
-         while (1)
-         {
-            dx = xmid;
-            info = iterate(gamma, dx, G, pcalc);
-            if (info == 1)
-            {
-               retdata = 0.0; 
-               return 1;
-            }
-            if (pcalc == dp) 
-            {
-               retdata = 2.0*xmid;
-               return 0;
-            }
-            else if (pcalc >  dp)
-            {
-               xupper = xmid;
-               xmid = 0.5 * (xmid + xlower);
-            } 
-            else
-            {
-               xlower = xmid;
-               xmid = 0.5 * (xmid + xupper);
-            }
-            xdel = xmid - xlower;
-            if (xdel < 0) xdel = - xdel;
-            icount++;
-            if (xdel < 1.0e-10 || icount > 100)
-            {
-               retdata = 2.0*xmid;
-               return 0;
-            }
-         }
-      }
-      else
-      {
-         xmin = xmax;
-         icount++;
-      }
-   }
-   xmid = 0.5 * (xmin + xmax);
-   xlower = xmin;
-   xupper = xmax;
-   icount = 0;
-   while (1)
-   {
-      dx = xmid;
-      info = iterate(gamma, dx, G, pcalc);
-      if (info == 1)
-      {
-         retdata = 0.0;
-         return 1;
-      }
-      if (pcalc == dp) 
-      {
-         retdata = 2.0*xmid;
-         return 0;
-      }
-      else if (pcalc >  dp)
-      {
-         xupper = xmid;
-         xmid = 0.5 * (xmid + xlower);
-      } 
-      else
-      {
-         xlower = xmid;
-         xmid = 0.5 * (xmid + xupper);
-      }
-      xdel = xmid - xlower;
-      if (xdel < 0) xdel = - xdel;
+    }
+    else
+    {
+      xmin = xmax;
       icount++;
-      if (xdel < 1.0e-10 || icount > 100)
-      {
-         retdata = 2.0*xmid;
-         return 0;
-      }
-   }
+    }
+  }
+  xmid = 0.5 * (xmin + xmax);
+  xlower = xmin;
+  xupper = xmax;
+  icount = 0;
+  while (1)
+  {
+    dx = xmid;
+    info = iterate(gamma, dx, G, pcalc);
+    if (info == 1)
+    {
+      retdata = 0.0;
+      return 1;
+    }
+    if (pcalc == dp) 
+    {
+      retdata = 2.0*xmid;
+      return 0;
+    }
+    else if (pcalc >  dp)
+    {
+      xupper = xmid;
+      xmid = 0.5 * (xmid + xlower);
+    } 
+    else
+    {
+      xlower = xmid;
+      xmid = 0.5 * (xmid + xupper);
+    }
+    xdel = xmid - xlower;
+    if (xdel < 0) xdel = - xdel;
+    icount++;
+    if (xdel < 1.0e-10 || icount > 100)
+    {
+      retdata = 2.0*xmid;
+      return 0;
+    }
+  }
 }
 
 // *************************************************************************
@@ -741,30 +790,30 @@ int OneSampleAnalyzer::inverseChiSquared(double percent, int dofs,
 int OneSampleAnalyzer::iterate(double gamma, double delta, double gamma2, 
                                double &retdata)
 {
-   int    jj, maxit=100000;
-   double sum, term, cut1, cut2, cutoff;
+  int    jj, maxit=100000;
+  double sum, term, cut1, cut2, cutoff;
 
-   sum  = 1.0 / gamma;
-   term = 1.0 / gamma;
-   cut1 = delta - gamma;
-   cut2 = delta * 1.0e10;
-   for (jj = 1; jj <= maxit; jj++)
-   {
-      term = delta * term / (gamma + jj);
-      sum += term;
-      cutoff = cut1 + (cut2 * term / sum);
-      if (jj > cutoff) break;
-   }
-   if (jj == maxit+1)
-   {
-      retdata = 0.0;
-      return 1;
-   }
-   else
-   {
-      retdata = pow(delta, gamma) * exp(-delta) * sum / gamma2;
-      return 0;
-   }
+  sum  = 1.0 / gamma;
+  term = 1.0 / gamma;
+  cut1 = delta - gamma;
+  cut2 = delta * 1.0e10;
+  for (jj = 1; jj <= maxit; jj++)
+  {
+    term = delta * term / (gamma + jj);
+    sum += term;
+    cutoff = cut1 + (cut2 * term / sum);
+    if (jj > cutoff) break;
+  }
+  if (jj == maxit+1)
+  {
+    retdata = 0.0;
+    return 1;
+  }
+  else
+  {
+    retdata = pow(delta, gamma) * exp(-delta) * sum / gamma2;
+    return 0;
+  }
 }
 
 // ************************************************************************
@@ -772,9 +821,9 @@ int OneSampleAnalyzer::iterate(double gamma, double delta, double gamma2,
 // ------------------------------------------------------------------------
 OneSampleAnalyzer& OneSampleAnalyzer::operator=(const OneSampleAnalyzer &)
 {
-   printOutTS(PL_ERROR, 
-        "OneSampleAnalyzer operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printOutTS(PL_ERROR, 
+       "OneSampleAnalyzer operator= ERROR: operation not supported.\n");
+  exit(1);
+  return (*this);
 }
 

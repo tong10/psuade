@@ -1,0 +1,12 @@
+load simdata
+mcmc_predict
+y
+1
+2
+psDiscrepancyModel
+evalsample
+MCMCPostSample
+10
+10
+q
+

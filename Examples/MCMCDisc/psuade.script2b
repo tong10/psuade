@@ -1,7 +1,0 @@
-load simdata
-rs_uap
-2
-NONE
-MCMCPostSample
-q
-

@@ -1,0 +1,36 @@
+PSUADE
+INPUT
+   dimension = 4
+   variable   1 D   = -1     0.5
+   variable   2 W1  = -3    3
+   variable   3 W2  = -3    3
+   variable   4 W3  = -3    3
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 10
+   randomize
+   random_seed = 41491431
+END
+APPLICATION
+   driver = ./simulator
+   opt_driver = ./simulator2
+   launch_interval = 0
+END
+ANALYSIS
+   optimization method = ouu
+   optimization num_local_minima = 4
+   optimization max_feval = 1000000
+   optimization fmin = 0.0
+   optimization tolerance = 1.000000e-06
+   optimization num_fmin = 1
+   optimization print_level = 3
+   analyzer output_id  = 1
+   opt_expert
+   printlevel 2
+END
+END

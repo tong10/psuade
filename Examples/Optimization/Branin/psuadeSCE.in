@@ -1,0 +1,29 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable 1 X1 =  -4.0000000000000000e+00   1.0000000000000000e+01
+   variable 2 X2 =   0.0000000000000000e+00   1.4000000000000000e+01
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 4
+#  randomize
+END
+APPLICATION
+   driver = ./simulator
+   opt_driver = ./simulator
+END
+ANALYSIS
+   optimization method = sce
+   optimization num_local_minima = 4
+#  optimization fmin = 0.000000e+00
+   optimization tolerance = 1.0e-8
+   optimization num_fmin = 3
+   optimization print_level = 3
+   printlevel 1
+END
+END

@@ -1,0 +1,5 @@
+FirstTest  - a simple case to compare with and without discrepancy
+SecondTest - FirstTest example but with another missing term that 
+             is not to be accounted for
+OhaganTest  - MCMC with discrepancy for the O'hagan example
+

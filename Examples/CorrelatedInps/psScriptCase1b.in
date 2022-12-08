@@ -1,0 +1,9 @@
+# run psuadeRS.in to create a training sample
+# rename psuadeData as RSSample - training sample
+# run psuadeSobol1.in - use RS to compute main effect
+#                       using Sobol' method
+sys cc -o simulator simulator.c -lm
+run psuadeRS.in
+sys mv psuadeData RSSample
+run psuadeSobol1Cor.in
+q

@@ -1,0 +1,2408 @@
+psuade> # setting up
+psuade> 
+Sampling INFO: Creating a sample assuming all uncertain parameters are
+               uniformly distributed.
+PSUADE run: creating interface to user driver.
+PSUADE run: output level = 1
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 1 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: If evaluation should be fast but is slow, check save_frequency
+      because it may be due to too much I/O.
+NOTE: To dynamically change max jobs, create psuade_pmachine file
+NOTE: To terminate gracefully, create psuade_stop file
+======================================================================
+PSUADE run: nSamples = 300 
+.........
+Sample point    100 completed (out of 300).
+.........
+Sample point    200 completed (out of 300).
+.........
+Sample point    300 completed (out of 300).
+
+PSUADE run: jobs completed = 300(out of 300)
+======================================================================
+psuade> 
+**********************************************************************
+INFO: You are loading a file with the same name as the default output
+      file psuadeData, which is periodically overwritten during some
+      of PSUADE's internal operations. As such, you are advised to
+      rename your 'psuadeData' file to something else (You can use
+      the output_file command to change the default output filename.)
+**********************************************************************
+load complete : nSamples = 300
+                nInputs  = 3
+                nOutputs = 1
+psuade> # run quartic regression analysis
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Quartic regression model
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*               quartic Regression Analysis
+* R-squared gives a measure of the goodness of the model.
+* R-squared should be close to 1 if it is a good model.
+* TURN ON rs_expert mode to output regression matrix.
+* TURN ON rs_expert mode to output regression function.
+* SET print level to 4 to output data standard deviations.
+----------------------------------------------------------------------
+* Suggestion: if your parameter ranges are too high, SCALE them first
+*             using 'irerange' command in PSUADE command line mode.
+======================================================================
+* Regression: SStot  =   2.2596025634338490e+04
+* Regression: SSreg  =   2.2596015634321324e+04
+* Regression: SSres  =   1.0000017002198158e-02
+* Regression: SSres  =   1.0000017007922239e-02 (true)
+* Regression: eps(Y) =   3.7735913237442412e-05
+======================================================================
+*** NOTE: These coefficients may not be true coefficients due
+***       to sample matrix scaling (i.e., they may be scaled).
+***       To turn off scaling, turn on 'master' mode.
+***       NOTE: master mode is OFF (==> scaling is ON)
+----------------------------------------------------------------------
+*                          coefficient   std. error   t-value
+----------------------------------------------------------------------
+* Constant              =   1.9176e+01   1.2760e-03   1.5029e+04
+* Input   1             =   5.7806e+00   1.0479e-03   5.5161e+03
+* Input   2             =  -8.8159e-01   1.0452e-03  -8.4350e+02
+* Input   3             =   5.9067e+00   1.0601e-03   5.5717e+03
+* Input   1   1         =  -6.5523e-04   1.5345e-03  -4.2701e-01
+* Input   1   2         =   1.6828e-04   1.2363e-03   1.3611e-01
+* Input   1   3         =   1.6744e-03   1.2803e-03   1.3078e+00
+* Input   2   2         =   4.2179e-04   1.5910e-03   2.6510e-01
+* Input   2   3         =   1.7101e-01   1.2547e-03   1.3629e+02
+* Input   3   3         =  -1.1359e+00   1.5493e-03  -7.3319e+02
+* Input   1   1   1     =   8.0817e-05   4.6151e-04   1.7511e-01
+* Input   1   1   2     =   2.1677e-04   4.0051e-04   5.4123e-01
+* Input   1   1   3     =  -4.7022e-04   4.0586e-04  -1.1586e+00
+* Input   1   2   2     =  -5.9668e-05   3.9781e-04  -1.4999e-01
+* Input   1   2   3     =   4.4248e-04   3.6552e-04   1.2105e+00
+* Input   1   3   3     =  -3.1332e-04   4.1130e-04  -7.6178e-01
+* Input   2   2   2     =  -6.3619e-05   4.5971e-04  -1.3839e-01
+* Input   2   2   3     =   4.4450e-04   4.1043e-04   1.0830e+00
+* Input   2   3   3     =  -3.6310e-02   4.0341e-04  -9.0007e+01
+* Input   3   3   3     =   2.5060e-01   4.6420e-04   5.3986e+02
+* Input   1   1   1   1 =  -3.2801e-05   5.3506e-04  -6.1304e-02
+* Input   1   1   1   2 =  -1.7686e-04   4.6843e-04  -3.7757e-01
+* Input   1   1   1   3 =  -4.0010e-04   4.7248e-04  -8.4681e-01
+* Input   1   1   2   2 =   4.7399e-04   4.3500e-04   1.0896e+00
+* Input   1   1   2   3 =  -1.0097e-03   4.2261e-04  -2.3891e+00
+* Input   1   1   3   3 =   5.1884e-04   4.6142e-04   1.1244e+00
+* Input   1   2   2   2 =   6.2330e-05   4.6525e-04   1.3397e-01
+* Input   1   2   2   3 =  -1.2852e-03   4.2069e-04  -3.0549e+00
+* Input   1   2   3   3 =  -1.0986e-04   4.0143e-04  -2.7368e-01
+* Input   1   3   3   3 =   1.9452e-04   4.8293e-04   4.0280e-01
+* Input   2   2   2   2 =  -4.1746e-04   5.4949e-04  -7.5972e-01
+* Input   2   2   2   3 =  -2.9491e-04   4.8333e-04  -6.1018e-01
+* Input   2   2   3   3 =   1.8377e-04   4.5218e-04   4.0642e-01
+* Input   2   3   3   3 =   7.3700e-03   4.6121e-04   1.5980e+01
+* Input   3   3   3   3 =  -4.9979e-02   5.3807e-04  -9.2885e+01
+----------------------------------------------------------------------
+* Regression R-squared =  1.000e+00 (SSresid,SStotal= 1.0e-02, 2.3e+04)
+* adjusted   R-squared =  1.000e+00
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =   1.377e-14 (unscaled)
+  avg error   =  -1.284e-04 (scaled)
+  rms error   =   5.774e-03 (unscaled)
+  rms error   =   2.681e-03 (scaled)
+  max error   =   2.014e-02 (unscaled, BASE=4.538e+00)
+  max error   =   3.045e-02 (  scaled, BASE=2.548e-01)
+  max error   =   5.102e-04 (  scaled by (ymax-ymin))
+  R-square    =   9.99999557e-01
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+RSA: CV error for sample group     1 =  -1.057e-03 (avg unscaled)
+RSA: CV error for sample group     1 =   7.201e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   1.594e-02 (max unscaled)
+RSA: CV error for sample group     1 =   4.037e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+RSA: CV error for sample group     2 =   3.690e-04 (avg unscaled)
+RSA: CV error for sample group     2 =   7.972e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   2.821e-02 (max unscaled)
+RSA: CV error for sample group     2 =   7.144e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+RSA: CV error for sample group     3 =   1.381e-03 (avg unscaled)
+RSA: CV error for sample group     3 =   6.875e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   1.289e-02 (max unscaled)
+RSA: CV error for sample group     3 =   3.265e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+RSA: CV error for sample group     4 =   7.476e-04 (avg unscaled)
+RSA: CV error for sample group     4 =   7.172e-03 (rms unscaled)
+RSA: CV error for sample group     4 =   1.875e-02 (max unscaled)
+RSA: CV error for sample group     4 =   4.749e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+RSA: CV error for sample group     5 =  -1.158e-03 (avg unscaled)
+RSA: CV error for sample group     5 =   4.952e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   1.120e-02 (max unscaled)
+RSA: CV error for sample group     5 =   2.837e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+RSA: CV error for sample group     6 =  -2.197e-04 (avg unscaled)
+RSA: CV error for sample group     6 =   5.632e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   1.273e-02 (max unscaled)
+RSA: CV error for sample group     6 =   3.224e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+RSA: CV error for sample group     7 =   1.723e-03 (avg unscaled)
+RSA: CV error for sample group     7 =   7.273e-03 (rms unscaled)
+RSA: CV error for sample group     7 =   2.315e-02 (max unscaled)
+RSA: CV error for sample group     7 =   5.862e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+RSA: CV error for sample group     8 =   6.951e-04 (avg unscaled)
+RSA: CV error for sample group     8 =   6.772e-03 (rms unscaled)
+RSA: CV error for sample group     8 =   2.345e-02 (max unscaled)
+RSA: CV error for sample group     8 =   5.939e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+RSA: CV error for sample group     9 =  -7.411e-04 (avg unscaled)
+RSA: CV error for sample group     9 =   8.349e-03 (rms unscaled)
+RSA: CV error for sample group     9 =   1.894e-02 (max unscaled)
+RSA: CV error for sample group     9 =   4.796e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+RSA: CV error for sample group    10 =  -1.538e-03 (avg unscaled)
+RSA: CV error for sample group    10 =   6.833e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   1.260e-02 (max unscaled)
+RSA: CV error for sample group    10 =   3.192e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 245
+RSA: CV error for sample group     1 =  -1.057e-03 (avg unscaled)
+RSA: CV error for sample group     1 =   7.252e-05 (avg scaled)
+RSA: CV error for sample group     1 =   7.201e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   1.076e-03 (rms scaled)
+RSA: CV error for sample group     1 =   1.594e-02 (max unscaled,BASE=2.596e+01)
+RSA: CV error for sample group     1 =   5.145e-03 (max   scaled,BASE=4.290e-01)
+RSA: CV error for sample group     1 =   4.037e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 109
+RSA: CV error for sample group     2 =   3.690e-04 (avg unscaled)
+RSA: CV error for sample group     2 =  -1.146e-03 (avg scaled)
+RSA: CV error for sample group     2 =   7.972e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   4.952e-03 (rms scaled)
+RSA: CV error for sample group     2 =   2.821e-02 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     2 =   2.627e-02 (max   scaled,BASE=2.812e-01)
+RSA: CV error for sample group     2 =   7.144e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 282
+RSA: CV error for sample group     3 =   1.381e-03 (avg unscaled)
+RSA: CV error for sample group     3 =   5.466e-04 (avg scaled)
+RSA: CV error for sample group     3 =   6.875e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   2.817e-03 (rms scaled)
+RSA: CV error for sample group     3 =   1.289e-02 (max unscaled,BASE=8.923e-01)
+RSA: CV error for sample group     3 =   1.445e-02 (max   scaled,BASE=8.923e-01)
+RSA: CV error for sample group     3 =   3.265e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 207
+RSA: CV error for sample group     4 =   7.476e-04 (avg unscaled)
+RSA: CV error for sample group     4 =   2.353e-04 (avg scaled)
+RSA: CV error for sample group     4 =   7.172e-03 (rms unscaled)
+RSA: CV error for sample group     4 =   1.114e-03 (rms scaled)
+RSA: CV error for sample group     4 =   1.875e-02 (max unscaled,BASE=1.926e+01)
+RSA: CV error for sample group     4 =   5.170e-03 (max   scaled,BASE=3.106e+00)
+RSA: CV error for sample group     4 =   4.749e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 130
+RSA: CV error for sample group     5 =  -1.158e-03 (avg unscaled)
+RSA: CV error for sample group     5 =  -1.641e-03 (avg scaled)
+RSA: CV error for sample group     5 =   4.952e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   8.062e-03 (rms scaled)
+RSA: CV error for sample group     5 =   1.120e-02 (max unscaled,BASE=2.548e-01)
+RSA: CV error for sample group     5 =   4.396e-02 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group     5 =   2.837e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 55
+RSA: CV error for sample group     6 =  -2.197e-04 (avg unscaled)
+RSA: CV error for sample group     6 =   3.933e-05 (avg scaled)
+RSA: CV error for sample group     6 =   5.632e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   4.174e-04 (rms scaled)
+RSA: CV error for sample group     6 =   1.273e-02 (max unscaled,BASE=2.642e+01)
+RSA: CV error for sample group     6 =   1.028e-03 (max   scaled,BASE=6.666e+00)
+RSA: CV error for sample group     6 =   3.224e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 157
+RSA: CV error for sample group     7 =   1.723e-03 (avg unscaled)
+RSA: CV error for sample group     7 =   2.747e-04 (avg scaled)
+RSA: CV error for sample group     7 =   7.273e-03 (rms unscaled)
+RSA: CV error for sample group     7 =   3.378e-03 (rms scaled)
+RSA: CV error for sample group     7 =   2.315e-02 (max unscaled,BASE=1.427e+00)
+RSA: CV error for sample group     7 =   1.622e-02 (max   scaled,BASE=1.427e+00)
+RSA: CV error for sample group     7 =   5.862e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 173
+RSA: CV error for sample group     8 =   6.951e-04 (avg unscaled)
+RSA: CV error for sample group     8 =  -1.412e-04 (avg scaled)
+RSA: CV error for sample group     8 =   6.772e-03 (rms unscaled)
+RSA: CV error for sample group     8 =   1.854e-03 (rms scaled)
+RSA: CV error for sample group     8 =   2.345e-02 (max unscaled,BASE=4.538e+00)
+RSA: CV error for sample group     8 =   8.541e-03 (max   scaled,BASE=1.240e+00)
+RSA: CV error for sample group     8 =   5.939e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 210
+RSA: CV error for sample group     9 =  -7.411e-04 (avg unscaled)
+RSA: CV error for sample group     9 =   7.093e-04 (avg scaled)
+RSA: CV error for sample group     9 =   8.349e-03 (rms unscaled)
+RSA: CV error for sample group     9 =   3.669e-03 (rms scaled)
+RSA: CV error for sample group     9 =   1.894e-02 (max unscaled,BASE=3.045e+01)
+RSA: CV error for sample group     9 =   1.929e-02 (max   scaled,BASE=9.177e-01)
+RSA: CV error for sample group     9 =   4.796e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 216
+RSA: CV error for sample group    10 =  -1.538e-03 (avg unscaled)
+RSA: CV error for sample group    10 =  -4.054e-04 (avg scaled)
+RSA: CV error for sample group    10 =   6.833e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   1.285e-03 (rms scaled)
+RSA: CV error for sample group    10 =   1.260e-02 (max unscaled,BASE=3.159e+01)
+RSA: CV error for sample group    10 =   5.446e-03 (max   scaled,BASE=9.062e-01)
+RSA: CV error for sample group    10 =   3.192e-04 (max   scaled by (ymax-ymin))
+RSA: final CV error  =   2.014e-05 (avg unscaled)
+RSA: final CV error  =  -1.455e-04 (avg   scaled)
+RSA: final CV error  =   6.968e-03 (rms unscaled)
+RSA: final CV error  =   3.605e-03 (rms   scaled)
+RSA: final CV error  =   2.821e-02 (max unscaled, BASE=9.538e+00)
+RSA: final CV error  =   4.396e-02 (max   scaled, BASE=2.548e-01)
+RSA: final CV error  =   7.144e-04 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run mars 
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: MARS model
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*           MARS Model
+* Default number of basis functions = 100
+* Default degree of interactions    = 3
+======================================================================
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -4.495e-07 (unscaled)
+  avg error   =   2.773e-05 (scaled)
+  rms error   =   4.554e-03 (unscaled)
+  rms error   =   3.092e-03 (scaled)
+  max error   =   1.759e-02 (unscaled, BASE=7.772e+00)
+  max error   =   4.048e-02 (  scaled, BASE=4.317e-01)
+  max error   =   4.454e-04 (  scaled by (ymax-ymin))
+  R-square    =   9.99999725e-01
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+RSA: CV error for sample group     1 =   3.213e-03 (avg unscaled)
+RSA: CV error for sample group     1 =   9.601e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   3.368e-02 (max unscaled)
+RSA: CV error for sample group     1 =   8.531e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+RSA: CV error for sample group     2 =  -6.209e-04 (avg unscaled)
+RSA: CV error for sample group     2 =   9.197e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   3.831e-02 (max unscaled)
+RSA: CV error for sample group     2 =   9.703e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+RSA: CV error for sample group     3 =   8.634e-04 (avg unscaled)
+RSA: CV error for sample group     3 =   7.025e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   2.527e-02 (max unscaled)
+RSA: CV error for sample group     3 =   6.401e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+RSA: CV error for sample group     4 =   1.005e-02 (avg unscaled)
+RSA: CV error for sample group     4 =   6.630e-02 (rms unscaled)
+RSA: CV error for sample group     4 =   3.499e-01 (max unscaled)
+RSA: CV error for sample group     4 =   8.863e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+RSA: CV error for sample group     5 =  -1.985e-03 (avg unscaled)
+RSA: CV error for sample group     5 =   9.274e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   2.924e-02 (max unscaled)
+RSA: CV error for sample group     5 =   7.407e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+RSA: CV error for sample group     6 =  -7.193e-04 (avg unscaled)
+RSA: CV error for sample group     6 =   7.282e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   2.374e-02 (max unscaled)
+RSA: CV error for sample group     6 =   6.014e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+RSA: CV error for sample group     7 =   4.094e-03 (avg unscaled)
+RSA: CV error for sample group     7 =   1.453e-02 (rms unscaled)
+RSA: CV error for sample group     7 =   6.680e-02 (max unscaled)
+RSA: CV error for sample group     7 =   1.692e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+RSA: CV error for sample group     8 =   1.190e-03 (avg unscaled)
+RSA: CV error for sample group     8 =   1.570e-02 (rms unscaled)
+RSA: CV error for sample group     8 =   5.620e-02 (max unscaled)
+RSA: CV error for sample group     8 =   1.423e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+RSA: CV error for sample group     9 =  -1.105e-04 (avg unscaled)
+RSA: CV error for sample group     9 =   1.680e-02 (rms unscaled)
+RSA: CV error for sample group     9 =   5.588e-02 (max unscaled)
+RSA: CV error for sample group     9 =   1.415e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+RSA: CV error for sample group    10 =  -2.524e-03 (avg unscaled)
+RSA: CV error for sample group    10 =   5.630e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   2.073e-02 (max unscaled)
+RSA: CV error for sample group    10 =   5.250e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 91
+RSA: CV error for sample group     1 =   3.213e-03 (avg unscaled)
+RSA: CV error for sample group     1 =   3.932e-04 (avg scaled)
+RSA: CV error for sample group     1 =   9.601e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   1.785e-03 (rms scaled)
+RSA: CV error for sample group     1 =   3.368e-02 (max unscaled,BASE=1.644e+01)
+RSA: CV error for sample group     1 =   9.317e-03 (max   scaled,BASE=2.661e+00)
+RSA: CV error for sample group     1 =   8.531e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 120
+RSA: CV error for sample group     2 =  -6.209e-04 (avg unscaled)
+RSA: CV error for sample group     2 =   1.327e-04 (avg scaled)
+RSA: CV error for sample group     2 =   9.197e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   2.176e-03 (rms scaled)
+RSA: CV error for sample group     2 =   3.831e-02 (max unscaled,BASE=6.666e+00)
+RSA: CV error for sample group     2 =   1.002e-02 (max   scaled,BASE=2.230e+00)
+RSA: CV error for sample group     2 =   9.703e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 45
+RSA: CV error for sample group     3 =   8.634e-04 (avg unscaled)
+RSA: CV error for sample group     3 =  -9.210e-04 (avg scaled)
+RSA: CV error for sample group     3 =   7.025e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   5.669e-03 (rms scaled)
+RSA: CV error for sample group     3 =   2.527e-02 (max unscaled,BASE=1.257e+01)
+RSA: CV error for sample group     3 =   3.088e-02 (max   scaled,BASE=4.317e-01)
+RSA: CV error for sample group     3 =   6.401e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 149
+RSA: CV error for sample group     4 =   1.005e-02 (avg unscaled)
+RSA: CV error for sample group     4 =   3.826e-03 (avg scaled)
+RSA: CV error for sample group     4 =   6.630e-02 (rms unscaled)
+RSA: CV error for sample group     4 =   1.833e-02 (rms scaled)
+RSA: CV error for sample group     4 =   3.499e-01 (max unscaled,BASE=3.734e+00)
+RSA: CV error for sample group     4 =   9.371e-02 (max   scaled,BASE=3.734e+00)
+RSA: CV error for sample group     4 =   8.863e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 225
+RSA: CV error for sample group     5 =  -1.985e-03 (avg unscaled)
+RSA: CV error for sample group     5 =   3.814e-04 (avg scaled)
+RSA: CV error for sample group     5 =   9.274e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   3.900e-03 (rms scaled)
+RSA: CV error for sample group     5 =   2.924e-02 (max unscaled,BASE=1.502e+01)
+RSA: CV error for sample group     5 =   2.045e-02 (max   scaled,BASE=9.062e-01)
+RSA: CV error for sample group     5 =   7.407e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 178
+RSA: CV error for sample group     6 =  -7.193e-04 (avg unscaled)
+RSA: CV error for sample group     6 =  -9.672e-05 (avg scaled)
+RSA: CV error for sample group     6 =   7.282e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   1.345e-03 (rms scaled)
+RSA: CV error for sample group     6 =   2.374e-02 (max unscaled,BASE=1.086e+01)
+RSA: CV error for sample group     6 =   5.055e-03 (max   scaled,BASE=1.240e+00)
+RSA: CV error for sample group     6 =   6.014e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 77
+RSA: CV error for sample group     7 =   4.094e-03 (avg unscaled)
+RSA: CV error for sample group     7 =   6.244e-04 (avg scaled)
+RSA: CV error for sample group     7 =   1.453e-02 (rms unscaled)
+RSA: CV error for sample group     7 =   2.807e-03 (rms scaled)
+RSA: CV error for sample group     7 =   6.680e-02 (max unscaled,BASE=4.538e+00)
+RSA: CV error for sample group     7 =   1.472e-02 (max   scaled,BASE=4.538e+00)
+RSA: CV error for sample group     7 =   1.692e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 123
+RSA: CV error for sample group     8 =   1.190e-03 (avg unscaled)
+RSA: CV error for sample group     8 =  -7.993e-04 (avg scaled)
+RSA: CV error for sample group     8 =   1.570e-02 (rms unscaled)
+RSA: CV error for sample group     8 =   2.732e-02 (rms scaled)
+RSA: CV error for sample group     8 =   5.620e-02 (max unscaled,BASE=4.290e-01)
+RSA: CV error for sample group     8 =   1.310e-01 (max   scaled,BASE=4.290e-01)
+RSA: CV error for sample group     8 =   1.423e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 163
+RSA: CV error for sample group     9 =  -1.105e-04 (avg unscaled)
+RSA: CV error for sample group     9 =  -7.045e-03 (avg scaled)
+RSA: CV error for sample group     9 =   1.680e-02 (rms unscaled)
+RSA: CV error for sample group     9 =   3.128e-02 (rms scaled)
+RSA: CV error for sample group     9 =   5.588e-02 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     9 =   1.637e-01 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group     9 =   1.415e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 138
+RSA: CV error for sample group    10 =  -2.524e-03 (avg unscaled)
+RSA: CV error for sample group    10 =  -1.425e-04 (avg scaled)
+RSA: CV error for sample group    10 =   5.630e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   3.993e-04 (rms scaled)
+RSA: CV error for sample group    10 =   2.073e-02 (max unscaled,BASE=1.297e+01)
+RSA: CV error for sample group    10 =   1.598e-03 (max   scaled,BASE=1.297e+01)
+RSA: CV error for sample group    10 =   5.250e-04 (max   scaled by (ymax-ymin))
+RSA: final CV error  =   1.345e-03 (avg unscaled)
+RSA: final CV error  =  -3.648e-04 (avg   scaled)
+RSA: final CV error  =   2.352e-02 (rms unscaled)
+RSA: final CV error  =   1.458e-02 (rms   scaled)
+RSA: final CV error  =   3.499e-01 (max unscaled, BASE=3.734e+00)
+RSA: final CV error  =   1.637e-01 (max   scaled, BASE=2.548e-01)
+RSA: final CV error  =   8.863e-03 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run rbf 
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Radial Basis Function
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*           Radial Basis Function (RBF) Analysis
+* Set printlevel to 1-4 to see RBF details.
+* Default kernel    = multi-quadratic 
+* Default threshold = 1.0e-15 (for SVD truncation)
+* Turn on rs_expert mode to make changes.
+======================================================================
+Kernel = multi-quadratic
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -5.416e-09 (unscaled)
+  avg error   =  -4.428e-10 (scaled)
+  rms error   =   6.596e-09 (unscaled)
+  rms error   =   1.369e-09 (scaled)
+  max error   =   4.016e-08 (unscaled, BASE=3.734e+00)
+  max error   =   1.076e-08 (  scaled, BASE=3.734e+00)
+  max error   =   1.017e-09 (  scaled by (ymax-ymin))
+  R-square    =   1.00000000e+00
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+RSA: CV error for sample group     1 =   6.826e-04 (avg unscaled)
+RSA: CV error for sample group     1 =   4.916e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   2.555e-02 (max unscaled)
+RSA: CV error for sample group     1 =   6.470e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+RSA: CV error for sample group     2 =   2.550e-04 (avg unscaled)
+RSA: CV error for sample group     2 =   3.181e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   1.319e-02 (max unscaled)
+RSA: CV error for sample group     2 =   3.341e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+RSA: CV error for sample group     3 =  -3.876e-04 (avg unscaled)
+RSA: CV error for sample group     3 =   2.827e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   1.467e-02 (max unscaled)
+RSA: CV error for sample group     3 =   3.715e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+RSA: CV error for sample group     4 =   4.315e-05 (avg unscaled)
+RSA: CV error for sample group     4 =   1.242e-03 (rms unscaled)
+RSA: CV error for sample group     4 =   3.579e-03 (max unscaled)
+RSA: CV error for sample group     4 =   9.065e-05 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+RSA: CV error for sample group     5 =  -1.889e-04 (avg unscaled)
+RSA: CV error for sample group     5 =   1.266e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   4.561e-03 (max unscaled)
+RSA: CV error for sample group     5 =   1.155e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+RSA: CV error for sample group     6 =   5.268e-04 (avg unscaled)
+RSA: CV error for sample group     6 =   1.931e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   8.009e-03 (max unscaled)
+RSA: CV error for sample group     6 =   2.028e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+RSA: CV error for sample group     7 =  -4.439e-04 (avg unscaled)
+RSA: CV error for sample group     7 =   1.325e-03 (rms unscaled)
+RSA: CV error for sample group     7 =   5.834e-03 (max unscaled)
+RSA: CV error for sample group     7 =   1.478e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+RSA: CV error for sample group     8 =  -8.433e-04 (avg unscaled)
+RSA: CV error for sample group     8 =   2.783e-03 (rms unscaled)
+RSA: CV error for sample group     8 =   1.071e-02 (max unscaled)
+RSA: CV error for sample group     8 =   2.712e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+RSA: CV error for sample group     9 =   1.447e-03 (avg unscaled)
+RSA: CV error for sample group     9 =   6.124e-03 (rms unscaled)
+RSA: CV error for sample group     9 =   3.296e-02 (max unscaled)
+RSA: CV error for sample group     9 =   8.348e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+RSA: CV error for sample group    10 =   9.650e-04 (avg unscaled)
+RSA: CV error for sample group    10 =   4.977e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   2.626e-02 (max unscaled)
+RSA: CV error for sample group    10 =   6.652e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 215
+RSA: CV error for sample group     1 =   6.826e-04 (avg unscaled)
+RSA: CV error for sample group     1 =   4.601e-04 (avg scaled)
+RSA: CV error for sample group     1 =   4.916e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   2.000e-03 (rms scaled)
+RSA: CV error for sample group     1 =   2.555e-02 (max unscaled,BASE=3.696e+00)
+RSA: CV error for sample group     1 =   8.321e-03 (max   scaled,BASE=4.290e-01)
+RSA: CV error for sample group     1 =   6.470e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 286
+RSA: CV error for sample group     2 =   2.550e-04 (avg unscaled)
+RSA: CV error for sample group     2 =  -1.028e-04 (avg scaled)
+RSA: CV error for sample group     2 =   3.181e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   6.996e-04 (rms scaled)
+RSA: CV error for sample group     2 =   1.319e-02 (max unscaled,BASE=1.257e+01)
+RSA: CV error for sample group     2 =   3.587e-03 (max   scaled,BASE=2.481e+00)
+RSA: CV error for sample group     2 =   3.341e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 193
+RSA: CV error for sample group     3 =  -3.876e-04 (avg unscaled)
+RSA: CV error for sample group     3 =   1.118e-05 (avg scaled)
+RSA: CV error for sample group     3 =   2.827e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   1.986e-04 (rms scaled)
+RSA: CV error for sample group     3 =   1.467e-02 (max unscaled,BASE=1.789e+01)
+RSA: CV error for sample group     3 =   8.196e-04 (max   scaled,BASE=1.789e+01)
+RSA: CV error for sample group     3 =   3.715e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 35
+RSA: CV error for sample group     4 =   4.315e-05 (avg unscaled)
+RSA: CV error for sample group     4 =   1.358e-04 (avg scaled)
+RSA: CV error for sample group     4 =   1.242e-03 (rms unscaled)
+RSA: CV error for sample group     4 =   7.352e-04 (rms scaled)
+RSA: CV error for sample group     4 =   3.579e-03 (max unscaled,BASE=8.923e-01)
+RSA: CV error for sample group     4 =   4.011e-03 (max   scaled,BASE=8.923e-01)
+RSA: CV error for sample group     4 =   9.065e-05 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 152
+RSA: CV error for sample group     5 =  -1.889e-04 (avg unscaled)
+RSA: CV error for sample group     5 =  -7.412e-05 (avg scaled)
+RSA: CV error for sample group     5 =   1.266e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   8.564e-04 (rms scaled)
+RSA: CV error for sample group     5 =   4.561e-03 (max unscaled,BASE=1.427e+00)
+RSA: CV error for sample group     5 =   3.197e-03 (max   scaled,BASE=1.427e+00)
+RSA: CV error for sample group     5 =   1.155e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 20
+RSA: CV error for sample group     6 =   5.268e-04 (avg unscaled)
+RSA: CV error for sample group     6 =   1.922e-05 (avg scaled)
+RSA: CV error for sample group     6 =   1.931e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   3.253e-04 (rms scaled)
+RSA: CV error for sample group     6 =   8.009e-03 (max unscaled,BASE=6.666e+00)
+RSA: CV error for sample group     6 =   1.201e-03 (max   scaled,BASE=6.666e+00)
+RSA: CV error for sample group     6 =   2.028e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 1
+RSA: CV error for sample group     7 =  -4.439e-04 (avg unscaled)
+RSA: CV error for sample group     7 =  -5.901e-05 (avg scaled)
+RSA: CV error for sample group     7 =   1.325e-03 (rms unscaled)
+RSA: CV error for sample group     7 =   2.205e-04 (rms scaled)
+RSA: CV error for sample group     7 =   5.834e-03 (max unscaled,BASE=2.845e+01)
+RSA: CV error for sample group     7 =   1.174e-03 (max   scaled,BASE=3.106e+00)
+RSA: CV error for sample group     7 =   1.478e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 147
+RSA: CV error for sample group     8 =  -8.433e-04 (avg unscaled)
+RSA: CV error for sample group     8 =  -1.342e-04 (avg scaled)
+RSA: CV error for sample group     8 =   2.783e-03 (rms unscaled)
+RSA: CV error for sample group     8 =   5.251e-04 (rms scaled)
+RSA: CV error for sample group     8 =   1.071e-02 (max unscaled,BASE=1.111e+01)
+RSA: CV error for sample group     8 =   2.692e-03 (max   scaled,BASE=3.734e+00)
+RSA: CV error for sample group     8 =   2.712e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 210
+RSA: CV error for sample group     9 =   1.447e-03 (avg unscaled)
+RSA: CV error for sample group     9 =   1.213e-03 (avg scaled)
+RSA: CV error for sample group     9 =   6.124e-03 (rms unscaled)
+RSA: CV error for sample group     9 =   6.558e-03 (rms scaled)
+RSA: CV error for sample group     9 =   3.296e-02 (max unscaled,BASE=9.177e-01)
+RSA: CV error for sample group     9 =   3.592e-02 (max   scaled,BASE=9.177e-01)
+RSA: CV error for sample group     9 =   8.348e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 10
+RSA: CV error for sample group    10 =   9.650e-04 (avg unscaled)
+RSA: CV error for sample group    10 =   3.752e-04 (avg scaled)
+RSA: CV error for sample group    10 =   4.977e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   1.639e-03 (rms scaled)
+RSA: CV error for sample group    10 =   2.626e-02 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group    10 =   8.529e-03 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group    10 =   6.652e-04 (max   scaled by (ymax-ymin))
+RSA: final CV error  =   2.056e-04 (avg unscaled)
+RSA: final CV error  =   1.844e-04 (avg   scaled)
+RSA: final CV error  =   3.477e-03 (rms unscaled)
+RSA: final CV error  =   2.279e-03 (rms   scaled)
+RSA: final CV error  =   3.296e-02 (max unscaled, BASE=9.177e-01)
+RSA: final CV error  =   3.592e-02 (max   scaled, BASE=9.177e-01)
+RSA: final CV error  =   8.348e-04 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run GP 
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Gaussian Process (Tong) model
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*           Gaussian Process Model
+* Default exponential degree    = 2.000000e+00
+* Number of optimization starts = 10
+======================================================================
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -5.544e-08 (unscaled)
+  avg error   =   1.404e-07 (scaled)
+  rms error   =   1.358e-05 (unscaled)
+  rms error   =   7.043e-06 (scaled)
+  max error   =   6.257e-05 (unscaled, BASE=6.172e+00)
+  max error   =   8.637e-05 (  scaled, BASE=2.548e-01)
+  max error   =   1.585e-06 (  scaled by (ymax-ymin))
+  R-square    =   1.00000000e+00
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+RSA: CV error for sample group     1 =   8.489e-06 (avg unscaled)
+RSA: CV error for sample group     1 =   5.587e-05 (rms unscaled)
+RSA: CV error for sample group     1 =   1.827e-04 (max unscaled)
+RSA: CV error for sample group     1 =   4.628e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+RSA: CV error for sample group     2 =   9.230e-07 (avg unscaled)
+RSA: CV error for sample group     2 =   6.551e-05 (rms unscaled)
+RSA: CV error for sample group     2 =   2.380e-04 (max unscaled)
+RSA: CV error for sample group     2 =   6.027e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+RSA: CV error for sample group     3 =  -9.635e-06 (avg unscaled)
+RSA: CV error for sample group     3 =   2.872e-05 (rms unscaled)
+RSA: CV error for sample group     3 =   1.072e-04 (max unscaled)
+RSA: CV error for sample group     3 =   2.715e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+RSA: CV error for sample group     4 =  -6.361e-06 (avg unscaled)
+RSA: CV error for sample group     4 =   2.103e-05 (rms unscaled)
+RSA: CV error for sample group     4 =   5.247e-05 (max unscaled)
+RSA: CV error for sample group     4 =   1.329e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+RSA: CV error for sample group     5 =  -1.954e-06 (avg unscaled)
+RSA: CV error for sample group     5 =   2.806e-05 (rms unscaled)
+RSA: CV error for sample group     5 =   7.531e-05 (max unscaled)
+RSA: CV error for sample group     5 =   1.907e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+RSA: CV error for sample group     6 =   6.270e-06 (avg unscaled)
+RSA: CV error for sample group     6 =   2.895e-05 (rms unscaled)
+RSA: CV error for sample group     6 =   1.301e-04 (max unscaled)
+RSA: CV error for sample group     6 =   3.296e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+RSA: CV error for sample group     7 =   7.544e-06 (avg unscaled)
+RSA: CV error for sample group     7 =   3.700e-05 (rms unscaled)
+RSA: CV error for sample group     7 =   1.799e-04 (max unscaled)
+RSA: CV error for sample group     7 =   4.556e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+RSA: CV error for sample group     8 =   2.571e-06 (avg unscaled)
+RSA: CV error for sample group     8 =   8.004e-05 (rms unscaled)
+RSA: CV error for sample group     8 =   1.437e-04 (max unscaled)
+RSA: CV error for sample group     8 =   3.641e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+RSA: CV error for sample group     9 =   9.323e-06 (avg unscaled)
+RSA: CV error for sample group     9 =   7.122e-05 (rms unscaled)
+RSA: CV error for sample group     9 =   2.119e-04 (max unscaled)
+RSA: CV error for sample group     9 =   5.366e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+RSA: CV error for sample group    10 =   2.071e-06 (avg unscaled)
+RSA: CV error for sample group    10 =   2.510e-05 (rms unscaled)
+RSA: CV error for sample group    10 =   7.706e-05 (max unscaled)
+RSA: CV error for sample group    10 =   1.952e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 170
+RSA: CV error for sample group     1 =   8.489e-06 (avg unscaled)
+RSA: CV error for sample group     1 =   1.519e-06 (avg scaled)
+RSA: CV error for sample group     1 =   5.587e-05 (rms unscaled)
+RSA: CV error for sample group     1 =   8.113e-06 (rms scaled)
+RSA: CV error for sample group     1 =   1.827e-04 (max unscaled,BASE=4.538e+00)
+RSA: CV error for sample group     1 =   4.027e-05 (max   scaled,BASE=4.538e+00)
+RSA: CV error for sample group     1 =   4.628e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 164
+RSA: CV error for sample group     2 =   9.230e-07 (avg unscaled)
+RSA: CV error for sample group     2 =  -5.310e-06 (avg scaled)
+RSA: CV error for sample group     2 =   6.551e-05 (rms unscaled)
+RSA: CV error for sample group     2 =   2.190e-05 (rms scaled)
+RSA: CV error for sample group     2 =   2.380e-04 (max unscaled,BASE=1.926e+01)
+RSA: CV error for sample group     2 =   1.124e-04 (max   scaled,BASE=4.290e-01)
+RSA: CV error for sample group     2 =   6.027e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 41
+RSA: CV error for sample group     3 =  -9.635e-06 (avg unscaled)
+RSA: CV error for sample group     3 =  -8.769e-07 (avg scaled)
+RSA: CV error for sample group     3 =   2.872e-05 (rms unscaled)
+RSA: CV error for sample group     3 =   4.431e-06 (rms scaled)
+RSA: CV error for sample group     3 =   1.072e-04 (max unscaled,BASE=6.172e+00)
+RSA: CV error for sample group     3 =   1.737e-05 (max   scaled,BASE=6.172e+00)
+RSA: CV error for sample group     3 =   2.715e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 252
+RSA: CV error for sample group     4 =  -6.361e-06 (avg unscaled)
+RSA: CV error for sample group     4 =   6.235e-07 (avg scaled)
+RSA: CV error for sample group     4 =   2.103e-05 (rms unscaled)
+RSA: CV error for sample group     4 =   6.004e-06 (rms scaled)
+RSA: CV error for sample group     4 =   5.247e-05 (max unscaled,BASE=3.696e+00)
+RSA: CV error for sample group     4 =   2.039e-05 (max   scaled,BASE=2.812e-01)
+RSA: CV error for sample group     4 =   1.329e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 101
+RSA: CV error for sample group     5 =  -1.954e-06 (avg unscaled)
+RSA: CV error for sample group     5 =  -5.718e-06 (avg scaled)
+RSA: CV error for sample group     5 =   2.806e-05 (rms unscaled)
+RSA: CV error for sample group     5 =   3.367e-05 (rms scaled)
+RSA: CV error for sample group     5 =   7.531e-05 (max unscaled,BASE=2.230e+00)
+RSA: CV error for sample group     5 =   1.788e-04 (max   scaled,BASE=3.900e-01)
+RSA: CV error for sample group     5 =   1.907e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 272
+RSA: CV error for sample group     6 =   6.270e-06 (avg unscaled)
+RSA: CV error for sample group     6 =   6.410e-06 (avg scaled)
+RSA: CV error for sample group     6 =   2.895e-05 (rms unscaled)
+RSA: CV error for sample group     6 =   2.910e-05 (rms scaled)
+RSA: CV error for sample group     6 =   1.301e-04 (max unscaled,BASE=3.734e+00)
+RSA: CV error for sample group     6 =   1.555e-04 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group     6 =   3.296e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 19
+RSA: CV error for sample group     7 =   7.544e-06 (avg unscaled)
+RSA: CV error for sample group     7 =   1.751e-06 (avg scaled)
+RSA: CV error for sample group     7 =   3.700e-05 (rms unscaled)
+RSA: CV error for sample group     7 =   6.114e-06 (rms scaled)
+RSA: CV error for sample group     7 =   1.799e-04 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     7 =   2.644e-05 (max   scaled,BASE=4.317e-01)
+RSA: CV error for sample group     7 =   4.556e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 137
+RSA: CV error for sample group     8 =   2.571e-06 (avg unscaled)
+RSA: CV error for sample group     8 =   2.283e-06 (avg scaled)
+RSA: CV error for sample group     8 =   8.004e-05 (rms unscaled)
+RSA: CV error for sample group     8 =   1.273e-05 (rms scaled)
+RSA: CV error for sample group     8 =   1.437e-04 (max unscaled,BASE=2.257e+01)
+RSA: CV error for sample group     8 =   6.368e-05 (max   scaled,BASE=1.240e+00)
+RSA: CV error for sample group     8 =   3.641e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 235
+RSA: CV error for sample group     9 =   9.323e-06 (avg unscaled)
+RSA: CV error for sample group     9 =   2.683e-06 (avg scaled)
+RSA: CV error for sample group     9 =   7.122e-05 (rms unscaled)
+RSA: CV error for sample group     9 =   1.826e-05 (rms scaled)
+RSA: CV error for sample group     9 =   2.119e-04 (max unscaled,BASE=5.151e+00)
+RSA: CV error for sample group     9 =   8.974e-05 (max   scaled,BASE=1.414e+00)
+RSA: CV error for sample group     9 =   5.366e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 145
+RSA: CV error for sample group    10 =   2.071e-06 (avg unscaled)
+RSA: CV error for sample group    10 =   6.365e-08 (avg scaled)
+RSA: CV error for sample group    10 =   2.510e-05 (rms unscaled)
+RSA: CV error for sample group    10 =   1.488e-06 (rms scaled)
+RSA: CV error for sample group    10 =   7.706e-05 (max unscaled,BASE=3.159e+01)
+RSA: CV error for sample group    10 =   4.864e-06 (max   scaled,BASE=3.912e+00)
+RSA: CV error for sample group    10 =   1.952e-06 (max   scaled by (ymax-ymin))
+RSA: final CV error  =   1.924e-06 (avg unscaled)
+RSA: final CV error  =   3.429e-07 (avg   scaled)
+RSA: final CV error  =   4.877e-05 (rms unscaled)
+RSA: final CV error  =   1.766e-05 (rms   scaled)
+RSA: final CV error  =   2.380e-04 (max unscaled, BASE=1.926e+01)
+RSA: final CV error  =   1.788e-04 (max   scaled, BASE=3.900e-01)
+RSA: final CV error  =   6.027e-06 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run kriging 
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Kriging
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*                Kriging Analysis
+* Set printlevel to 1-4 to see Kriging details.
+* Turn on rs_expert mode to set slow or fast mode.
+*  + Fast mode: no optimization of hyperparameters.
+*      - turn on rs_expert to set hyperparameters.
+*      - default values = 1.0
+*  + Slow mode : hyperparameters are optimized.
+*      - to change optimization parameters, turn on rs_expert mode.
+*  + Snail mode (DEFAULT): use multi-start optimization.
+*      - to change optimization parameters, turn on rs_expert mode.
+* Create 'psuade_stop' file to gracefully terminate.
+* Create 'psuade_print' file to set print level on the fly.
+======================================================================
+Kriging training begins....
+======================================================================
+* Kriging optimization tolerance = 1.495000e-03
+Kriging training (3) begins.... (order = 0)
+Kriging multi-start optimization: start = 1 (10)
+Kriging: Input    1 initial length scale = 7.575000e+00
+Kriging: Input    2 initial length scale = 2.252500e+01
+Kriging: Input    3 initial length scale = 7.575000e+00
+Kriging multi-start optimization: iteration = 1 (10)
+Kriging: Input    1 final length scale = 2.694427e+01
+Kriging: Input    2 final length scale = 7.259058e+01
+Kriging: Input    3 final length scale = 2.778542e+00
+Kriging final objective value = 6.325438e-11 (ref = 1.495000e-03)
+Kriging: Input    1 optimal length scale = 2.694427e+01
+Kriging: Input    2 optimal length scale = 7.259058e+01
+Kriging: Input    3 optimal length scale = 2.778542e+00
+Kriging: optimal objective value = 6.325264e-11
+Kriging training (3) ends.
+Kriging variance = 5.735741e+02
+Kriging training completed.
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -5.802e-08 (unscaled)
+  avg error   =  -4.749e-08 (scaled)
+  rms error   =   4.113e-06 (unscaled)
+  rms error   =   1.802e-06 (scaled)
+  max error   =   1.600e-05 (unscaled, BASE=7.772e+00)
+  max error   =   1.888e-05 (  scaled, BASE=3.900e-01)
+  max error   =   4.051e-07 (  scaled by (ymax-ymin))
+  R-square    =   1.00000000e+00
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+RSA: CV error for sample group     1 =   1.052e-08 (avg unscaled)
+RSA: CV error for sample group     1 =   5.432e-06 (rms unscaled)
+RSA: CV error for sample group     1 =   1.257e-05 (max unscaled)
+RSA: CV error for sample group     1 =   3.183e-07 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+RSA: CV error for sample group     2 =   1.272e-06 (avg unscaled)
+RSA: CV error for sample group     2 =   1.301e-05 (rms unscaled)
+RSA: CV error for sample group     2 =   4.996e-05 (max unscaled)
+RSA: CV error for sample group     2 =   1.265e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+RSA: CV error for sample group     3 =   8.986e-08 (avg unscaled)
+RSA: CV error for sample group     3 =   6.006e-06 (rms unscaled)
+RSA: CV error for sample group     3 =   1.839e-05 (max unscaled)
+RSA: CV error for sample group     3 =   4.658e-07 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+RSA: CV error for sample group     4 =   6.878e-07 (avg unscaled)
+RSA: CV error for sample group     4 =   1.335e-05 (rms unscaled)
+RSA: CV error for sample group     4 =   6.354e-05 (max unscaled)
+RSA: CV error for sample group     4 =   1.609e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+RSA: CV error for sample group     5 =   3.531e-06 (avg unscaled)
+RSA: CV error for sample group     5 =   7.090e-06 (rms unscaled)
+RSA: CV error for sample group     5 =   2.018e-05 (max unscaled)
+RSA: CV error for sample group     5 =   5.112e-07 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+RSA: CV error for sample group     6 =  -2.503e-06 (avg unscaled)
+RSA: CV error for sample group     6 =   1.613e-05 (rms unscaled)
+RSA: CV error for sample group     6 =   4.568e-05 (max unscaled)
+RSA: CV error for sample group     6 =   1.157e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+RSA: CV error for sample group     7 =  -2.025e-07 (avg unscaled)
+RSA: CV error for sample group     7 =   5.900e-06 (rms unscaled)
+RSA: CV error for sample group     7 =   1.850e-05 (max unscaled)
+RSA: CV error for sample group     7 =   4.685e-07 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+RSA: CV error for sample group     8 =   1.083e-06 (avg unscaled)
+RSA: CV error for sample group     8 =   7.565e-06 (rms unscaled)
+RSA: CV error for sample group     8 =   1.875e-05 (max unscaled)
+RSA: CV error for sample group     8 =   4.749e-07 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+RSA: CV error for sample group     9 =   2.085e-06 (avg unscaled)
+RSA: CV error for sample group     9 =   1.610e-05 (rms unscaled)
+RSA: CV error for sample group     9 =   7.824e-05 (max unscaled)
+RSA: CV error for sample group     9 =   1.982e-06 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+RSA: CV error for sample group    10 =   9.285e-08 (avg unscaled)
+RSA: CV error for sample group    10 =   4.565e-06 (rms unscaled)
+RSA: CV error for sample group    10 =   1.149e-05 (max unscaled)
+RSA: CV error for sample group    10 =   2.909e-07 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 267
+RSA: CV error for sample group     1 =   1.052e-08 (avg unscaled)
+RSA: CV error for sample group     1 =   3.304e-08 (avg scaled)
+RSA: CV error for sample group     1 =   5.432e-06 (rms unscaled)
+RSA: CV error for sample group     1 =   5.266e-07 (rms scaled)
+RSA: CV error for sample group     1 =   1.257e-05 (max unscaled,BASE=2.110e+01)
+RSA: CV error for sample group     1 =   1.755e-06 (max   scaled,BASE=4.317e-01)
+RSA: CV error for sample group     1 =   3.183e-07 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 133
+RSA: CV error for sample group     2 =   1.272e-06 (avg unscaled)
+RSA: CV error for sample group     2 =  -9.214e-08 (avg scaled)
+RSA: CV error for sample group     2 =   1.301e-05 (rms unscaled)
+RSA: CV error for sample group     2 =   1.318e-05 (rms scaled)
+RSA: CV error for sample group     2 =   4.996e-05 (max unscaled,BASE=9.177e-01)
+RSA: CV error for sample group     2 =   5.444e-05 (max   scaled,BASE=9.177e-01)
+RSA: CV error for sample group     2 =   1.265e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 54
+RSA: CV error for sample group     3 =   8.986e-08 (avg unscaled)
+RSA: CV error for sample group     3 =   1.851e-08 (avg scaled)
+RSA: CV error for sample group     3 =   6.006e-06 (rms unscaled)
+RSA: CV error for sample group     3 =   4.998e-07 (rms scaled)
+RSA: CV error for sample group     3 =   1.839e-05 (max unscaled,BASE=1.278e+01)
+RSA: CV error for sample group     3 =   1.439e-06 (max   scaled,BASE=1.278e+01)
+RSA: CV error for sample group     3 =   4.658e-07 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 148
+RSA: CV error for sample group     4 =   6.878e-07 (avg unscaled)
+RSA: CV error for sample group     4 =   4.159e-08 (avg scaled)
+RSA: CV error for sample group     4 =   1.335e-05 (rms unscaled)
+RSA: CV error for sample group     4 =   1.500e-06 (rms scaled)
+RSA: CV error for sample group     4 =   6.354e-05 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     4 =   6.662e-06 (max   scaled,BASE=9.538e+00)
+RSA: CV error for sample group     4 =   1.609e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 288
+RSA: CV error for sample group     5 =   3.531e-06 (avg unscaled)
+RSA: CV error for sample group     5 =   2.454e-06 (avg scaled)
+RSA: CV error for sample group     5 =   7.090e-06 (rms unscaled)
+RSA: CV error for sample group     5 =   1.087e-05 (rms scaled)
+RSA: CV error for sample group     5 =   2.018e-05 (max unscaled,BASE=1.086e+01)
+RSA: CV error for sample group     5 =   5.907e-05 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group     5 =   5.112e-07 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 154
+RSA: CV error for sample group     6 =  -2.503e-06 (avg unscaled)
+RSA: CV error for sample group     6 =   2.090e-07 (avg scaled)
+RSA: CV error for sample group     6 =   1.613e-05 (rms unscaled)
+RSA: CV error for sample group     6 =   1.969e-06 (rms scaled)
+RSA: CV error for sample group     6 =   4.568e-05 (max unscaled,BASE=3.575e+01)
+RSA: CV error for sample group     6 =   1.006e-05 (max   scaled,BASE=3.106e+00)
+RSA: CV error for sample group     6 =   1.157e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 210
+RSA: CV error for sample group     7 =  -2.025e-07 (avg unscaled)
+RSA: CV error for sample group     7 =   5.779e-08 (avg scaled)
+RSA: CV error for sample group     7 =   5.900e-06 (rms unscaled)
+RSA: CV error for sample group     7 =   7.236e-07 (rms scaled)
+RSA: CV error for sample group     7 =   1.850e-05 (max unscaled,BASE=1.297e+01)
+RSA: CV error for sample group     7 =   3.414e-06 (max   scaled,BASE=2.661e+00)
+RSA: CV error for sample group     7 =   4.685e-07 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 263
+RSA: CV error for sample group     8 =   1.083e-06 (avg unscaled)
+RSA: CV error for sample group     8 =  -1.459e-07 (avg scaled)
+RSA: CV error for sample group     8 =   7.565e-06 (rms unscaled)
+RSA: CV error for sample group     8 =   1.713e-06 (rms scaled)
+RSA: CV error for sample group     8 =   1.875e-05 (max unscaled,BASE=1.594e+01)
+RSA: CV error for sample group     8 =   7.944e-06 (max   scaled,BASE=1.414e+00)
+RSA: CV error for sample group     8 =   4.749e-07 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 15
+RSA: CV error for sample group     9 =   2.085e-06 (avg unscaled)
+RSA: CV error for sample group     9 =   5.248e-07 (avg scaled)
+RSA: CV error for sample group     9 =   1.610e-05 (rms unscaled)
+RSA: CV error for sample group     9 =   3.901e-06 (rms scaled)
+RSA: CV error for sample group     9 =   7.824e-05 (max unscaled,BASE=3.734e+00)
+RSA: CV error for sample group     9 =   2.095e-05 (max   scaled,BASE=3.734e+00)
+RSA: CV error for sample group     9 =   1.982e-06 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 106
+RSA: CV error for sample group    10 =   9.285e-08 (avg unscaled)
+RSA: CV error for sample group    10 =   4.357e-08 (avg scaled)
+RSA: CV error for sample group    10 =   4.565e-06 (rms unscaled)
+RSA: CV error for sample group    10 =   9.159e-07 (rms scaled)
+RSA: CV error for sample group    10 =   1.149e-05 (max unscaled,BASE=1.677e+01)
+RSA: CV error for sample group    10 =   3.319e-06 (max   scaled,BASE=2.230e+00)
+RSA: CV error for sample group    10 =   2.909e-07 (max   scaled by (ymax-ymin))
+RSA: final CV error  =   6.148e-07 (avg unscaled)
+RSA: final CV error  =   3.144e-07 (avg   scaled)
+RSA: final CV error  =   1.047e-05 (rms unscaled)
+RSA: final CV error  =   5.639e-06 (rms   scaled)
+RSA: final CV error  =   7.824e-05 (max unscaled, BASE=3.734e+00)
+RSA: final CV error  =   5.907e-05 (max   scaled, BASE=2.548e-01)
+RSA: final CV error  =   1.982e-06 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run Legendre regression
+psuade> **********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Legendre Polynomial Regression
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*                Legendre Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on master mode to output regression matrix.
+* Turn on master mode to output regression error splot.
+----------------------------------------------------------------------
+* Turn on rs_expert mode to scale the inputs to [-1, 1].
+* With this, statistics such as mean, variances, and
+* conditional variances are readily available.
+* Otherwise, default is: scale the inputs to [0,1].
+======================================================================
+* Legendre polynomial maximum order = 10
+Desired order (>=1 and <= 10) ? Normalize the input parameters to [-1, 1]? (y - yes) * LegendreRegression: order of polynomials   = 4
+* LegendreRegression: number of permutations = 35
+* LegendreR:: interpolation rms error =  5.774e-03 (max= 3.575e+01)
+* LegendreRegression: SStot  =   2.2596025634338490e+04
+* LegendreRegression: SSreg  =   2.2596015634321502e+04
+* LegendreRegression: SSres  =   1.0000017364901942e-02
+* LegendreRegression: SSres  =   1.0000017007923872e-02 (true)
+* LegendreRegression: eps(Y) =   3.7735913237448571e-05
+======================================================================
+* Note: the coefficients below have been normalized
+----------------------------------------------------------------------
+*                                    coefficient  std. error  t-value
+* Input orders:     0     0     0 =   1.807e+01   3.554e-04   5.086e+04
+* Input orders:     1     0     0 =   1.000e+01   6.193e-04   1.615e+04
+* Input orders:     0     1     0 =  -1.585e+00   6.188e-04  -2.562e+03
+* Input orders:     0     0     1 =   1.098e+01   6.178e-04   1.777e+04
+* Input orders:     2     0     0 =   5.060e-04   8.056e-04   6.281e-01
+* Input orders:     1     1     0 =  -4.153e-04   1.079e-03  -3.850e-01
+* Input orders:     0     2     0 =   1.584e-05   8.016e-04   1.976e-02
+* Input orders:     1     0     1 =   2.683e-05   1.086e-03   2.470e-02
+* Input orders:     0     1     1 =   5.454e-01   1.083e-03   5.037e+02
+* Input orders:     0     0     2 =  -2.514e+00   8.079e-04  -3.111e+03
+* Input orders:     3     0     0 =   1.568e-04   9.575e-04   1.638e-01
+* Input orders:     2     1     0 =   7.251e-04   1.381e-03   5.251e-01
+* Input orders:     1     2     0 =  -1.633e-04   1.372e-03  -1.190e-01
+* Input orders:     0     3     0 =  -1.558e-04   9.508e-04  -1.639e-01
+* Input orders:     2     0     1 =  -1.703e-03   1.404e-03  -1.213e+00
+* Input orders:     1     1     1 =   2.013e-03   1.899e-03   1.060e+00
+* Input orders:     0     2     1 =   1.440e-03   1.415e-03   1.017e+00
+* Input orders:     1     0     2 =  -1.014e-03   1.421e-03  -7.137e-01
+* Input orders:     0     1     2 =  -1.249e-01   1.393e-03  -8.964e+01
+* Input orders:     0     0     3 =   5.170e-01   9.605e-04   5.382e+02
+* Input orders:     4     0     0 =  -6.715e-05   1.095e-03  -6.130e-02
+* Input orders:     3     1     0 =  -6.332e-04   1.677e-03  -3.776e-01
+* Input orders:     2     2     0 =   1.884e-03   1.729e-03   1.090e+00
+* Input orders:     1     3     0 =   2.228e-04   1.663e-03   1.340e-01
+* Input orders:     0     4     0 =  -8.521e-04   1.122e-03  -7.597e-01
+* Input orders:     3     0     1 =  -1.433e-03   1.692e-03  -8.468e-01
+* Input orders:     2     1     1 =  -6.023e-03   2.521e-03  -2.389e+00
+* Input orders:     1     2     1 =  -7.660e-03   2.508e-03  -3.055e+00
+* Input orders:     0     3     1 =  -1.054e-03   1.727e-03  -6.102e-01
+* Input orders:     2     0     2 =   2.064e-03   1.836e-03   1.124e+00
+* Input orders:     1     1     2 =  -6.551e-04   2.394e-03  -2.737e-01
+* Input orders:     0     2     2 =   7.300e-04   1.796e-03   4.064e-01
+* Input orders:     1     0     3 =   6.963e-04   1.729e-03   4.028e-01
+* Input orders:     0     1     3 =   2.636e-02   1.650e-03   1.598e+01
+* Input orders:     0     0     4 =  -1.022e-01   1.100e-03  -9.289e+01
+----------------------------------------------------------------------
+* Mean     =   1.8074e+01
+* Variance =   7.5671e+01
+* Conditional variance    1 =   3.3331e+01
+* Conditional variance    2 =   8.3748e-01
+* Conditional variance    3 =   4.1468e+01
+Legendre VCE ranking is now in matlablegendre.m.
+======================================================================
+* Regression R-square =  1.000e+00
+* adjusted   R-square =  1.000e+00
+**********************************************************************
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -6.976e-14 (unscaled)
+  avg error   =  -1.284e-04 (scaled)
+  rms error   =   5.774e-03 (unscaled)
+  rms error   =   2.681e-03 (scaled)
+  max error   =   2.014e-02 (unscaled, BASE=4.538e+00)
+  max error   =   3.045e-02 (  scaled, BASE=2.548e-01)
+  max error   =   5.102e-04 (  scaled by (ymax-ymin))
+  R-square    =   9.99999557e-01
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+**********************************************************************
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+RSA: CV error for sample group     1 =   9.852e-04 (avg unscaled)
+RSA: CV error for sample group     1 =   7.974e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   1.596e-02 (max unscaled)
+RSA: CV error for sample group     1 =   4.043e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+RSA: CV error for sample group     2 =   1.642e-03 (avg unscaled)
+RSA: CV error for sample group     2 =   5.481e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   9.912e-03 (max unscaled)
+RSA: CV error for sample group     2 =   2.510e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+RSA: CV error for sample group     3 =   6.517e-04 (avg unscaled)
+RSA: CV error for sample group     3 =   8.107e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   2.816e-02 (max unscaled)
+RSA: CV error for sample group     3 =   7.133e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+RSA: CV error for sample group     4 =  -1.234e-03 (avg unscaled)
+RSA: CV error for sample group     4 =   6.746e-03 (rms unscaled)
+RSA: CV error for sample group     4 =   1.731e-02 (max unscaled)
+RSA: CV error for sample group     4 =   4.385e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+RSA: CV error for sample group     5 =  -2.261e-03 (avg unscaled)
+RSA: CV error for sample group     5 =   8.097e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   2.218e-02 (max unscaled)
+RSA: CV error for sample group     5 =   5.618e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+RSA: CV error for sample group     6 =   1.064e-03 (avg unscaled)
+RSA: CV error for sample group     6 =   7.226e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   1.836e-02 (max unscaled)
+RSA: CV error for sample group     6 =   4.651e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+RSA: CV error for sample group     7 =  -9.804e-05 (avg unscaled)
+RSA: CV error for sample group     7 =   5.266e-03 (rms unscaled)
+RSA: CV error for sample group     7 =   1.363e-02 (max unscaled)
+RSA: CV error for sample group     7 =   3.451e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+RSA: CV error for sample group     8 =  -2.957e-04 (avg unscaled)
+RSA: CV error for sample group     8 =   6.459e-03 (rms unscaled)
+RSA: CV error for sample group     8 =   1.410e-02 (max unscaled)
+RSA: CV error for sample group     8 =   3.570e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+RSA: CV error for sample group     9 =   6.119e-05 (avg unscaled)
+RSA: CV error for sample group     9 =   6.634e-03 (rms unscaled)
+RSA: CV error for sample group     9 =   2.328e-02 (max unscaled)
+RSA: CV error for sample group     9 =   5.896e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+RSA: CV error for sample group    10 =  -8.581e-04 (avg unscaled)
+RSA: CV error for sample group    10 =   5.474e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   1.106e-02 (max unscaled)
+RSA: CV error for sample group    10 =   2.801e-04 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 179
+RSA: CV error for sample group     1 =   9.852e-04 (avg unscaled)
+RSA: CV error for sample group     1 =  -3.917e-04 (avg scaled)
+RSA: CV error for sample group     1 =   7.974e-03 (rms unscaled)
+RSA: CV error for sample group     1 =   6.223e-03 (rms scaled)
+RSA: CV error for sample group     1 =   1.596e-02 (max unscaled,BASE=9.177e-01)
+RSA: CV error for sample group     1 =   2.870e-02 (max   scaled,BASE=2.812e-01)
+RSA: CV error for sample group     1 =   4.043e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 4
+RSA: CV error for sample group     2 =   1.642e-03 (avg unscaled)
+RSA: CV error for sample group     2 =  -2.693e-05 (avg scaled)
+RSA: CV error for sample group     2 =   5.481e-03 (rms unscaled)
+RSA: CV error for sample group     2 =   9.589e-04 (rms scaled)
+RSA: CV error for sample group     2 =   9.912e-03 (max unscaled,BASE=3.420e+00)
+RSA: CV error for sample group     2 =   3.712e-03 (max   scaled,BASE=2.481e+00)
+RSA: CV error for sample group     2 =   2.510e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 18
+RSA: CV error for sample group     3 =   6.517e-04 (avg unscaled)
+RSA: CV error for sample group     3 =  -2.327e-04 (avg scaled)
+RSA: CV error for sample group     3 =   8.107e-03 (rms unscaled)
+RSA: CV error for sample group     3 =   1.656e-03 (rms scaled)
+RSA: CV error for sample group     3 =   2.816e-02 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     3 =   8.130e-03 (max   scaled,BASE=1.240e+00)
+RSA: CV error for sample group     3 =   7.133e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 215
+RSA: CV error for sample group     4 =  -1.234e-03 (avg unscaled)
+RSA: CV error for sample group     4 =  -2.351e-04 (avg scaled)
+RSA: CV error for sample group     4 =   6.746e-03 (rms unscaled)
+RSA: CV error for sample group     4 =   8.651e-04 (rms scaled)
+RSA: CV error for sample group     4 =   1.731e-02 (max unscaled,BASE=1.926e+01)
+RSA: CV error for sample group     4 =   4.132e-03 (max   scaled,BASE=1.962e+00)
+RSA: CV error for sample group     4 =   4.385e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 168
+RSA: CV error for sample group     5 =  -2.261e-03 (avg unscaled)
+RSA: CV error for sample group     5 =  -1.652e-03 (avg scaled)
+RSA: CV error for sample group     5 =   8.097e-03 (rms unscaled)
+RSA: CV error for sample group     5 =   7.670e-03 (rms scaled)
+RSA: CV error for sample group     5 =   2.218e-02 (max unscaled,BASE=4.538e+00)
+RSA: CV error for sample group     5 =   4.116e-02 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group     5 =   5.618e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 212
+RSA: CV error for sample group     6 =   1.064e-03 (avg unscaled)
+RSA: CV error for sample group     6 =   2.289e-04 (avg scaled)
+RSA: CV error for sample group     6 =   7.226e-03 (rms unscaled)
+RSA: CV error for sample group     6 =   1.892e-03 (rms scaled)
+RSA: CV error for sample group     6 =   1.836e-02 (max unscaled,BASE=3.734e+00)
+RSA: CV error for sample group     6 =   6.225e-03 (max   scaled,BASE=4.317e-01)
+RSA: CV error for sample group     6 =   4.651e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 236
+RSA: CV error for sample group     7 =  -9.804e-05 (avg unscaled)
+RSA: CV error for sample group     7 =   1.923e-05 (avg scaled)
+RSA: CV error for sample group     7 =   5.266e-03 (rms unscaled)
+RSA: CV error for sample group     7 =   3.477e-04 (rms scaled)
+RSA: CV error for sample group     7 =   1.363e-02 (max unscaled,BASE=2.596e+01)
+RSA: CV error for sample group     7 =   8.090e-04 (max   scaled,BASE=9.316e+00)
+RSA: CV error for sample group     7 =   3.451e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 146
+RSA: CV error for sample group     8 =  -2.957e-04 (avg unscaled)
+RSA: CV error for sample group     8 =   2.895e-04 (avg scaled)
+RSA: CV error for sample group     8 =   6.459e-03 (rms unscaled)
+RSA: CV error for sample group     8 =   2.980e-03 (rms scaled)
+RSA: CV error for sample group     8 =   1.410e-02 (max unscaled,BASE=9.635e+00)
+RSA: CV error for sample group     8 =   1.528e-02 (max   scaled,BASE=8.923e-01)
+RSA: CV error for sample group     8 =   3.570e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 260
+RSA: CV error for sample group     9 =   6.119e-05 (avg unscaled)
+RSA: CV error for sample group     9 =   4.677e-04 (avg scaled)
+RSA: CV error for sample group     9 =   6.634e-03 (rms unscaled)
+RSA: CV error for sample group     9 =   3.011e-03 (rms scaled)
+RSA: CV error for sample group     9 =   2.328e-02 (max unscaled,BASE=1.427e+00)
+RSA: CV error for sample group     9 =   1.631e-02 (max   scaled,BASE=1.427e+00)
+RSA: CV error for sample group     9 =   5.896e-04 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 254
+RSA: CV error for sample group    10 =  -8.581e-04 (avg unscaled)
+RSA: CV error for sample group    10 =  -1.736e-05 (avg scaled)
+RSA: CV error for sample group    10 =   5.474e-03 (rms unscaled)
+RSA: CV error for sample group    10 =   4.927e-04 (rms scaled)
+RSA: CV error for sample group    10 =   1.106e-02 (max unscaled,BASE=6.433e+00)
+RSA: CV error for sample group    10 =   1.719e-03 (max   scaled,BASE=6.433e+00)
+RSA: CV error for sample group    10 =   2.801e-04 (max   scaled by (ymax-ymin))
+RSA: final CV error  =  -3.424e-05 (avg unscaled)
+RSA: final CV error  =  -1.550e-04 (avg   scaled)
+RSA: final CV error  =   6.827e-03 (rms unscaled)
+RSA: final CV error  =   3.519e-03 (rms   scaled)
+RSA: final CV error  =   2.816e-02 (max unscaled, BASE=9.538e+00)
+RSA: final CV error  =   4.116e-02 (max   scaled, BASE=2.548e-01)
+RSA: final CV error  =   7.133e-04 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run Selective regression
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: User-defined regression model
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+SelectiveRegr INFO: using selective_regression_file.
+======================================================================
+* Selective Regression Analysis
+======================================================================
+**********************************************************************
+*          Selective Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0148e-01 (max= 3.5749e+01)
+* SelectiveRegression: SStot  =   2.2596025634338490e+04
+* SelectiveRegression: SSreg  =   2.2583847636671115e+04
+* SelectiveRegression: SSres  =   1.2177997667259230e+01
+* SelectiveRegression: SSres  =   1.2177997667346517e+01 (true)
+* SelectiveRegression: eps(Y) =   4.1993095404643160e-02
+*----------------------------------------------------------*
+*                 coefficient   std. error   t-value
+* Input  0     =   1.9211e+01   2.5587e-02   7.5081e+02
+* Input  1     =   5.7799e+00   1.1854e-02   4.8759e+02
+* Input  2     =  -9.1397e-01   1.1854e-02  -7.7100e+01
+* Input  3     =   6.3555e+00   1.1856e-02   5.3608e+02
+* Input  1   1 =   2.4456e-03   1.3291e-02   1.8400e-01
+* Input  1   2 =  -2.7257e-03   1.1813e-02  -2.3074e-01
+* Input  1   3 =  -2.9161e-03   1.1843e-02  -2.4624e-01
+* Input  2   2 =   1.0297e-03   1.3260e-02   7.7652e-02
+* Input  2   3 =   1.7756e-01   1.1849e-02   1.4985e+01
+* Input  3   3 =  -1.2633e+00   1.3284e-02  -9.5103e+01
+----------------------------------------------------------------------
+* SelectiveRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =   1.695e-14 (unscaled)
+  avg error   =   8.237e-03 (scaled)
+  rms error   =   2.015e-01 (unscaled)
+  rms error   =   8.328e-02 (scaled)
+  max error   =   6.767e-01 (unscaled, BASE=9.538e+00)
+  max error   =   7.085e-01 (  scaled, BASE=9.177e-01)
+  max error   =   1.714e-02 (  scaled by (ymax-ymin))
+  R-square    =   9.99461056e-01
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+SelectiveRegr INFO: using selective_regression_file.
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0138e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+RSA: CV error for sample group     1 =   2.307e-02 (avg unscaled)
+RSA: CV error for sample group     1 =   2.059e-01 (rms unscaled)
+RSA: CV error for sample group     1 =   5.152e-01 (max unscaled)
+RSA: CV error for sample group     1 =   1.305e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0007e-01 (max= 3.5225e+01)
+* SelectiveRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+RSA: CV error for sample group     2 =  -1.562e-02 (avg unscaled)
+RSA: CV error for sample group     2 =   2.189e-01 (rms unscaled)
+RSA: CV error for sample group     2 =   7.032e-01 (max unscaled)
+RSA: CV error for sample group     2 =   1.781e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0278e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+RSA: CV error for sample group     3 =   4.265e-03 (avg unscaled)
+RSA: CV error for sample group     3 =   1.919e-01 (rms unscaled)
+RSA: CV error for sample group     3 =   3.602e-01 (max unscaled)
+RSA: CV error for sample group     3 =   9.122e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  1.9916e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9947e-01
+* adjusted   R-square =   9.9947e-01
+RSA: CV error for sample group     4 =  -6.073e-03 (avg unscaled)
+RSA: CV error for sample group     4 =   2.246e-01 (rms unscaled)
+RSA: CV error for sample group     4 =   7.019e-01 (max unscaled)
+RSA: CV error for sample group     4 =   1.778e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0228e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9945e-01
+* adjusted   R-square =   9.9945e-01
+RSA: CV error for sample group     5 =  -2.199e-02 (avg unscaled)
+RSA: CV error for sample group     5 =   1.974e-01 (rms unscaled)
+RSA: CV error for sample group     5 =   5.355e-01 (max unscaled)
+RSA: CV error for sample group     5 =   1.356e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0148e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9947e-01
+* adjusted   R-square =   9.9947e-01
+RSA: CV error for sample group     6 =   1.495e-02 (avg unscaled)
+RSA: CV error for sample group     6 =   2.070e-01 (rms unscaled)
+RSA: CV error for sample group     6 =   4.761e-01 (max unscaled)
+RSA: CV error for sample group     6 =   1.206e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0127e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+RSA: CV error for sample group     7 =  -5.153e-04 (avg unscaled)
+RSA: CV error for sample group     7 =   2.063e-01 (rms unscaled)
+RSA: CV error for sample group     7 =   5.194e-01 (max unscaled)
+RSA: CV error for sample group     7 =   1.315e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  1.9935e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9947e-01
+* adjusted   R-square =   9.9947e-01
+RSA: CV error for sample group     8 =   4.592e-03 (avg unscaled)
+RSA: CV error for sample group     8 =   2.221e-01 (rms unscaled)
+RSA: CV error for sample group     8 =   7.034e-01 (max unscaled)
+RSA: CV error for sample group     8 =   1.781e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0299e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9945e-01
+* adjusted   R-square =   9.9945e-01
+RSA: CV error for sample group     9 =   1.908e-02 (avg unscaled)
+RSA: CV error for sample group     9 =   1.905e-01 (rms unscaled)
+RSA: CV error for sample group     9 =   3.996e-01 (max unscaled)
+RSA: CV error for sample group     9 =   1.012e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+======================================================================
+* Selective Regression Analysis
+======================================================================
+* SelectiveRegression:: LS mean error =  2.0065e-01 (max= 3.5749e+01)
+* SelectiveRegression model R-square =   9.9947e-01
+* adjusted   R-square =   9.9947e-01
+RSA: CV error for sample group    10 =  -2.319e-02 (avg unscaled)
+RSA: CV error for sample group    10 =   2.102e-01 (rms unscaled)
+RSA: CV error for sample group    10 =   6.343e-01 (max unscaled)
+RSA: CV error for sample group    10 =   1.606e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 1
+RSA: CV error for sample group     1 =   2.307e-02 (avg unscaled)
+RSA: CV error for sample group     1 =   3.432e-03 (avg scaled)
+RSA: CV error for sample group     1 =   2.059e-01 (rms unscaled)
+RSA: CV error for sample group     1 =   3.155e-02 (rms scaled)
+RSA: CV error for sample group     1 =   5.152e-01 (max unscaled,BASE=3.734e+00)
+RSA: CV error for sample group     1 =   1.380e-01 (max   scaled,BASE=3.734e+00)
+RSA: CV error for sample group     1 =   1.305e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 2
+RSA: CV error for sample group     2 =  -1.562e-02 (avg unscaled)
+RSA: CV error for sample group     2 =   2.539e-02 (avg scaled)
+RSA: CV error for sample group     2 =   2.189e-01 (rms unscaled)
+RSA: CV error for sample group     2 =   1.444e-01 (rms scaled)
+RSA: CV error for sample group     2 =   7.032e-01 (max unscaled,BASE=9.177e-01)
+RSA: CV error for sample group     2 =   7.662e-01 (max   scaled,BASE=9.177e-01)
+RSA: CV error for sample group     2 =   1.781e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 3
+RSA: CV error for sample group     3 =   4.265e-03 (avg unscaled)
+RSA: CV error for sample group     3 =   1.557e-02 (avg scaled)
+RSA: CV error for sample group     3 =   1.919e-01 (rms unscaled)
+RSA: CV error for sample group     3 =   9.744e-02 (rms scaled)
+RSA: CV error for sample group     3 =   3.602e-01 (max unscaled,BASE=6.666e+00)
+RSA: CV error for sample group     3 =   5.240e-01 (max   scaled,BASE=4.290e-01)
+RSA: CV error for sample group     3 =   9.122e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 4
+RSA: CV error for sample group     4 =  -6.073e-03 (avg unscaled)
+RSA: CV error for sample group     4 =  -3.769e-04 (avg scaled)
+RSA: CV error for sample group     4 =   2.246e-01 (rms unscaled)
+RSA: CV error for sample group     4 =   1.959e-02 (rms scaled)
+RSA: CV error for sample group     4 =   7.019e-01 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     4 =   7.359e-02 (max   scaled,BASE=9.538e+00)
+RSA: CV error for sample group     4 =   1.778e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 5
+RSA: CV error for sample group     5 =  -2.199e-02 (avg unscaled)
+RSA: CV error for sample group     5 =  -8.893e-03 (avg scaled)
+RSA: CV error for sample group     5 =   1.974e-01 (rms unscaled)
+RSA: CV error for sample group     5 =   4.320e-02 (rms scaled)
+RSA: CV error for sample group     5 =   5.355e-01 (max unscaled,BASE=1.926e+01)
+RSA: CV error for sample group     5 =   1.917e-01 (max   scaled,BASE=9.062e-01)
+RSA: CV error for sample group     5 =   1.356e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 6
+RSA: CV error for sample group     6 =   1.495e-02 (avg unscaled)
+RSA: CV error for sample group     6 =   3.198e-03 (avg scaled)
+RSA: CV error for sample group     6 =   2.070e-01 (rms unscaled)
+RSA: CV error for sample group     6 =   2.395e-02 (rms scaled)
+RSA: CV error for sample group     6 =   4.761e-01 (max unscaled,BASE=1.297e+01)
+RSA: CV error for sample group     6 =   1.096e-01 (max   scaled,BASE=3.696e+00)
+RSA: CV error for sample group     6 =   1.206e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 7
+RSA: CV error for sample group     7 =  -5.153e-04 (avg unscaled)
+RSA: CV error for sample group     7 =  -4.732e-03 (avg scaled)
+RSA: CV error for sample group     7 =   2.063e-01 (rms unscaled)
+RSA: CV error for sample group     7 =   2.886e-02 (rms scaled)
+RSA: CV error for sample group     7 =   5.194e-01 (max unscaled,BASE=9.635e+00)
+RSA: CV error for sample group     7 =   1.308e-01 (max   scaled,BASE=1.240e+00)
+RSA: CV error for sample group     7 =   1.315e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 8
+RSA: CV error for sample group     8 =   4.592e-03 (avg unscaled)
+RSA: CV error for sample group     8 =   2.283e-02 (avg scaled)
+RSA: CV error for sample group     8 =   2.221e-01 (rms unscaled)
+RSA: CV error for sample group     8 =   1.076e-01 (rms scaled)
+RSA: CV error for sample group     8 =   7.034e-01 (max unscaled,BASE=1.427e+00)
+RSA: CV error for sample group     8 =   4.929e-01 (max   scaled,BASE=1.427e+00)
+RSA: CV error for sample group     8 =   1.781e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 9
+RSA: CV error for sample group     9 =   1.908e-02 (avg unscaled)
+RSA: CV error for sample group     9 =   3.967e-02 (avg scaled)
+RSA: CV error for sample group     9 =   1.905e-01 (rms unscaled)
+RSA: CV error for sample group     9 =   1.585e-01 (rms scaled)
+RSA: CV error for sample group     9 =   3.996e-01 (max unscaled,BASE=8.923e-01)
+RSA: CV error for sample group     9 =   7.380e-01 (max   scaled,BASE=3.900e-01)
+RSA: CV error for sample group     9 =   1.012e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 10
+RSA: CV error for sample group    10 =  -2.319e-02 (avg unscaled)
+RSA: CV error for sample group    10 =  -1.184e-02 (avg scaled)
+RSA: CV error for sample group    10 =   2.102e-01 (rms unscaled)
+RSA: CV error for sample group    10 =   6.312e-02 (rms scaled)
+RSA: CV error for sample group    10 =   6.343e-01 (max unscaled,BASE=4.538e+00)
+RSA: CV error for sample group    10 =   2.691e-01 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group    10 =   1.606e-02 (max   scaled by (ymax-ymin))
+RSA: final CV error  =  -1.433e-04 (avg unscaled)
+RSA: final CV error  =   8.425e-03 (avg   scaled)
+RSA: final CV error  =   2.078e-01 (rms unscaled)
+RSA: final CV error  =   8.699e-02 (rms   scaled)
+RSA: final CV error  =   7.034e-01 (max unscaled, BASE=1.427e+00)
+RSA: final CV error  =   7.662e-01 (max   scaled, BASE=9.177e-01)
+RSA: final CV error  =   1.781e-02 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run user regression
+psuade> 
+**********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: User-defined (nonpolynomial) Regression
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.574862e+01  -3.734223e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0148e-01 (max= 3.5749e+01)
+* UserRegression: SStot  =   2.2596025634338490e+04
+* UserRegression: SSreg  =   2.2583847609372493e+04
+* UserRegression: SSres  =   1.2178024960658773e+01
+* UserRegression: SSres  =   1.2178024966565884e+01 (true)
+* UserRegression: eps(Y) =   4.1993189539882361e-02
+----------------------------------------------------------------------
+*  Term    coefficient     std. error     t-value
+*     1    -3.3243e+01     1.6597e+01    -2.0029e+00
+*     2     1.0116e+00     8.1553e-02     1.2404e+01
+*     3    -9.2987e-01     4.5991e-01    -2.0218e+00
+*     4     2.2999e+00     7.6580e-02     3.0032e+01
+*     5     7.3181e-05     3.9777e-04     1.8398e-01
+*     6    -2.3292e-04     1.0093e-03    -2.3077e-01
+*     7    -8.7241e-05     3.5431e-04    -2.4623e-01
+*     8     2.5124e-04     3.2348e-03     7.7668e-02
+*     9     1.5167e-02     1.0122e-03     1.4985e+01
+*    10    -3.7787e-02     3.9732e-04    -9.5103e+01
+----------------------------------------------------------------------
+* UserRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+======================================================================
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -1.617e-07 (unscaled)
+  avg error   =   8.237e-03 (scaled)
+  rms error   =   2.015e-01 (unscaled)
+  rms error   =   8.328e-02 (scaled)
+  max error   =   6.768e-01 (unscaled, BASE=9.538e+00)
+  max error   =   7.085e-01 (  scaled, BASE=9.177e-01)
+  max error   =   1.714e-02 (  scaled by (ymax-ymin))
+  R-square    =   9.99461060e-01
+Based on 300 training points (total=300).
+**********************************************************************
+Next, you will be asked whether to do cross validation or not. Since
+cross validation iterates as many times as the number of groups. The
+rs_expert mode will be turned off. To change the default parameters
+for different response surface, you will need to exit, create a config
+file (use genconfigfile in command line mode), and set config option
+ in your data file.
+----------------------------------------------------------------------
+Perform cross validation ? (y or n) 
+Enter the number of groups to validate : (2 - 300) 
+RSFA: number of CV groups = 10
+RSAnalysis: L  1:cross validation (CV) begins...
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+**********************************************************************
+*                User Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to select input scaling.
+* Option to use a ps_user_regr_info file to feed information
+* Turn on rs_expert mode to skip regression analysis.
+* Create ps_user_regr_info file to set information.
+======================================================================
+UserRegression information file - ps_user_regr_info found.
+UserRegression number of basis functions = 10
+UserRegression user-provided executable  = user_regression.py
+INFO: If these settings are obsolete, delete ps_user_regr_info
+      and re-do this analysis.
+Random selection of leave-out groups ? (y or n) 
+RSAnalysis:: L  1: processing CV group 1 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  1.9663e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9949e-01
+* adjusted   R-square =   9.9949e-01
+======================================================================
+RSA: CV error for sample group     1 =   4.574e-02 (avg unscaled)
+RSA: CV error for sample group     1 =   2.453e-01 (rms unscaled)
+RSA: CV error for sample group     1 =   7.320e-01 (max unscaled)
+RSA: CV error for sample group     1 =   1.854e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 1 processed (size=30)
+RSAnalysis:: L  1: processing CV group 2 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0121e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9947e-01
+* adjusted   R-square =   9.9947e-01
+======================================================================
+RSA: CV error for sample group     2 =  -2.345e-02 (avg unscaled)
+RSA: CV error for sample group     2 =   2.073e-01 (rms unscaled)
+RSA: CV error for sample group     2 =   6.921e-01 (max unscaled)
+RSA: CV error for sample group     2 =   1.753e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 2 processed (size=30)
+RSAnalysis:: L  1: processing CV group 3 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  1.9823e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+======================================================================
+RSA: CV error for sample group     3 =   9.786e-03 (avg unscaled)
+RSA: CV error for sample group     3 =   2.372e-01 (rms unscaled)
+RSA: CV error for sample group     3 =   7.071e-01 (max unscaled)
+RSA: CV error for sample group     3 =   1.791e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 3 processed (size=30)
+RSAnalysis:: L  1: processing CV group 4 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0270e-01 (max= 3.5225e+01)
+* UserRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+======================================================================
+RSA: CV error for sample group     4 =   5.382e-04 (avg unscaled)
+RSA: CV error for sample group     4 =   2.002e-01 (rms unscaled)
+RSA: CV error for sample group     4 =   5.887e-01 (max unscaled)
+RSA: CV error for sample group     4 =   1.491e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 4 processed (size=30)
+RSAnalysis:: L  1: processing CV group 5 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0222e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9945e-01
+* adjusted   R-square =   9.9945e-01
+======================================================================
+RSA: CV error for sample group     5 =  -1.610e-04 (avg unscaled)
+RSA: CV error for sample group     5 =   1.969e-01 (rms unscaled)
+RSA: CV error for sample group     5 =   3.248e-01 (max unscaled)
+RSA: CV error for sample group     5 =   8.226e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 5 processed (size=30)
+RSAnalysis:: L  1: processing CV group 6 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  1.9957e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+======================================================================
+RSA: CV error for sample group     6 =  -3.008e-03 (avg unscaled)
+RSA: CV error for sample group     6 =   2.228e-01 (rms unscaled)
+RSA: CV error for sample group     6 =   4.335e-01 (max unscaled)
+RSA: CV error for sample group     6 =   1.098e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 6 processed (size=30)
+RSAnalysis:: L  1: processing CV group 7 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0416e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9943e-01
+* adjusted   R-square =   9.9943e-01
+======================================================================
+RSA: CV error for sample group     7 =   6.328e-03 (avg unscaled)
+RSA: CV error for sample group     7 =   1.773e-01 (rms unscaled)
+RSA: CV error for sample group     7 =   3.744e-01 (max unscaled)
+RSA: CV error for sample group     7 =   9.484e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 7 processed (size=30)
+RSAnalysis:: L  1: processing CV group 8 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0506e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9946e-01
+* adjusted   R-square =   9.9946e-01
+======================================================================
+RSA: CV error for sample group     8 =  -1.617e-02 (avg unscaled)
+RSA: CV error for sample group     8 =   1.679e-01 (rms unscaled)
+RSA: CV error for sample group     8 =   2.613e-01 (max unscaled)
+RSA: CV error for sample group     8 =   6.617e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 8 processed (size=30)
+RSAnalysis:: L  1: processing CV group 9 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  2.0381e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9945e-01
+* adjusted   R-square =   9.9945e-01
+======================================================================
+RSA: CV error for sample group     9 =  -1.241e-02 (avg unscaled)
+RSA: CV error for sample group     9 =   1.822e-01 (rms unscaled)
+RSA: CV error for sample group     9 =   3.858e-01 (max unscaled)
+RSA: CV error for sample group     9 =   9.773e-03 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 9 processed (size=30)
+RSAnalysis:: L  1: processing CV group 10 (out of 10)
+Input   1 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   2 : shift = 0.000000e+00, scale = 1.000000e+00
+Input   3 : shift = 0.000000e+00, scale = 1.000000e+00
+**********************************************************************
+*            User Regression Analysis Statistics
+======================================================================
+* UserRegression:: LS mean error =  1.9603e-01 (max= 3.5749e+01)
+* UserRegression model R-square =   9.9950e-01
+* adjusted   R-square =   9.9950e-01
+======================================================================
+RSA: CV error for sample group    10 =   1.163e-02 (avg unscaled)
+RSA: CV error for sample group    10 =   2.534e-01 (rms unscaled)
+RSA: CV error for sample group    10 =   6.708e-01 (max unscaled)
+RSA: CV error for sample group    10 =   1.699e-02 (max   scaled by (ymax-ymin))
+RSAnalysis:: L  1: CV group 10 processed (size=30)
+RSA: first member of sample group     1 = 86
+RSA: CV error for sample group     1 =   4.574e-02 (avg unscaled)
+RSA: CV error for sample group     1 =  -7.437e-03 (avg scaled)
+RSA: CV error for sample group     1 =   2.453e-01 (rms unscaled)
+RSA: CV error for sample group     1 =   6.512e-02 (rms scaled)
+RSA: CV error for sample group     1 =   7.320e-01 (max unscaled,BASE=9.538e+00)
+RSA: CV error for sample group     1 =   3.400e-01 (max   scaled,BASE=2.548e-01)
+RSA: CV error for sample group     1 =   1.854e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     2 = 52
+RSA: CV error for sample group     2 =  -2.345e-02 (avg unscaled)
+RSA: CV error for sample group     2 =   1.223e-02 (avg scaled)
+RSA: CV error for sample group     2 =   2.073e-01 (rms unscaled)
+RSA: CV error for sample group     2 =   8.917e-02 (rms scaled)
+RSA: CV error for sample group     2 =   6.921e-01 (max unscaled,BASE=1.427e+00)
+RSA: CV error for sample group     2 =   4.850e-01 (max   scaled,BASE=1.427e+00)
+RSA: CV error for sample group     2 =   1.753e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     3 = 277
+RSA: CV error for sample group     3 =   9.786e-03 (avg unscaled)
+RSA: CV error for sample group     3 =   4.629e-02 (avg scaled)
+RSA: CV error for sample group     3 =   2.372e-01 (rms unscaled)
+RSA: CV error for sample group     3 =   1.759e-01 (rms scaled)
+RSA: CV error for sample group     3 =   7.071e-01 (max unscaled,BASE=9.177e-01)
+RSA: CV error for sample group     3 =   7.706e-01 (max   scaled,BASE=9.177e-01)
+RSA: CV error for sample group     3 =   1.791e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     4 = 241
+RSA: CV error for sample group     4 =   5.382e-04 (avg unscaled)
+RSA: CV error for sample group     4 =   1.252e-02 (avg scaled)
+RSA: CV error for sample group     4 =   2.002e-01 (rms unscaled)
+RSA: CV error for sample group     4 =   1.010e-01 (rms scaled)
+RSA: CV error for sample group     4 =   5.887e-01 (max unscaled,BASE=1.926e+01)
+RSA: CV error for sample group     4 =   5.302e-01 (max   scaled,BASE=4.290e-01)
+RSA: CV error for sample group     4 =   1.491e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     5 = 291
+RSA: CV error for sample group     5 =  -1.610e-04 (avg unscaled)
+RSA: CV error for sample group     5 =  -4.919e-03 (avg scaled)
+RSA: CV error for sample group     5 =   1.969e-01 (rms unscaled)
+RSA: CV error for sample group     5 =   2.883e-02 (rms scaled)
+RSA: CV error for sample group     5 =   3.248e-01 (max unscaled,BASE=6.666e+00)
+RSA: CV error for sample group     5 =   1.313e-01 (max   scaled,BASE=1.240e+00)
+RSA: CV error for sample group     5 =   8.226e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     6 = 60
+RSA: CV error for sample group     6 =  -3.008e-03 (avg unscaled)
+RSA: CV error for sample group     6 =   1.512e-02 (avg scaled)
+RSA: CV error for sample group     6 =   2.228e-01 (rms unscaled)
+RSA: CV error for sample group     6 =   8.461e-02 (rms scaled)
+RSA: CV error for sample group     6 =   4.335e-01 (max unscaled,BASE=2.642e+01)
+RSA: CV error for sample group     6 =   4.472e-01 (max   scaled,BASE=8.923e-01)
+RSA: CV error for sample group     6 =   1.098e-02 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     7 = 227
+RSA: CV error for sample group     7 =   6.328e-03 (avg unscaled)
+RSA: CV error for sample group     7 =   3.623e-03 (avg scaled)
+RSA: CV error for sample group     7 =   1.773e-01 (rms unscaled)
+RSA: CV error for sample group     7 =   4.226e-02 (rms scaled)
+RSA: CV error for sample group     7 =   3.744e-01 (max unscaled,BASE=3.696e+00)
+RSA: CV error for sample group     7 =   1.749e-01 (max   scaled,BASE=4.317e-01)
+RSA: CV error for sample group     7 =   9.484e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     8 = 58
+RSA: CV error for sample group     8 =  -1.617e-02 (avg unscaled)
+RSA: CV error for sample group     8 =  -3.232e-03 (avg scaled)
+RSA: CV error for sample group     8 =   1.679e-01 (rms unscaled)
+RSA: CV error for sample group     8 =   1.822e-02 (rms scaled)
+RSA: CV error for sample group     8 =   2.613e-01 (max unscaled,BASE=1.993e+01)
+RSA: CV error for sample group     8 =   7.744e-02 (max   scaled,BASE=3.106e+00)
+RSA: CV error for sample group     8 =   6.617e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group     9 = 169
+RSA: CV error for sample group     9 =  -1.241e-02 (avg unscaled)
+RSA: CV error for sample group     9 =   1.404e-02 (avg scaled)
+RSA: CV error for sample group     9 =   1.822e-01 (rms unscaled)
+RSA: CV error for sample group     9 =   1.223e-01 (rms scaled)
+RSA: CV error for sample group     9 =   3.858e-01 (max unscaled,BASE=2.596e+01)
+RSA: CV error for sample group     9 =   6.452e-01 (max   scaled,BASE=3.900e-01)
+RSA: CV error for sample group     9 =   9.773e-03 (max   scaled by (ymax-ymin))
+RSA: first member of sample group    10 = 80
+RSA: CV error for sample group    10 =   1.163e-02 (avg unscaled)
+RSA: CV error for sample group    10 =   1.948e-03 (avg scaled)
+RSA: CV error for sample group    10 =   2.534e-01 (rms unscaled)
+RSA: CV error for sample group    10 =   3.959e-02 (rms scaled)
+RSA: CV error for sample group    10 =   6.708e-01 (max unscaled,BASE=4.538e+00)
+RSA: CV error for sample group    10 =   1.478e-01 (max   scaled,BASE=4.538e+00)
+RSA: CV error for sample group    10 =   1.699e-02 (max   scaled by (ymax-ymin))
+RSA: final CV error  =   1.882e-03 (avg unscaled)
+RSA: final CV error  =   9.019e-03 (avg   scaled)
+RSA: final CV error  =   2.109e-01 (rms unscaled)
+RSA: final CV error  =   8.941e-02 (rms   scaled)
+RSA: final CV error  =   7.320e-01 (max unscaled, BASE=9.538e+00)
+RSA: final CV error  =   7.706e-01 (max   scaled, BASE=9.177e-01)
+RSA: final CV error  =   1.854e-02 (max   scaled by (ymax-ymin))
+RSA: L  1:cross validation (CV) completed.
+CV error file is RSFA_CV_err.m
+**********************************************************************
+psuade> # run GradLegendre regression
+psuade> 
+Sampling INFO: Creating a sample assuming all uncertain parameters are
+               uniformly distributed.
+PSUADE run: creating interface to user driver.
+PSUADE run: output level = 1
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 1 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: If evaluation should be fast but is slow, check save_frequency
+      because it may be due to too much I/O.
+NOTE: To dynamically change max jobs, create psuade_pmachine file
+NOTE: To terminate gracefully, create psuade_stop file
+======================================================================
+PSUADE run: nSamples = 300 
+.........
+Sample point    100 completed (out of 300).
+.........
+Sample point    200 completed (out of 300).
+.........
+Sample point    300 completed (out of 300).
+
+PSUADE run: jobs completed = 300(out of 300)
+======================================================================
+psuade> 
+**********************************************************************
+INFO: You are loading a file with the same name as the default output
+      file psuadeData, which is periodically overwritten during some
+      of PSUADE's internal operations. As such, you are advised to
+      rename your 'psuadeData' file to something else (You can use
+      the output_file command to change the default output filename.)
+**********************************************************************
+load complete : nSamples = 300
+                nInputs  = 3
+                nOutputs = 4
+psuade> **********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Derivative-based Legendre Polynomial Regression
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.575118e+01  -3.766571e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+* GradLegendreRegression constructor
+----------------------------------------------------------------------
+* Legendre polynomial maximum order = 17
+Desired order (>=1 and <= 17) ? 
+* GradLegendreRegression: order of polynomials   = 4
+* GradLegendreRegression: number of permutations = 35
+**********************************************************************
+*                GradLegendre Regression Analysis
+* R-square gives a measure of the goodness of the model.
+* R-square should be close to 1 if it is a good model.
+* Turn on rs_expert mode to output regression matrix.
+----------------------------------------------------------------------
+* Each input will be scaled to [-1, 1].
+* With this, statistics such as mean, variances, and
+* conditional variances are readily available.
+======================================================================
+* GradLegendreRegression: LS mean error =  4.820e-03 (max= 3.575e+01)
+* GradLegendreRegression: SStot = 9.119418e+04
+* GradLegendreRegression: SSreg = 9.119834e+04
+* GradLegendreRegression: SSres = 2.788268e-02
+* GradLegendreRegression: SSres = 2.788268e-02 (true)
+======================================================================
+* Note: coefficients below are for normalized input ranges.
+----------------------------------------------------------------------
+*                                    coefficient  std. error  t-value
+* Input orders:     0     0     0 =   1.807e+01   2.828e-04   6.391e+04
+* Input orders:     1     0     0 =   1.000e+01   4.843e-04   2.065e+04
+* Input orders:     0     1     0 =  -1.585e+00   4.457e-04  -3.556e+03
+* Input orders:     0     0     1 =   1.098e+01   4.839e-04   2.269e+04
+* Input orders:     2     0     0 =   3.070e-04   5.981e-04   5.133e-01
+* Input orders:     1     1     0 =  -2.793e-04   7.664e-04  -3.644e-01
+* Input orders:     0     2     0 =   3.048e-05   4.594e-04   6.635e-02
+* Input orders:     1     0     1 =   4.717e-05   8.310e-04   5.675e-02
+* Input orders:     0     1     1 =   5.456e-01   7.659e-04   7.124e+02
+* Input orders:     0     0     2 =  -2.514e+00   5.990e-04  -4.197e+03
+* Input orders:     3     0     0 =   2.894e-04   6.338e-04   4.566e-01
+* Input orders:     2     1     0 =  -1.278e-04   9.253e-04  -1.381e-01
+* Input orders:     1     2     0 =  -2.281e-04   7.258e-04  -3.142e-01
+* Input orders:     0     3     0 =  -6.778e-05   3.605e-04  -1.880e-01
+* Input orders:     2     0     1 =  -1.040e-03   1.017e-03  -1.023e+00
+* Input orders:     1     1     1 =   1.314e-03   1.303e-03   1.008e+00
+* Input orders:     0     2     1 =   5.541e-04   7.365e-04   7.523e-01
+* Input orders:     1     0     2 =  -8.789e-04   1.024e-03  -8.584e-01
+* Input orders:     0     1     2 =  -1.254e-01   9.298e-04  -1.349e+02
+* Input orders:     0     0     3 =   5.235e-01   6.339e-04   8.259e+02
+* Input orders:     4     0     0 =  -1.131e-04   6.249e-04  -1.809e-01
+* Input orders:     3     1     0 =  -3.313e-04   9.996e-04  -3.315e-01
+* Input orders:     2     2     0 =   9.895e-04   8.923e-04   1.109e+00
+* Input orders:     1     3     0 =   2.344e-04   6.116e-04   3.833e-01
+* Input orders:     0     4     0 =  -9.110e-05   3.182e-04  -2.863e-01
+* Input orders:     3     0     1 =  -1.167e-03   1.080e-03  -1.080e+00
+* Input orders:     2     1     1 =  -3.628e-03   1.615e-03  -2.246e+00
+* Input orders:     1     2     1 =  -2.546e-03   1.263e-03  -2.015e+00
+* Input orders:     0     3     1 =  -3.274e-04   6.279e-04  -5.215e-01
+* Input orders:     2     0     2 =   1.439e-03   1.253e-03   1.149e+00
+* Input orders:     1     1     2 =  -7.267e-04   1.577e-03  -4.607e-01
+* Input orders:     0     2     2 =   2.907e-04   9.131e-04   3.183e-01
+* Input orders:     1     0     3 =  -4.368e-04   1.105e-03  -3.952e-01
+* Input orders:     0     1     3 =   2.594e-02   1.004e-03   2.585e+01
+* Input orders:     0     0     4 =  -1.040e-01   6.257e-04  -1.662e+02
+----------------------------------------------------------------------
+* Mean     =   1.8074e+01
+* Variance =   7.5677e+01
+* Conditional variance    1 =   3.3331e+01
+* Conditional variance    2 =   8.3750e-01
+* Conditional variance    3 =   4.1473e+01
+Legendre VCE ranking is now in matlabgradlegendre.m.
+======================================================================
+* Regression R-square =  1.000e+00
+* adjusted   R-square =  1.000e+00
+**********************************************************************
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =   6.843e-15 (unscaled)
+  avg error   =  -3.096e-04 (scaled)
+  rms error   =   6.345e-03 (unscaled)
+  rms error   =   2.897e-03 (scaled)
+  max error   =   1.271e-02 (unscaled, BASE=8.358e+00)
+  max error   =   3.240e-02 (  scaled, BASE=2.615e-01)
+  max error   =   3.215e-04 (  scaled by (ymax-ymin))
+  R-square    =   9.99999466e-01
+Based on 300 training points (total=300).
+Cross validation (CV) not supported on
+    gradient-based regression method.
+**********************************************************************
+psuade> # run sparse grid regression
+psuade> WARNING: no sample matrix or output found.
+psuade> 
+----------------------------------------------------------------------
+Available sampling methods: 
+----------------------------------------------------------------------
+1. Monte Carlo sampling
+2. Full Factorial sampling
+3. Latin hypercube sampling
+4. Orthogonal array sampling
+5. Morris sampling
+6. Quasi Monte Carlo (LPTAU) sampling
+7. Full space-filling (METIS) sampling
+8. Sparse grid sampling
+Select a sampling method from below: 
+Select a sample size: (> 10, < 1000000): 
+SparseGridSampling: polynomial order has been set to 2.
+NOTE: to change to 3rd or 4th order, turn on sam_expert mode
+      (add 'sam_expert on' in ANALYSIS) and run this again.
+Sparse grid data has been stored to ps_sparse_grid_info.
+You need this file to build sparse grid response surfaces.
+psuade> PSUADE run: creating interface to user driver.
+PSUADE run: output level = 1
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 1 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: If evaluation should be fast but is slow, check save_frequency
+      because it may be due to too much I/O.
+NOTE: To dynamically change max jobs, create psuade_pmachine file
+NOTE: To terminate gracefully, create psuade_stop file
+======================================================================
+PSUADE run: nSamples = 25 
+...
+PSUADE run: jobs completed = 25(out of 25)
+======================================================================
+psuade> 
+**********************************************************************
+INFO: You are loading a file with the same name as the default output
+      file psuadeData, which is periodically overwritten during some
+      of PSUADE's internal operations. As such, you are advised to
+      rename your 'psuadeData' file to something else (You can use
+      the output_file command to change the default output filename.)
+**********************************************************************
+load complete : nSamples = 25
+                nInputs  = 3
+                nOutputs = 1
+psuade> **********************************************************************
+This command can be used to check the quality of a response surface
+trained on the loaded sample. The quality metrics may be training
+errors (from resubstitution test) or cross validation errors. Plots
+will be created for visualizing the goodness of the fit.
+----------------------------------------------------------------------
+**********************************************************************
+Response surface method to be used: Sparse Grid Polynomial Regression
+======================================================================
+RSA: Output ID = 1
+RSA: Output Maximum/Minimum =   3.002260e+01   6.202016e+00
+INFO: Set printlevel higher (1-4) to display more information.
+INFO: Turn on ana_expert mode for interpolation error graphics.
+**********************************************************************
+*       Sparse Grid Regression Analysis
+----------------------------------------------------------------------
+* Note: This function looks for a ps_sparse_grid_info file
+*       for regression information.
+The file should be in the format:
+ line 1 : <nSamples> <nInputs> <pOrder>
+ line 2 : 1 <input1Val> <input2Val> .. <inputnVal> <Weight>
+ line 3 : 2 <input1Val> <input2Val> .. <inputnVal> <Weight>
+          ...
+======================================================================
+SparseGridRegression INFO: polynomial order = 2.
+Legendre polynomial functional forms: 
+X normalized to Z in [-1 1] (e.g. X in [0,1] -> Z=2X-1)
+P_0(Z) = 1
+P_1(Z) = Z
+P_{n+1} = 1/(n+1) {(2n + 1) Z P_n(Z) - n P_{n-1}(Z)}
+======================================================================
+Legendre polynomial (0 0 0 ) coefficient = 1.807481e+01
+Legendre polynomial (1 0 0 ) coefficient = 1.000000e+01
+Legendre polynomial (0 1 0 ) coefficient = -1.583077e+00
+Legendre polynomial (0 0 1 ) coefficient = 1.096667e+01
+Legendre polynomial (2 0 0 ) coefficient = 9.373219e-02
+Legendre polynomial (1 1 0 ) coefficient = 0.000000e+00
+Legendre polynomial (0 2 0 ) coefficient = 9.373219e-02
+Legendre polynomial (1 0 1 ) coefficient = 0.000000e+00
+Legendre polynomial (0 1 1 ) coefficient = 5.276923e-01
+Legendre polynomial (0 0 2 ) coefficient = -2.437037e+00
+**********************************************************************
+RSAnalysis: L  1: interpolation error on training set 
+             avg error far from 0 ==> systematic bias.
+             rms error large      ==> average   error large.
+             max error large      ==> pointwise error large.
+             max error scaled by (ymax-ymin) large
+                 ==> fitting probably not good.
+             R-square may not always be a reliable measure.
+  avg error   =  -5.774e-02 (unscaled)
+  avg error   =  -5.848e-03 (scaled)
+  rms error   =   1.439e-01 (unscaled)
+  rms error   =   1.334e-02 (scaled)
+  max error   =   3.260e-01 (unscaled, BASE=1.198e+01)
+  max error   =   4.501e-02 (  scaled, BASE=6.202e+00)
+  max error   =   1.369e-02 (  scaled by (ymax-ymin))
+  R-square    =   9.99481675e-01
+Based on 25 training points (total=25).
+Cross validation (CV) cannot be performed on
+    splines and sparse grid response surface.
+**********************************************************************
+psuade> # clean up
+

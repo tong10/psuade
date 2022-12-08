@@ -1,0 +1,7 @@
+AdaptiveRS: adaptive response surface applied to a continuous
+            but locally varying function
+AdaptiveRSDiscontinuous: adaptive response surface applied to 
+            a discontinuous function
+AdaptiveSampling: how to refine a sample using command line
+            interpreter
+

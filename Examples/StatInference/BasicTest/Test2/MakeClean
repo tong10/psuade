@@ -1,0 +1,3 @@
+clean:
+	rm -f simulator simdata experiment expdata sample1D *.m *.sci MCMC* psuadeApps* .psuade_*
+

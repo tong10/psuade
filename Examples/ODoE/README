@@ -1,0 +1,18 @@
+Example1: MMD, MMV, MAV
+   All parameters are design parameters (no uncertain parameters). 
+   Search is performed in the design parameter space.
+Example2: odoe_pv, odoe_ametric, odoe_dmetric, odoe_entropy
+   odoe_pv: no uncertain parameters (prediction uncertainty from RS only)
+   odoe_ametric,odoe_dmetric,odoe_entropy: all parameters are uncertain
+                                           (use only inputs of a sample)
+Example3:
+   When some of the parameters are uncertain parameters (uncertainty
+   is computed based on these uncertain parameters - no RS uncertainty).
+   Use MCMC-based approaches
+Example4:
+   When some of the parameters are uncertain parameters (uncertainty
+   is computed based on these uncertain parameters).
+   Use Fisher-based approach
+Example5:
+   A real-life example with more than 1 uncertain parameter
+

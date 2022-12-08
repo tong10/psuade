@@ -1,0 +1,12 @@
+Test Problem 0: a very simple inference
+
+Test Problem 1: a simple inference
+
+Test Problem 2: This problem demonstrates Bayesian inference 
+     when there are uncertain parameters that are not to be
+     calibrated (That is, uncertain parameters with FIXED
+     distributions).
+
+Bobyqa: the same as test problem 1 except that it uses
+        deterministic optimization
+

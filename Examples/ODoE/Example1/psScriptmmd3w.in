@@ -1,0 +1,17 @@
+# weighted scheme (option 2 after odoe_mmd), use global optimizer
+sys cc -o simulator simulator.c -lm
+run psuade.in
+sys mv psuadeData Sample
+load Sample
+printlevel 0
+odoe_mmd
+y
+2
+1
+3
+5
+0
+10
+1000
+q
+

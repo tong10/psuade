@@ -1,0 +1,26 @@
+# Current options are listed in the following
+# Uncomment and add information to activate them.
+# To use this, add this line in ANALYSIS section
+#       use_configure_file = <this file name>
+PSUADE_CONFIG
+#RSFA_cross_validation
+#RSFA_cv_ngroups = 10
+#RSFA_test_datafile = testfile
+#RSFA_test_errorfile = errfile
+#RSMSobol1_pdffile = pdffile
+#RSMSobol1_scatterfile = file
+#normalize_output
+#MARS_num_bases = 50
+#MARS_interaction = 2
+#SVM_gamma = 1.0 (range: 1e-6 - 1)
+#SVM_tol = 1e-4 (
+#SVM_kernel = 1 (1:linear, 2:cubic, 3:RBF, 4:sigmoid)
+KRI_MODE = 3
+#MOAT_P = 4
+#MOAT_repair_file = file
+#MOAT_partition_file = file
+#GMOAT_P = 4
+#GMOAT_partition_file = file
+#METIS_expand_ratio = 0.1
+#LEGENDRE_order = 1
+PSUADE_END

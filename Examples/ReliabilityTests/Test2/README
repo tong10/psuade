@@ -1,0 +1,26 @@
+This example has a threshold boundary that is wavy
+(a sine wave). The larger `scale' (inside simulator.c)
+is, the more wavy the boundary is, and the finer refinement
+resolution is required.
+
+To run, first do:
+
+    cc -o simulator simulator.c -lm
+
+then run:
+
+    psuade < scr
+
+Afterward run:
+
+    psuade < scr2 
+
+    multiple times until you observe reliability convergence.
+
+The answer should be 12.5%
+
+***********************************************************
+Use scale = 2, 4, .. to 
+investigate convergence 
+The large scale is, the more wavy the boundary is
+

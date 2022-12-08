@@ -1,0 +1,28 @@
+# evaluate the candidate set using the very first prior
+load RSTrainSample
+odoeu_rseval
+y
+3
+0
+PriorSample
+CandidateSet0
+10
+# evaluate the candidate set using the posterior (14,19) 
+# that is, odoeu_posterior1
+odoeu_rseval
+y
+3
+0
+odoeu_posterior1
+CandidateSet0
+10
+# evaluate the candidate set using the posterior (14,18,19,24) 
+# that is, odoeu_posterior
+odoeu_rseval
+y
+3
+0
+odoeu_posterior
+CandidateSet0
+10
+q

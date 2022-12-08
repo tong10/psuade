@@ -1,0 +1,529 @@
+**********************************************************************
+*      Welcome to PSUADE (version 2.0.0)
+**********************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (2.0.0)
+(for help, enter <help>)
+======================================================================
+psuade> Sampling INFO: Creating a sample assuming all uncertain parameters are
+               uniformly distributed.
+PSUADE run: creating interface to user driver.
+PSUADE run: output level = 1
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 0 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: If evaluation should be fast but is slow, check save_frequency
+      because it may be due to too much I/O.
+NOTE: To dynamically change max jobs, create psuade_pmachine file
+NOTE: To terminate gracefully, create psuade_stop file
+======================================================================
+PSUADE run: nSamples = 1024 
+.........
+Sample point    100 completed (out of 1024).
+.........
+Sample point    200 completed (out of 1024).
+.........
+Sample point    300 completed (out of 1024).
+.........
+Sample point    400 completed (out of 1024).
+.........
+Sample point    500 completed (out of 1024).
+.........
+Sample point    600 completed (out of 1024).
+.........
+Sample point    700 completed (out of 1024).
+.........
+Sample point    800 completed (out of 1024).
+.........
+Sample point    900 completed (out of 1024).
+.........
+Sample point   1000 completed (out of 1024).
+..
+PSUADE run: jobs completed = 1024(out of 1024)
+======================================================================
+psuade> psuadeData has been renamed to simdata
+psuade> psuade> psuade> **********************************************************************
+This command creates a sample of a user-specified size based on the
+PDF presciption given by user (1D sample only).
+----------------------------------------------------------------------
+Enter desired sample size = PDF type = (1) N (2) L (3) T (4) Beta (5) Exp (6) Weibull: PDF parameter 1 (e.g. mean for N) = PDF parameter 2 (e.g. std dev for N) = data file created in sample1D.
+psuade> load complete : nSamples = 1024
+                nInputs  = 5
+                nOutputs = 1
+psuade> # scilab (uncomment if scilab is used)
+psuade> You can choose between the 2 MCMC schemes: 
+1. Gibbs (slower but can be more accurate)
+2. Brute-force (faster but accuracy limited by sample size)
+Enter MCMC scheme (1 or 2) : No transformation (e.g. log) on sample inputs or outputs.
+**********************************************************************
+*                     MCMC Optimizer
+======================================================================
+TO GAIN ACCESS TO DIFFERENT OPTIONS: TURN ON
+
+ * ana_expert to finetune MCMC parameters, 
+   (e.g. sample size for burn-in can be adjusted).
+ * rs_expert to customize response surface for MCMC,
+ * printlevel 3 to display more diagnostics info.
+ * printlevel 4 to display even more diagnostics.
+ * printlevel >=5 reserved only for expert only.
+----------------------------------------------------------------------
+FEATURES AVAILABLE IN THE CURRENT VERSION OF MCMC:
+ * Support other than uniform prior distributions
+ * Support likelihood functions from multiple outputs
+ * Option to include response surface errors for polynomial
+   regressions, bootstrapped MARS, and Gaussian process (GP).
+   - can be selected in ana_expert mode.
+ * Option to include model form errors in the form of discrepancy
+   models
+   - can be selected in ana_expert mode.
+ * Option to set some inputs as design parameters
+   - to be specified in the observation data spec file
+ * Option to disable some parameters (set to default)
+   - in case these parameters are not to be calibrated
+   - use rs_index_file in PSUADE's ANALYSIS section
+   - not available with discrepancy modeling
+ * Option to generate a posterior sample
+   - can be selected in ana_expert mode
+ * MCMC can be terminated gracefully by creating a file named
+   'psuade_stop' in the same directory while it is running
+   (if it takes too long).
+ * For multi-modal posteriors, a large number of chains may be
+   needed. The number of chains can be adjusted in ana_expert mode.
+ * In GM mode, you have a few options to choose from:
+   1. track proposal distribution at each MCMC iteration
+      (MCMCDistTrack.m will be created at each iteration to give a
+       snapshot of the current proposal distribution)
+       NOTE: iteration will pause until further instructions
+   2. track posterior distributions after each MCMC cycle
+      (MCMCChainHistogram.m will be created after each cycle to give
+       a snapshot of the current parameter posterior distributions.
+       NOTE: iteration will pause until further instructions
+======================================================================
+Press ENTER to continue **********************************************************************
+*              Brute Force Inference
+======================================================================
+A response surface index file has been specified.
+INFO: rs_index_file indexFile found.
+MCMC_bf INFO: input   5 has a sample ==> switch to bf2.
+**********************************************************************
+*              Brute Force Inference (2)
+----------------------------------------------------------------------
+* To stop inference, create a file psuade_stop
+======================================================================
+TO GAIN ACCESS TO DIFFERENT OPTIONS: TURN ON
+
+ * ana_expert to finetune MCMC parameters, 
+   (e.g. sample size for burn-in can be adjusted).
+ * rs_expert to customize response surface for MCMC,
+----------------------------------------------------------------------
+FEATURES AVAILABLE IN THE CURRENT VERSION OF MCMC:
+ * Support likelihood functions from multiple outputs
+ * Option to include response surface errors 
+   - can be selected in ana_expert mode.
+ * Option to include model form errors in the form of discrepancy
+   models
+   - can be selected in ana_expert mode.
+ * Option to set some inputs as design parameters
+   - to be specified in the observation data spec file
+ * Option to disable some parameters (set to default)
+   - in case these parameters are not to be calibrated
+   - use rs_index_file in PSUADE's ANALYSIS section
+   - not available with discrepancy modeling
+ * Option to set some parameters as uncertain but not calibrated
+   - a sample file is to be provided to characterize uncertainty
+   - use rs_index_file in PSUADE's ANALYSIS section
+   - for parameters with fixed uncertainty, the code is 999.
+ * Option to generate a posterior sample
+   - can be selected in ana_expert mode
+ * MCMC can be terminated gracefully by creating a file named
+   'psuade_stop' in the same directory while it is running
+   (if it takes too long).
+======================================================================
+Press ENTER to continueMCMC: A response surface index file has been specified.
+INFO: rs_index_file indexFile found.
+MCMC INFO: input   1 inactive
+Response surface index information: 
+Input    1: fixed at default value  = 4.000000e-01
+Input    2: calibration/design parameter
+Input    3: calibration/design parameter
+Input    4: calibration/design parameter
+Input    5: uncertain, sample index =    1
+A sample for uncertain parameters has been provided.
+The sample size is 200
+Enter the sub-sample size to use for inference (1 - 200): *** NEED DATA TO CREATE LIKELIHOOD FUNCTION: 
+
+MCMC creates a Gaussian likelihood function. Please provide a data
+file containing design parameter values, mean, and std. dev. of the
+observation data for each output.
+NOTE: Design parameters should be defined in the observation data
+   file if the data used in MCMC are collected at different design
+   points.
+IMPORTANT: IF m DESIGN PARAMETERS ARE SPECIFIED, YOU NEED TO SPECIFY
+   WHICH ONES THEY ARE. THESE DESIGN PARAMETERS WILL BE EXCLUDED FROM
+   THE CALIBRATION PARAMETER SET.
+----------------------------------------------------------------------
+** OBSERVATION DATA FILE FORMAT : (O1 = Output 1, 
+        M   - no. of design parameters, 
+        K   - no. of model outputs, 
+        P   - no. of experiments 
+        O1m - Output 1 mean
+        O1s - Output 1 std. dev.
+        OKs - Output K std. dev.
+PSUADE_BEGIN
+<P> <K> <M> <design parameter identifiers>
+1 <design values...> <O1m> <O1s> ... <OKs> 
+2 <design values...> <O1m> <O1s> ... <OKs> 
+...
+P <design values...> <O1m> <O1s> ... <OK> 
+PSUADE_END
+# num_replications = <x> (Optional command)
+----------------------------------------------------------------------
+The likelihood function is in the form of:
+  C exp(-0.5*S) 
+where C is the normalization constant and
+  S=sum_{p=1}^P sum_{k=1)^K (Y_pk-m_pk)^2/sd_pk^2
+where K is the number of outputs and m_pk and sd_pk are the mean and
+  std. dev. of output k of experiment k.
+----------------------------------------------------------------------
+NOTE: Alternatively, your simulator (or response surface) output may
+      be some error measure from comparison of all model outputs with
+      observation data. In this case, set nOutputs=1, mean=0 and sd=1
+      in the specification file (i.e. your simulation output is 'S'
+      above, and MCMC will compute likelihood as :
+            C exp(-0.5 S).
+      However, if you choose this option and you want to add response
+      surface uncertainty, you need to be very careful.
+==> Enter the name of the experiment file: SPEC FILE: Number of experiments = 9
+SPEC FILE: Number of outputs = 1
+SPEC FILE: Number of design parameters = 1
+SPEC FILE: input 4 is a design parameter
+Calibration Data Set 1
+   Design parameter 1 = 2.000000e-01
+      Data mean/stdev =   1.03700000e+02   1.03700000e+00
+Calibration Data Set 2
+   Design parameter 1 = 4.000000e-01
+      Data mean/stdev =   1.13100000e+02   1.13100000e+00
+Calibration Data Set 3
+   Design parameter 1 = 6.000000e-01
+      Data mean/stdev =   1.23700000e+02   1.23700000e+00
+Calibration Data Set 4
+   Design parameter 1 = 8.000000e-01
+      Data mean/stdev =   1.35500000e+02   1.35500000e+00
+Calibration Data Set 5
+   Design parameter 1 = 1.000000e+00
+      Data mean/stdev =   1.48500000e+02   1.48500000e+00
+Calibration Data Set 6
+   Design parameter 1 = 1.200000e+00
+      Data mean/stdev =   1.62700000e+02   1.62700000e+00
+Calibration Data Set 7
+   Design parameter 1 = 1.400000e+00
+      Data mean/stdev =   1.78100000e+02   1.78100000e+00
+Calibration Data Set 8
+   Design parameter 1 = 1.600000e+00
+      Data mean/stdev =   1.94700000e+02   1.94700000e+00
+Calibration Data Set 9
+   Design parameter 1 = 1.800000e+00
+      Data mean/stdev =   2.12500000e+02   2.12500000e+00
+======================================================================
+MCMC INFO: CREATING RESPONSE SURFACES FOR ALL OUTPUTS.
+MCMC INFO: CREATING RESPONSE SURFACE FOR OUTPUT 1.
+----------------------------------------------------------------------
+Available response surface tools: 
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+0.  MARS (Friedman's multivariate splines method)
+1.  Linear regression 
+2.  Quadratic regression 
+3.  Cubic regression 
+4.  Quartic regression (may be unstable)
+5.  Selective polynomial regression (user selects terms to use)
+6.  Derivative-based Legendre polynomial regression
+7.  Legendre polynomial regression
+8.  User-defined regression (user provides basis functions)
+9.  Gaussian process (MacKay's implementation)
+10. Gaussian process (Tong's implementation)
+11. Kriging
+12. Radial Basis Function
+13. Sum-of-trees model
+14. K nearest neighbors 
+15. Artificial neural network
+16. Tree-based Gaussian Process (Gramacy and Lee)
+17. SVM-light (Joachims)
+18. Sparse Grid polynomial regression
+19. Splines on regular grid (1D, 2D, or 3D only)
+20. Acosso (by Storlie, LANL. Need R to run)
+21. BSSAnova (by Storlie, LANL. Need R to run)
+22. Partial Least Squares Linear Regression (PLS)
+23. MARS with bootstrap aggregating (bagging)
+24. Radial Basis Function with bagging
+25. Multi-Radial Basis Function (for large samples)
+26. Multi-Gaussian process (Tong, for large samples)
+27. Multi-MARS (for large samples)
+28. Multi-Treed Gaussian process (for large samples)
+29. Homogeneous Legendre regression (HLR)
+30. Homogeneous GP (HGP)
+31. Homogeneous Kriging (all homogeneous inputs: same bounds)
+32. Hybrid Homogeneous GP (HyHGP)
+33. Quantile GP (can be anisotropic)
+Please enter your choice ? **********************************************************************
+*             Quadratic Regression Analysis
+* R-squared gives a measure of the goodness of the model.
+* R-squared should be close to 1 if it is a good model.
+* TURN ON rs_expert mode to output regression matrix.
+* TURN ON rs_expert mode to output regression function.
+* SET print level to 4 to output data standard deviations.
+----------------------------------------------------------------------
+* Suggestion: if your parameter ranges are too high, SCALE
+*             them first using 'irerange' command in PSUADE
+*             command line mode.
+======================================================================
+* Regression R-squared =  1.0000e+00 (SSresid,SStotal= 3.63e-19, 1.25e+07)
+* adjusted   R-squared =  1.0000e+00
+======================================================================
+*** CURRENT DEFAULT PARAMETER SETTINGS : 
+
+Inference max sample size = 500000
+Posterior histogram nbins = 20
+NOTE: histogram nBins  - resolution of histogram bar graph
+Turn on ana_expert mode to change these default settings.
+
+MCMC Plot summary: input number to be plotted are (2):
+   Input    2
+   Input    3
+======================================================================
+======================================================================
+MCMC INFO: creating constraints, if there is any.
+     Constraints remove infeasible regions from the priors.
+     Constraints can be specified by RS constraint files.
+======================================================================
+MCMC maxSamples         = 5000000
+MCMC sample increment   = 500
+MCMC UParam sample size = 100
+MCMC_BF2 INFO: no PDF, use uniform for priors.
+MCMC_BF2 Inference begins ... 
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+  5% 
+Convergence Checking (300000) =========>
+MCMC_BF2: input   2 mean    = 3.268747e-01
+MCMC_BF2: input   2 std dev = 1.277622e-01
+MCMC_BF2: input   3 mean    = 1.693007e+00
+MCMC_BF2: input   3 std dev = 5.852705e-02
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 10% 
+Convergence Checking (550000) =========>
+MCMC_BF2: input   2 mean    = 3.072933e-01
+MCMC_BF2: input   2 std dev = 1.385121e-01
+MCMC_BF2: input   3 mean    = 1.696961e+00
+MCMC_BF2: input   3 std dev = 6.034274e-02
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 15% 
+Convergence Checking (800000) =========>
+MCMC_BF2: input   2 mean    = 3.058562e-01
+MCMC_BF2: input   2 std dev = 1.400756e-01
+MCMC convergence check: 1.000678e+00 <? 1.020000e+00
+MCMC_BF2: input   2 converged.
+MCMC_BF2: input   3 mean    = 1.697584e+00
+MCMC_BF2: input   3 std dev = 6.143651e-02
+MCMC convergence check: 1.000068e+00 <? 1.020000e+00
+MCMC_BF2: input   3 converged.
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 20% 
+Convergence Checking (1050000) =========>
+MCMC_BF2: input   2 mean    = 3.063057e-01
+MCMC_BF2: input   2 std dev = 1.419663e-01
+MCMC convergence check: 1.000002e+00 <? 1.020000e+00
+MCMC_BF2: input   2 converged.
+MCMC_BF2: input   3 mean    = 1.696651e+00
+MCMC_BF2: input   3 std dev = 6.243275e-02
+MCMC convergence check: 1.000002e+00 <? 1.020000e+00
+MCMC_BF2: input   3 converged.
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 25% 
+Convergence Checking (1300000) =========>
+MCMC_BF2: input   2 mean    = 3.091534e-01
+MCMC_BF2: input   2 std dev = 1.419545e-01
+MCMC convergence check: 1.000015e+00 <? 1.020000e+00
+MCMC_BF2: input   2 converged.
+MCMC_BF2: input   3 mean    = 1.694720e+00
+MCMC_BF2: input   3 std dev = 6.269905e-02
+MCMC convergence check: 1.000022e+00 <? 1.020000e+00
+MCMC_BF2: input   3 converged.
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 30% 
+Convergence Checking (1550000) =========>
+MCMC_BF2: input   2 mean    = 3.071376e-01
+MCMC_BF2: input   2 std dev = 1.422278e-01
+MCMC convergence check: 1.000010e+00 <? 1.020000e+00
+MCMC_BF2: input   2 converged.
+MCMC_BF2: input   3 mean    = 1.695686e+00
+MCMC_BF2: input   3 std dev = 6.309046e-02
+MCMC convergence check: 1.000010e+00 <? 1.020000e+00
+MCMC_BF2: input   3 converged.
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 35% 
+Convergence Checking (1800000) =========>
+MCMC_BF2: input   2 mean    = 3.063347e-01
+MCMC_BF2: input   2 std dev = 1.420776e-01
+MCMC convergence check: 1.000010e+00 <? 1.020000e+00
+MCMC_BF2: input   2 converged.
+MCMC_BF2: input   3 mean    = 1.695593e+00
+MCMC_BF2: input   3 std dev = 6.297280e-02
+MCMC convergence check: 1.000003e+00 <? 1.020000e+00
+MCMC_BF2: input   3 converged.
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+ 40% 
+Convergence Checking (2050000) =========>
+MCMC_BF2: input   2 mean    = 3.085402e-01
+MCMC_BF2: input   2 std dev = 1.459051e-01
+MCMC convergence check: 1.000006e+00 <? 1.020000e+00
+MCMC_BF2: input   2 converged.
+MCMC_BF2: input   3 mean    = 1.694891e+00
+MCMC_BF2: input   3 std dev = 6.461319e-02
+MCMC convergence check: 1.000002e+00 <? 1.020000e+00
+MCMC_BF2: input   3 converged.
+<========= Convergence Checking
+INFO: You have not selected to create posterior sample file.
+      Create psuade_mcmcpost file to turn this feature on.
+INFO: You can create psuade_stop file to terminate MCMC.
+Maximum likelihood estimated solution:
+Input   1 =   1.14809338e-01
+Negative log likelihood (unnormalized) = 1.080541e-04
+MCMC_BF2: input   2 value at peak of likelihood = 3.006467e-01
+MCMC_BF2: input   2 mean    = 3.085402e-01
+MCMC_BF2: input   2 std dev = 1.459051e-01
+MCMC_BF2: input   3 value at peak of likelihood = 1.700365e+00
+MCMC_BF2: input   3 mean    = 1.694891e+00
+MCMC_BF2: input   3 std dev = 6.461319e-02
+MCMC: matlabmcmc2.m file has been created.
+INFO: Use matlab/scilab-mcmc2 file to visualize posteriors.
+INFO: If you selected to create a posterior sample, you will find it
+      in 'MCMCPostSample', along with useful likelihood information:
+      * Information that tells you which experiment may be off
+      * Information that indicates whether discrepancy is needed.
+INFO: If you selected to use discrepancy, you should see a sample file
+      called 'psDiscrepancyModel' (You can perform a response surface
+      analysis on it).
+INFO: MCMCPostSample/psDiscrepancyModel can be used for prediction
+      with the 'mcmc_predict' command.
+psuade> psuade terminates ...

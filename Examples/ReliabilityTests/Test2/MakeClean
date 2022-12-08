@@ -1,0 +1,3 @@
+clean:
+	rm -f simdata* simulator arel* psuadeMetis*
+

@@ -1,0 +1,12 @@
+sys cc -o simulator simulator.c -lm
+run psuadeRS.in
+rename psuadeData simdata
+load simdata
+arefine_metis
+y
+1
+100
+10
+write sam110.psu
+q
+

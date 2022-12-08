@@ -1,0 +1,121 @@
+PSUADE
+INPUT
+   dimension = 100
+   variable   1 A0 = 0.0  1.0
+   variable   2 A1 = 0.0  1.0
+   variable   3 A2 = 0.0  1.0
+   variable   4 A3 = 0.0  1.0
+   variable   5 A4 = 0.0  1.0
+   variable   6 A5 = 0.0  1.0
+   variable   7 A6 = 0.0  1.0
+   variable   8 A7 = 0.0  1.0
+   variable   9 A8 = 0.0  1.0
+   variable  10 A9 = 0.0  1.0
+   variable  11 B0 = 0.0  1.0
+   variable  12 B1 = 0.0  1.0
+   variable  13 B2 = 0.0  1.0
+   variable  14 B3 = 0.0  1.0
+   variable  15 B4 = 0.0  1.0
+   variable  16 B5 = 0.0  1.0
+   variable  17 B6 = 0.0  1.0
+   variable  18 B7 = 0.0  1.0
+   variable  19 B8 = 0.0  1.0
+   variable  20 B9 = 0.0  1.0
+   variable  21 C0 = 0.0  1.0
+   variable  22 C1 = 0.0  1.0
+   variable  23 C2 = 0.0  1.0
+   variable  24 C3 = 0.0  1.0
+   variable  25 C4 = 0.0  1.0
+   variable  26 C5 = 0.0  1.0
+   variable  27 C6 = 0.0  1.0
+   variable  28 C7 = 0.0  1.0
+   variable  29 C8 = 0.0  1.0
+   variable  30 C9 = 0.0  1.0
+   variable  31 D0 = 0.0  1.0
+   variable  32 D1 = 0.0  1.0
+   variable  33 D2 = 0.0  1.0
+   variable  34 D3 = 0.0  1.0
+   variable  35 D4 = 0.0  1.0
+   variable  36 D5 = 0.0  1.0
+   variable  37 D6 = 0.0  1.0
+   variable  38 D7 = 0.0  1.0
+   variable  39 D8 = 0.0  1.0
+   variable  40 D9 = 0.0  1.0
+   variable  41 E0 = 0.0  1.0
+   variable  42 E1 = 0.0  1.0
+   variable  43 E2 = 0.0  1.0
+   variable  44 E3 = 0.0  1.0
+   variable  45 E4 = 0.0  1.0
+   variable  46 E5 = 0.0  1.0
+   variable  47 E6 = 0.0  1.0
+   variable  48 E7 = 0.0  1.0
+   variable  49 E8 = 0.0  1.0
+   variable  50 E9 = 0.0  1.0
+   variable  51 F0 = 0.0  1.0
+   variable  52 F1 = 0.0  1.0
+   variable  53 F2 = 0.0  1.0
+   variable  54 F3 = 0.0  1.0
+   variable  55 F4 = 0.0  1.0
+   variable  56 F5 = 0.0  1.0
+   variable  57 F6 = 0.0  1.0
+   variable  58 F7 = 0.0  1.0
+   variable  59 F8 = 0.0  1.0
+   variable  60 F9 = 0.0  1.0
+   variable  61 G0 = 0.0  1.0
+   variable  62 G1 = 0.0  1.0
+   variable  63 G2 = 0.0  1.0
+   variable  64 G3 = 0.0  1.0
+   variable  65 G4 = 0.0  1.0
+   variable  66 G5 = 0.0  1.0
+   variable  67 G6 = 0.0  1.0
+   variable  68 G7 = 0.0  1.0
+   variable  69 G8 = 0.0  1.0
+   variable  70 G9 = 0.0  1.0
+   variable  71 H0 = 0.0  1.0
+   variable  72 H1 = 0.0  1.0
+   variable  73 H2 = 0.0  1.0
+   variable  74 H3 = 0.0  1.0
+   variable  75 H4 = 0.0  1.0
+   variable  76 H5 = 0.0  1.0
+   variable  77 H6 = 0.0  1.0
+   variable  78 H7 = 0.0  1.0
+   variable  79 H8 = 0.0  1.0
+   variable  80 H9 = 0.0  1.0
+   variable  81 I0 = 0.0  1.0
+   variable  82 I1 = 0.0  1.0
+   variable  83 I2 = 0.0  1.0
+   variable  84 I3 = 0.0  1.0
+   variable  85 I4 = 0.0  1.0
+   variable  86 I5 = 0.0  1.0
+   variable  87 I6 = 0.0  1.0
+   variable  88 I7 = 0.0  1.0
+   variable  89 I8 = 0.0  1.0
+   variable  90 I9 = 0.0  1.0
+   variable  91 J0 = 0.0  1.0
+   variable  92 J1 = 0.0  1.0
+   variable  93 J2 = 0.0  1.0
+   variable  94 J3 = 0.0  1.0
+   variable  95 J4 = 0.0  1.0
+   variable  96 J5 = 0.0  1.0
+   variable  97 J6 = 0.0  1.0
+   variable  98 J7 = 0.0  1.0
+   variable  99 J8 = 0.0  1.0
+   variable 100 J9 = 0.0  1.0
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = MOAT
+   num_samples = 303
+END
+APPLICATION
+   driver = ./morris_simulator2
+END
+ANALYSIS
+   analyzer method = MOAT
+   analyzer output_id  = 1
+   printlevel 1
+END
+END

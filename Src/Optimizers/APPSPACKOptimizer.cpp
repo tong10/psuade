@@ -63,6 +63,9 @@ void APPSPACKOptimizer::optimize(oData *odata)
    char   lineIn[500], *subString;
    char   *keywords[] = {"FINAL MINIMUM", "f=", "x=[", "Fevals:"};
  
+   //**/ ------------------------------------------------------------------
+   //**/ prepare appspack input file
+   //**/ ------------------------------------------------------------------
    sprintf(inputFile, "psuadeAPPSPACK.in");
    sprintf(outputFile, "psuadeAPPSPACK.out");
    fp = fopen(inputFile, "w");
@@ -92,10 +95,14 @@ void APPSPACKOptimizer::optimize(oData *odata)
    fprintf(fp, "num_workers = 1\n");
    fclose(fp);
 
+   //**/ ------------------------------------------------------------------
+   //**/ run appspack 
+   //**/ ------------------------------------------------------------------
    h = odata->upperBounds_[0] - odata->lowerBounds_[0];
    for (i = 1; i < nInputs; i++)
       if ((odata->upperBounds_[i]-odata->lowerBounds_[i]) < h) 
          h = odata->upperBounds_[i] - odata->lowerBounds_[i];
+   //**/h = h / (double) odata->nSamples_;
    h = h * odata->tolerance_;
    sprintf(systemCommand, "%s/bin/appspack --tol=%e --debug=%d %s > %s", 
            PSUADE_INSTALL_DIR,h,odata->outputLevel_,inputFile,outputFile);
@@ -157,6 +164,13 @@ void APPSPACKOptimizer::optimize(oData *odata)
    }
    fclose(fp);
 
+   //**/ ------------------------------------------------------------------
+   //**/ clean up 
+   //**/ ------------------------------------------------------------------
+   //**/sprintf(systemCommand, "/bin/rm -f psuadeAPPSPACK.in");
+   //**/system(systemCommand);
+   //**/sprintf(systemCommand, "/bin/rm -f psuadeAPPSPACK.out");
+   //**/system(systemCommand);
 }
 
 // ************************************************************************

@@ -1,0 +1,30 @@
+# compiling the model
+sys cc -o simulator simulator.c -lm
+# run simulations
+run psuade.in
+# store away results in psSave
+sys mv psuadeData psSave
+# perform uncertainty analysis on raw sample
+load psSave
+ua
+1
+# perform correlation analysis on raw sample
+ca
+1
+# perform RS-based sensitivity analysis (GP)
+rssobol1
+y
+1
+10
+rssobol2
+y
+1
+10
+rssoboltsi
+y
+1
+10
+# clean up
+sys rm -f simulator psSave *.m .psuade_mars
+quit
+

@@ -1,0 +1,8 @@
+sys cc -o simulator simulator.c -lm
+run psuadeRS.in
+rename psuadeData simdata
+run psuade2.in
+1.0
+-999
+quit
+

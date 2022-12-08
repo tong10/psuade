@@ -1,0 +1,4 @@
+clean:
+	rm -f RSTrainData PriorSample *.m candidate psuadeApp* simulator *.sci psuadeData .psuade* psuade_stop psuade_print CandidateSet* odoeu_* EvalSet mcmcpredict.out
+
+

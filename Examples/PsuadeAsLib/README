@@ -1,0 +1,47 @@
+This directory contains an example of how to link your
+C++ user program to the PSUADE library of functions.
+
+To initiate this example, you need to do the following:
+
+1. build psuade library 
+2. set up the include files
+
+   cd ../../build/include
+   cp ../../Src/*/*.h .
+
+3. run: make
+
+4. now you have the psuade_api file, now you can run this
+   executable.
+
+5. Afterward, you can use matlab to view some of the results
+
+There isn't a document to describe all the functions, but
+you can go to the Src directory and browse the .h files to
+see the available function in each class.
+For example, all FuncApprox (response surface) classes have
+uniform function calls.
+
+optCobyla test: 
+
+   Solution: (4 6 10 5 3 1 0 11 10 7)
+   min = -31
+
+optBobyla test: 
+
+   Solution: all 1's, min = 0
+
+optNomad test: input 1, 2, 4 are integers, input 3 is continuous
+
+   Solution: min=-40.957, X=(0, 1, 2.236, 0)
+
+optNewuoa test: unconstrained optimization 
+
+   Solution: all 1's, min = 0
+   Solution: min=-40.957, X=(0, 1, 2.236, 0)
+
+optLincoa test: equality-unconstrained optimization 
+
+   Solution: 1/3 2/3
+   Solution: min=-0.6666
+

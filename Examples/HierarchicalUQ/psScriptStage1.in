@@ -1,0 +1,18 @@
+sys cc -o subsystem subsystem.c -lm
+run psuadeSubsysRS.in
+sys mv psuadeData subsys.psu
+load subsys.psu
+#scilab
+ana_expert
+rsmcmc
+y
+2
+
+expdata2
+n
+10
+100000
+20
+-1
+n
+q

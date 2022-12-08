@@ -1,0 +1,2 @@
+clean:
+	rm -f simulator experiment simdata Case*/MCMC* Case*/simdata Case*/expdata Case*/*.m Case*/*.sci Case*/MCMC* Case*/mcmcpredict* Case*/psDiscrepancy* expdata psuadeData

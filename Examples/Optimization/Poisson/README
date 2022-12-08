@@ -1,0 +1,52 @@
+*************************************************************
+This test problem is a Poisson problem on a 24=57x257 grid
+with right hand side mostly zero except 4 selected points 
+with values (5, 10, 15, 19).
+The objective is to recover these 4 values by optimization
+given solutions at 4 locations in the mesh.
+So, the solution to this optimization problem is (5,10,15,19)
+*************************************************************
+
+To run with Cobyla:
+
+cc -o cobyla_simulator cobyla_simulator.c -lm
+
+psuade psuadeCobyla.in
+
+*************************************************************
+To run with SM/MM optimizers:
+
+* smmm_fine_sim is the Poisson problem with 257x257 mesh
+* smmm_coarse_sim is the same Poisson problem with 33x33 mesh
+* These models output values at the 4 designated locations
+* while the one for cobyla outputs some summary error 
+* statistics. 
+
+cc -o smmm_coarse_sim smmm_coarse_sim.c -lm
+cc -o smmm_fine_sim smmm_fine_sim.c -lm
+
+1. MM
+   - need to provide aux_opt_driver : smmm_coarse_sim
+     need to set targetFile (the true solution at the
+     selected mesh points)
+
+     Run: psuade psuadeSMMM.in
+
+   - both opt_driver and aux_opt_driver can be data files
+     e.g. to set aux_opt_driver as a psuade sample file
+          rather than an executable:
+      * run psuade on psuadeRS.in (20 samples)
+      * rename psuadeData to, e.g. auxData
+      * Edit auxData -> change rstype to GP3
+      * set aux_opt_driver in psuadeSMMM2.in as auxData
+      * run: psuade psuadeSMMM2.in
+
+3. MM_adaptive
+   - need to provide aux_opt_driver as data file
+   - this file will be enlarged as more fine model 
+     evaluations are performed and added 
+   - Run: psuade psuadeSMMM_adaptive.in
+   - At the end, auxData will have more samples
+   - You can try using fewer than 10 samples to begin
+     with by modifying the psuadeRS.in file and redo
+

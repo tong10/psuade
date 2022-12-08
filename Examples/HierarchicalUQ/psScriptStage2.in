@@ -1,0 +1,46 @@
+# convert posterior into psuade data format ==> posterior2.psu
+iread MCMCPostSample
+write posterior2.psu
+# create a sample for the first parameter ==> prior1.psu
+run psuadeGenSample1.in
+sys mv psuadeData prior1.psu
+# combine the two samples into 1 ==> largeSample.psu
+rand_draw2
+prior1.psu
+posterior2.psu
+100000
+largeSample.psu
+# prepare the full system model
+sys cc -o fullsystem fullsystem.c -lm
+# run the full system model to build RS
+run psuadeFullSysRS.in
+sys mv psuadeData fullsys.psu
+# load fullsys.psu and set rstype to GP
+load fullsys.psu
+set_rstype
+10
+# write back to fullsys.psu
+write fullsys.psu
+# load largeSample.psu and set driver to RS from fullsys.psu
+load largeSample.psu
+setdriver
+1
+./fullsys.psu
+# update largeSample.psu
+write largeSample.psu
+# run largeSample.psu with RS from fullsys.psu
+run largeSample.psu
+sys mv psuadeData largeSample.psu
+# ana_expert off
+ana_expert off
+# load the final largeSample.psu
+load largeSample.psu
+# perform UA and main effect
+ua
+y
+1
+me
+y
+1
+q
+

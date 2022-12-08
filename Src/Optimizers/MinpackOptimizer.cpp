@@ -23,6 +23,12 @@
 // Functions for the class MinpackOptimizer
 // AUTHOR : CHARLES TONG
 // DATE   : 2004
+//**/ =====================================================================
+//**/ To use minpack for solving least-squares problems, nOutputs is the
+//**/ number of terms in the least-squares problems plus 1.  The first term
+//**/ is the sum of squares, and the other terms are individual terms.   
+//**/ The reason for the first term is that psuadeBase chooses initial points
+//**/ based on some local minima.
 // ************************************************************************
 
 #ifdef HAVE_MINPACK
@@ -69,8 +75,9 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
    double *localY, *localX2, *localY2, deltaX, YData, dtemp;
    FILE   *infile;
 
+   //**/ ------ get history, if any ---------
    nInps = (*nInputs);
-   if (psOptExpertMode_ != 0 && psMinpackNSaved_ == 0)
+   if (psConfig_.OptExpertModeIsOn() && psMinpackNSaved_ == 0)
    {
       infile = fopen("psuade_minpack_data","r");
       if (infile != NULL)
@@ -114,12 +121,15 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       }
    }
 
+   //**/ ------ actual data from simulation should be the ------
+   //**/ ------ number of terms in the least squares      ------
    numLocalY = M_nOutputs;
    localY    = new double[numLocalY];
    evalTrack = new int[nInps + 1];
    sampleIDs = new int[nInps + 1];
    for (ii = 0; ii < nInps+1; ii++) evalTrack[ii] = 0;
 
+   //**/ ------ search information in history ------
    evalFlag = 1;
    for (ii = 0; ii < psMinpackNSaved_; ii++)
    {
@@ -132,6 +142,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       }
    }
 
+   //**/ ------ run simulation ------
    statuses = new int[nInps+1];
    for (jj = 0; jj <= nInps; jj++) statuses[jj] = 1;
    if (evalFlag == 1)
@@ -149,12 +160,14 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
          localY[jj] = psMinpackSaveY_[ii*M_nOutputs+jj];
    }
 
+   //**/ ------ run models for finite difference, if requested ------
    if ((*flag) == 2)
    {
       localX2 = new double[nInps*nInps];
       localY2 = new double[(*nOutputs)*nInps];
       for (ii = 0; ii < nInps; ii++)
       {
+         //**/ ------ perturb the inputs ------
          for (jj = 0; jj < nInps; jj++)
             localX2[ii*nInps+jj] = XValues[jj];
          deltaX = (M_upperBounds[ii] - M_lowerBounds[ii]) * M_deltaX;
@@ -165,6 +178,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
             localX2[ii*nInps+ii] += 2.0 * deltaX;
          }
 
+         //**/ ------ search information in history ------
          evalFlag = 1;
          for (kk = 0; kk < psMinpackNSaved_; kk++)
          {
@@ -180,6 +194,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
             }
          }
 
+         //**/ ------ evaluate ------
          if (evalFlag == 1)
          {
             statuses[ii+1] = M_funcIO->evaluate(M_nFuncEvals,
@@ -198,6 +213,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       }
    }
 
+   //**/ ------ check the jobs ------
    while (statuses[0] != 0)
    {
       statuses[0] = M_funcIO->evaluate(sampleIDs[0],nInps,XValues,
@@ -221,6 +237,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
    }
    delete [] statuses;
          
+   //**/ for controlling the out of bounds problem
    for (ii = 0; ii < nInps; ii++)
    {
       if (XValues[ii] < M_lowerBounds[ii])
@@ -232,9 +249,12 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
    }
    for (ii = 0; ii < numLocalY; ii++) YValues[ii] = localY[ii];
 
+   //**/ ------ compute the actual function value ------
+   //**/ ------ sum of squares of individual term ------
    YData = 0.0;
    for (ii = 0; ii < numLocalY; ii++) YData += (localY[ii] * localY[ii]);
 
+   //**/ ------ capture the minimum and the XValues ------
    ignoreFlag = 0;
    for (ii = 0; ii < nInps; ii++)
    {
@@ -248,6 +268,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       for (ii = 0; ii < nInps; ii++) M_optimalX[ii] = XValues[ii];
    }
 
+   //**/ ------ diagnostics ------
    if (M_outputLevel > 1)
    {
       printf("==================================================>\n");
@@ -281,7 +302,8 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       printf("<==================================================\n");
    }
 
-   if (psOptExpertMode_ != 0 && evalFlag == 1)
+   //**/ ------ save the data ------
+   if (psConfig_.OptExpertModeIsOn() && evalFlag == 1)
    {
       if (evalTrack[0] == 1)
       {
@@ -309,8 +331,10 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       }
    }
 
+   //**/ ------ form finite difference, if requested ------
    if ((*flag) == 2)
    {
+      //**/ ------ compute Jacobian ------
       for (ii = 0; ii < nInps; ii++)
       {
          for (jj = 0; jj < M_nOutputs; jj++) 
@@ -321,7 +345,8 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       delete [] localY2;
    }
 
-   if (psOptExpertMode_ != 0 && evalFlag == 1)
+   //**/ ------ save history ------
+   if (psConfig_.OptExpertModeIsOn() && evalFlag == 1)
    {
       infile = fopen("psuade_minpack_data","w");
       if (infile != NULL)
@@ -339,6 +364,7 @@ void *M_evaluateFunction(int *nOutputs,int *nInputs,double *XValues,
       }
    }
 
+   //**/ ------ diagnostics and clean up ------
    M_funcIO->setSynchronousMode();
    delete [] localY;
    delete [] evalTrack;
@@ -390,6 +416,7 @@ void MinpackOptimizer::optimize(oData *odata)
    int    nInputs, nFuns, lws, *iws, info, i, flag=0;
    double tol, *dws, *XValues, *YValues, *YJac, *initialX, ddata1, ddata2;
 
+   //**/ ------ prepare object variables ------
    if (M_optimalX    != NULL) delete [] M_optimalX;
    if (M_lowerBounds != NULL) delete [] M_lowerBounds;
    if (M_upperBounds != NULL) delete [] M_upperBounds;
@@ -421,6 +448,7 @@ void MinpackOptimizer::optimize(oData *odata)
       M_upperBounds[i] = odata->upperBounds_[i];
    }
 
+   //**/ ------ set up driver (or response surface) ------
    if ((odata->setOptDriver_ & 1))
    {
       printf("Minpack: setting optimization simulation driver.\n");
@@ -429,6 +457,7 @@ void MinpackOptimizer::optimize(oData *odata)
    }
    if (odata->maxParallelJobs_ > 1) M_funcIO->setAsynchronousMode();
 
+   //**/ ------ allocate local variables ------
    XValues = new double[nInputs];
    YValues = new double[M_nOutputs];
    YJac    = new double[M_nOutputs*nInputs];
@@ -436,6 +465,7 @@ void MinpackOptimizer::optimize(oData *odata)
    iws     = new int[lws];
    dws     = new double[lws];
 
+   //**/ ------ call minpack ------
    for (i = 0; i < nInputs; i++) XValues[i] = initialX[i];
 
    nFuns = M_nOutputs;
@@ -459,10 +489,12 @@ void MinpackOptimizer::optimize(oData *odata)
    lmder1_((void *) M_evaluateFunction, &nFuns, &nInputs, XValues,
            YValues, YJac, &nFuns, &tol, &info, iws, dws, &lws);
 
+   //**/ ------ set return values ------
    odata->optimalY_ = M_optimalY;
    odata->numFuncEvals_ = M_nFuncEvals;
    for (i = 0; i < nInputs; i++) odata->optimalX_[i] = M_optimalX[i];
 
+   //**/ ------ restore driver ------
    if ((odata->setOptDriver_ & 2) && psMCurrDriver_ >= 0)
    {
       printf("Minpack: resetting optimization simulation driver.\n");
@@ -470,6 +502,7 @@ void MinpackOptimizer::optimize(oData *odata)
    }
    if (odata->maxParallelJobs_ > 1) M_funcIO->setSynchronousMode();
 
+   //**/ ------ clean up ------
    delete [] XValues;
    delete [] YValues;
    delete [] YJac;

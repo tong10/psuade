@@ -50,9 +50,7 @@ using namespace std;
 // constructor 
 // ------------------------------------------------------------------------
 MOATAnalyzer::MOATAnalyzer() : Analyzer(), nInputs_(0), nOutputs_(0), 
-                  nSamples_(0), outputID_(0), means_(0), 
-                  stds_(0), modifiedMeans_(0), modifiedStds_(0), 
-                  indexesSortedByModifiedMeans_(0), outStr_("")
+                  nSamples_(0), outputID_(0)  
 {
   setName("MOAT");
 }
@@ -62,10 +60,6 @@ MOATAnalyzer::MOATAnalyzer() : Analyzer(), nInputs_(0), nOutputs_(0),
 // ------------------------------------------------------------------------
 MOATAnalyzer::~MOATAnalyzer()
 {
-  if (means_) delete [] means_;
-  if (modifiedMeans_) delete [] modifiedMeans_;
-  if (stds_) delete [] stds_;
-  if (modifiedStds_) delete [] modifiedStds_;
 }
 
 // ************************************************************************
@@ -93,24 +87,25 @@ void MOATAnalyzer::analyze(int nInps, int nSamp, double *lbs,
 double MOATAnalyzer::analyze(aData &adata)
 {
   int    ii, jj, diffIndex;
-  int    iD, *indexTrack, index, n1, n2, flag, actualPaths, sigFlag;
-  int    diffCnt, *counts, itemp, iaCnt, iD2, nPaths, ip, printLevel;
-  double *X, *Y, *YY, *YG, *XG, *Xbase, xtemp1, xtemp2;
-  double ytemp1, ytemp2, scale, *xLower, *xUpper, dtemp, dtemp2, thresh;
-  double *XSort, *YSort, dsum, dstdev, *YB, binMax=-1.0e35, binMin=1.0e35;
+  int    iD, index, n1, n2, flag, actualPaths, sigFlag;
+  int    diffCnt, itemp, iaCnt, iD2, nPaths, ip, printLevel;
+  double xtemp1, xtemp2, ytemp1, ytemp2, scale, dtemp, dtemp2, thresh;
+  double dsum, dstdev, binMax=-1.0e35, binMin=1.0e35;
   char   winput[500], pString[499];
-  PsuadeData *ioPtr;
   BinomialAnalyzer  binAnalyzer;
   BootstrapAnalyzer bsAnalyzer;
   aData             bData;
   pData             qData;
   MOATConstraints   *constrPtr;
+  psVector          YY,YG,XG,YB,Xbase,XSort,YSort,sortedModifiedMeans;
+  psVector          indexes;
+  psIVector         counts, indexTrack; 
 
   // ---------------------------------------------------------------
   // display header 
   // ---------------------------------------------------------------
   printLevel = adata.printLevel_;
-  if (isScreenDumpModeOn())
+  if (psConfig_.InteractiveIsOn())
   {
     printAsterisks(PL_INFO, 0);
     printOutTS(PL_INFO,"*                Morris Screening \n");
@@ -125,34 +120,22 @@ double MOATAnalyzer::analyze(aData &adata)
   }
  
   // ---------------------------------------------------------------
-  // clean up 
-  // ---------------------------------------------------------------
-  if (means_) delete [] means_;
-  if (modifiedMeans_) delete [] modifiedMeans_;
-  if (stds_) delete [] stds_;
-  if (modifiedStds_) delete [] modifiedStds_;
-  if (indexesSortedByModifiedMeans_) 
-    delete [] indexesSortedByModifiedMeans_;
-  means_ = modifiedMeans_ = stds_ = modifiedStds_ = NULL;
-  indexesSortedByModifiedMeans_ = NULL;
-
-  // ---------------------------------------------------------------
   // extract test information and data
   // ---------------------------------------------------------------
   nInputs_   = adata.nInputs_;
   nOutputs_  = adata.nOutputs_;
   nSamples_  = adata.nSamples_;
-  xLower     = adata.iLowerB_;
-  xUpper     = adata.iUpperB_;
-  X          = adata.sampleInputs_;
-  Y          = adata.sampleOutputs_;
+  double *XLower = adata.iLowerB_;
+  double *XUpper = adata.iUpperB_;
+  double *X      = adata.sampleInputs_;
+  double *Y      = adata.sampleOutputs_;
   outputID_  = adata.outputID_;
-  ioPtr      = adata.ioPtr_;
+  PsuadeData *ioPtr = adata.ioPtr_;
   if (adata.inputPDFs_ != NULL)
   {
     n1 = 0;
     for (ii = 0; ii < nInputs_; ii++) n1 += adata.inputPDFs_[ii];
-    if (n1 > 0 && isScreenDumpModeOn())
+    if (n1 > 0 && psConfig_.InteractiveIsOn())
     {
       printOutTS(PL_INFO, 
          "MOATAnalysis INFO: some inputs have non-uniform PDFs,\n");
@@ -166,6 +149,9 @@ double MOATAnalyzer::analyze(aData &adata)
   }
   if (ioPtr != NULL) ioPtr->getParameter("input_names", qData);
 
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
   if (nInputs_ <= 0 || nSamples_ <= 0 || nOutputs_ <= 0 || 
       outputID_ < 0 || outputID_ >= nOutputs_)
   {
@@ -179,22 +165,24 @@ double MOATAnalyzer::analyze(aData &adata)
   n1 = 0;
   for (iD = 0; iD < nSamples_; iD++)
     if (Y[iD*nOutputs_+outputID_] == PSUADE_UNDEFINED) n1++; 
-  if (n1 > 0 && isScreenDumpModeOn())
+  if (n1 > 0 && psConfig_.InteractiveIsOn())
   {
     printOutTS(PL_INFO,"MOATAnalysis INFO: %d invalid data points.\n",n1);
     printOutTS(PL_INFO,"    These invalid points will not be analyzed.\n");
   }
 
-  XSort = new double[nSamples_];
-  checkAllocate(XSort, "XSort in MOAT::analyze");
+  //**/ ---------------------------------------------------------------
+  //**/ input range checking (safeguard only)
+  //**/ ---------------------------------------------------------------
+  XSort.setLength(nSamples_);
   for (ii = 0; ii < nInputs_; ii++)
   {
     for (iD = 0; iD < nSamples_; iD++)
       XSort[iD] = X[iD*nInputs_+ii];
-    sortDbleList(nSamples_, XSort);
+    sortDbleList(nSamples_, XSort.getDVector());
     dtemp = XSort[nSamples_-1] - XSort[0];
-    dtemp2 = xUpper[ii] - xLower[ii];
-    if (isScreenDumpModeOn() && PABS(dtemp-dtemp2) > 1.0e-6)
+    dtemp2 = XUpper[ii] - XLower[ii];
+    if (psConfig_.InteractiveIsOn() && PABS(dtemp-dtemp2) > 1.0e-6)
     {
       printOutTS(PL_WARN, 
           "MOATAnalyzer WARNING: input and data range mismatch but there\n");
@@ -212,8 +200,10 @@ double MOATAnalyzer::analyze(aData &adata)
           dtemp2, dtemp);
     }
   }
-  delete [] XSort;
 
+  //**/ ---------------------------------------------------------------
+  //**/ get response surface filter information, if any
+  //**/ ---------------------------------------------------------------
   constrPtr = NULL;
   if (ioPtr != NULL)
   {
@@ -221,33 +211,30 @@ double MOATAnalyzer::analyze(aData &adata)
     constrPtr->initialize(ioPtr);
   }
 
-  YY = new double[nSamples_];
-  YG = new double[nSamples_];
-  XG = new double[nSamples_];
-  checkAllocate(YG, "YG in MOAT::analyze");
+  //**/ ---------------------------------------------------------------
+  //**/ set up (storage allocation) for calculation
+  //**/ ---------------------------------------------------------------
+  YY.setLength(nSamples_);
+  YG.setLength(nSamples_);
+  XG.setLength(nSamples_);
   for (iD = 0; iD < nSamples_; iD++) YY[iD] = Y[nOutputs_*iD+outputID_];
-  counts = new int[nInputs_];
-  checkAllocate(counts, "counts in MOAT::analyze");
-  for (ii = 0; ii < nInputs_; ii++) counts[ii] = 0;
-  means_ = new double[nInputs_];
-  checkAllocate(means_, "means in MOAT::analyze");
-  modifiedMeans_ = new double[nInputs_];
-  checkAllocate(modifiedMeans_, "modifiedMeans in MOAT::analyze");
-  indexesSortedByModifiedMeans_ = new int[nInputs_];
-  stds_ = new double[nInputs_];
-  modifiedStds_ = new double[nInputs_];
-  checkAllocate(modifiedStds_, "modifiedStds in MOAT::analyze");
-  for (ii = 0; ii < nInputs_; ii++)
-    means_[ii] = modifiedMeans_[ii] = stds_[ii] = modifiedStds_[ii] = 0.0;
-  indexTrack = new int[nSamples_];
+  counts.setLength(nInputs_);
+  means_.setLength(nInputs_);
+  stds_.setLength(nInputs_);
+  modifiedMeans_.setLength(nInputs_);
+  modifiedStds_.setLength(nInputs_);
+  indexesSortedByModifiedMeans_.setLength(nInputs_);
+  indexTrack.setLength(nSamples_);
   for (iD = 0; iD < nSamples_; iD++) indexTrack[iD] = -1;
-  Xbase = new double[nSamples_];
-  for (iD = 0; iD < nSamples_; iD++) Xbase[iD] = 0.0;
+  Xbase.setLength(nSamples_);
 
+  //**/ ---------------------------------------------------------------
+  //**/ first compute the approximate gradients (with filtering)
+  //**/ ---------------------------------------------------------------
   indexTrack[0] = -1;
   for (iD = 1; iD < nSamples_; iD++)
   {
-    if (isScreenDumpModeOn() && (printLevel > 3) && (iD % 10 == 0))
+    if (psConfig_.InteractiveIsOn() && (printLevel > 3) && (iD % 10 == 0))
       printOutTS(PL_INFO, "MOATAnalysis: processing sample %d\n", iD+1);
 
     Xbase[iD] = 0.0;
@@ -265,6 +252,8 @@ double MOATAnalyzer::analyze(aData &adata)
         diffIndex = ii;
       }
     }
+    //**/ this check should be modified for self checking
+    //**/ if (diffCnt == 1 && ((iD % (nInputs_+1)) != 0))
     if (diffCnt == 1)
     {
       indexTrack[iD] = diffIndex;
@@ -273,8 +262,10 @@ double MOATAnalyzer::analyze(aData &adata)
       flag = 1;
       if (constrPtr != NULL)
          scale = constrPtr->getScale(&X[iD*nInputs_],diffIndex,flag);
-      if (flag == 1) scale = xUpper[diffIndex] - xLower[diffIndex];
-      else if (isScreenDumpModeOn() && printLevel > 3)
+      //**/ if there is constraint, it will return flag=1 if no constraint
+      //**/ and so just compute difference between lower and upper bounds
+      if (flag == 1) scale = XUpper[diffIndex] - XLower[diffIndex];
+      else if (psConfig_.InteractiveIsOn() && printLevel > 3)
       {
         printOutTS(PL_INFO, "MOATAnalysis: sample group %d, ", iD+1);
         printOutTS(PL_INFO, "input %d, scale = %e\n", diffIndex, scale);
@@ -283,6 +274,7 @@ double MOATAnalyzer::analyze(aData &adata)
       if (xtemp2 > xtemp1) XG[iD] = xtemp2;
       else                 XG[iD] = xtemp1;
       counts[diffIndex]++;
+      //**/ Xbase[iD] = xtemp1; 
       if (xtemp2 > xtemp1) Xbase[iD] = xtemp1;
       else                 Xbase[iD] = xtemp2;
     }
@@ -293,12 +285,23 @@ double MOATAnalyzer::analyze(aData &adata)
     }
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ fix up the indexTrack array
+  //**/ (there is a likelihood, especially for small nInputs, that 
+  //**/  the first point in the next group is the same as the last
+  //**/  point in the previous group. So this part fixes it up.
+  //**/  For data with selective refinement, however, this should not be
+  //**/  exercised as the if condition will most likely not satisfied.) 
+  //**/ ---------------------------------------------------------------
   if (nSamples_ / (nInputs_+1) * (nInputs_+1) == nSamples_)
   {
     for (iD = 0; iD < nSamples_; iD+=(nInputs_+1))
       indexTrack[iD] = -1;
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ next compute the basic statistics
+  //**/ ---------------------------------------------------------------
   for (iD = 0; iD < nSamples_; iD++)
   {
     if (YG[iD] != PSUADE_UNDEFINED)
@@ -363,18 +366,15 @@ double MOATAnalyzer::analyze(aData &adata)
   for (ii = 0; ii < nInputs_; ii++) n1 += counts[ii];
   if (n1 <= 0)
   {
-    delete [] counts;
     if (constrPtr != NULL) delete constrPtr;
-    delete [] YY;
-    delete [] YG;
-    delete [] XG;
-    delete [] indexTrack;
-    delete [] Xbase;
     printOutTS(PL_INFO,"MOATAnalysis INFO: probably not an MOAT sample.\n");
     return 1;
   }
 
-  if (isScreenDumpModeOn())
+  //**/ ---------------------------------------------------------------
+  //**/ print the MOAT analysis data
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.InteractiveIsOn())
   {
     printEquals(PL_INFO, 0);
     printOutTS(PL_INFO,"* MOAT Analysis using unmodified gradients\n");
@@ -392,6 +392,9 @@ double MOATAnalyzer::analyze(aData &adata)
     printAsterisks(PL_INFO, 0);
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ store results in the passed data structure
+  //**/ ---------------------------------------------------------------
   pData *pPtr = NULL;
   if (ioPtr != NULL)
   {
@@ -405,34 +408,40 @@ double MOATAnalyzer::analyze(aData &adata)
   // ---------------------------------------------------------------
   // create matlab files
   // ---------------------------------------------------------------
-  if (isScreenDumpModeOn())
+  if (psConfig_.InteractiveIsOn())
   {
-    if (psAnaExpertMode_ == 1)
-       createScreenDiagramFile(nSamples_, nInputs_, YG, indexTrack, 
-                   modifiedMeans_,stds_,outputID_,qData.strArray_);
-    if (psAnaExpertMode_ == 1)
-       createScatterFile(nSamples_,nInputs_,YG,Xbase,indexTrack,
-                   qData.strArray_);
+    if (psConfig_.AnaExpertModeIsOn())
+       createScreenDiagramFile(nSamples_, nInputs_, YG.getDVector(), 
+                 indexTrack.getIVector(), modifiedMeans_.getDVector(), 
+                 stds_.getDVector(), outputID_,qData.strArray_);
+    if (psConfig_.AnaExpertModeIsOn())
+       createScatterFile(nSamples_,nInputs_,YG.getDVector(),
+                    Xbase.getDVector(), indexTrack.getIVector(),
+                    qData.strArray_);
 
-    createBootstrapFile(nSamples_,nInputs_,YG,Xbase,indexTrack,
+    createBootstrapFile(nSamples_, nInputs_,YG.getDVector(),
+                   Xbase.getDVector(), indexTrack.getIVector(),
                    qData.strArray_);
   }
 
   // ---------------------------------------------------------------
   // sorted list 
   // ---------------------------------------------------------------
-  double indexes[nInputs_];
-  double sortedModifiedMeans[nInputs_];
+  indexes.setLength(nInputs_);
+  sortedModifiedMeans.setLength(nInputs_);
   for (ii = 0; ii < nInputs_; ii++) 
     sortedModifiedMeans[ii] = modifiedMeans_[ii];
   for (ii = 0; ii < nInputs_; ii++) indexes[ii] = ii;
-  sortDbleList2(nInputs_, sortedModifiedMeans, indexes);
+  sortDbleList2(nInputs_, sortedModifiedMeans.getDVector(), 
+                indexes.getDVector());
   for (ii = 0; ii < nInputs_; ii++) 
     indexesSortedByModifiedMeans_[ii] = (int) indexes[ii];
-  if (isScreenDumpModeOn())
+  if (psConfig_.InteractiveIsOn())
   {
     printOutTS(PL_INFO,
       "* MOAT Analysis (ordered based on modified means of gradients)\n");
+    printOutTS(PL_INFO,
+      "* dof + 1 = number of sample points to compute the statistics\n");
     printDashes(PL_INFO, 0);
     for (ii = nInputs_-1; ii >= 0; ii--)
     {
@@ -448,13 +457,12 @@ double MOATAnalyzer::analyze(aData &adata)
   // ---------------------------------------------------------------
   // further analysis based on standard error of means
   // ---------------------------------------------------------------
-  double *sigma1LowerBounds, *sigma1UpperBounds;
-  double *sigma2LowerBounds, *sigma2UpperBounds;
-  if ((printLevel > 1) && isScreenDumpModeOn())
+  psVector sigma1LowerBounds, sigma1UpperBounds;
+  psVector sigma2LowerBounds, sigma2UpperBounds;
+  if ((printLevel > 1) && psConfig_.InteractiveIsOn())
   {
-    sigma1LowerBounds = new double[nInputs_];
-    sigma1UpperBounds = new double[nInputs_];
-    checkAllocate(sigma1UpperBounds, "sigma1UpperBounds in MOAT::analyze");
+    sigma1LowerBounds.setLength(nInputs_);
+    sigma1UpperBounds.setLength(nInputs_);
     for (ii = 0; ii < 11; ii++) printOutTS(PL_INFO, "-");
     printOutTS(PL_INFO, " MOAT Analysis (ordered) : +- 1 sigma  ");
     for (ii = 0; ii < 11; ii++) printOutTS(PL_INFO, "-");
@@ -473,8 +481,8 @@ double MOATAnalyzer::analyze(aData &adata)
       if (printLevel > 2 && ii > 0)
       {
         iD2 = indexesSortedByModifiedMeans_[ii-1];
-        if (counts[iD2-1] > 1) dtemp2 = sqrt((double) counts[iD2-1] - 1.0);
-        else                   dtemp2 = 1.0;
+        if (counts[iD2] > 1) dtemp2 = sqrt((double) counts[iD2] - 1.0);
+        else                 dtemp2 = 1.0;
         if ((sortedModifiedMeans[ii]-modifiedStds_[iD]/dtemp) >
             (sortedModifiedMeans[ii-1]+modifiedStds_[iD2]/dtemp2))
         {
@@ -487,9 +495,8 @@ double MOATAnalyzer::analyze(aData &adata)
       }
     }
     printEquals(PL_INFO, 0);
-    sigma2LowerBounds = new double[nInputs_];
-    sigma2UpperBounds = new double[nInputs_];
-    checkAllocate(sigma2UpperBounds, "sigma2UpperBounds in MOAT::analyze");
+    sigma2LowerBounds.setLength(nInputs_);
+    sigma2UpperBounds.setLength(nInputs_);
 
     printOutTS(PL_INFO,"* MOAT Analysis (ordered) : +- 2 sigma\n");
     printDashes(PL_INFO, 0);
@@ -508,8 +515,8 @@ double MOATAnalyzer::analyze(aData &adata)
       if (printLevel > 2 && ii > 0)
       {
         iD2 = indexesSortedByModifiedMeans_[ii-1];
-        if (counts[iD2-1] > 1) dtemp2 = sqrt((double) counts[iD2-1] - 1.0);
-        else                   dtemp2 = 1.0;
+        if (counts[iD2] > 1) dtemp2 = sqrt((double) counts[iD2] - 1.0);
+        else                 dtemp2 = 1.0;
         if ((sortedModifiedMeans[ii]-2.0*modifiedStds_[iD]/dtemp) >
             (sortedModifiedMeans[ii-1]+2.0*modifiedStds_[iD2]/dtemp2))
         {
@@ -521,13 +528,12 @@ double MOATAnalyzer::analyze(aData &adata)
         }
       }
     }
-    delete [] sigma1LowerBounds;
-    delete [] sigma1UpperBounds;
-    delete [] sigma2LowerBounds;
-    delete [] sigma2UpperBounds;
   }
 
-  if (isScreenDumpModeOn() == 0 && psAnaExpertMode_ == 1)
+  //**/ ---------------------------------------------------------------
+  //**/ perform interaction check
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.InteractiveIsOn() && psConfig_.AnaExpertModeIsOn())
   {
     printEquals(PL_INFO, 0);
     printOutTS(PL_INFO,"Interaction analysis computes the std dev. of ");
@@ -556,8 +562,8 @@ double MOATAnalyzer::analyze(aData &adata)
         for (iD = 0; iD < nSamples_; iD++) if (indexTrack[iD] == ii) n1++;
         if (n1 > nPaths) nPaths = n1;
       }
-      XSort = new double[nPaths];
-      YSort = new double[nPaths];
+      XSort.setLength(nPaths);
+      YSort.setLength(nPaths);
       for (ii = 0; ii < nInputs_; ii++)
       {
         actualPaths = 0;
@@ -570,7 +576,7 @@ double MOATAnalyzer::analyze(aData &adata)
             actualPaths++;
           }
         }
-        sortDbleList2(actualPaths, XSort, YSort);
+        sortDbleList2(actualPaths,XSort.getDVector(),YSort.getDVector());
         ip = 0; 
         iaCnt = 0;
         dstdev = 0.0;
@@ -610,12 +616,13 @@ double MOATAnalyzer::analyze(aData &adata)
                "Input %3d average interaction measure (std dev) = %11.3e\n",
                 ii+1, dstdev/iaCnt);
       }
-      delete [] XSort;
-      delete [] YSort;
     }
   }
 
-  if (isScreenDumpModeOn() == 0 && psAnaExpertMode_ == 1)
+  //**/ ---------------------------------------------------------------
+  //**/ perform binomial test
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.InteractiveIsOn() && psConfig_.AnaExpertModeIsOn())
   {
     printEquals(PL_INFO, 0);
     printOutTS(PL_INFO,"Hypothesis tests may be used for testing whether ");
@@ -649,13 +656,12 @@ double MOATAnalyzer::analyze(aData &adata)
       thresh = binMin - 1.0;
       while (thresh < binMin || thresh > binMax)
         thresh = getDouble(pString);
-      YB = new double[nSamples_/(nInputs_+1)*100];
-      checkAllocate(YB, "YB in MOAT::analyze");
+      YB.setLength(nSamples_/(nInputs_+1)*100);
       bData.nOutputs_ = 1;
       bData.outputID_ = 0;
-      bData.sampleOutputs_ = YB;
+      bData.sampleOutputs_ = YB.getDVector();
       bData.analysisThreshold_ = thresh;
-      bData.printLevel_ = 0;
+      bData.printLevel_ = -1;
       for (ii = 0; ii < nInputs_; ii++)
       {
         printOutTS(PL_INFO, 
@@ -721,13 +727,10 @@ double MOATAnalyzer::analyze(aData &adata)
     printAsterisks(PL_INFO,0);
   }
 
-  delete [] counts;
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
   if (constrPtr != NULL) delete constrPtr;
-  delete [] YY;
-  delete [] YG;
-  delete [] XG;
-  delete [] indexTrack;
-  delete [] Xbase;
   return 0.0;
 }
 
@@ -741,7 +744,7 @@ double MOATAnalyzer::get_mean(int ind)
     printf("MOATAnalyzer ERROR: get_mean index error.\n");
     return 0.0;
   }
-  if(means_ == NULL)
+  if(means_.length() <= ind)
   {
     printf("MOATAnalyzer ERROR: get_mean has no value.\n");
     return 0.0;
@@ -757,7 +760,7 @@ double MOATAnalyzer::get_stdev(int ind)
     printf("MOATAnalyzer ERROR: get_stdev index error.\n");
     return 0.0;
   }
-  if(stds_ == NULL)
+  if(stds_.length() <= ind)
   {
     printf("MOATAnalyzer ERROR: get_stdev has no value.\n");
     return 0.0;
@@ -773,7 +776,7 @@ double MOATAnalyzer::get_modifiedMean(int ind)
     printf("MOATAnalyzer ERROR: get_modifiedMean index error.\n");
     return 0.0;
   }
-  if(modifiedMeans_ == NULL)
+  if(modifiedMeans_.length() <= ind)
   {
     printf("MOATAnalyzer ERROR: get_modifiedMean has no value.\n");
     return 0.0;
@@ -789,7 +792,7 @@ double MOATAnalyzer::get_modifiedStdev(int ind)
     printf("MOATAnalyzer ERROR: get_modifiedStdev index error.\n");
     return 0.0;
   }
-  if(modifiedStds_ == NULL)
+  if(modifiedStds_.length() <= ind)
   {
     printf("MOATAnalyzer ERROR: get_modifiedStdev has no value.\n");
     return 0.0;
@@ -814,7 +817,8 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   sprintf(pString,"Create screening diagram? (y or n) ");
   getString(pString, winput);
   if (winput[0] != 'y') return 0;
-  sprintf(pString,"matlab/scilab screen diagram file name (no extension): ");
+  sprintf(pString,
+        "Enter matlab/scilab screening diagram file name (no extension): ");
   getString(pString, moatFile);
   cnt = strlen(moatFile);
   if (cnt > 500)
@@ -823,7 +827,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
     exit(1);
   }
   moatFile[cnt-1] = '.';
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     moatFile[cnt] = 's';
     moatFile[cnt+1] = 'c';
@@ -844,7 +848,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
     return 0;
   }
 
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "// Morris one-at-a-time screening plots\n");
     fprintf(fp, "// Z contains the gradient data\n");
@@ -877,22 +881,35 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   }
   if (iNames == NULL)
   {
-    fprintf(fp, "Str = {");
+    if (plotScilab()) fprintf(fp, "Str = [");
+    else              fprintf(fp, "Str = {");
     for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
-    fprintf(fp,"'X%d'};\n",nInputs);
+    if (plotScilab()) fprintf(fp,"'X%d'];\n",nInputs);
+    else              fprintf(fp,"'X%d'};\n",nInputs);
   }
   else
   {
-    fprintf(fp, "Str = {");
+    if (plotScilab()) fprintf(fp, "Str = [");
+    else              fprintf(fp, "Str = {");
     for (ii = 0; ii < nInputs-1; ii++) 
     {
       if (iNames[ii] != NULL) fprintf(fp,"'%s',",iNames[ii]);
       else                    fprintf(fp,"'X%d',",ii+1);
     }
-    if (iNames[nInputs-1] != NULL) fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
-    else                           fprintf(fp,"'X%d'};\n",nInputs);
+    if (plotScilab()) 
+    {
+      if (iNames[nInputs-1] != NULL) 
+           fprintf(fp,"'%s'];\n",iNames[nInputs-1]);
+      else fprintf(fp,"'X%d'];\n",nInputs);
+    }
+    else
+    {
+      if (iNames[nInputs-1] != NULL) 
+           fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
+      else fprintf(fp,"'X%d'};\n",nInputs);
+    }
   }
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "// compute max and min for axis \n");
     fprintf(fp, "// XM : for computing mean \n");
@@ -942,7 +959,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   fprintf(fp, "      YY(jj) = sqrt(YY(jj) / (VV(jj)-1));\n");
   fprintf(fp, "   end;\n");
   fprintf(fp, "end;\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "// plot sequence of Morris plot\n");
   else fprintf(fp, "%% plot sequence of Morris plot\n");
   fprintf(fp, "last  = max(C);\n");
@@ -954,13 +971,13 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   fprintf(fp, "if (length(list) > 4)\n");
   fprintf(fp, "   list = list(1:4);\n");
   fprintf(fp, "end;\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "list = gsort(list,'g','i');\n");
   else fprintf(fp, "list = sort(list);\n");
   fprintf(fp, "list = unique(list);\n");
   fprintf(fp, "count = length(list);\n");
   fprintf(fp, "if (plotAll == 1)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "scf(1)\n");
   else fprintf(fp, "figure(1)\n");
   fprintf(fp, "for mm = 1 : count\n");
@@ -997,7 +1014,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   fprintf(fp, "   bar(XX,0.8)\n");
   fwritePlotAxes(fp);
   fprintf(fp,"   pStr=sprintf('%%d replications',list(mm));\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "   a = gca();\n");
     fprintf(fp, "   a.title.text = pStr;\n");
@@ -1007,7 +1024,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   else fprintf(fp,"   title(pStr);\n");
   fprintf(fp,"Xmin = min(XX) - (max(XX) - min(XX)) * 0.1;\n");
   fprintf(fp,"Xmax = max(XX) + (max(XX) - min(XX)) * 0.1;\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "   a=gca();\n");
     fprintf(fp, "   a.data_bounds=[0, Xmin; nn+1, Xmax];\n");
@@ -1027,7 +1044,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   }
   fwritePlotYLabel(fp, "Modified Means (of gradients)");
   fprintf(fp, "end;\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "scf(2)\n");
   else fprintf(fp, "figure(2)\n");
   fprintf(fp, "for mm = 1 : count\n");
@@ -1065,7 +1082,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   fprintf(fp,"    Ymin = 0.0;\n");
   fprintf(fp,"    Ymax = max(YY) + (max(YY) - min(YY)) * 0.1;\n");
   fwritePlotAxes(fp);
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "a=gca();\n");
     fprintf(fp, "a.data_bounds=[0, Ymin; nn+1, Ymax];\n");
@@ -1085,7 +1102,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   }
   fwritePlotYLabel(fp, "Std. Devs.");
   fprintf(fp,"    pStr=sprintf('%%d replications',list(mm));\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "a = gca();\n");
     fprintf(fp, "a.title.text = pStr;\n");
@@ -1096,7 +1113,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   fprintf(fp, "end;\n");
   fprintf(fp, "end;\n");
   fprintf(fp, "if (plotAll == 1)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "scf(3)\n");
   else fprintf(fp, "figure(3)\n");
   fprintf(fp, "end;\n");
@@ -1108,7 +1125,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
     fprintf(fp, "%24.16e\n", modifiedMeans[ii]);
   fprintf(fp, "];\n");
   fprintf(fp, "plot(X,Y,'*','MarkerSize',12)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "a=gca();\n");
     printf("Morris scilab plot: labels to be put in later.\n");
@@ -1132,7 +1149,7 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   fprintf(fp, "Ymin = min(Y) - (max(Y) - min(Y)) * 0.1;\n");
   fprintf(fp, "Xmax = max(X) + (max(X) - min(X)) * 0.1;\n");
   fprintf(fp, "Ymax = max(Y) + (max(Y) - min(Y)) * 0.1;\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "a=gca();\n");
     fprintf(fp, "a.data_bounds=[Xmin, Ymin; Xmax, Ymax];\n");
@@ -1144,14 +1161,14 @@ int MOATAnalyzer::createScreenDiagramFile(int nSamples, int nInputs,
   sprintf(pString, "Modified Morris Diagram for Output %d", outputID+1);
   fwritePlotTitle(fp, pString);
   fprintf(fp, "if (maxFlag == 1)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "   scf(4)\n");
   else fprintf(fp, "   figure(4)\n");
   fprintf(fp, "   bar(Xm, 0.8)\n");
   fprintf(fp,"    Ymin = 0.0;\n");
   fprintf(fp,"    Ymax = max(YY) + (max(YY) - min(YY)) * 0.1;\n");
   fwritePlotAxes(fp);
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "   a=gca();\n");
     fprintf(fp, "   a.data_bounds=[0, Ymin; nn+1, Ymax];\n");
@@ -1220,7 +1237,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
      exit(1);
   }
   scatterFile[cnt-1] = '.';
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     scatterFile[cnt] = 's';
     scatterFile[cnt+1] = 'c';
@@ -1241,7 +1258,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
     return 0;
   }
 
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "// This file contains individual gradient info.\n");
     fprintf(fp, "// The gradients are normalized for the range.\n");
@@ -1272,32 +1289,46 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
   fprintf(fp, "];\n");
   if (iNames == NULL)
   {
-    fprintf(fp, "Str = {");
+    if (plotScilab()) fprintf(fp, "Str = [");
+    else              fprintf(fp, "Str = {");
     for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
-    fprintf(fp,"'X%d'};\n",nInputs);
+    if (plotScilab()) fprintf(fp,"'X%d'];\n",nInputs);
+    else              fprintf(fp,"'X%d'};\n",nInputs);
   }
   else
   {
-    fprintf(fp, "Str = {");
+    if (plotScilab()) fprintf(fp, "Str = [");
+    else              fprintf(fp, "Str = {");
     for (ii = 0; ii < nInputs-1; ii++) 
     {
       if (iNames[ii] != NULL) fprintf(fp,"'%s',",iNames[ii]);
       else                    fprintf(fp,"'X%d',",ii+1);
     }
-    if (iNames[nInputs-1] != NULL) fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
-    else                           fprintf(fp,"'X%d'};\n",nInputs);
+    if (plotScilab()) 
+    {
+      if (iNames[nInputs-1] != NULL) 
+           fprintf(fp,"'%s'];\n",iNames[nInputs-1]);
+      else fprintf(fp,"'X%d'];\n",nInputs);
+    }
+    else
+    {
+      if (iNames[nInputs-1] != NULL) 
+           fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
+      else fprintf(fp,"'X%d'};\n",nInputs);
+    }
   }
   fprintf(fp, "if (sortFlag == 1);\n");
   fprintf(fp, "  Str = Str(I2);\n");
   fprintf(fp, "end\n");
 
+  //**/ scatter plots for gradients (multi-color)
   fwritePlotCLF(fp);
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "set(gca(),\"auto_clear\",\"off\")\n");
   else fprintf(fp, "hold on\n");
   fprintf(fp, "ymin = min(A(:,2));\n");
   fprintf(fp, "ymax = max(A(:,2));\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "a=gca();\n");
     fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
@@ -1326,7 +1357,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
   fprintf(fp, "  inds = find(A(:,1)==ii);\n");
   fprintf(fp, "  leng = length(inds);\n");
   fprintf(fp, "  if (leng > 0)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "    [AA,II] = gsort(A(inds,3),'g','i');\n");
   else fprintf(fp, "    [AA,II] = sort(A(inds,3));\n");
   fprintf(fp, "    if (sortFlag == 1)\n");
@@ -1598,7 +1629,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
   fprintf(fp, "   inds = find(A(:,1)==ii);\n");
   fprintf(fp, "   if length(inds) > 0\n");
   fprintf(fp, "      asum = sum(A(inds,2))/length(inds);\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "      plot(ii2,asum,'kp','MarkerSize',15);\n");
   else fprintf(fp, "      plot(ii2,asum,'kh','MarkerSize',15);\n");
   fprintf(fp, "   end;\n");
@@ -1608,7 +1639,7 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
   fwritePlotTitle(fp, "Scatter Plots of Gradients (lo to hi: r,g,b,m,c)");
   fprintf(fp,"disp('from lo to hi : red,green,blue,magenta,cyan, ..')\n");
   fprintf(fp, "disp('hexagrams: means of the gradients')\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "set(gca(),\"auto_clear\",\"on\")\n");
   else fprintf(fp, "hold off\n");
   fclose(fp);
@@ -1623,12 +1654,16 @@ int MOATAnalyzer::createScatterFile(int nSamples, int nInputs, double *Y,
 int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y, 
                                       double *X, int *indices, char **iNames)
 {
-  int    nReps, *validCnts, ii, is, jj, ib, input, count, index;
-  double **YGs, *means, *stds, *bArray;
+  int    nReps, ii, is, jj, ib, input, count, index;
+  double **YGs;
   char   winput[500], bootstrapFile[500], pString[500];
   FILE   *fp;
+  psIVector validCnts;
+  psVector  means, stds, bArray;
 
+  //**/ ---------------------------------------------------------------
   // range check nInputs by Bill Oliver
+  //**/ ---------------------------------------------------------------
   if (nInputs <= 0)
   {
     printOutTS(PL_ERROR,
@@ -1637,9 +1672,12 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
      return -1;
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ query user and check files
+  //**/ ---------------------------------------------------------------
   printf("MOATAnalyzer: Creating modified mean plot ... \n");
-  if (psPlotTool_ == 1) strcpy(bootstrapFile, "scilabmoatbs.sci");
-  else                  strcpy(bootstrapFile, "matlabmoatbs.m");
+  if (plotScilab()) strcpy(bootstrapFile, "scilabmoatbs.sci");
+  else              strcpy(bootstrapFile, "matlabmoatbs.m");
   fp = fopen(bootstrapFile, "w");
   if (fp == NULL)
   {
@@ -1648,10 +1686,11 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
     return 0;
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for counting and collecting gradients
+  //**/ ---------------------------------------------------------------
   nReps = nSamples / (nInputs + 1);
-  validCnts = new int[nInputs];
-  checkAllocate(validCnts, "validCnts in MOAT::createBootstrapFile");
-  for (ii = 0; ii < nInputs; ii++) validCnts[ii] = 0;
+  validCnts.setLength(nInputs);
   for (is = 0; is < nSamples; is++)
   {
     if (Y[is] != PSUADE_UNDEFINED && indices[is] >= 0)
@@ -1677,10 +1716,12 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
     }
   }
 
-  bArray = new double[1000];
-  means = new double[nInputs];
-  stds = new double[nInputs];
-  checkAllocate(stds, "stds in MOAT::createBootstrapFile");
+  //**/ ---------------------------------------------------------------
+  //**/ now also absolute gradients are in YGs, do bootstrap
+  //**/ ---------------------------------------------------------------
+  bArray.setLength(1000);
+  means.setLength(nInputs);
+  stds.setLength(nInputs);
   for (ii = 0; ii < nInputs; ii++)
   {
     if (validCnts[ii] >= 4)
@@ -1718,6 +1759,9 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
     }
   }
 
+  //**/ ---------------------------------------------------------------
+  //**/ now write these information to a matlab file
+  //**/ ---------------------------------------------------------------
   sprintf(pString,"This file contains modified means of gradients");
   fwriteComment(fp, pString);
   sprintf(pString,"and also their spreads based on bootstraping.");
@@ -1738,24 +1782,37 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
   fprintf(fp, "];\n");
   if (iNames == NULL)
   {
-    fprintf(fp, "  Str = {");
+    if (plotScilab()) fprintf(fp, "Str = [");
+    else              fprintf(fp, "Str = {");
     for (ii = 0; ii < nInputs-1; ii++) fprintf(fp,"'X%d',",ii+1);
-    fprintf(fp,"'X%d'};\n",nInputs);
+    if (plotScilab()) fprintf(fp,"'X%d'];\n",nInputs);
+    else              fprintf(fp,"'X%d'};\n",nInputs);
   }
   else
   {
-    fprintf(fp, "  Str = {");
+    if (plotScilab()) fprintf(fp, "Str = [");
+    else              fprintf(fp, "Str = {");
     for (ii = 0; ii < nInputs-1; ii++) 
     {
       if (iNames[ii] != NULL) fprintf(fp,"'%s',",iNames[ii]);
       else                    fprintf(fp,"'X%d',",ii+1);
     }
-    if (iNames[nInputs-1] != NULL) fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
-    else                           fprintf(fp,"'X%d'};\n",nInputs);
+    if (plotScilab()) 
+    {
+      if (iNames[nInputs-1] != NULL) 
+           fprintf(fp,"'%s'];\n",iNames[nInputs-1]);
+      else fprintf(fp,"'X%d'];\n",nInputs);
+    }
+    else
+    {
+      if (iNames[nInputs-1] != NULL) 
+           fprintf(fp,"'%s'};\n",iNames[nInputs-1]);
+      else fprintf(fp,"'X%d'};\n",nInputs);
+    }
   }
   fwritePlotCLF(fp);
   fprintf(fp, "if (sortFlag == 1)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "  [Means, I2] = gsort(Means,'g','d');\n");
   else fprintf(fp, "  [Means, I2] = sort(Means,'descend');\n");
   fprintf(fp, "  Stds = Stds(I2);\n");
@@ -1770,7 +1827,7 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
   fprintf(fp, "bar(Means,0.8);\n");
   fprintf(fp, "for ii = 1:nn\n");
   fprintf(fp, "   if (ii == 1)\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "   set(gca(),\"auto_clear\",\"off\")\n");
   else fprintf(fp, "   hold on\n");
   fprintf(fp, "   end;\n");
@@ -1779,7 +1836,7 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
   fprintf(fp, "   plot(XX,YY,'-ko','LineWidth',3.0,'MarkerEdgeColor',");
   fprintf(fp, "'k','MarkerFaceColor','g','MarkerSize',12)\n");
   fprintf(fp, "end;\n");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
   {
     fprintf(fp, "a=gca();\n");
     fprintf(fp, "a.data_bounds=[0, ymin; nn+1, ymax];\n");
@@ -1800,19 +1857,18 @@ int MOATAnalyzer::createBootstrapFile(int nSamples, int nInputs, double *Y,
   fwritePlotAxes(fp);
   fwritePlotTitle(fp,"Modified Means Plot (bootstrap)");
   fwritePlotYLabel(fp, "Modified Means (of gradients)");
-  if (psPlotTool_ == 1)
+  if (plotScilab())
        fprintf(fp, "   set(gca(),\"auto_clear\",\"on\")\n");
   else fprintf(fp, "   hold off\n");
   fclose(fp);
   printOutTS(PL_INFO, "MOAT bootstrap plot file = %s.\n", bootstrapFile);
   printEquals(PL_INFO, 0);
 
+  //**/ ---------------------------------------------------------------
+  //**/ clean up
+  //**/ ---------------------------------------------------------------
   for (ii = 0; ii < nInputs; ii++) if (YGs[ii] != NULL) delete [] YGs[ii];
   delete [] YGs;
-  delete [] validCnts;
-  delete [] means;
-  delete [] stds;
-  delete [] bArray;
   return 0;
 }
 
@@ -1825,57 +1881,5 @@ MOATAnalyzer& MOATAnalyzer::operator=(const MOATAnalyzer &)
        "MOATAnalysis operator= ERROR: operation not allowed.\n");
   exit(1);
   return (*this);
-}
-
-// ************************************************************************
-// For diagnostics only: create, save & check output string
-// ------------------------------------------------------------------------
-void MOATAnalyzer::saveOutputString(char *filename)
-{
-  ofstream fout(filename);
-  fout << outStr_.str();
-  fout.close();
-}
-
-bool MOATAnalyzer::checkOutputString(char *filename)
-{
-  stringstream finstr;
-  finstr.clear();
-  if (outStr_)
-  {
-     ifstream fin;
-     fin.open(filename, ios_base::in);
-     finstr << fin.rdbuf();
-     fin.close();
-     bool check = (outStr_.str().compare(finstr.str())==0);
-     return check;
-  }
-  return false;
-}
-
-void MOATAnalyzer::createOutputString()
-{
-  outStr_ << "nInputs = " << nInputs_ << "\n";
-  outStr_ << "nOutputs = " << nOutputs_ << "\n";
-  outStr_ << "nSamples = " << nSamples_ << "\n";
-  outStr_ << "outputID = " << outputID_ << "\n";
-  outStr_ << "means = ";
-  for (int j = 0; j < sizeof(*means_); j++) outStr_ << means_[j] << " ";
-  outStr_ << "\n";
-
-  outStr_ << "stds = ";
-  for (int j = 0; j < sizeof(*stds_); j++) outStr_ << stds_[j] << " ";
-  outStr_ << "\n";
-  
-  outStr_ << "modifiedMeans = ";
-  for (int j = 0; j < sizeof(*modifiedMeans_); j++)
-    outStr_ << modifiedMeans_[j] << " ";
-  outStr_ << "\n";
-   
-  outStr_ << "modifiedStds = ";
-  for (int j = 0; j < sizeof(*modifiedStds_); j++)
-    outStr_ << modifiedStds_[j] << " ";
-  outStr_ << "\n";
-  return;
 }
 

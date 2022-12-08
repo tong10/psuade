@@ -102,6 +102,8 @@ C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% calfun.f %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
          CALL OUUEvalFunc(N, X, F);
       ELSE IF (FMODE .EQ. 1112) THEN
          CALL OUUEvalFunc2(N, X, F);
+      ELSE IF (FMODE .EQ. 1113) THEN
+         CALL HKRINEWUOAEvalFunc(N, X, F);
       ELSE
          PRINT *, 'BOBYQA CALFUN : NO FUNCTION PROVIDED.'
          PRINT *, 'CODE = ', FMODE
@@ -150,6 +152,9 @@ C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% bobyqa.f %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
          IPRINT = 0;
       ELSE IF (IPRINT .EQ. 1112) THEN
          FMODE = 1112
+         IPRINT = 0;
+      ELSE IF (IPRINT .EQ. 1113) THEN
+         FMODE = 1113
          IPRINT = 0;
       ELSE
          PRINT *, 'BOBYQA : FUNCTION CODE NOT INVALID.'

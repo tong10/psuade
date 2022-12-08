@@ -1,0 +1,32 @@
+PSUADE
+INPUT
+   dimension = 2
+   variable 1 X1 =  0.0000000000000000e+00   1.0000000000000000e+00
+   variable 2 X2 =  0.0000000000000000e+00   1.0000000000000000e+00
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 5
+END
+APPLICATION
+   opt_driver = ./simulator
+   aux_opt_driver = ./psdata
+END
+ANALYSIS
+   optimization method = mm_adaptive
+   optimization target_file = ./targetFile
+   optimization num_local_minima = 5
+   optimization max_feval = 10000
+   optimization fmin = 0.0
+   optimization tolerance = 1.000000e-06
+   optimization num_fmin = 1
+   optimization print_level = 2
+   use_config_file = configfile
+   opt_expert
+   printlevel 1
+END
+END

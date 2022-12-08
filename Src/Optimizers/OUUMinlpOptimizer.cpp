@@ -53,51 +53,77 @@ using namespace NOMAD;
 // Internal 'global' variables (for passing parameters to Fortran and C
 // functions - bobyqa, newuoa and cobyla)
 // ------------------------------------------------------------------------
+//**/ oData object to be passed to function evaluator
+//**/ Contains sample information, function evaluation link, etc.
 oData  *psOUUMinlpObj_=NULL;
+//**/ variables to hold how many of each type of variables
+//**/ Type 1: design parameters
+//**/ Type 2: recourse parameters
+//**/ Type 3: discrete uncertain parameters
+//**/ Type 4: continuous uncertain parameters
 int psOUUMinlpM1_=-1;
 int psOUUMinlpM2_=-1;
 int psOUUMinlpM3_=-1;
 int psOUUMinlpM4_=-1;
 int psOUUMinlpNOuts_=0;
 
+//**/ indicate response surface to be used for type 4 variables and rstype
 int psOUUMinlpUseRS_=0;
 int psOUUMinlpZ4RSType_=0;
+//**/ indicate fast or slow kriging, if response surface is used
+//**/ fast and slow depends on sample size (otherwise takes too long)
 int psOUUMinlpZ4RSAux_=0;
+//**/ flag to indicate the response surface is to be validated on-the-fly
 int psOUUMinlpValidateRS_=0;
 
+//**/ sample size for type 3 and 4 variables, if samples are provided
+//**/ also storage for type 3 and 4 variable sample inputs
 int psOUUMinlpZ3nSamples_=-1;
 int psOUUMinlpZ4nSamples_=-1;
 double *psOUUMinlpZ3SamInputs_=NULL;
 double *psOUUMinlpZ4SamInputs_=NULL;
+//**/ Lower and upper bounds for type 4 variables
 double *psOUUMinlpZ4LBounds_=NULL;
 double *psOUUMinlpZ4UBounds_=NULL;
+//**/ probability information for type 3 sample
 double *psOUUMinlpSamProbs_=NULL;
 
+//**/ response surface generator: to be passed to callback function 
 FuncApprox *psOUUMinlpfaPtr_=NULL;
 
+//**/ for storing large samples to compute statistics on response surface
 int psOUUMinlpLargeSampleSize_=0;
 double *psOUUMinlpLargeSamInputs_=NULL;
 double *psOUUMinlpLargeSamOutputs_=NULL;
 
+//**/ indicate OUU mode (mean, mean+some std, ...)
 int psOUUMinlpMode_=1;
+//**/ for use in computing value at risk
 double psOUUMinlpPercentile_=0.5;
+//**/ for use in computing Mode=2 (obj func = mean + alpha * std)
 double psOUUMinlpStdevMultiplier_=0;
 
+//**/ indicate constraint mode (how violation should be computed)
 int psOUUMinlpCMode_=1;
 double psOUUMinlpTolerance_=0;
 
+//**/ for job monitoring
 int psOUUMinlpCounter_=0;
 int psOUUMinlpParallel_=0;
+//**/ indicate whether ensemble evaluation should be activated
 int psOUUMinlpEnsembleEval_=0;
 int psOUUMinlpCurrDriver_=-1;
 int psOUUMinlpStop_=0;
 int psOUUMinlpMasterMode_=0;
 int psOUUMinlpPrintLevel_=0;
 
+//**/ store optimization history
 double *psOUUMinlpObjFcnStore_=NULL;
 
+//**/ store input types (type 1, 2, 3, or 4)
 int *psOUUMinlpInputTypes_=NULL;
 
+//**/ local definition
 #define PABS(x)  ((x) > 0 ? x : -(x))
 #define psOUUMinlpType1 1
 #define psOUUMinlpType2 2
@@ -133,6 +159,9 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    FILE   *fp=NULL;
    pData  pdata;
 
+   //**/ ----------------------------------------------------------
+   //**/ header and fetch data
+   //**/ ----------------------------------------------------------
    printLevel = odata->outputLevel_;
    nInps = odata->nInputs_;
    nOuts = odata->nOutputs_;
@@ -145,6 +174,8 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    XValues = new double[nInps];
    for (ii = 0; ii < nInps; ii++) XValues[ii] = odata->initialX_[ii];
 
+   //**/ if this function is called again but now with different input
+   //**/ and output parameters, then need to reset
    Mcheck = psOUUMinlpM1_ + psOUUMinlpM2_ + psOUUMinlpM3_ + psOUUMinlpM4_;
    if (repeatFlag_ == 1 && (nOuts != psOUUMinlpNOuts_ || Mcheck != nInps))
    {
@@ -153,6 +184,10 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       cleanUp();
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ if this function has been called before, there is no need
+   //**/ to spit out header information agains
+   //**/ ----------------------------------------------------------
    if (printLevel >= 0 && repeatFlag_ == 0)
    {
       printAsterisks(PL_INFO, 0);
@@ -227,13 +262,18 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       printEquals(PL_INFO, 0);
    }
 
-   if (psMasterMode_ != 0)
+   //**/ turning on master mode may cause problems with other part of
+   //**/ psuade (e.g. response surfaces), so turn off.
+   if (psConfig_.MasterModeIsOn())
    {
       printf("OUUMinlpOptimizer INFO: Master mode to be turned off.\n");
-      psMasterMode_ = 0;
+      psConfig_.MasterModeOff();
       psOUUMinlpMasterMode_ = 1;
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ gather information on  M1, M2, M3, and M4
+   //**/ ----------------------------------------------------------
    if (Mcheck == nInps && psOUUMinlpM1_ > 0 && psOUUMinlpM2_ > 0)
    {
       M1 = psOUUMinlpM1_;
@@ -287,13 +327,19 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       printDashes(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ request user to identify variable types
+   //**/ ----------------------------------------------------------
    if (M1 == nInps && repeatFlag_ == 0)
    {
+      //**/ not repeat and all inputs are design parameters, no 
+      //**/ need to ask for variable type
       psOUUMinlpInputTypes_ = new int[nInps];
       for (ii = 0; ii < nInps; ii++) psOUUMinlpInputTypes_[ii] = 1;
    }
    else if (psOUUMinlpInputTypes_ == NULL)
    {
+      //**/ if input types have not been asked, do the following
       printf("In the following, please select type for each variable:\n");
       printf("  1. continuous optimization parameter\n");
       printf("  2. discrete optimization parameter\n");
@@ -308,6 +354,7 @@ void OUUMinlpOptimizer::optimize(oData *odata)
          psOUUMinlpInputTypes_[ii] = getInt(1,4,pString); 
       }
    }
+   //**/ if not reuse, print out variable types
    if (repeatFlag_ == 0)
    {
       printEquals(PL_INFO, 0);
@@ -323,6 +370,7 @@ void OUUMinlpOptimizer::optimize(oData *odata)
             printf("Input %4d is a continuous uncertain parameter.\n",ii+1);
       }
    }
+   //**/ error checking
    int c1=0, c2=0, c3=0, c4=0;
    for (ii = 0; ii < nInps; ii++)
    {
@@ -340,6 +388,10 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       printf("    Number of type 4 = %d (expected = %d)\n",c4,M4);
       exit(1);
    }
+   //**/ ----------------------------------------------------------
+   //**/ display the PDF type for each of the M4 parameters, if 
+   //**/ this is the first time this function is called 
+   //**/ ----------------------------------------------------------
    if (M4 > 0 && repeatFlag_ == 0)
    {
       odata->psIO_->getParameter("input_pdfs", pdata);
@@ -376,9 +428,13 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    }
    if (repeatFlag_ == 0) printEquals(PL_INFO, 0);
 
+   //**/ ----------------------------------------------------------
+   //**/ prepare for optimization
+   //**/ ----------------------------------------------------------
    for (ii = 0; ii < nInps; ii++) odata->optimalX_[ii] = 0.0;
    odata->optimalY_ = 1.0e50;
 
+   //**/ use the opt_driver code
    maxfun = odata->maxFEval_;
    if ((odata->setOptDriver_ & 1))
    {
@@ -387,6 +443,7 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       psOUUMinlpCurrDriver_ = odata->funcIO_->getDriver();
       odata->funcIO_->setDriver(1);
    }
+   //**/ store oData pointer for function evaluation
    psOUUMinlpObj_= odata;
    if (repeatFlag_ == 0)
    {
@@ -396,10 +453,16 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       printEquals(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ ask for more information is this is the first time 
+   //**/ set default: no user opt code, no RS
+   //**/ then ask for type of objective function ==> psMinlpOUUMode_ 
+   //**/ only if M3+M4 > 0 and expert mode is on (default=1: mean)
+   //**/ ----------------------------------------------------------
    if (repeatFlag_ == 0)
    {
       psOUUMinlpUseRS_ = 0;
-      if ((psOptExpertMode_ == 1) && (nInps > (M1+M2)))
+      if (psConfig_.OptExpertModeIsOn() && (nInps > (M1+M2)))
       {
          printEquals(PL_INFO, 0);
          printf("Select which functional Phi_{Z3,Z4} to use: \n");
@@ -444,10 +507,19 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ request users for a sample for Z3 
+   //**/ ----------------------------------------------------------
    genZ3Sample();
 
+   //**/ ----------------------------------------------------------
+   //**/ generate sample for Z4 
+   //**/ ----------------------------------------------------------
    genZ4Sample();
  
+   //**/ ----------------------------------------------------------
+   //**/ ask user if ensemble simulation is desired
+   //**/ ----------------------------------------------------------
    if ((M3+M4) > 0 && repeatFlag_ == 0)
    {
       printf("Each simulation calls the opt_driver with 1 sample point.\n");
@@ -472,6 +544,9 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ if ensemble_opt_driver is not used, find out what run mode
+   //**/ ----------------------------------------------------------
    if ((psOUUMinlpEnsembleEval_ == 0) && ((M3+M4)>0) && repeatFlag_ == 0)
    {
       printf("You can configure OUU to run the ensemble simulations in\n");
@@ -493,8 +568,14 @@ void OUUMinlpOptimizer::optimize(oData *odata)
       fgets(lineIn, 500, stdin);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ set up response surface constructor 
+   //**/ ----------------------------------------------------------
    genResponseSurface();
 
+   //**/ ----------------------------------------------------------
+   //**/ ----- run optimizer -----
+   //**/ ----------------------------------------------------------
    psOUUMinlpCounter_ = 0;
    if (psOUUMinlpParallel_ == 1) odata->funcIO_->setAsynchronousMode();
    printAsterisks(PL_INFO, 0);
@@ -503,6 +584,7 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    Display dout ( std::cout );
    dout.precision( DISPLAY_PRECISION_STD );
    Parameters nomadp(dout);
+   //**/ input set up: dimension and types
    nomadp.set_DIMENSION(M1+M2);
    Point lbnds(M1+M2), ubnds(M1+M2), X0(M1+M2);
    index = 0;
@@ -531,14 +613,16 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    nomadp.set_UPPER_BOUND (ubnds);
    nomadp.set_X0(X0);
 
+   //**/ set up nomad output (it can handle constraints)
    psOUUMinlpNOuts_ = nOuts;
    vector<bb_output_type> bbot (nOuts);
    bbot[0] = OBJ;
    for (ii = 1; ii < nOuts; ii++) bbot[ii] = PB;
    nomadp.set_BB_OUTPUT_TYPE ( bbot );
 
+   //**/ set other nomad parameters
    nomadp.set_SPECULATIVE_SEARCH ( true );
-   if (psOptExpertMode_ == 1)
+   if (psConfig_.OptExpertModeIsOn())
    {
       sprintf(pString,
               "Enter value for mesh update basis (default = 8) : ");
@@ -547,7 +631,7 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    else ddata = 8.0;
    nomadp.set_MESH_UPDATE_BASIS ( ddata );
 
-   if (psOptExpertMode_ == 1)
+   if (psConfig_.OptExpertModeIsOn())
    {
       sprintf(pString,
               "Enter value for mesh coarsening exponent (default = 1) : ");
@@ -559,10 +643,14 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    for (ii = 0; ii < M1+M2; ii++)
    {
       ddata = 0.5 * (ubnds[ii].value() - lbnds[ii].value());
+      //**/ nomadp.set_INITIAL_MESH_SIZE ( 0.4 );
       nomadp.set_INITIAL_MESH_SIZE ( ii, ddata, false );
    }
+   //**/ checking required
+   //**/ nomadp.display(dout);
    nomadp.check();
 
+   //**/ set up simulation model pointer
    PsuadeMinlpEvaluator madEvaluator(nomadp);
    Mads mads(nomadp, &madEvaluator);
    psOUUMinlpObj_ = odata;
@@ -570,13 +658,16 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    psOUUMinlpObjFcnStore_ = new double[maxfun];
    for (ii = 0; ii < maxfun; ii++) psOUUMinlpObjFcnStore_[ii] = -1e35;
 
+   //**/ ----------------------------------------------------------
+   //**/ ------ run nomad and process outputs ------
+   //**/ ----------------------------------------------------------
    psOUUMinlpStop_ = 0;
    mads.run();
    printf("OUUMinlpOptimizer: total number of evaluations = %d\n",
           odata->numFuncEvals_);
 
    char name[1000];
-   if (psOptExpertMode_ == 1)
+   if (psConfig_.OptExpertModeIsOn())
    {
       fp = fopen("matlabouuminlp.m", "w");
       if (fp != NULL)
@@ -604,13 +695,19 @@ void OUUMinlpOptimizer::optimize(oData *odata)
    delete [] psOUUMinlpObjFcnStore_;
    psOUUMinlpObjFcnStore_ = NULL;
 
+   //**/ ----------------------------------------------------------
+   //**/ set return values, clean up, and restore settings 
+   //**/ ----------------------------------------------------------
    if ((odata->setOptDriver_ & 2) && psOUUMinlpCurrDriver_ >= 0)
    {
       odata->funcIO_->setDriver(psOUUMinlpCurrDriver_);
    }
    delete [] XValues;
-   if (psOUUMinlpMasterMode_ != 0) psMasterMode_ = 1;
+   if (psOUUMinlpMasterMode_ != 0) psConfig_.MasterModeOn();
 
+   //**/ ----------------------------------------------------------
+   //**/ set repeat flag so that no questions will be repeated later
+   //**/ ----------------------------------------------------------
    repeatFlag_ = 1;
 #else
    printf("ERROR: Nomads not available.\n");
@@ -667,10 +764,12 @@ void OUUMinlpOptimizer::genZ3Sample()
    FILE   *fp;
    oData  *odata;
 
+   //**/ fetch information
    M3    = psOUUMinlpM3_;
    odata = psOUUMinlpObj_;
    nInps = psOUUMinlpM1_ + psOUUMinlpM2_ + psOUUMinlpM3_ + psOUUMinlpM4_;
    nOuts = psOUUMinlpNOuts_;
+   //**/ if M3 = 0, sample size is 1
    if (repeatFlag_ == 0) psOUUMinlpZ3nSamples_ = 1;
    if (M3 > 0 && repeatFlag_ == 0)
    {
@@ -785,13 +884,16 @@ void OUUMinlpOptimizer::genZ4Sample()
    PDFManager *pdfman=NULL;
    psVector   vecLB, vecUB, vecOut;
 
+   //**/ fetch information
    M4    = psOUUMinlpM4_;
    odata = psOUUMinlpObj_;
    nInps = psOUUMinlpM1_ + psOUUMinlpM2_ + psOUUMinlpM3_ + psOUUMinlpM4_;
    nOuts = psOUUMinlpNOuts_;
+   //**/ if M4 = 0, sample size is 1
    if (repeatFlag_ == 0) psOUUMinlpZ4nSamples_ = 1;
    if (M4 > 0 && repeatFlag_ == 0)
    {
+      //**/ see if non-uniform pdf is requested
       samplingOption = 0;
       odata->psIO_->getParameter("input_pdfs", pdata);
       inputPDFs = pdata.intArray_;
@@ -810,6 +912,7 @@ void OUUMinlpOptimizer::genZ4Sample()
       }
       if (kk > 0) samplingOption = 1;
 
+      //**/ ask for Z4 sampling method
       if (samplingOption == 0)
       {
          printf("OUUMinlp uses a Z4 sample to estimate the statistics.\n");
@@ -822,10 +925,12 @@ void OUUMinlpOptimizer::genZ4Sample()
       }
       else methodZ4 = 1;
 
+      //**/ select sample size for continuous uncertain parameters
       sprintf(pString, "Enter sample size (>= %d, <= 300) : ", kk);
       psOUUMinlpZ4nSamples_ = getInt(2, 1000, pString);
       printf("Z4 sample has sample size = %d\n",psOUUMinlpZ4nSamples_);  
 
+      //**/ option to build response surface if nOutputs = 1
       psOUUMinlpUseRS_ = 0;
       if (nOuts == 1)
       {
@@ -855,6 +960,7 @@ void OUUMinlpOptimizer::genZ4Sample()
          printf("                        for problems with constraints.\n");
       }
 
+      //**/ generate sample with uniform PDF ==> psOUUMinlpZ4SamInputs)
       if (samplingOption == 0)
       { 
          if (methodZ4 == 1)
@@ -892,7 +998,9 @@ void OUUMinlpOptimizer::genZ4Sample()
          delete [] samOuts;
       }
       else
+      //**/ non-uniform PDF 
       {
+         //**/ fetch input means and std dev
          odata->psIO_->getParameter("input_means", pdata);
          inputMeans = pdata.dbleArray_;
          if (inputMeans == NULL)
@@ -913,6 +1021,7 @@ void OUUMinlpOptimizer::genZ4Sample()
          corMat1 = (psMatrix *) pdata.psObject_;
          pdata.psObject_ = NULL;
 
+         //**/ compress pdf information
          corMat2.setDim(M4,M4);
          iPdfs  = new int[nInps];
          iMeans = new double[nInps];
@@ -942,6 +1051,7 @@ void OUUMinlpOptimizer::genZ4Sample()
                index++;
             }
          }
+         //**/ generate sample
          pdfman = new PDFManager();
          pdfman->initialize(M4,iPdfs,iMeans,iStdvs,corMat2,NULL,NULL);
          vecLB.load(M4, lowers);
@@ -962,6 +1072,7 @@ void OUUMinlpOptimizer::genZ4Sample()
          delete pdfman;
       }
 
+      //**/ if RS requested, create a large sample for propagation
       if (psOUUMinlpUseRS_ == 1)
       {
          lowers = new double[M4];
@@ -976,6 +1087,7 @@ void OUUMinlpOptimizer::genZ4Sample()
                index++;
             }
          }
+         //**/ if uniform distributions for all parameters
          if (samplingOption == 0)
          {
             sampler = (Sampling *) SamplingCreateFromID(PSUADE_SAMP_LHS);
@@ -997,8 +1109,10 @@ void OUUMinlpOptimizer::genZ4Sample()
             delete [] samStates;
             delete sampler;
          }
+         //**/ if non-uniform distributions for some parameters
          else
          {
+            //**/ fetch pdf information
             odata->psIO_->getParameter("input_pdfs", pdata);
             inputPDFs = pdata.intArray_;
             pdata.intArray_ = NULL;
@@ -1011,6 +1125,7 @@ void OUUMinlpOptimizer::genZ4Sample()
             odata->psIO_->getParameter("input_cor_matrix", pdata);
             corMat1 = (psMatrix *) pdata.psObject_;
             pdata.psObject_ = NULL;
+            //**/ compress all pdf information
             corMat2.setDim(M4,M4);
             iPdfs  = new int[nInps];
             iMeans = new double[nInps];
@@ -1036,6 +1151,7 @@ void OUUMinlpOptimizer::genZ4Sample()
                   index++;
                }
             }
+            //**/ create large sample
             pdfman = new PDFManager();
             pdfman->initialize(M4,iPdfs,iMeans,iStdvs,corMat2,NULL,NULL);
             vecLB.load(M4, lowers);
@@ -1074,11 +1190,13 @@ void OUUMinlpOptimizer::genResponseSurface()
    char   **targv, pString[1000];
    oData  *odata = psOUUMinlpObj_;
 
+   //**/ fetch information
    M4    = psOUUMinlpM4_;
    odata = psOUUMinlpObj_;
    nInps = psOUUMinlpM1_ + psOUUMinlpM2_ + psOUUMinlpM3_ + psOUUMinlpM4_;
    nOuts = psOUUMinlpNOuts_;
    if (odata != NULL) printLevel = odata->outputLevel_;
+   //**/ check condition 
    if (repeatFlag_ == 0 && psOUUMinlpUseRS_ == 1 && M4 > 0)
    {
       psOUUMinlpfaPtr_ = NULL;
@@ -1131,8 +1249,8 @@ void OUUMinlpOptimizer::genResponseSurface()
          }
          if (rstype == 4) rstype = PSUADE_RS_RBF;
       }
-      kk = psInteractive_;
-      psInteractive_ = 0;
+      //**/ create response surface
+      psConfig_.InteractiveSaveAndReset();
       psOUUMinlpfaPtr_ = genFA(rstype, M4, -1, psOUUMinlpZ4nSamples_);
       lowers = new double[M4];
       uppers = new double[M4];
@@ -1154,7 +1272,7 @@ void OUUMinlpOptimizer::genResponseSurface()
       }
       psOUUMinlpfaPtr_->setBounds(lowers,uppers);
       psOUUMinlpfaPtr_->setOutputLevel(0);
-      psInteractive_ = kk;
+      psConfig_.InteractiveRestore();
       if (rstype == PSUADE_RS_KR) 
       {
          targv = new char*[1];
@@ -1209,21 +1327,25 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
    FILE   *fp=NULL;
    oData  *odata = psOUUMinlpObj_;
 
+   //**/ error checking
    if (odata == NULL)
    {
       printf("MinlpEvaluator ERROR: odata not available.\n");
       exit(1);
    }
+   //**/ If stop has been requested, just perform dummy evaluation
    if (psOUUMinlpStop_ == 1)
    {
       ddata = -1e50;
       X.set_bb_output(0, ddata);
+      //**/ set all other outputs to zero (as YVals[0])
       ddata = 0.0;
       for (ii = 1; ii < psOUUMinlpNOuts_; ii++) X.set_bb_output(ii,ddata);
       retFlag = false;
       return retFlag;
    }
 
+   //**/ convert nomad X format to double *
    M     = psOUUMinlpM1_ + psOUUMinlpM2_ + psOUUMinlpM3_ + psOUUMinlpM4_;
    MOpt  = X.get_n();
    if (MOpt != psOUUMinlpM1_ + psOUUMinlpM2_)
@@ -1233,10 +1355,12 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
    }
    nOuts = psOUUMinlpNOuts_;
 
+   //**/ evaluate function
    nSamp = psOUUMinlpZ3nSamples_ * psOUUMinlpZ4nSamples_;
    XVals = new double[nSamp*M];
    YVals = new double[nSamp*nOuts];
 
+   //**/ fill in the design and uncertain variables
    for (ss = 0; ss < nSamp; ss++)
    {
       ind12 = ind3 = ind4 = 0;
@@ -1267,6 +1391,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
       }
    }
 
+   //**/ if not ensemble evaluation
    if (psOUUMinlpEnsembleEval_ == 0)
    {
       readys = new int[nSamp];
@@ -1278,6 +1403,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
                                                nOuts,&YVals[ss*nOuts],0);
          if (psOUUMinlpParallel_ == 0) odata->numFuncEvals_++;
       }
+      //**/ if asynchronous mode is on, additional processing is needed
       if (psOUUMinlpParallel_ == 1)
       {
          for (ss = 0; ss < nSamp; ss++)
@@ -1307,6 +1433,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
       odata->numFuncEvals_ += nSamp;
    }
 
+   //**/ ------ analyze optimization results ------
    int failCnt=0;
    for (ss = 0; ss < nSamp; ss++)
    {
@@ -1333,6 +1460,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
       exit(1);
    }
 
+   //**/ compute stochastic metrics
    double *means = new double[nOuts];
    double *stdev = new double[nOuts];
    double *Ytemp = new double[nSamp];
@@ -1379,6 +1507,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
             }
          }
       }
+      //**/ add sample std dev to sample mean, if it is mode 2
       if (psOUUMinlpMode_ == 2 && psOUUMinlpStdevMultiplier_ != 0.0)
       {
          for (ii = 0; ii < nOuts; ii++) stdev[ii] = 0.0;
@@ -1408,6 +1537,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
             YVals[ii] = ddata;
          }
       }
+      //**/ Mode 3: percentile
       if (psOUUMinlpMode_ == 3)
       {
          for (ii = 0; ii < nSamp; ii++) Ytemp[ii] = YVals[ii*nOuts]; 
@@ -1424,6 +1554,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
          }
       } 
    }
+   //**/ use response surface
    else
    {
       if (odata->outputLevel_ > 2)
@@ -1434,10 +1565,13 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
       double totalMean=0.0, totalStdv=0.0, *resultStore, cverrors[3];
       double mean, stdv;
       resultStore = new double[psOUUMinlpZ3nSamples_];
+      //**/ compute mean for each Z3 sample point
       for (ii = 0; ii < psOUUMinlpZ3nSamples_; ii++)
       {
+          //**/ create response surface
           status = psOUUMinlpfaPtr_->initialize(psOUUMinlpZ4SamInputs_,
                                            &YVals[ii*psOUUMinlpZ4nSamples_]);
+          //**/ validate response surface
           if (psOUUMinlpValidateRS_ == 1)
           {
              validate(psOUUMinlpZ4nSamples_,psOUUMinlpZ4SamInputs_,
@@ -1448,8 +1582,10 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
              printf("RS CV rms error = %e (scaled) \n", cverrors[1]);
              printf("RS CV max error = %e (scaled) \n", cverrors[2]);
           }
+          //**/ evaluate large sample using response surface
           psOUUMinlpfaPtr_->evaluatePoint(psOUUMinlpLargeSampleSize_,
                   psOUUMinlpLargeSamInputs_,psOUUMinlpLargeSamOutputs_);
+         //**/ compute mean
          if (psOUUMinlpMode_ == 1 || psOUUMinlpMode_ == 2)
          {
             mean = 0.0;
@@ -1458,6 +1594,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
             mean /= (double) psOUUMinlpLargeSampleSize_;
             resultStore[ii] = mean;
          }
+         //**/ compute std deviation, if it is mode 2
          if (psOUUMinlpMode_ == 2 && psOUUMinlpStdevMultiplier_ != 0.0)
          {
             stdv = 0.0;
@@ -1466,6 +1603,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
             stdv /= (double) psOUUMinlpLargeSampleSize_;
             resultStore[ii] = mean + psOUUMinlpStdevMultiplier_ * stdv;
          }
+         //**/ mode 3: percentile
          if (psOUUMinlpMode_ == 3)
          {
             sortDbleList(psOUUMinlpLargeSampleSize_,psOUUMinlpLargeSamOutputs_);
@@ -1475,6 +1613,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
             resultStore[ii] = psOUUMinlpLargeSamOutputs_[kk];
          }
       }
+      //**/ compute mean/std dev for all Z3 sample points
       if (psOUUMinlpMode_ == 1 || psOUUMinlpMode_ == 2)
       {
          mean = 0.0;
@@ -1488,6 +1627,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
          X.set_bb_output(0, mean);
          YVals[0] = mean;
       }
+      //**/ compute mean percentile for mode 3
       if (psOUUMinlpMode_ == 3)
       {
          mean = 0.0;
@@ -1508,6 +1648,8 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
    delete [] Ytemp;
    delete [] Jtemp;
 
+   //**/ If objective function is smaller and constraints are satisfied,
+   //**/ store the results
    if (YVals[0] < psOUUMinlpObj_->optimalY_) 
    {
       goodFlag = 1;
@@ -1532,6 +1674,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
       }
    }
 
+   //**/ analyze convergence
    funcID = psOUUMinlpCounter_;
    psOUUMinlpObjFcnStore_[funcID] = YVals[0];
    int    converged;
@@ -1557,6 +1700,7 @@ bool PsuadeMinlpEvaluator::eval_x(Eval_Point &X,const Double &h_max,
       }
    }
 
+   //**/ clean up
    delete [] XVals;
    delete [] YVals;
    fp = fopen("psuade_stop", "r");

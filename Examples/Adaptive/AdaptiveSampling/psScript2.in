@@ -1,0 +1,12 @@
+run sam110.psu
+rename psuadeData sam110.psu
+load sam110.psu
+arefine_metis
+y
+1
+100
+10
+write sam120.psu
+q
+
+

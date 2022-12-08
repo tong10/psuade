@@ -1,0 +1,22 @@
+A function with many local minima near the global minimum.
+
+Ans: 4 minima
+
+(3, 2)
+(-2.8905118, 3.131312)
+(-3.77931, -3.283186)
+(3.584428, 1.848126)
+
+min F = 0
+
+To run:
+    cc -o simulator simulator.c -lm
+    psuade psuade.in
+
+Or,
+    psuade < psScript.in
+
+To clean up:
+    make -f MakeClean
+
+

@@ -1,0 +1,15 @@
+load arel_sample.psu
+setdriver
+1
+./simulator
+write simdata.psu
+run simdata.psu
+sys mv psuadeData simdata.psu
+load simdata.psu
+printlevel 2
+arel_metis
+y
+1
+n
+q
+

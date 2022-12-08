@@ -1,0 +1,87 @@
+***************************************************************
+The following simple problem is used to show how to perform
+Morris screening analysis with inequality constraints.
+
+Y = X1 + X2 + X3 + ... X20
+
+subject to 0 <= X1 + X2 <= 1
+
+X1, X2, .., X20 = [0, 1]
+
+***************************************************************
+The idea is to modify the first 2 inputs of the unconstrained
+GMOAT sample based on the MOAT_repair_file information created
+by applying constraints.
+
+The steps are:
+
+1. generate a sample expressing the constraints (X1+X2)
+   It is in genConstraint.c
+
+   so: cc -o genConstraint genConstraint.c -lm
+
+   now run: psuade psuadeGenConstraint.in
+
+   mv psuadeData constrData
+
+2. generate a Morris sample for X1 and X2 that obeys the 
+   constraint
+
+   psuade
+   > load constrData
+   > moatgen
+     1   < choose linear regression >
+     0   < lower bound for constraint = 0 >
+     1   < upper bound for constraint = 1 >
+     8   < resolution: use numbers >= 6 >
+     200 < just use a large number >
+   > quit
+ 
+   At the end a file MOAT_repair_file is generated.
+
+   Next, go into the MOAT_repair_file and change
+   the variable indices on line 3. In this case,
+   since the variables are 1 and 2, so no change is
+   needed.
+
+3. generate a Morris sample for 20 inputs but do not run
+
+   psuade psuadeGMOAT.in
+
+   mv psuadeData gmoatSample
+
+4. repair the Morris sample (repair the first 2 inputs only)
+
+   psuade
+   > load gmoatSample
+   > gmoat_adjust MOAT_repair_file
+   > write gmoatSample.repaired
+   > quit
+
+   Now gmoatSample.repaired is ready to be run.
+
+5. run simulations on the modified GMOAT sample
+
+   cc -o simulator simulator.c -lm
+
+   Open up gmoatSample.repaired, and change the 
+       driver to point to simulator.
+
+   Now do: psuade gmoatSample.repaired
+ 
+   mv psuadeData gmoatSample.repaired.done
+
+6. perform analysis
+
+   Open up gmoatSample.repaired.done.
+   Change the line moat_constraint to:
+     analyzer moat_constraint = constr_file indexFile 0 1
+
+   Now start psuade in command line mode:
+
+   psuade
+   > load gmoatSample.repaired.done
+   > moat
+
+
+   

@@ -1,0 +1,43 @@
+INFO: Creating a sample assuming all uncertain parameters
+      are uniformly distributed.
+No transformation (e.g. log) on sample inputs nor outputs.
+**********************************************************************
+*                Morris Screening 
+======================================================================
+======================================================================
+* MOAT Analysis using unmodified gradients
+----------------------------------------------------------------------
+Input   1 (unmod. mean & std) =   2.0000e+01   6.0993e-15
+Input   2 (unmod. mean & std) =   9.3333e+00   8.4880e+00
+Input   3 (unmod. mean & std) =   1.1333e+01   8.1219e+00
+Input   4 (unmod. mean & std) =   2.0667e+01   6.8056e+00
+Input   5 (unmod. mean & std) =   5.0000e+00   1.6803e-15
+Input   6 (unmod. mean & std) =   2.0667e+00   1.8594e+00
+Input   7 (unmod. mean & std) =   2.0000e+00   1.7031e+00
+Input   8 (unmod. mean & std) =   3.0000e+00   1.0260e+00
+======================================================================
+* MOAT Analysis using modified gradients
+----------------------------------------------------------------------
+Input   1 (mod. mean & std) =   2.0000e+01   6.0993e-15
+Input   2 (mod. mean & std) =   9.3333e+00   8.4880e+00
+Input   3 (mod. mean & std) =   1.1333e+01   8.1219e+00
+Input   4 (mod. mean & std) =   2.0667e+01   6.8056e+00
+Input   5 (mod. mean & std) =   5.0000e+00   1.6803e-15
+Input   6 (mod. mean & std) =   2.0667e+00   1.8594e+00
+Input   7 (mod. mean & std) =   2.0000e+00   1.7031e+00
+Input   8 (mod. mean & std) =   3.0000e+00   1.0260e+00
+**********************************************************************
+MOATAnalyzer: Creating modified mean plot ... 
+MOAT bootstrap plot file = matlabmoatbs.m.
+======================================================================
+* MOAT Analysis (ordered based on modified means of gradients)
+----------------------------------------------------------------------
+     1: Input   4 (mu*, sigma, dof) =   2.0667e+01   6.8056e+00 19
+     2: Input   1 (mu*, sigma, dof) =   2.0000e+01   6.0993e-15 19
+     3: Input   3 (mu*, sigma, dof) =   1.1333e+01   8.1219e+00 19
+     4: Input   2 (mu*, sigma, dof) =   9.3333e+00   8.4880e+00 19
+     5: Input   5 (mu*, sigma, dof) =   5.0000e+00   1.6803e-15 19
+     6: Input   8 (mu*, sigma, dof) =   3.0000e+00   1.0260e+00 19
+     7: Input   6 (mu*, sigma, dof) =   2.0667e+00   1.8594e+00 19
+     8: Input   7 (mu*, sigma, dof) =   2.0000e+00   1.7031e+00 19
+======================================================================

@@ -51,9 +51,14 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
 {
   int    i, j, funcID, nInputs, nOutputs, outputID, currDriver;
   double *localY, *aux, *xaux;
+  //**/ double *localX2, *localY2, deltaX;
   oData  *odata;
+  //**/extern double *px0, *B0, *x0, *fx, y[4], normy;
+  //**/extern int coarseoptimtype;
 
+  //**/ =============================================================
   // ------ actual data from simulation should be 1 more ------
+  //**/ =============================================================
   odata    = (oData *) psSMBobyqaObj_;
   nInputs  = *nInps;
   nOutputs = odata->nOutputs_;
@@ -64,7 +69,9 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
     exit(1);
   }
 
+  //**/ =============================================================
   // allocate memory
+  //**/ =============================================================
   localY   = new double[nOutputs];
   aux      = new double[nInputs];
   xaux     = new double[nInputs];
@@ -72,7 +79,9 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
   outputID = odata->outputID_;
   for (i=0; i < nInputs; i++) xaux[i] = XValues[i];
 
+  //**/ =============================================================
   // modify values 
+  //**/ =============================================================
   if (coarseoptimtype == 1)
   {
     /* Computing pxk + Bk * (S - xk) */
@@ -85,13 +94,17 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
     for (i = 0; i < nInputs; i++) xaux[i] = px0[i] + aux[i];
   }
 
+  //**/ =============================================================
   // ------ run simulation ------
+  //**/ =============================================================
   currDriver = odata->funcIO_->getDriver();
   odata->funcIO_->setDriver(2);      /* we always optimize the coarse model */
   odata->funcIO_->evaluate(funcID,nInputs,xaux,nOutputs,localY,0);
   odata->funcIO_->setDriver(currDriver);
 
+  //**/ =============================================================
   // ------ compute objective function ------
+  //**/ =============================================================
   (*YValue) = 0.0;
   if (coarseoptimtype == 1)
   {
@@ -106,8 +119,13 @@ int evaluatefunctionsm_(int *nInps, double *XValues, double *YValue)
     (*YValue) = sqrt((*YValue));
   }
 
+  //**/printf("x = %10.6f   %10.6f\n",  XValues[0], XValues[1]);
+  //**/printf("y = %10.6f         \n",  (*YValue));
+  //**/(*YValue) = localY[outputID];
+  //**/ =============================================================
   // ------ update current optimal settings ------
   // ------ output optimization information ------
+  //**/ =============================================================
   if ((*YValue) < odata->optimalY_)
   {
     odata->optimalY_ = (*YValue);
@@ -161,8 +179,18 @@ void SMOptimizer::optimize(oData *odata)
   FILE   *fspecs;
   extern double *px0, *B0, *x0, *fx, *y, normy;
   extern int coarseoptimtype;
+  psVector vecXVals;
 
+  //**//* --- VOY AQUI ------------------------------------- *
+  //**/odata->targetFile_ = "./specs";
+  //**/FILE *fspecs = fopen(odata->targetFile_, "r");
+  //**/* -------------------------------------------------- */
+  //**//*FILE  *ffineaux    = fopen(  "fineaux", "rw"); */
+  //**//*FILE  *fcoarseaux  = fopen("coarseaux", "rw"); */
 
+  //**/ =============================================================
+  //**/ ------ prepare object variables ------
+  //**/ =============================================================
   nInputs = odata->nInputs_;
   nOutputs = odata->nOutputs_;
   if(nOutputs <= 0)
@@ -176,18 +204,33 @@ void SMOptimizer::optimize(oData *odata)
   odata->optimalY_     = 1.0e50;
   tolX                 = odata->tolerance_;
 
+  //**/ =============================================================
+  //**/- READ SPECS -------------------
+  //**/ =============================================================
   if (!strcmp(odata->targetFile_,"NONE"))
   {
-    printf("SMOptimizer ERROR : no target file.\n");
+    printf("SMOptimizer WARNING: No target file.\n");
+    printf("            ==> assume Fvalue = 0.\n");
     y = new double[nOutputs];
     for (i = 0; i < nOutputs; i++) y[i] = 0;
   }
   else
   {
-    fspecs = fopen(odata->targetFile_, "r");
     y = new double[nOutputs];
-    for (i = 0; i < nOutputs; i++) fscanf(fspecs, "%lg", &y[i]);
-    fclose(fspecs);
+    fspecs = fopen(odata->targetFile_, "r");
+    if (fspecs == NULL)
+    {
+      printf("SMOptimizer ERROR: target file %s not found.\n",
+             odata->targetFile_);
+      printf("            Fvalues assumed to be all 0.\n");
+      for (i = 0; i < nOutputs; i++) y[i] = 0;
+    }
+    else
+    { 
+      for (i = 0; i < nOutputs; i++) 
+        fscanf(fspecs, "%lg", &y[i]);
+      fclose(fspecs);
+    }
   }
   normy = 0.0;
   for (i=0; i < nOutputs; i++) normy = normy+ y[i]*y[i];
@@ -201,8 +244,10 @@ void SMOptimizer::optimize(oData *odata)
   printf("                                      %20.14f\n", y[i]);
   printAsterisks(PL_INFO, 0);
 
+  //**/ =============================================================
   // sm auxiliary variables: initialization + storing in file smaux 
-  XValues = new double[nInputs+1];
+  //**/ =============================================================
+  vecXVals.setLength(nInputs+1);
   fx      = new double[nOutputs];
   x0      = new double[nInputs+1];
   px0     = new double[nInputs+1];
@@ -213,7 +258,9 @@ void SMOptimizer::optimize(oData *odata)
   B0h     = new double[nInputs];
   zstar   = new double[nInputs];
 
+  //**/ =============================================================
   /* Bobyqa STOP Criteria   */
+  //**/ =============================================================
   rhobeg = odata->upperBounds_[0] - odata->lowerBounds_[0];
   for (i = 0; i < nInputs; i++)
   {
@@ -229,7 +276,9 @@ void SMOptimizer::optimize(oData *odata)
     rhoend = rhobeg * 1.0e-6;
   }
 
+  //**/ =============================================================
   /* Initializing state variables */
+  //**/ =============================================================
   for (i = 0; i < nInputs; i++)
   {
     x0[i]  = 0.0;
@@ -244,17 +293,25 @@ void SMOptimizer::optimize(oData *odata)
   /* next is optimization => 1 */
   //savesmaux(1, nInputs, px0, B0, x0);
 
+//**/--------------------------------------------------------------------
+//**/   odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
+//**/   odata->funcIO_->evaluate(odata->numFuncEvals_++,2,x0,nOutputs,Fx,0);
+//**/--------------------------------------------------------------------
 
+  //**/ =============================================================
   /* I. INITIAL GUESS */
-  for (i = 0; i < nInputs; i++) XValues[i] = odata->initialX_[i];
+  //**/ =============================================================
+  for (i = 0; i < nInputs; i++) vecXVals[i] = odata->initialX_[i];
 
   printAsterisks(PL_INFO, 0);
   printf(" SPACE MAPPING: Initial Guess: \n");
   for(i=0; i<nInputs; i++)
-  printf("                                      %20.14f\n", XValues[i]);
+  printf("                                      %20.14f\n",vecXVals[i]);
   printAsterisks(PL_INFO, 0);
 
+  //**/ =============================================================
   /* 0. COARSE MODEL OPTIMIZATION */
+  //**/ =============================================================
   // ------ call optimizer ------
 
 #ifdef HAVE_BOBYQA
@@ -264,7 +321,8 @@ void SMOptimizer::optimize(oData *odata)
   int    nPts = (nInputs + 1) * (nInputs + 2) / 2;
   kk = (nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1;
   double *workArray = new double[kk];
-  bobyqa_(&nInputs, &nPts, XValues, odata->lowerBounds_, odata->upperBounds_,
+  bobyqa_(&nInputs, &nPts, vecXVals.getDVector(), 
+          odata->lowerBounds_, odata->upperBounds_,
           &rhobeg, &rhoend, &printLevel, &maxfun, workArray);
   delete [] workArray;
 #else
@@ -274,10 +332,11 @@ void SMOptimizer::optimize(oData *odata)
   ncevals += maxfun;
   coarseoptimtype = 0;
 
+  //**/ zstar = vecXVals; 
   for (i=0;i<nInputs;i++)
   {
-    x0[i]    = XValues[i];
-    zstar[i] = XValues[i];
+    x0[i]    = vecXVals[i];
+    zstar[i] = vecXVals[i];
   }
 
   printf("\n\n");
@@ -288,7 +347,10 @@ void SMOptimizer::optimize(oData *odata)
   printAsterisks(PL_INFO, 0);
   printf("\n\n");
 
+  //**/ =============================================================
   /* 1. EVALUATING THE FINE MODEL AT THE COARSE OPTIMUM */
+  //**/ =============================================================
+  //**/currDriver = odata->funcIO_->getDriver(); 
   odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
   odata->funcIO_->evaluate(odata->numFuncEvals_++,nInputs,x0,nOutputs,fx,0);
 
@@ -298,13 +360,20 @@ void SMOptimizer::optimize(oData *odata)
   Fx = sqrt(Fx)/normy*100.00;
 
   nfevals += 1;
+  //**/ odata->funcIO_->setDriver(currDriver); 
+  //**/ (*YValue) = localY[outputID]; 
+  //**/printf("                                      %20.14f\n", Fx); */
   printf("   Iteration      # f evals   # c eval   Fine Cost Function    ||x_{k+1} - x_k||\n");
   printf(" ---------------------------------------------------------------------------------\n");
   printf("   %5d           %5d       %5d         %8.3f\n",nIter,nfevals,
          ncevals,Fx);
 
+  //**/ =============================================================
   // Now f(x0) is stored in the file fileaux (format: m f(x0)) 
+  //**/ =============================================================
   /* 2. EVALUATING THE SPACE-MAPPING FUNCTION AT x0            */
+  //**/ =============================================================
+  //**/savesmaux(0, nInputs, px0, B0, x0);       /* parameter extraction */
   for (i=0;i<nInputs;i++)
     px0[i] = x0[i];         /* makes sense for parameter extraction */
 
@@ -322,10 +391,13 @@ void SMOptimizer::optimize(oData *odata)
 #endif
   ncevals += maxfun;
   coarseoptimtype = 1;
+  //**/savesmaux(1, nInputs, px0, B0, x0);
 
   while (1)
   {
+    //**/ ==========================================================
     /* 2. OPTIMIZING THE MAPPED COARSE MODEL          */
+    //**/ ==========================================================
     for (i=0;i<nInputs;i++) x1[i] = x0[i]; /* for parameter extraction */
 
 #ifdef HAVE_BOBYQA
@@ -342,8 +414,11 @@ void SMOptimizer::optimize(oData *odata)
 #endif
     ncevals += maxfun;
     coarseoptimtype = 0;
+    //**/printf("x = %10.6f   %10.6f\n",  x1[0], x1[1]);
 
+    //**/ ==========================================================
     /* 3. EVALUATING THE FINE MODEL AT x1 */
+    //**/ ==========================================================
     odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
     odata->funcIO_->evaluate(odata->numFuncEvals_++,nInputs,x1,nOutputs,fx,0);
     Fx   = 0.0;
@@ -354,7 +429,9 @@ void SMOptimizer::optimize(oData *odata)
     /*printf("                                      %20.14f\n", Fx);*/
     /* Now f(x1) is stored in the file fileaux (format: m f(x1)) */
 
+    //**/ ==========================================================
     /* S. STOPPING CRITERIA              */
+    //**/ ==========================================================
     h = 0.0;
     for (i=0;i<nInputs;i++) h += (x1[i]-x0[i])*(x1[i]-x0[i]);
     h = sqrt(h);
@@ -363,7 +440,10 @@ void SMOptimizer::optimize(oData *odata)
            nIter+1,nfevals,ncevals,Fx,h);
     if (nIter == nIterMAX || h < tolX) break;
 
+    //**/ ==========================================================
     /* 4. EVALUATING THE SPACE-MAPPING FUNCTION AT x1            */
+    //**/ ==========================================================
+    //**/savesmaux(0, nInputs, px0, B0, x0);   /* parameter extraction */
     for (i=0;i<nInputs;i++) px1[i] = px0[i];/* for parameter extraction */
 #ifdef HAVE_BOBYQA
     maxfun=1000;
@@ -379,11 +459,14 @@ void SMOptimizer::optimize(oData *odata)
 #endif
     ncevals += maxfun;
     coarseoptimtype = 1;
+    //**/savesmaux(1, nInputs, px0, B0, x0);
 
     nIter = nIter + 1;
 
+    //**/ ==========================================================
     /* 5. UPDATING THE APPROX. OF p */
     /*    B1 = B0 + (px1-px0-B0*h)/(h'*h)*h' */
+    //**/ ==========================================================
     for (i=0;i<nInputs;i++)
     {
       B0h[i] = 0.0;
@@ -422,7 +505,9 @@ void SMOptimizer::optimize(oData *odata)
     printf("\n\n");
 */
 
+    //**/ ==========================================================
     /* updating variables */
+    //**/ ==========================================================
     for (i=0;i<nInputs;i++)
     {
       x0[i]  = x1[i];
@@ -430,9 +515,15 @@ void SMOptimizer::optimize(oData *odata)
       for (j=0;j<nInputs;j++)
         B0[i+j*nInputs] = B1[i+j*nInputs];
     }
+    //**///savesmaux(1, nInputs, px0, B0, x0);
+    //**//*   x1  = x0;
+    //**/   B1  = B0;
+    //**/   px1 = px0;*/
   }
 
+  //**/ ==========================================================
   /* DIAGNOSTICS */
+  //**/ ==========================================================
   if (nIter == nIterMAX)
     printf("\n Maximum number of %4d SM iterations reached.\n\n", nIterMAX);
   else
@@ -448,8 +539,9 @@ void SMOptimizer::optimize(oData *odata)
   odata->optimalY_ = Fx;
   for (i = 0; i < nInputs; i++) odata->optimalX_[i] = x1[i];
 
+  //**/ ==========================================================
   // clean up
-  delete [] XValues;
+  //**/ ==========================================================
   delete [] fx;
   delete [] x0;
   delete [] px0;
@@ -460,6 +552,9 @@ void SMOptimizer::optimize(oData *odata)
   delete [] B0h;
   delete [] zstar;
   delete [] y;
+  //**//*fclose(ffineaux);*/
+  //**//*fclose(fcoarseaux);*/
+  //**/// ------ set return values and clean up ------
 }
 
 // ************************************************************************
@@ -472,3 +567,50 @@ SMOptimizer& SMOptimizer::operator=(const SMOptimizer &)
   return (*this);
 }
 
+//**/void savesmaux(int coarsetype,int nInputs,double *px0,double *B0,double *x0)
+//**/{
+//**/   int i,j;
+//**/   FILE  *fsmaux      = fopen(    "smaux", "w");
+//**/
+//**/
+//**/if (coarsetype == 0){      /* parameter extraction */
+//**/
+//**/   fprintf(fsmaux, "%d ", 0);
+//**/   fprintf(fsmaux, "\n");
+//**/   for (i = 0; i < nInputs; i++)
+//**/      fprintf(fsmaux, "%lg ", 0.0);
+//**/   fprintf(fsmaux, "\n");
+//**/   for (i = 0; i < nInputs; i++){
+//**/      for(j = 0; j < nInputs; j++)
+//**/         if (i==j)
+//**/            fprintf(fsmaux, "%lg ", 1.0);
+//**/         else
+//**/            fprintf(fsmaux, "%lg ", 0.0);
+//**/      fprintf(fsmaux, "\n");
+//**/   }
+//**/   for (i = 0; i < nInputs; i++)
+//**/      fprintf(fsmaux, "%lg ", 0.0);
+//**/   fprintf(fsmaux, "\n");
+//**/}
+//**/else{
+//**/
+//**/   fprintf(fsmaux, "%d ", 1);
+//**/   fprintf(fsmaux, "\n");
+//**/
+//**/   for (i = 0; i < nInputs; i++)
+//**/      fprintf(fsmaux, "%lg ", px0[i]);
+//**/   fprintf(fsmaux, "\n");
+//**/   for (i = 0; i < nInputs; i++){
+//**/      for(j = 0; j < nInputs; j++)
+//**/         fprintf(fsmaux, "%lg ", B0[j + i*nInputs]);
+//**/         fprintf(fsmaux, "\n");
+//**/   }
+//**/   for (i = 0; i < nInputs; i++)
+//**/      fprintf(fsmaux, "%lg ", x0[i]);
+//**/   fprintf(fsmaux, "\n");
+//**/
+//**/}
+//**/
+//**/   fclose(fsmaux);
+//**/}
+//**/

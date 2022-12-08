@@ -33,6 +33,7 @@
 #include "sysdef.h"
 #include "PsuadeUtil.h"
 #include "Psuade.h"
+#include "psVector.h"
 
 #define PABS(x) ((x) > 0 ? (x) : (-(x)))
 
@@ -53,7 +54,7 @@ extern "C"
 // ------------------------------------------------------------------------
 GP1::GP1(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
-   faID_ = PSUADE_RS_GP1;
+  faID_ = PSUADE_RS_GP1;
 }
 
 // ************************************************************************
@@ -69,357 +70,412 @@ GP1::~GP1()
 int GP1::initialize(double *XIn, double *YIn)
 {
 #ifdef HAVE_TPROS
-   int    ss, ii;
-   double *stds, *X, *Y;
-   char   pString[500], response[500], *cString;
+  int    ss, ii;
+  char   pString[500], response[500], *cString;
+  psVector VecStds, VecX, VecY;
 
-   response[0] = 'n';
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      cString = psConfig_->getParameter("normalize_outputs");
-      if (cString != NULL) response[0] = 'y';
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      sprintf(pString, "GP1: normalize output? (y or n) ");
-      getString(pString, response);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ users have the option to normalize the output
+  //**/ ----------------------------------------------------------------
+  response[0] = 'n';
+  if (!psConfig_.RSExpertModeIsOn())
+  {
+    cString = psConfig_.getParameter("normalize_outputs");
+    if (cString != NULL) response[0] = 'y';
+  }
+  if (psConfig_.RSExpertModeIsOn())
+  {
+    sprintf(pString, "GP1: normalize output? (y or n) ");
+    getString(pString, response);
+  }
    
-   X = new double[nSamples_*nInputs_];
-   checkAllocate(X, "X in GP1::initialize");
-   initInputScaling(XIn, X, 0);
-   Y = new double[nSamples_];
-   checkAllocate(Y, "Y in GP1::initialize");
-   if (response[0] == 'y')
-   {
-      initOutputScaling(YIn, Y);
-   }
-   else
-   {
-      for (ii = 0; ii < nSamples_; ii++) Y[ii] = YIn[ii];
-      YMean_ = 0.0;
-      YStd_ = 1.0;
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ prescale
+  //**/ ----------------------------------------------------------------
+  VecX.setLength(nSamples_*nInputs_);
+  initInputScaling(XIn, VecX.getDVector(), 0);
+  VecY.setLength(nSamples_);
+  if (response[0] == 'y')
+       initOutputScaling(YIn, VecY.getDVector());
+  else VecY.load(nSamples_, YIn);
    
-   double *lengthScales;
-   stds = new double[nSamples_];
-   checkAllocate(stds, "stds in GP1::initialize");
-   if (outputLevel_ >= 1) printf("GP1 training begins....\n");
-   TprosTrain(nInputs_, nSamples_, X, Y, 0, NULL, stds);
-   for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
-   if (outputLevel_ >= 1) printf("GP1 training completed.\n");
-   if (psRSExpertMode_)
-   {
-      lengthScales = new double[nInputs_];
-      checkAllocate(lengthScales, "lengthScales in GP1::initialize");
-      TprosGetLengthScales(nInputs_, lengthScales);
-      printf("GP1 training information: \n");
-      for (ii = 0; ii < nInputs_; ii++)
-         printf("Input %d mean,std,length scale = %e %e %e\n",
-                ii+1, XMeans_[ii], XStds_[ii], lengthScales[ii]); 
-      delete [] lengthScales;
-   }
-   delete [] stds;
-   delete [] X;
-   delete [] Y;
-   if (psRSCodeGen_ == 1) 
-      printf("GP1 INFO: response surface stand-alone code not available.\n");
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ generate the Gaussian hyperparameters
+  //**/ ----------------------------------------------------------------
+  psVector VecLScales;
+  VecStds.setLength(nSamples_);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 training begins....\n");
+  TprosTrain(nInputs_,nSamples_,VecX.getDVector(),VecY.getDVector(),
+             0,NULL,VecStds.getDVector());
+  for (ss = 0; ss < nSamples_; ss++) VecStds[ss] = 0.0;
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 training completed.\n");
+  if (psConfig_.RSExpertModeIsOn())
+  {
+    VecLScales.setLength(nInputs_);
+    TprosGetLengthScales(nInputs_, VecLScales.getDVector());
+    printf("GP1 training information: \n");
+    for (ii = 0; ii < nInputs_; ii++)
+       printf("Input %d mean,std,length scale = %e %e %e\n",
+              ii+1, VecXMeans_[ii], VecXStds_[ii], VecLScales[ii]); 
+  }
+  if (psConfig_.RSCodeGenIsOn())
+    printf("GP1 INFO: response surface stand-alone code not available.\n");
+  return 0;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
-   return -1;
+  printf("PSUADE ERROR : GP1 not installed.\n");
+  return -1;
 #endif
 }
 
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int GP1::genNDGridData(double *XIn, double *YIn, int *N, double **X2, 
-                      double **Y2)
+int GP1::genNDGridData(double *XIn, double *YIn, int *NOut, double **XOut, 
+                      double **YOut)
 {
 #ifdef HAVE_TPROS
-   int    totPts, ii, jj;
-   double *XX, *YY, *X;
+  int    totPts, ii, jj;
+  double *XX;
+  psVector VecXT;
 
-   initialize(XIn, YIn);
-   if ((*N) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-   genNDGrid(N, &XX);
-   if ((*N) == 0) return 0;
-   totPts = (*N);
+  //**/ ---------------------------------------------------------------
+  //**/ generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(NOut, &XX);
+  if ((*NOut) == 0) return 0;
+  totPts = (*NOut);
 
-   if (outputLevel_ >= 1) printf("GP1 interpolation begins....\n");
-   YY = new double[totPts];
-   X  = new double[totPts*nInputs_];
-   checkAllocate(X, "X in GP1::genNDGrid");
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      for (jj = 0; jj < totPts; jj++)
-         X[jj*nInputs_+ii] = (XX[jj*nInputs_+ii] - XMeans_[ii]) /
-                             XStds_[ii];
-   } 
-   TprosInterp(totPts, X, YY, NULL);
-   for (ii = 0; ii < totPts; ii++)
-      YY[ii] = (YY[ii] * YStd_) + YMean_;
-   if (outputLevel_ >= 1) printf("GP1 interpolation completed.\n");
-   (*X2) = XX;
-   (*Y2) = YY;
-   delete [] X;
+  //**/ ---------------------------------------------------------------
+  //**/ allocate storage for the data points and generate them
+  //**/ ---------------------------------------------------------------
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation begins....\n");
+  psVector VecYOut;
+  VecYOut.setLength(totPts);
+  (*YOut) = VecYOut.takeDVector();
+  VecXT.setLength(totPts*nInputs_);
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    for (jj = 0; jj < totPts; jj++)
+      VecXT[jj*nInputs_+ii] = (XX[jj*nInputs_+ii] - VecXMeans_[ii]) /
+                              VecXStds_[ii];
+  } 
+  TprosInterp(totPts, VecXT.getDVector(), *YOut, NULL);
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation completed.\n");
+  (*XOut) = XX;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
-   return -1;
+  printf("PSUADE ERROR : GP1 not installed.\n");
+  return -1;
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 1D results for display
 // ------------------------------------------------------------------------
-int GP1::gen1DGridData(double *XIn, double *YIn, int ind1,
-                       double *settings, int *n, double **X2, double **Y2)
+int GP1::gen1DGridData(double *XIn, double *YIn, int ind1,double *settings, 
+                       int *NOut, double **XOut, double **YOut)
 {
 #ifdef HAVE_TPROS
-   int    totPts, ii, jj, kk;
-   double *XX, *YY, *X, HX;
+  int    totPts, ii, jj, kk;
+  double HX;
+  psVector VecXT;
 
-   initialize(XIn, YIn);
-   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
-  
-   totPts = nPtsPerDim_;
-   HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
+ 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_;
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-   (*X2) = new double[totPts];
-   XX = new double[totPts*nInputs_];
-   checkAllocate(XX, "XX in GP1::gen1DGrid");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (kk = 0; kk < nInputs_; kk++) 
-         XX[ii*nInputs_+kk] = settings[kk]; 
-      XX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
-      (*X2)[ii] = HX * ii + lowerBounds_[ind1];
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  psVector VecXOut;
+  VecXOut.setLength(totPts);
+  (*XOut) = VecXOut.takeDVector();
+  VecXT.setLength(totPts*nInputs_);
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (kk = 0; kk < nInputs_; kk++) 
+      VecXT[ii*nInputs_+kk] = settings[kk]; 
+    VecXT[ii*nInputs_+ind1] = HX * ii + VecLBs_[ind1];
+    (*XOut)[ii] = HX * ii + VecLBs_[ind1];
+  }
     
-   YY = new double[totPts];
-   X  = new double[totPts*nInputs_];
-   checkAllocate(X, "X in GP1::gen1DGrid");
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      for (jj = 0; jj < totPts; jj++)
-         X[jj*nInputs_+ii] = (XX[jj*nInputs_+ii] - XMeans_[ii]) /
-                             XStds_[ii];
-   } 
-   if (outputLevel_ >= 1) printf("GP1 interpolation begins....\n");
-   TprosInterp(totPts, X, YY, NULL);
-   for (ii = 0; ii < totPts; ii++)
-      YY[ii] = (YY[ii] * YStd_) + YMean_;
-   if (outputLevel_ >= 1) printf("GP1 interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] X;
+  //**/ ----------------------------------------------------------------
+  //**/ scale and interpolate
+  //**/ ----------------------------------------------------------------
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    for (jj = 0; jj < totPts; jj++)
+      VecXT[jj*nInputs_+ii] = (VecXT[jj*nInputs_+ii] - VecXMeans_[ii]) /
+                               VecXStds_[ii];
+  } 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation begins....\n");
+  psVector VecYOut;
+  VecYOut.setLength(totPts);
+  (*YOut) = VecYOut.takeDVector();
+  TprosInterp(totPts, VecXT.getDVector(), *YOut, NULL);
+  for (ii = 0; ii < totPts; ii++) 
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation completed.\n");
+  (*NOut) = totPts;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 2D results for display
 // ------------------------------------------------------------------------
 int GP1::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
-                       double *settings, int *n, double **X2, double **Y2)
+                 double *settings, int *NOut, double **XOut, double **YOut)
 {
 #ifdef HAVE_TPROS
-   int    totPts, ii, jj, kk, index;
-   double *XX, *YY, *X, *HX;
+  int totPts, ii, jj, kk, index;
+  psVector VecHX, VecXT;
 
-   initialize(XIn, YIn);
-   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-   totPts = nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[2];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_;
+  VecHX.setLength(2);
+  VecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  VecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
 
-   XX = new double[totPts*nInputs_];
-   (*X2) = new double[2*totPts];
-   checkAllocate(*X2, "X2 in GP1::gen2DGrid");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
-      {
-         index = ii * nPtsPerDim_ + jj;
-         for (kk = 0; kk < nInputs_; kk++) 
-            XX[index*nInputs_+kk] = settings[kk]; 
-         XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-         XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-         (*X2)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-         (*X2)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
-      }
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  psVector VecXOut;
+  VecXOut.setLength(totPts*2);
+  (*XOut) = VecXOut.takeDVector();
+  VecXT.setLength(totPts*nInputs_);
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      index = ii * nPtsPerDim_ + jj;
+      for (kk = 0; kk < nInputs_; kk++) 
+        VecXT[index*nInputs_+kk] = settings[kk]; 
+      VecXT[index*nInputs_+ind1]  = VecHX[0] * ii + VecLBs_[ind1];
+      VecXT[index*nInputs_+ind2]  = VecHX[1] * jj + VecLBs_[ind2];
+      (*XOut)[index*2]   = VecHX[0] * ii + VecLBs_[ind1];
+      (*XOut)[index*2+1] = VecHX[1] * jj + VecLBs_[ind2];
+    }
+  }
     
-   YY = new double[totPts];
-   X = new double[totPts*nInputs_];
-   checkAllocate(X, "X in GP1::gen2DGrid");
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      for (jj = 0; jj < totPts; jj++)
-         X[jj*nInputs_+ii] = (XX[jj*nInputs_+ii] - XMeans_[ii]) /
-                             XStds_[ii];
-   } 
-   if (outputLevel_ >= 1) printf("GP1 interpolation begins....\n");
-   TprosInterp(totPts, X, YY, NULL);
-   if (outputLevel_ >= 1) printf("GP1 interpolation completed.\n");
-   for (ii = 0; ii < totPts; ii++)
-      YY[ii] = (YY[ii] * YStd_) + YMean_;
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
-   delete [] X;
+  //**/ ----------------------------------------------------------------
+  //**/ scale and interpolate
+  //**/ ----------------------------------------------------------------
+  psVector VecYOut;
+  VecYOut.setLength(totPts);
+  (*YOut) = VecYOut.takeDVector();
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    for (jj = 0; jj < totPts; jj++)
+      VecXT[jj*nInputs_+ii] = (VecXT[jj*nInputs_+ii] - VecXMeans_[ii]) /
+                              VecXStds_[ii];
+  } 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation begins....\n");
+  TprosInterp(totPts, VecXT.getDVector(), *YOut, NULL);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation completed.\n");
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+  (*NOut) = totPts;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 3D results for display
 // ------------------------------------------------------------------------
-int GP1::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
-                       double *settings, int *n, double **X2, double **Y2)
+int GP1::gen3DGridData(double *XIn,double *YIn,int ind1,int ind2,int ind3,
+              double *settings, int *NOut, double **XOut, double **YOut)
 {
 #ifdef HAVE_TPROS
-   int    totPts, ii, jj, kk, ll, index;
-   double *XX, *YY, *X, *HX;
+  int totPts, ii, jj, kk, ll, index;
+  psVector VecHX, VecXT;
 
-   initialize(XIn, YIn);
-   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[3];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  VecHX.setLength(3);
+  VecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
 
-   XX = new double[totPts*nInputs_];
-   (*X2) = new double[3*totPts];
-   checkAllocate(*X2, "X2 in GP1::gen3DGrid");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  VecXT.setLength(totPts*nInputs_);
+  psVector VecXOut;
+  VecXOut.setLength(totPts*3);
+  (*XOut) = VecXOut.takeDVector();
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++) 
       {
-         for (ll = 0; ll < nPtsPerDim_; ll++) 
-         {
-            index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-            for (kk = 0; kk < nInputs_; kk++) 
-               XX[index*nInputs_+kk] = settings[kk]; 
-            XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-            XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-            XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-            (*X2)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-            (*X2)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-            (*X2)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
-         }
+        index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
+        for (kk = 0; kk < nInputs_; kk++) 
+          VecXT[index*nInputs_+kk] = settings[kk]; 
+        VecXT[index*nInputs_+ind1] = VecHX[0] * ii + VecLBs_[ind1];
+        VecXT[index*nInputs_+ind2] = VecHX[1] * jj + VecLBs_[ind2];
+        VecXT[index*nInputs_+ind3] = VecHX[2] * ll + VecLBs_[ind3];
+        (*XOut)[index*3]   = VecHX[0] * ii + VecLBs_[ind1];
+        (*XOut)[index*3+1] = VecHX[1] * jj + VecLBs_[ind2];
+        (*XOut)[index*3+2] = VecHX[2] * ll + VecLBs_[ind3];
       }
-   }
+    }
+  }
     
-   YY = new double[totPts];
-   X = new double[totPts*nInputs_];
-   checkAllocate(X, "X in GP1::gen3DGrid");
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      for (jj = 0; jj < totPts; jj++)
-         X[jj*nInputs_+ii] = (XX[jj*nInputs_+ii] - XMeans_[ii]) /
-                             XStds_[ii];
-   } 
-   if (outputLevel_ >= 1) printf("GP1 interpolation begins....\n");
-   TprosInterp(totPts, X, YY, NULL);
-   if (outputLevel_ >= 1) printf("GP1 interpolation completed.\n");
-   for (ii = 0; ii < totPts; ii++)
-      YY[ii] = (YY[ii] * YStd_) + YMean_;
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
-   delete [] X;
+  //**/ ----------------------------------------------------------------
+  //**/ scale and interpolate
+  //**/ ----------------------------------------------------------------
+  psVector VecYOut;
+  VecYOut.setLength(totPts);
+  (*YOut) = VecYOut.takeDVector();
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    for (jj = 0; jj < totPts; jj++)
+      VecXT[jj*nInputs_+ii] = (VecXT[jj*nInputs_+ii] - VecXMeans_[ii]) /
+                              VecXStds_[ii];
+  } 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation begins....\n");
+  TprosInterp(totPts, VecXT.getDVector(), *YOut, NULL);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation completed.\n");
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+  (*NOut) = totPts;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 4D results for display
 // ------------------------------------------------------------------------
-int GP1::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
-                       int ind4, double *settings, int *n, double **X2, 
-                       double **Y2)
+int GP1::gen4DGridData(double *XIn,double *YIn,int ind1,int ind2, int ind3,
+                       int ind4,double *settings, int *NOut, double **XOut, 
+                       double **YOut)
 {
 #ifdef HAVE_TPROS
-   int    totPts, ii, jj, kk, ll, mm, index;
-   double *XX, *YY, *X, *HX;
+  int totPts, ii, jj, kk, ll, mm, index;
+  psVector VecXT, VecHX;
 
-   initialize(XIn, YIn);
-   if ((*n) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
+  initialize(XIn, YIn);
+  if ((*NOut) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[4];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-   HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  //**/ ----------------------------------------------------------------
+  //**/ set up for generating regular grid data
+  //**/ ----------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  VecHX.setLength(4);
+  VecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
+  VecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2]) / (nPtsPerDim_ - 1); 
+  VecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3]) / (nPtsPerDim_ - 1); 
+  VecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4]) / (nPtsPerDim_ - 1); 
 
-   XX = new double[totPts*nInputs_];
-   (*X2) = new double[4*totPts];
-   checkAllocate(*X2, "X2 in GP1::gen4DGrid");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
+  //**/ ----------------------------------------------------------------
+  //**/ allocate storage for the data points
+  //**/ ----------------------------------------------------------------
+  VecXT.setLength(totPts*nInputs_);
+  psVector VecXOut;
+  VecXOut.setLength(totPts*4);
+  (*XOut) = VecXOut.takeDVector();
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++) 
       {
-         for (ll = 0; ll < nPtsPerDim_; ll++) 
-         {
-            for (mm = 0; mm < nPtsPerDim_; mm++) 
-            {
-               index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
-                       jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-               for (kk = 0; kk < nInputs_; kk++) 
-                  XX[index*nInputs_+kk] = settings[kk]; 
-               XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-               XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-               XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-               XX[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind4];
-               (*X2)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-               (*X2)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-               (*X2)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-               (*X2)[index*4+3] = HX[3] * mm + lowerBounds_[ind4];
-            }
-         }
+        for (mm = 0; mm < nPtsPerDim_; mm++) 
+        {
+          index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ +
+                  jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
+          for (kk = 0; kk < nInputs_; kk++) 
+            VecXT[index*nInputs_+kk] = settings[kk]; 
+          VecXT[index*nInputs_+ind1] = VecHX[0] * ii + VecLBs_[ind1];
+          VecXT[index*nInputs_+ind2] = VecHX[1] * jj + VecLBs_[ind2];
+          VecXT[index*nInputs_+ind3] = VecHX[2] * ll + VecLBs_[ind3];
+          VecXT[index*nInputs_+ind4] = VecHX[3] * mm + VecLBs_[ind4];
+          (*XOut)[index*4]   = VecHX[0] * ii + VecLBs_[ind1];
+          (*XOut)[index*4+1] = VecHX[1] * jj + VecLBs_[ind2];
+          (*XOut)[index*4+2] = VecHX[2] * ll + VecLBs_[ind3];
+          (*XOut)[index*4+3] = VecHX[3] * mm + VecLBs_[ind4];
+        }
       }
-   }
+    }
+  }
     
-   YY = new double[totPts];
-   X = new double[totPts*nInputs_];
-   checkAllocate(X, "X in GP1::gen4DGrid");
-   for (ii = 0; ii < nInputs_; ii++)
-   {
-      for (jj = 0; jj < totPts; jj++)
-         X[jj*nInputs_+ii] = (XX[jj*nInputs_+ii] - XMeans_[ii]) /
-                             XStds_[ii];
-   } 
-   if (outputLevel_ >= 1) printf("GP1 interpolation begins....\n");
-   TprosInterp(totPts, X, YY, NULL);
-   if (outputLevel_ >= 1) printf("GP1 interpolation completed.\n");
-   for (ii = 0; ii < totPts; ii++)
-      YY[ii] = (YY[ii] * YStd_) + YMean_;
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
-   delete [] X;
+  //**/ ----------------------------------------------------------------
+  //**/ scale and interpolate
+  //**/ ----------------------------------------------------------------
+  psVector VecYOut;
+  VecYOut.setLength(totPts);
+  (*YOut) = VecYOut.takeDVector();
+  for (ii = 0; ii < nInputs_; ii++)
+  {
+    for (jj = 0; jj < totPts; jj++)
+      VecXT[jj*nInputs_+ii] = (VecXT[jj*nInputs_+ii] - VecXMeans_[ii]) /
+                              VecXStds_[ii];
+  } 
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation begins....\n");
+  TprosInterp(totPts, VecXT.getDVector(), *YOut, NULL);
+  if (psConfig_.InteractiveIsOn() && outputLevel_ >= 1) 
+    printf("GP1 interpolation completed.\n");
+  for (ii = 0; ii < totPts; ii++)
+    (*YOut)[ii] = ((*YOut)[ii] * YStd_) + YMean_;
+  (*NOut) = totPts;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
@@ -427,26 +483,24 @@ int GP1::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, int ind3,
 // ------------------------------------------------------------------------
 double GP1::evaluatePoint(double *X)
 {
-   double Y=0.0;
+  double Y=0.0;
 #ifdef HAVE_TPROS
-   int    ii, iOne=1;
-   double *XX;
-   if (XMeans_ == NULL)
-   {
-      printf("PSUADE ERROR : not initialized yet.\n");
-      exit(1);
-   }
-   XX = new double[nInputs_];
-   checkAllocate(XX, "XX in GP1::evaluatePoint");
-   for (ii = 0; ii < nInputs_; ii++)
-      XX[ii] = (X[ii] - XMeans_[ii]) / XStds_[ii];
-   TprosInterp(iOne, XX, &Y, NULL);
-   Y = Y * YStd_ + YMean_;
-   delete [] XX;
+  int    ii, iOne=1;
+  psVector VecXT;
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : not initialized yet.\n");
+    exit(1);
+  }
+  VecXT.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++)
+    VecXT[ii] = (X[ii] - VecXMeans_[ii]) / VecXStds_[ii];
+  TprosInterp(iOne, VecXT.getDVector(), &Y, NULL);
+  Y = Y * YStd_ + YMean_;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return Y;
+  return Y;
 }
 
 // ************************************************************************
@@ -455,26 +509,24 @@ double GP1::evaluatePoint(double *X)
 double GP1::evaluatePoint(int npts, double *X, double *Y)
 {
 #ifdef HAVE_TPROS
-   int    ii, jj;
-   double *XX;
-   if (XMeans_ == NULL)
-   {
-      printf("PSUADE ERROR : not initialized yet.\n");
-      exit(1);
-   }
-   XX = new double[npts*nInputs_];
-   checkAllocate(XX, "XX in GP1::evaluatePoint");
-   for (ii = 0; ii < nInputs_; ii++)
-      for (jj = 0; jj < npts; jj++)
-         XX[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - XMeans_[ii]) / XStds_[ii];
-   TprosInterp(npts, XX, Y, NULL);
-   for (jj = 0; jj < npts; jj++)
-      Y[jj] = Y[jj] * YStd_ + YMean_;
-   delete [] XX;
+  int ii, jj;
+  psVector VecXT;
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : not initialized yet.\n");
+    exit(1);
+  }
+  VecXT.setLength(npts*nInputs_);
+  for (ii = 0; ii < nInputs_; ii++)
+    for (jj = 0; jj < npts; jj++)
+      VecXT[jj*nInputs_+ii] = (X[jj*nInputs_+ii]-VecXMeans_[ii])/VecXStds_[ii];
+  TprosInterp(npts, VecXT.getDVector(), Y, NULL);
+  for (jj = 0; jj < npts; jj++)
+    Y[jj] = Y[jj] * YStd_ + YMean_;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return 0.0;
+  return 0.0;
 }
 
 // ************************************************************************
@@ -482,28 +534,26 @@ double GP1::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double GP1::evaluatePointFuzzy(double *X, double &std)
 {
-   double Y=0.0;
+  double Y=0.0;
 #ifdef HAVE_TPROS
-   int    ii;
-   double *XX;
-   if (XMeans_ == NULL)
-   {
-      printf("PSUADE ERROR : not initialized yet.\n");
-      exit(1);
-   }
-   XX = new double[nInputs_];
-   checkAllocate(XX, "XX in GP1::evaluatePointFuzzy");
-   for (ii = 0; ii < nInputs_; ii++)
-      XX[ii] = (X[ii] - XMeans_[ii]) / XStds_[ii];
-   TprosInterp(1, XX, &Y, &std);
-   Y = Y * YStd_ + YMean_;
-   if (std < 0) printf("GP1 ERROR: variance < 0\n");
-   else         std = sqrt(std) * YStd_;
-   delete [] XX;
+  int ii;
+  psVector VecXT;
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : not initialized yet.\n");
+    exit(1);
+  }
+  VecXT.setLength(nInputs_);
+  for (ii = 0; ii < nInputs_; ii++)
+    VecXT[ii] = (X[ii] - VecXMeans_[ii]) / VecXStds_[ii];
+  TprosInterp(1, VecXT.getDVector(), &Y, &std);
+  Y = Y * YStd_ + YMean_;
+  if (std < 0) printf("GP1 ERROR: variance < 0\n");
+  else         std = std * YStd_;
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return Y;
+  return Y;
 }
 
 // ************************************************************************
@@ -512,30 +562,28 @@ double GP1::evaluatePointFuzzy(double *X, double &std)
 double GP1::evaluatePointFuzzy(int npts,double *X, double *Y, double *Ystd)
 {
 #ifdef HAVE_TPROS
-   int    ii, jj;
-   double *XX;
-   if (XMeans_ == NULL)
-   {
-      printf("PSUADE ERROR : not initialized yet.\n");
-      exit(1);
-   }
-   XX = new double[npts*nInputs_];
-   checkAllocate(XX, "XX in GP1::evaluatePointFuzzy");
-   for (ii = 0; ii < nInputs_; ii++)
-      for (jj = 0; jj < npts; jj++)
-         XX[jj*nInputs_+ii] = (X[jj*nInputs_+ii] - XMeans_[ii]) / XStds_[ii];
-   TprosInterp(npts, XX, Y, Ystd);
-   for (int ii = 0; ii < npts; ii++)
-   {
-      Y[ii] = Y[ii] * YStd_ + YMean_;
-      if (Ystd[ii] < 0) printf("GP1 ERROR: variance < 0\n");
-      else              Ystd[ii] = sqrt(Ystd[ii]) * YStd_;
-   }
-   delete [] XX;
+  int    ii, jj;
+  psVector VecXT;
+  if (VecXMeans_.length() == 0)
+  {
+    printf("PSUADE ERROR : not initialized yet.\n");
+    exit(1);
+  }
+  VecXT.setLength(npts*nInputs_);
+  for (ii = 0; ii < nInputs_; ii++)
+    for (jj = 0; jj < npts; jj++)
+      VecXT[jj*nInputs_+ii] = (X[jj*nInputs_+ii]-VecXMeans_[ii])/VecXStds_[ii];
+  TprosInterp(npts, VecXT.getDVector(), Y, Ystd);
+  for (int ii = 0; ii < npts; ii++)
+  {
+    Y[ii] = Y[ii] * YStd_ + YMean_;
+    if (Ystd[ii] < 0) printf("GP1 ERROR: variance < 0\n");
+    else              Ystd[ii] = Ystd[ii] * YStd_;
+  }
 #else
-   printf("PSUADE ERROR : GP1 not installed.\n");
+  printf("PSUADE ERROR : GP1 not installed.\n");
 #endif
-   return 0.0;
+  return 0.0;
 }
 
 // ************************************************************************
@@ -543,99 +591,98 @@ double GP1::evaluatePointFuzzy(int npts,double *X, double *Y, double *Ystd)
 // ------------------------------------------------------------------------
 double GP1::setParams(int targc, char **targv)
 {
-   int    ii, *iArray = NULL, ind;
-   double *lengthScales=NULL, mmax, ddata=0.0, range;
-   char   pString[500];
-   FILE   *fp;
+  int    ii, ind;
+  double mmax, ddata=0.0, range;
+  char   pString[500];
+  FILE   *fp;
+  psVector  VecLScales;
+  psIVector VecIT;
                                                                                 
-   if (targc > 0 && !strcmp(targv[0], "rank"))
-   {
-      lengthScales = new double[nInputs_];
-      checkAllocate(lengthScales,"lengthScales in GP1::evaluatePointFuzzy");
+  if (targc > 0 && !strcmp(targv[0], "rank"))
+  {
+    VecLScales.setLength(nInputs_);
 #ifdef HAVE_TPROS
-      TprosGetLengthScales(nInputs_, lengthScales);
+    TprosGetLengthScales(nInputs_, VecLScales.getDVector());
 #else
-      printf("PSUADE ERROR : GP1 not installed.\n");
-      return 0.0;
+    printf("PSUADE ERROR : GP1 not installed.\n");
+    return 0.0;
 #endif
-      mmax = 0.0;
-      for (ii = 0; ii < nInputs_; ii++)
+    mmax = 0.0;
+    for (ii = 0; ii < nInputs_; ii++)
+    {
+      VecLScales[ii] = 1.0/VecLScales[ii];
+      if (VecXMeans_[ii] == 0 && VecXStds_[ii] == 1)
       {
-         lengthScales[ii] = 1.0/lengthScales[ii];
-         if (XMeans_[ii] == 0 && XStds_[ii] == 1)
-         {
-            range = upperBounds_[ii] - lowerBounds_[ii];
-            lengthScales[ii] *= range;
-         }
-         if (lengthScales[ii] > mmax) mmax = lengthScales[ii];
+        range = VecUBs_[ii] - VecLBs_[ii];
+        VecLScales[ii] *= range;
       }
+      if (VecLScales[ii] > mmax) mmax = VecLScales[ii];
+    }
+    for (ii = 0; ii < nInputs_; ii++)
+      VecLScales[ii] = VecLScales[ii] / mmax * 100.0;
+    if (plotScilab())
+         fp = fopen("scilabgpsa.sci", "w");
+    else fp = fopen("matlabgpsa.m", "w");
+    if (fp == NULL)
+    {
+      printf("GP1 ERROR: something wrong with opening a write file.\n");
+    }
+    else
+    {
+      fprintf(fp, "n = %d;\n", nInputs_);
+      fprintf(fp, "Y = [\n");
       for (ii = 0; ii < nInputs_; ii++)
-         lengthScales[ii] = lengthScales[ii] / mmax * 100.0;
-      if (psPlotTool_ == 1)
-           fp = fopen("scilabgpsa.sci", "w");
-      else fp = fopen("matlabgpsa.m", "w");
-      if (fp == NULL)
+        fprintf(fp, "%24.16e \n", PABS(VecLScales[ii]));
+      fprintf(fp, "]; \n");
+      fprintf(fp, "ymax = max(Y);\n");
+      fprintf(fp, "ymin = 0;\n");
+      fprintf(fp, "if (ymax == ymin)\n");
+      fprintf(fp, "   ymax = ymax * 0.1;\n");
+      fprintf(fp, "end;\n");
+      fwritePlotCLF(fp);
+      fprintf(fp, "bar(Y,0.8);\n");
+      fwritePlotAxes(fp);
+      sprintf(pString, "GP Ranking");
+      fwritePlotTitle(fp, pString);
+      sprintf(pString, "Input Numbers");
+      fwritePlotXLabel(fp, pString);
+      sprintf(pString, "GP Measure");
+      fwritePlotYLabel(fp, pString);
+      if (plotScilab())
       {
-         printf("GP1 ERROR: something wrong with opening a write file.\n");
+        fprintf(fp,"a=gca();\n");
+        fprintf(fp,
+           "a.data_bounds=[0, ymin; n+1, ymax+0.01*(ymax-ymin)];\n");
       }
       else
       {
-         fprintf(fp, "n = %d;\n", nInputs_);
-         fprintf(fp, "Y = [\n");
-         for (ii = 0; ii < nInputs_; ii++)
-            fprintf(fp, "%24.16e \n", PABS(lengthScales[ii]));
-         fprintf(fp, "]; \n");
-         fprintf(fp, "ymax = max(Y);\n");
-         fprintf(fp, "ymin = 0;\n");
-         fprintf(fp, "if (ymax == ymin)\n");
-         fprintf(fp, "   ymax = ymax * 0.1;\n");
-         fprintf(fp, "end;\n");
-         fwritePlotCLF(fp);
-         fprintf(fp, "bar(Y,0.8);\n");
-         fwritePlotAxes(fp);
-         sprintf(pString, "GP Ranking");
-         fwritePlotTitle(fp, pString);
-         sprintf(pString, "Input Numbers");
-         fwritePlotXLabel(fp, pString);
-         sprintf(pString, "GP Measure");
-         fwritePlotYLabel(fp, pString);
-         if (psPlotTool_ == 1)
-         {
-            fprintf(fp,"a=gca();\n");
-            fprintf(fp,
-               "a.data_bounds=[0, ymin; n+1, ymax+0.01*(ymax-ymin)];\n");
-         }
-         else
-         {
-            fprintf(fp,"axis([0 n+1 ymin ymax+0.01*(ymax-ymin)])\n");
-         }
-         fclose(fp);
-         if (psPlotTool_ == 1)
-              printf("GP ranking in file scilabgpsa.sci\n");
-         else printf("GP ranking in file matlabgpsa.m\n");
+        fprintf(fp,"axis([0 n+1 ymin ymax+0.01*(ymax-ymin)])\n");
       }
-      iArray = new int[nInputs_];
-      for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-      sortDbleList2a(nInputs_, lengthScales, iArray);
-      if (targc == 1)
-      {
-         printAsterisks(PL_INFO, 0);
-         printf("* GP1 screening rankings \n");
-         printAsterisks(PL_INFO, 0);
-         for (ii = nInputs_-1; ii >= 0; ii--)
-            printf("*  Rank %3d : Input = %3d (score = %5.1f) (ref = %e)\n", 
-                   nInputs_-ii, iArray[ii]+1, lengthScales[ii], 
-                   lengthScales[ii]*mmax*0.01);
-         printAsterisks(PL_INFO, 0);
-      }
-      if (targc > 1)
-      {
-         ind = *(int *) targv[1];
-         if (ind >= 0 && ind < nInputs_) ddata = lengthScales[ind];
-      }
-      delete [] lengthScales;
-   }
-   if(iArray != NULL) delete [] iArray;
-   return ddata;
+      fclose(fp);
+      if (plotScilab())
+           printf("GP ranking in file scilabgpsa.sci\n");
+      else printf("GP ranking in file matlabgpsa.m\n");
+    }
+    VecIT.setLength(nInputs_);
+    for (ii = 0; ii < nInputs_; ii++) VecIT[ii] = ii;
+    sortDbleList2a(nInputs_, VecLScales.getDVector(), VecIT.getIVector());
+    if (targc == 1)
+    {
+      printAsterisks(PL_INFO, 0);
+      printf("* GP1 screening rankings \n");
+      printAsterisks(PL_INFO, 0);
+      for (ii = nInputs_-1; ii >= 0; ii--)
+        printf("*  Rank %3d : Input = %3d (score = %5.1f) (ref = %e)\n", 
+               nInputs_-ii, VecIT[ii]+1, VecLScales[ii], 
+               VecLScales[ii]*mmax*0.01);
+      printAsterisks(PL_INFO, 0);
+    }
+    if (targc > 1)
+    {
+      ind = *(int *) targv[1];
+      if (ind >= 0 && ind < nInputs_) ddata = VecLScales[ind];
+    }
+  }
+  return ddata;
 }
 

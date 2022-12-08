@@ -35,31 +35,31 @@
 // ------------------------------------------------------------------------ 
 aData::aData()
 {
-   printLevel_    = 0;
-   nSamples_      = 0;
-   nInputs_       = 0;
-   nOutputs_      = 0;
-   outputID_      = 0;
-   currRefineLevel_  = 0;
-   refineSeparators_ = 0;
-   sampleStates_  = NULL;
-   sampleInputs_  = NULL;
-   sampleOutputs_ = NULL;
-   iLowerB_       = NULL;
-   iUpperB_       = NULL;
-   analysisThreshold_ = 0.0;
-   inputPDFs_ = NULL;
-   inputMeans_ = NULL;
-   inputStdevs_ = NULL;
-   nSubSamples_ = 0;
-   sampleErrors_ = NULL;
-   cvFlag_ = 0;
-   sampler_ = NULL;
-   inputXsforms_ = NULL;
-   regWgtID_ = -1;
-   ioPtr_ = NULL;
-   samplingMethod_ = -1;
-   retValues_ = NULL;
+  printLevel_    = 0;
+  nSamples_      = 0;
+  nSubSamples_   = 0;
+  nInputs_       = 0;
+  nOutputs_      = 0;
+  outputID_      = 0;
+  cvFlag_        = 0;
+  samplingMethod_    = -1;
+  regWgtID_          = -1;
+  currRefineLevel_   = 0;
+  refineSeparators_  = 0;
+  analysisThreshold_ = 0.0;
+  sampleStates_  = NULL;
+  sampleInputs_  = NULL;
+  sampleOutputs_ = NULL;
+  iLowerB_       = NULL;
+  iUpperB_       = NULL;
+  inputPDFs_     = NULL;
+  inputMeans_    = NULL;
+  inputStdevs_   = NULL;
+  sampleErrors_  = NULL;
+  inputXsforms_  = NULL;
+  retValues_     = NULL;
+  ioPtr_         = NULL;
+  sampler_       = NULL;
 }
 
 // ************************************************************************
@@ -67,8 +67,9 @@ aData::aData()
 // ------------------------------------------------------------------------ 
 aData::~aData()
 { 
-   if (sampleErrors_ != NULL) delete [] sampleErrors_;
-   if (inputXsforms_ != NULL) delete [] inputXsforms_;
+  //**/ other variables are passed by reference, so no need to deallocate
+  if (sampleErrors_ != NULL) delete [] sampleErrors_;
+  if (inputXsforms_ != NULL) delete [] inputXsforms_;
 }
 
 // ************************************************************************
@@ -76,8 +77,8 @@ aData::~aData()
 // ------------------------------------------------------------------------
 aData& aData::operator=(const aData &)
 {
-   printOutTS(PL_ERROR, "aData operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printOutTS(PL_ERROR, "aData operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

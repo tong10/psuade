@@ -6,7 +6,6 @@
  * */
 
 #include "lbfgsb.h"
-static integer c__1 = 1;
 
 int dpofa(double *a, integer *lda, integer *n, integer *
 	info)
@@ -18,9 +17,9 @@ int dpofa(double *a, integer *lda, integer *n, integer *
     double sqrt(double);
 
     /* Local variables */
-    static integer j, k;
-    static double s, t;
-    static integer jm1;
+    integer j, k, iOne=1;
+    double s, t;
+    integer jm1;
 
 /*
     dpofa factors a double precision symmetric positive definite 
@@ -85,8 +84,8 @@ int dpofa(double *a, integer *lda, integer *n, integer *
 	i__2 = jm1;
 	for (k = 1; k <= i__2; ++k) {
 	    i__3 = k - 1;
-	    t = a[k + j * a_dim1] - ddot(&i__3, &a[k * a_dim1 + 1], &c__1, &
-		    a[j * a_dim1 + 1], &c__1);
+	    t = a[k + j * a_dim1] - ddot(&i__3, &a[k * a_dim1 + 1], &iOne, &
+		    a[j * a_dim1 + 1], &iOne);
 	    t /= a[k + k * a_dim1];
 	    a[k + j * a_dim1] = t;
 	    s += t * t;
@@ -112,11 +111,11 @@ int dtrsl(double *t, integer *ldt, integer *n,
 	double *b, integer *job, integer *info)
 {
     /* System generated locals */
-    integer t_dim1, t_offset, i__1, i__2;
+    integer t_dim1, t_offset, i__1, i__2, iOne=1;
 
     /* Local variables */
-    static integer j, jj, case__;
-    static double temp;
+    integer j, jj, case__;
+    double temp;
     /*
     extern double ddot(integer *, double *, integer *, double *, 
 	    integer *);
@@ -232,7 +231,7 @@ L20:
     for (j = 2; j <= i__1; ++j) {
         temp = -b[j - 1];
         i__2 = *n - j + 1;
-        daxpy(&i__2, &temp, &t[j + (j - 1) * t_dim1], &c__1, &b[j], &c__1);
+        daxpy(&i__2, &temp, &t[j + (j - 1) * t_dim1], &iOne, &b[j], &iOne);
         b[j] /= t[j + j * t_dim1];
         /* L30: */
     }
@@ -250,7 +249,7 @@ L50:
     for (jj = 2; jj <= i__1; ++jj) {
         j = *n - jj + 1;
         temp = -b[j + 1];
-        daxpy(&j, &temp, &t[(j + 1) * t_dim1 + 1], &c__1, &b[1], &c__1);
+        daxpy(&j, &temp, &t[(j + 1) * t_dim1 + 1], &iOne, &b[1], &iOne);
         b[j] /= t[j + j * t_dim1];
         /* L60: */
     }
@@ -268,7 +267,7 @@ L80:
     for (jj = 2; jj <= i__1; ++jj) {
         j = *n - jj + 1;
         i__2 = jj - 1;
-        b[j] -= ddot(&i__2, &t[j + 1 + j * t_dim1], &c__1, &b[j + 1], &c__1);
+        b[j] -= ddot(&i__2, &t[j + 1 + j * t_dim1], &iOne, &b[j + 1], &iOne);
         b[j] /= t[j + j * t_dim1];
         /* L90: */
     }
@@ -285,7 +284,7 @@ L110:
     i__1 = *n;
     for (j = 2; j <= i__1; ++j) {
         i__2 = j - 1;
-        b[j] -= ddot(&i__2, &t[j * t_dim1 + 1], &c__1, &b[1], &c__1);
+        b[j] -= ddot(&i__2, &t[j * t_dim1 + 1], &iOne, &b[1], &iOne);
         b[j] /= t[j + j * t_dim1];
         /* L120: */
     }

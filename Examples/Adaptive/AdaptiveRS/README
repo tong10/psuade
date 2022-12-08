@@ -1,0 +1,113 @@
+=============================================================
+This example demonstrates adaptive response surface analysis
+(i.e. iteratively searching for most active regions in the
+      parameter space and put more samples there):
+The test function is flat everywhere except the upper edge, 
+the right edge, and especially the upper right corner (which 
+is a sine function - you can examine the simulator.c file). 
+Adaptive sampling should ideally be directed mostly around 
+these regions.
+
+=============================================================
+* To set up adaptive sampling and analysis in the PSUADE input 
+  file (psuadeARSM1.in), the following information are needed:
+  - set the analysis method to ARSM
+  - set sample method to be METIS (sampling)
+  - set the initial sample size (num_samples)
+  - set the number of refinements (num_refinements)
+  - set refinement_type to adaptive
+  - set refinement_size (increment per iteration) 
+  - Note: rs_type will not be used (you will be asked though)
+* Read psuadeARSM1.in to see how these are set
+=============================================================
+
+To run adaptive sampling in batch mode:
+(1) cc -o simulator simulator.c -lm
+(2) psuade psuadeARSM1.in
+    <answer '3' to select adaptive sampling option>
+    <answer 'n' to not use a test set>
+    <answer 'n' to not use a validation set>
+    <answer '1' to select MARS with bagging>
+        
+(3) After completeion:
+    - rename psuadeData to, say, rssample
+    - launch psuade, load rssample, and run 'rs2' (select MARS)
+    - use matlab to view the response surface
+
+NOTE: These steps have been captured in psScript1.in.
+      So just run: psuade < psScript1.in and afterward you
+      will have the adaptive sample called rssample.
+
+-------------------------------------------------------------
+To compare adaptive sampling against uniform sampling 
+qualitatively:
+(1) run: psuade psuadeNoARSM.in
+(2) rename psuadeData to, say, rssample2
+(3) launch psuade, load rssample2, and run 'rs2' (use MARS)
+(4) now use matlab to view the response surface
+
+Can you see any differences between the 2 response surfaces?
+- the first one generated from adaptive sampling
+- the second one generated from static sampling (same sample size)
+
+NOTE: Steps (1) and (2) above have been captured by psScript2.in. 
+      So just run: psuade < psScript2.in and afterward you
+      will have the adaptive sample called rssamples.
+-------------------------------------------------------------
+To compare adaptive sampling against uniform sampling 
+quantitatively, you will have to test your response surface 
+against a test set (different from the set used to build 
+the response surface), do:
+
+A. Keep the rssample from your previous run with the script
+   psScript1.in running adaptive sampling.
+B. Keep the rssample2 from your previous run with the script
+   psScript2.in running uniform sampling.
+C. Create a test sample
+     * cc -o simulator simulator.c -lm
+     * psuade psuadeValidate.in
+     * rename psuadeData (to, e.g. vsample)
+D. launch psuade, 
+     * load rssample (the adaptive sample)
+     * call rstest_hs and enter vsample as test set
+     * RSTest_hs.m will be created
+     * run Matlab with RSTest_hs.m (and keep the plot)
+     * load rssample2 (the uniform sample)
+     * call rstest_hs and enter vsample as test set
+     * RSTest_hs.m will be created
+     * run Matlab with RSTest_hs.m (another plot window) 
+     * Compare the error means and standard deviations 
+       between the 2 (the interpolation error standard 
+       deviation for uniform sampling should be larger
+       than that of adaptive sampling).
+
+Note: Steps in IC,D have been captured in psScript3.in
+ 
+-------------------------------------------------------------
+Also, you can look at the locations of the adaptive sample 
+points by plotting the points:
+
+- Beginning with the sample created by adaptive sampling
+  (say, rssample)
+- launch psuade
+  > load rssample
+  > iplot2
+    <select input 1 to be the X axis>
+
+- use matlab to view matlabiplt2.m
+
+=============================================================
+More information
+-------------------------------------------------------------
+Note: ARSM1 uses stochastic response surface (e.g. MarsBag
+      and metis to bisect and estimate errors in order to 
+      add new points 
+Note: ARSMNN uses response surface and metis and add new 
+      points based on gradients of adjacent subdomains.
+=============================================================
+
+After you are finished with this study, do:
+  make -f MakeClean
+
+to clean things up.
+

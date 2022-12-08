@@ -1,0 +1,25 @@
+Delta test problem in
+
+"Using the Delta test for Variable selection" by Eirola, Liitiainen,
+Lendasse, Corona and Verleysen
+
+
+The function is
+
+f(x1,x2,x3,x4,x5,x6) = cos(2pi x1) cos(4pi x2) exp(x2) exp(2x3)
+
+==> the first 3 parameters are significant, the rest are not.
+
+Steps:
+
+cc -o simulator simulator.c -lm
+
+psuade psuade.in
+
+mv psuadeData psdata
+
+psuade
+> load psdata
+> delta_test
+<answer questions>
+

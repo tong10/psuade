@@ -1,0 +1,27 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable   1 X1 = -2  2
+   variable   2 X2 = -2  2
+   variable   3 X3 = -2  2
+END
+OUTPUT
+   dimension = 4
+   variable 1 Y
+   variable 2 Y1
+   variable 3 Y2
+   variable 4 Y3
+END
+METHOD
+   sampling = LH
+   num_samples = 6
+END
+APPLICATION
+   driver = ./simulator
+END
+ANALYSIS
+   analyzer output_id  = 1
+   printlevel 1
+END
+END
+

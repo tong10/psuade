@@ -1,0 +1,71 @@
+A comparison of several optimization on the Bulatov problem
+which is a six-th order polynomial as given in simulator.c.
+
+A. use Manifold Mapping (MM) to optimize
+   - MM uses two simulators 
+     + a low-fidelity (supposedly computationally cheaper)
+     + a high fidelity 
+   - the high fidelity simulator is pointed to by opt_driver
+   - the low fidelity simulator is pointed to by aux_opt_driver
+   - in this example, the low fidelity simulator is actually
+     a response surface (initially 10 points using Kriging)
+   - This example uses mm_adaptive, i.e. the low fidelity
+     simulator changes every time after the high fidelity
+     simulator has been called. Steps are:
+
+1. create executable 'simulator'
+   cc -o simulator simulator.c -lm
+
+2. generate 10 sample points ==> psdata
+   psuade psuadeRS.in
+   mv psuadeData psdata
+
+3. run MM
+   psuade psuadeMM.in
+
+   + Note: the reason for the target file is that MM attempts
+           to minimize a positive objective function, hence
+           you need to provide target minimum values for
+           the outputs in order to create the rms metric.
+           If one does not know what the minimum values are,
+           simply use the ones that you believe the outputs 
+           will never go below.
+   + Note: the reason for the configure file here is that we
+           would like to the most accurate Kriging (option 3
+           in Kriging) but the default is option 2. If we 
+           just turn on the rs_expert mode to allow us to
+           change the option, then every time the high 
+           fidelity simulator is called, PSUADE will ask you
+           for the option and other information. To avoid this
+           frequent interactions, you can specify Kriging 
+           option 3 in the configure file and Kriging will
+           automatically change to this option. 
+
+4. At the end, you can examine the number of high fidelity
+   simulation needed for convergence and the converged
+   values (NOTE: Ymin is not your minimum value, it is
+   just the rms computed from the simulation output and
+   the target data (in psuade_archive).
+
+5. Finally, when you are done, clean up everything
+   - psuade_mm_data and psuade_mmc_data 
+   - psuade_archive
+   - simulator
+   - psdata
+
+B. use Bobyqa to optimize
+
+1. create executable 'simulator'
+   cc -o simulator simulator.c -lm
+
+2. run Bobyqa
+   psuade psuadeBobyqa.in
+
+3. At the end, you can examine the number of high fidelity
+   simulation needed for convergence in psuade_archive.
+
+4. Finally, when you are done, clean up everything
+   - psuade_bobyqa_history
+   - psuade_archive
+   - simulator
+

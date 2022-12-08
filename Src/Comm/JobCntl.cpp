@@ -167,6 +167,9 @@ int JobCntl::execute()
    int   ss, runJobs, pJobCnt, jobsCompleted;
    int   status, ii;
 
+   //**/ -------------------------------------------------------------------
+   //**/ error checking
+   //**/ -------------------------------------------------------------------
    if (nSamples_ <= 0 || nInputs_ <= 0 || nOutputs_ <= 0)
    {
       printf("JobCntl execute ERROR: scalar parameters not set.\n");
@@ -183,9 +186,15 @@ int JobCntl::execute()
       exit(1);
    }
 
+   //**/ -------------------------------------------------------------------
+   //**/ count the number of jobs to be run
+   //**/ -------------------------------------------------------------------
    runJobs = 0;
    for (ss = 0; ss < nSamples_; ss++) if (sampleStates_[ss] == 0) runJobs++;
 
+   //**/ -------------------------------------------------------------------
+   //**/ run selected sample points (with state = 0)
+   //**/ -------------------------------------------------------------------
 
    pJobCnt = 0;
    jobsCompleted = 0;
@@ -194,6 +203,7 @@ int JobCntl::execute()
       for (ss = 0; ss < nSamples_; ss++)
       {
 #ifdef HAVE_PYTHON
+         //**/ Yield control to python so it can update the GUI
          PyObject* temp;
          if (update_gui != NULL) {
             temp = PyObject_CallObject(update_gui, NULL);
@@ -202,6 +212,9 @@ int JobCntl::execute()
 #endif
          if ((sampleStates_[ss] == 0) && (pJobCnt < maxPJobs_))
          {
+            //**/ -------------------------------------------------------
+            //**/ run the job
+            //**/ -------------------------------------------------------
 
             status = funcIO_->evaluate(ss,nInputs_,
                          &sampleInputs_[ss*nInputs_], nOutputs_, 
@@ -216,6 +229,10 @@ int JobCntl::execute()
                printf("\t\toutput data     = %24.16e\n",sampleOutputs_[ss]);
             }
 
+            //**/ -------------------------------------------------------
+            //**/ if sample run is completed (status=0), store the result
+            //**/ if not, increment counter and wait
+            //**/ -------------------------------------------------------
 
             if (status == 0) 
             {
@@ -237,6 +254,9 @@ int JobCntl::execute()
          }
          else if (sampleStates_[ss] >= 2)
          {
+            //**/ -------------------------------------------------------
+            //**/ state >= 2 : examine if the job has been completed
+            //**/ -------------------------------------------------------
 
             status = funcIO_->evaluate(ss,nInputs_,
                            &sampleInputs_[ss*nInputs_], nOutputs_, 
@@ -258,6 +278,9 @@ int JobCntl::execute()
          }
       }
 
+      //**/ -------------------------------------------------------------
+      //**/ if not all have been completed, wait for some time
+      //**/ -------------------------------------------------------------
 
       if ((jobsCompleted < runJobs) && (jobWaitTime_ > 0))
       {
@@ -282,6 +305,9 @@ int JobCntl::getSampleOutputs(int nSamples, int nOutputs, double *outputs)
 {
    int ii;
 
+   //**/ -------------------------------------------------------------------
+   //**/ error checking
+   //**/ -------------------------------------------------------------------
    if (nSamples_ <= 0 || nInputs_ <= 0 || nOutputs_ <= 0)
    {
       printf("JobCntl getSampleOutputs ERROR: scalar parameters not set.\n");
@@ -303,6 +329,9 @@ int JobCntl::getSampleOutputs(int nSamples, int nOutputs, double *outputs)
       exit(1);
    }
 
+   //**/ -------------------------------------------------------------------
+   //**/ copy data back
+   //**/ -------------------------------------------------------------------
    for (ii = 0; ii < nSamples*nOutputs; ii++) outputs[ii] = sampleOutputs_[ii];
 
    return 0;

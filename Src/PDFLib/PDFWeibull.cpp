@@ -24,6 +24,8 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2012
 // ************************************************************************
+//**/ support [0, infty)
+//**/ lambda > 0, k > 0
 // ************************************************************************
 #include <stdio.h>
 #include <math.h>
@@ -37,13 +39,13 @@
 // ------------------------------------------------------------------------
 PDFWeibull::PDFWeibull(double lambda, double k)
 {
-   lambda_ = lambda;
-   k_      = k;
-   if (lambda_ < 0 || k_ < 0)
-   {
-      printf("PDFWeibull: lambda and k have to be > 0.\n");
-      exit(1);
-   }
+  lambda_ = lambda;
+  k_      = k;
+  if (lambda_ < 0 || k_ < 0)
+  {
+    printf("PDFWeibull: lambda and k have to be > 0.\n");
+    exit(1);
+  }
 }
 
 // ************************************************************************
@@ -58,24 +60,24 @@ PDFWeibull::~PDFWeibull()
 // ------------------------------------------------------------------------
 int PDFWeibull::getPDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double xdata, ddata, mult;
+  int    ii;
+  double xdata, ddata, mult;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFWeibull: getPDF begins (length = %d)\n",length);
-   mult = k_ / lambda_;
-   for (ii = 0; ii < length; ii++)
-   {
-      xdata = inData[ii];
-      if (xdata < 0) outData[ii] = 0.0;
-      else
-      {
-         ddata = xdata / lambda_;
-         outData[ii] = mult * pow(ddata,k_-1) * exp(-pow(ddata,k_));
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFWeibull: getPDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFWeibull: getPDF begins (length = %d)\n",length);
+  mult = k_ / lambda_;
+  for (ii = 0; ii < length; ii++)
+  {
+    xdata = inData[ii];
+    if (xdata < 0) outData[ii] = 0.0;
+    else
+    {
+      ddata = xdata / lambda_;
+      outData[ii] = mult * pow(ddata,k_-1) * exp(-pow(ddata,k_));
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFWeibull: getPDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -83,82 +85,87 @@ int PDFWeibull::getPDF(int length, double *inData, double *outData)
 // ------------------------------------------------------------------------
 int PDFWeibull::getCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double ddata;
+  int    ii;
+  double ddata;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFWeibull: getCDF begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if      (ddata < 0)
-      {
-         printf("PDFWeibull getCDF ERROR: incoming data < 0.\n");
-         exit(1);
-      }
-      outData[ii] = 1.0 - exp(-pow(ddata/lambda_,k_));
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFWeibull: getCDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFWeibull: getCDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if      (ddata < 0)
+    {
+      printf("PDFWeibull getCDF ERROR: incoming data < 0.\n");
+      exit(1);
+    }
+    outData[ii] = 1.0 - exp(-pow(ddata/lambda_,k_));
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFWeibull: getCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFWeibull::invCDF(int length, double *inData, double *outData,
-                    double lower, double upper)
+int PDFWeibull::invCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double scale, ddata, xlo, xhi, ylo, yhi, xmi, ymi;
+  int    ii;
+  double ddata, xlo, xhi, ylo, yhi, xmi, ymi;
 
-   if (upper <= lower)
-   {
-      printf("PDFWeibull invCDF ERROR - lower bound >= upper bound.\n");
+  //**/ -------------------------------------------------------------
+  //**/ map the input data onto the CDF
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFWeibull: invCDF begins (length = %d)\n",length);
+
+  //**/ first find upper bound for X
+  double XHI = 0.0;
+  double YHI = 0.0;
+  while (YHI < 0.9999)
+  {
+    XHI += 1.0;
+    YHI = 1.0 - exp(-pow(XHI/lambda_,k_));
+  }
+
+  //**/ do invert
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if (ddata <= 0 || ddata >= 1)
+    {
+      printf("PDFWeibull invCDF ERROR - CDF value %e not in (0,1).\n",
+             ddata);
       exit(1);
-   }
-
-   if (psPDFDiagMode_ == 1)
-      printf("PDFWeibull: invCDF begins (length = %d)\n",length);
-   scale = upper - lower;
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if (ddata < 0)
+    }
+    xlo = 0;
+    ylo = 1.0 - exp(-pow(xlo/lambda_,k_));
+    xhi = XHI;
+    yhi = YHI;
+    if      (ddata <= ylo) outData[ii] = xlo;
+    else if (ddata >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
       {
-         printf("PDFWeibull invCDF ERROR - data %e not in [0,infty).\n",
-                ddata);
-         exit(1);
+        xmi = 0.5 * (xhi + xlo);
+        ymi = 1.0 - exp(-pow(xmi/lambda_,k_));
+        if (ddata > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-      xlo = lower;
-      xhi = upper;
-      ylo = 1.0 - exp(-pow(xlo/lambda_,k_));
-      yhi = 1.0 - exp(-pow(xhi/lambda_,k_));
-      ddata = (ddata - lower) / scale * (yhi - ylo) + ylo;
-      if      (ddata <= ylo) outData[ii] = xlo;
-      else if (ddata >= yhi) outData[ii] = xhi;
-      else
-      {
-         while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            ymi = 1.0 - exp(-pow(xmi/lambda_,k_));
-            if (ddata > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
-         else                                   outData[ii] = xhi;
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFWeibull: invCDF ends.\n");
-   return 0;
+      if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
+      else                                   outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFWeibull: invCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -167,57 +174,64 @@ int PDFWeibull::invCDF(int length, double *inData, double *outData,
 int PDFWeibull::genSample(int length, double *outData, double *lowers,
                           double *uppers)
 {
-   int    ii;
-   double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
+  int    ii;
+  double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
 
-   if (lowers == NULL || uppers == NULL)
-   {
-      printf("PDFWeibull genSample ERROR - lower/upper bound unavailable.\n");
-      exit(1);
-   }
-   lower = lowers[0];
-   upper = uppers[0];
-   if (upper <= lower)
-   {
-      printf("PDFWeibull genSample ERROR - lower bound >= upper bound.\n");
-      exit(1);
-   }
+  //**/ -------------------------------------------------------------
+  //**/ upper and lower bounds has to be in (0,1), and upper > lower
+  //**/ -------------------------------------------------------------
+  if (lowers == NULL || uppers == NULL)
+  {
+    printf("PDFWeibull genSample ERROR - lower/upper bound unavailable.\n");
+    exit(1);
+  }
+  lower = lowers[0];
+  upper = uppers[0];
+  if (upper <= lower)
+  {
+    printf("PDFWeibull genSample ERROR - lower bound >= upper bound.\n");
+    exit(1);
+  }
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFWeibull: genSample begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      UU = PSUADE_drand();
-      xlo = lower;
-      xhi = upper;
-      ylo = 1.0 - exp(-pow(xlo/lambda_,k_));
-      yhi = 1.0 - exp(-pow(xhi/lambda_,k_));
-      UU = UU * (yhi - ylo) + ylo;
-      if      (UU <= ylo) outData[ii] = xlo;
-      else if (UU >= yhi) outData[ii] = xhi;
-      else
+  //**/ -------------------------------------------------------------
+  //**/ generate sample
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFWeibull: genSample begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    UU = PSUADE_drand();
+    xlo = lower;
+    xhi = upper;
+    ylo = 1.0 - exp(-pow(xlo/lambda_,k_));
+    yhi = 1.0 - exp(-pow(xhi/lambda_,k_));
+    UU = UU * (yhi - ylo) + ylo;
+    if      (UU <= ylo) outData[ii] = xlo;
+    else if (UU >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
       {
-         while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            ymi = 1.0 - exp(-pow(xmi/lambda_,k_));
-            if (UU > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
-         else                             outData[ii] = xhi;
+        xmi = 0.5 * (xhi + xlo);
+        ymi = 1.0 - exp(-pow(xmi/lambda_,k_));
+        if (UU > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFWeibull: genSample ends.\n");
-   return 0;
+      if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
+      else                             outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFWeibull: genSample ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -225,7 +239,7 @@ int PDFWeibull::genSample(int length, double *outData, double *lowers,
 // ------------------------------------------------------------------------
 double PDFWeibull::getMean()
 {
-   if (k_ > 0.0) return (lambda_ * Gamma_Function(1.0 + 1.0 / k_));
-   else          return 0.0;
+  if (k_ > 0.0) return (lambda_ * Gamma_Function(1.0 + 1.0 / k_));
+  else          return 0.0;
 }
 

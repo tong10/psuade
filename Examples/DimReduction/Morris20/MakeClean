@@ -1,0 +1,3 @@
+clean:
+	rm -f *.m *.sci psuadeData simdata psuadeApp* simulator psuade_stop psSave
+

@@ -1,0 +1,48 @@
+This test problem demonstrates how to perform numerical
+optimization (with continuous variables only) when the
+simulation model (F(X) where X are the inputs) has been
+replaced with the response surfaces (\hat{F}) created 
+using a training sample and the experimental data set 
+(D) is to be supplied by users at runtime. So the 
+formulation is:
+
+min_{X} ||\hat{F}-D||^2
+
+
+How to use this capability:
+
+The key setup consists of:
+(1) Create a training sample (to be used to create \hat{F})
+
+    - run: psuade psuadeRS.in (after compiling simulator.c)
+    - rename psuadeData to 'simdata'
+    
+(2) Create a data file (for D)
+
+    - e.g. in dataFile
+      * Line 1: number of data, number of inputs, input indices
+      * Line 2: 1 <data 1 inputs> <data mean> <data s.d.>
+      * Line 3: 2 <data 2 inputs> <data mean> <data s.d.>
+      ...
+
+(3) Create a PSUADE input file: psuadeOpt.in
+
+    - Make sure nInputs = nInputs in training sample - 
+                          nInputs in experimental set
+    - set opt_driver = PSUADE_LOCAL
+
+
+
+Then, during run time, do:
+
+   psuade psuadeOpt.in
+
+   * Supply simdata when asked for a training sample
+   * Select response surface type for each output
+   * Supply experimental data set (dataFile)
+
+An example run script: psScript.in 
+   (which uses quartic polynomial as response surface)
+
+do: psuade psuadeOpt.in < psScript.in
+

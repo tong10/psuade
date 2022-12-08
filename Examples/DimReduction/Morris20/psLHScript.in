@@ -1,0 +1,16 @@
+sys cc -o simulator simulator.c -lm
+run psuadeLH.in
+rename psuadeData simdata
+load simdata
+delta_test
+y
+1
+sot_sa
+y
+1
+mars_sa
+y
+1
+0
+quit
+

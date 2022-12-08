@@ -1,0 +1,11 @@
+clean:
+	@rm -f */*.o
+	@rm -f */simulator */.psuade_* */psuade*MetisInfo* 
+	@rm -f */*simulator */*/.psuade_* */*/psuade*MetisInfo*
+	@rm -f */psuadeData
+	@rm -f */*/psuadeData
+	@rm -f */psuadeApps_ct.*
+	@rm -f */*/psuadeApps_ct.*
+	@rm -f */*.m */*.sci
+	@rm -f */*/*.m */*/*.sci
+

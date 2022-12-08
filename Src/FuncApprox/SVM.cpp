@@ -56,107 +56,108 @@ extern "C"
 SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 {
 #ifdef HAVE_SVM
-   int    idata;
-   double ddata;
-   char   *inStr, winput1[500], winput2[500];
+  int    idata;
+  double ddata;
+  char   *inStr, winput1[500], winput2[500];
 
-   faID_ = PSUADE_RS_SVM;
-   gamma_ = 1.0;
-   tolerance_ = 1.0e-6;
-   kernel_ = 2;
-   if (psRSExpertMode_ != 1 && psConfig_ != NULL)
-   {
-      inStr = psConfig_->getParameter("SVM_tol");
-      if (inStr != NULL)
+  faID_ = PSUADE_RS_SVM;
+  gamma_ = 1.0;
+  tolerance_ = 1.0e-6;
+  //**/ radial basis = 2
+  kernel_ = 2;
+  if (!psConfig_.RSExpertModeIsOn())
+  {
+    inStr = psConfig_.getParameter("SVM_tol");
+    if (inStr != NULL)
+    {
+      sscanf(inStr, "%s %s %lg\n", winput1, winput2, &ddata);
+      if (winput2[0] != '=')
+        printf("SVM read config file syntax error : %s\n", inStr);
+      else if (ddata < 0.0 || ddata < 1.0-6 || ddata >= 1e6)
       {
-         sscanf(inStr, "%s %s %lg\n", winput1, winput2, &ddata);
-         if (winput2[0] != '=')
-            printf("SVM read config file syntax error : %s\n", inStr);
-         else if (ddata < 0.0 || ddata < 1.0-6 || ddata >= 1e6)
-         {
-            printf("SVM read config file : read tol error : %e\n", ddata);
-            printf("                       tol kept at %e\n", tolerance_);
-         }
-         else
-         {
-            tolerance_ = ddata;
-            printf("SVM : tol   set to %e (config)\n", tolerance_);
-         }
+        printf("SVM read config file : read tol error : %e\n", ddata);
+        printf("                       tol kept at %e\n", tolerance_);
       }
-      inStr = psConfig_->getParameter("SVM_gamma");
-      if (inStr != NULL)
+      else
       {
-         sscanf(inStr, "%s %s %lg\n", winput1, winput2, &ddata);
-         if (winput2[0] != '=')
-            printf("SVM read config file syntax error : %s\n", inStr);
-         else if (ddata < 0.0 || ddata < 1.0-6 || ddata > 1.0e6)
-         {
-            printf("SVM read config file : gamma error : %e\n", ddata);
-            printf("                       gamma kept at %e\n", gamma_);
-         }
-         else
-         {
-            gamma_ = ddata;
-            printf("SVM : gamma set to %e (config)\n", gamma_);
-         }
+        tolerance_ = ddata;
+        printf("SVM : tol   set to %e (config)\n", tolerance_);
       }
-      inStr = psConfig_->getParameter("SVM_kernel");
-      if (inStr != NULL)
+    }
+    inStr = psConfig_.getParameter("SVM_gamma");
+    if (inStr != NULL)
+    {
+      sscanf(inStr, "%s %s %lg\n", winput1, winput2, &ddata);
+      if (winput2[0] != '=')
+        printf("SVM read config file syntax error : %s\n", inStr);
+      else if (ddata < 0.0 || ddata < 1.0-6 || ddata > 1.0e6)
       {
-         sscanf(inStr, "%s %s %d\n", winput1, winput2, &idata);
-         if (winput2[0] != '=')
-            printf("SVM read config file syntax error : %s\n", inStr);
-         else if (idata < 1 || idata > 4)
-         {
-            printf("SVM read config file : kernel error : %d (must be 1-4)\n",
-                   idata);
-            printf("                       kernel kept at %d\n",kernel_+1);
-         }
-         else
-         {
-            kernel_ = idata - 1;
-            printf("SVM : kernel set to %d (config)\n", kernel_);
-         }
+        printf("SVM read config file : gamma error : %e\n", ddata);
+        printf("                       gamma kept at %e\n", gamma_);
       }
-   }
-   if (psRSExpertMode_ == 1)
-   {
-      printf("SVM kernel options: \n");
-      printf("1. linear\n");
-      printf("2. third order polynomial\n");
-      printf("3. radial basis function\n");
-      printf("4. sigmoid function\n");
-      printf("SVM: enter kernel type (1 - 4) : ");
-      scanf("%d", &kernel_);
-      if (kernel_ < 1 || kernel_ > 4)
+      else
       {
-         printf("SVM ERROR : invalid kernel type, set to 3.\n");
-         kernel_ = 3;
+        gamma_ = ddata;
+        printf("SVM : gamma set to %e (config)\n", gamma_);
       }
-      kernel_--;
-      printf("SVM: enter tolerance (1.0e-6 to 1e6) : ");
-      scanf("%lg", &tolerance_);
-      if (tolerance_ < 1.0-6 || tolerance_ > 1e6)
+    }
+    inStr = psConfig_.getParameter("SVM_kernel");
+    if (inStr != NULL)
+    {
+      sscanf(inStr, "%s %s %d\n", winput1, winput2, &idata);
+      if (winput2[0] != '=')
+        printf("SVM read config file syntax error : %s\n", inStr);
+      else if (idata < 1 || idata > 4)
       {
-         printf("SVM ERROR : invalid tolerance, set to 1.0e-4\n");
-         tolerance_ = 1.0e-4;
+        printf("SVM read config file : kernel error : %d (must be 1-4)\n",
+               idata);
+        printf("                       kernel kept at %d\n",kernel_+1);
       }
-      if (kernel_ == 2)
+      else
       {
-         printf("SVM: enter RBF_gamma (1.0e-6 to 1.0e6) : ");
-         scanf("%lg", &gamma_);
-         if (gamma_ < 1.0-6 || gamma_ > 1.0e6)
-         {
-            printf("SVM ERROR : invalid RBF_gamma, set to 1.0\n");
-            gamma_ = 1.0;
-         }
+        kernel_ = idata - 1;
+        printf("SVM : kernel set to %d (config)\n", kernel_);
       }
-      fgets(winput1, 500, stdin);
-   }
-   if (kernel_ != -1) SVMSetKernel(kernel_);
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
+    }
+  }
+  if (psConfig_.RSExpertModeIsOn())
+  {
+    printf("SVM kernel options: \n");
+    printf("1. linear\n");
+    printf("2. third order polynomial\n");
+    printf("3. radial basis function\n");
+    printf("4. sigmoid function\n");
+    printf("SVM: enter kernel type (1 - 4) : ");
+    scanf("%d", &kernel_);
+    if (kernel_ < 1 || kernel_ > 4)
+    {
+      printf("SVM ERROR : invalid kernel type, set to 3.\n");
+      kernel_ = 3;
+    }
+    kernel_--;
+    printf("SVM: enter tolerance (1.0e-6 to 1e6) : ");
+    scanf("%lg", &tolerance_);
+    if (tolerance_ < 1.0-6 || tolerance_ > 1e6)
+    {
+      printf("SVM ERROR : invalid tolerance, set to 1.0e-4\n");
+      tolerance_ = 1.0e-4;
+    }
+    if (kernel_ == 2)
+    {
+      printf("SVM: enter RBF_gamma (1.0e-6 to 1.0e6) : ");
+      scanf("%lg", &gamma_);
+      if (gamma_ < 1.0-6 || gamma_ > 1.0e6)
+      {
+        printf("SVM ERROR : invalid RBF_gamma, set to 1.0\n");
+        gamma_ = 1.0;
+      }
+    }
+    fgets(winput1, 500, stdin);
+  }
+  if (kernel_ != -1) SVMSetKernel(kernel_);
+  if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
 }
 
@@ -166,7 +167,7 @@ SVM::SVM(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
 SVM::~SVM()
 {
 #ifndef HAVE_SVM
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
 }
 
@@ -176,280 +177,306 @@ SVM::~SVM()
 int SVM::initialize(double *X, double *Y)
 {
 #ifdef HAVE_SVM
-   int    ss;
-   double *stds;
+  int ss;
+  psVector vecStds;
 
-   stds = new double[nSamples_];
-   checkAllocate(stds, "stds in SVM::initialize");
-   if (outputLevel_ >= 1)
-   {
-      printf("SVM training begins....\n");
-      if (kernel_ == 0) printf("SVM kernel = linear\n");
-      if (kernel_ == 1) printf("SVM kernel = third order polynomial\n");
-      if (kernel_ == 2) printf("SVM kernel = radial basis function\n");
-      if (kernel_ == 3) printf("SVM kernel = sigmoid function\n");
-      printf("SVM epsilon   = %e\n",tolerance_);
-      if (kernel_ == 2)
-      printf("SVM RBF_gamma = %e\n",gamma_);
-   }
-   if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
-   if (kernel_ != -1) SVMSetKernel(kernel_);
-   SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, stds);
-   for (ss = 0; ss < nSamples_; ss++) stds[ss] = 0.0;
-   if (outputLevel_ >= 1) printf("SVM training completed.\n");
-   if (psRSCodeGen_ == 1) 
-      printf("SVM INFO: response surface stand-alone code not available.\n");
+  //**/ ---------------------------------------------------------------
+  //**/ generate the Gaussian hyperparameters
+  //**/ ---------------------------------------------------------------
+  vecStds.setLength(nSamples_);
+  if (outputLevel_ >= 1)
+  {
+    printf("SVM training begins....\n");
+    if (kernel_ == 0) printf("SVM kernel = linear\n");
+    if (kernel_ == 1) printf("SVM kernel = third order polynomial\n");
+    if (kernel_ == 2) printf("SVM kernel = radial basis function\n");
+    if (kernel_ == 3) printf("SVM kernel = sigmoid function\n");
+    printf("SVM epsilon   = %e\n",tolerance_);
+    if (kernel_ == 2)
+    printf("SVM RBF_gamma = %e\n",gamma_);
+  }
+  if (gamma_ != -1.0 || tolerance_ != -1.0) SVMSetGamma(gamma_, tolerance_);
+  if (kernel_ != -1) SVMSetKernel(kernel_);
+  SVMTrain(nInputs_, nSamples_, X, Y, 0, NULL, vecStds.getDVector());
+  if (outputLevel_ >= 1) printf("SVM training completed.\n");
+  if (psConfig_.RSCodeGenIsOn()) 
+    printf("SVM INFO: response surface stand-alone code not available.\n");
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
-   return -1;
+  printf("PSUADE ERROR : SVM not installed.\n");
+  return -1;
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int SVM::genNDGridData(double *X, double *Y, int *N2, double **X2, 
-                      double **Y2)
+int SVM::genNDGridData(double *X, double *Y, int *N2, double **XOut, 
+                      double **YOut)
 {
 #ifdef HAVE_SVM
-   int totPts;
+  int totPts;
+  psVector vecYOut;
 
-   // initialization
-   initialize(X,Y);
-   if ((*N2) == -999 || X2 == NULL || Y2 == NULL) return 0;
+  //**/ ---------------------------------------------------------------
+  // initialization
+  //**/ ---------------------------------------------------------------
+  initialize(X,Y);
+  if ((*N2) == -999 || XOut == NULL || YOut == NULL) return 0;
   
-   // generating regular grid data
-   genNDGrid(N2, X2);
-   if ((*N2) == 0) return 0;
-   totPts = (*N2);
+  //**/ ---------------------------------------------------------------
+  // generating regular grid data
+  //**/ ---------------------------------------------------------------
+  genNDGrid(N2, XOut);
+  if ((*N2) == 0) return 0;
+  totPts = (*N2);
 
-   // generate the data points 
-   (*Y2) = new double[totPts];
-   checkAllocate(*Y2, "Y2 in SVM::genNDGridData");
-   if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
-   SVMInterp(totPts, nInputs_, *X2, *Y2, NULL);
-   if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
+  //**/ ---------------------------------------------------------------
+  // generate the data points 
+  //**/ ---------------------------------------------------------------
+  vecYOut.setLength(totPts);
+  (*YOut) = vecYOut.takeDVector();
+  if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
+  SVMInterp(totPts, nInputs_, *XOut, *YOut, NULL);
+  if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
-   return -1;
+  printf("PSUADE ERROR : SVM not installed.\n");
+  return -1;
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 1D results for display
 // ------------------------------------------------------------------------
 int SVM::gen1DGridData(double *X, double *Y, int ind1,
-                      double *settings, int *n, double **X2, double **Y2)
+                  double *settings, int *n, double **XOut, double **YOut)
 {
 #ifdef HAVE_SVM
-   int    ii, kk, totPts;
-   double HX, *XX, *YY;
+  int    ii, kk, totPts;
+  double HX;
+  psVector vecXOut, vecYOut, vecXT;
 
-   // initialization
-   initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  // initialization
+  //**/ ---------------------------------------------------------------
+  initialize(X,Y);
   
-   // generating regular grid data
-   totPts = nPtsPerDim_;
-   HX = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  // generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_;
+  HX = (VecUBs_[ind1] - VecLBs_[ind1]) / (nPtsPerDim_ - 1); 
 
-   (*X2) = new double[2*totPts];
-   XX = new double[totPts*nInputs_];
-   checkAllocate(XX, "XX in SVM::gen1DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (kk = 0; kk < nInputs_; kk++) 
-         XX[ii*nInputs_+kk] = settings[kk]; 
-      XX[ii*nInputs_+ind1] = HX * ii + lowerBounds_[ind1];
-      (*X2)[ii] = HX * ii + lowerBounds_[ind1];
-   }
+  //**/ allocate storage for the data points
+  vecXOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  vecXT.setLength(totPts*nInputs_);
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (kk = 0; kk < nInputs_; kk++) 
+      vecXT[ii*nInputs_+kk] = settings[kk]; 
+    vecXT[ii*nInputs_+ind1] = HX * ii + VecLBs_[ind1];
+    (*XOut)[ii] = HX * ii + VecLBs_[ind1];
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in SVM::gen1DGridData");
-   if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
-   SVMInterp(totPts, nInputs_, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
+  //**/ interpolate
+  vecYOut.setLength(totPts);
+  if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
+  SVMInterp(totPts, nInputs_, vecXOut.getDVector(), 
+            vecYOut.getDVector(), NULL);
+  if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
+  (*n) = totPts;
+  (*YOut) = vecYOut.takeDVector();
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 2D results for display
 // ------------------------------------------------------------------------
 int SVM::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
-                       double *settings, int *n, double **X2, double **Y2)
+                  double *settings, int *n, double **XOut, double **YOut)
 {
 #ifdef HAVE_SVM
-   int    ii, jj, kk, totPts, index;
-   double *HX, *XX, *YY;
+  int ii, jj, kk, totPts, index;
+  psVector vecHX, vecXOut, vecYOut, vecXT;
 
-   // initialization
-   initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  // initialization
+  //**/ ---------------------------------------------------------------
+  initialize(X,Y);
   
-   // generating regular grid data
-   totPts = nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[2];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  // generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(2);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
 
-   XX = new double[totPts*nInputs_];
-   (*X2) = new double[2*totPts];
-   checkAllocate(*X2, "X2 in SVM::gen2DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
-      {
-         index = ii * nPtsPerDim_ + jj;
-         for (kk = 0; kk < nInputs_; kk++) 
-            XX[index*nInputs_+kk] = settings[kk]; 
-         XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-         XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-         (*X2)[index*2]   = HX[0] * ii + lowerBounds_[ind1];
-         (*X2)[index*2+1] = HX[1] * jj + lowerBounds_[ind2];
-      }
-   }
+  //**/ allocate storage for the data points
+  vecXT.setLength(totPts*nInputs_);
+  vecXOut.setLength(totPts*2);
+  (*XOut) = vecXOut.takeDVector();
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      index = ii * nPtsPerDim_ + jj;
+      for (kk = 0; kk < nInputs_; kk++) 
+        vecXT[index*nInputs_+kk] = settings[kk]; 
+      vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+      vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+      (*XOut)[index*2]   = vecHX[0] * ii + VecLBs_[ind1];
+      (*XOut)[index*2+1] = vecHX[1] * jj + VecLBs_[ind2];
+    }
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in SVM::gen2DGridData");
-   if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
-   SVMInterp(totPts, nInputs_, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
+  //**/ interpolate
+  vecYOut.setLength(totPts);
+  if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
+  SVMInterp(totPts, nInputs_, vecXT.getDVector(), vecYOut.getDVector(), 
+            NULL);
+  if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
+  (*n) = totPts;
+  (*YOut) = vecYOut.takeDVector();
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 3D results for display
 // ------------------------------------------------------------------------
 int SVM::gen3DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
-                       double *settings, int *n, double **X2, double **Y2)
+                 double *settings, int *n, double **XOut, double **YOut)
 {
 #ifdef HAVE_SVM
-   int    ii, jj, ll, kk, totPts, index;
-   double *HX, *XX, *YY;
+  int ii, jj, ll, kk, totPts, index;
+  psVector vecHX, vecXOut, vecYOut, vecXT;
 
-   // initialization
-   initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  // initialization
+  //**/ ---------------------------------------------------------------
+  initialize(X,Y);
   
-   // set up for generating regular grid data
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[3];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  // set up for generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(3);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
 
-   XX = new double[totPts*nInputs_];
-   (*X2) = new double[3*totPts];
-   checkAllocate(*X2, "X2 in SVM::gen3DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
+  //**/ allocate storage for the data points
+  vecXT.setLength(totPts*nInputs_);
+  vecXOut.setLength(totPts*3);
+  (*XOut) = vecXOut.takeDVector();
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++) 
       {
-         for (ll = 0; ll < nPtsPerDim_; ll++) 
-         {
-            index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
-            for (kk = 0; kk < nInputs_; kk++) 
-               XX[index*nInputs_+kk] = settings[kk]; 
-            XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-            XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-            XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-            (*X2)[index*3]   = HX[0] * ii + lowerBounds_[ind1];
-            (*X2)[index*3+1] = HX[1] * jj + lowerBounds_[ind2];
-            (*X2)[index*3+2] = HX[2] * ll + lowerBounds_[ind3];
-         }
+        index = ii * nPtsPerDim_ * nPtsPerDim_ + jj * nPtsPerDim_ + ll;
+        for (kk = 0; kk < nInputs_; kk++) 
+          vecXT[index*nInputs_+kk] = settings[kk]; 
+        vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+        vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+        vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+        (*XOut)[index*3]   = vecHX[0] * ii + VecLBs_[ind1];
+        (*XOut)[index*3+1] = vecHX[1] * jj + VecLBs_[ind2];
+        (*XOut)[index*3+2] = vecHX[2] * ll + VecLBs_[ind3];
       }
-   }
+    }
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in SVM::gen3DGridData");
-   if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
-   SVMInterp(totPts, nInputs_, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
+  //**/ interpolate
+  vecYOut.setLength(totPts);
+  if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
+  SVMInterp(totPts, nInputs_, vecXT.getDVector(), vecYOut.getDVector(), 
+            NULL);
+  if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
+  (*n) = totPts;
+  (*YOut) = vecYOut.takeDVector();
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
 // Generate 4D results for display
 // ------------------------------------------------------------------------
 int SVM::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
-                       int ind4, double *settings, int *n, double **X2, 
-                       double **Y2)
+                       int ind4, double *settings, int *n, double **XOut, 
+                       double **YOut)
 {
 #ifdef HAVE_SVM
-   int    ii, jj, ll, mm, kk, totPts, index;
-   double *HX, *XX, *YY;
+  int ii, jj, ll, mm, kk, totPts, index;
+  psVector vecHX, vecXOut, vecYOut, vecXT;
 
-   // initialization
-   initialize(X,Y);
+  //**/ ---------------------------------------------------------------
+  // initialization
+  //**/ ---------------------------------------------------------------
+  initialize(X,Y);
   
-   // generating regular grid data
-   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-   HX    = new double[4];
-   HX[0] = (upperBounds_[ind1] - lowerBounds_[ind1]) / (nPtsPerDim_ - 1); 
-   HX[1] = (upperBounds_[ind2] - lowerBounds_[ind2]) / (nPtsPerDim_ - 1); 
-   HX[2] = (upperBounds_[ind3] - lowerBounds_[ind3]) / (nPtsPerDim_ - 1); 
-   HX[3] = (upperBounds_[ind4] - lowerBounds_[ind4]) / (nPtsPerDim_ - 1); 
+  //**/ ---------------------------------------------------------------
+  // generating regular grid data
+  //**/ ---------------------------------------------------------------
+  totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
+  vecHX.setLength(4);
+  vecHX[0] = (VecUBs_[ind1] - VecLBs_[ind1])/(nPtsPerDim_ - 1); 
+  vecHX[1] = (VecUBs_[ind2] - VecLBs_[ind2])/(nPtsPerDim_ - 1); 
+  vecHX[2] = (VecUBs_[ind3] - VecLBs_[ind3])/(nPtsPerDim_ - 1); 
+  vecHX[3] = (VecUBs_[ind4] - VecLBs_[ind4])/(nPtsPerDim_ - 1); 
 
-   XX = new double[totPts*nInputs_];
-   (*X2) = new double[4*totPts];
-   checkAllocate(*X2, "X2 in SVM::gen4DGridData");
-   for (ii = 0; ii < nPtsPerDim_; ii++) 
-   {
-      for (jj = 0; jj < nPtsPerDim_; jj++) 
+  //**/ allocate storage for the data points
+  vecXT.setLength(totPts*nInputs_);
+  vecXOut.setLength(totPts*4);
+  (*XOut) = vecXOut.takeDVector();
+  for (ii = 0; ii < nPtsPerDim_; ii++) 
+  {
+    for (jj = 0; jj < nPtsPerDim_; jj++) 
+    {
+      for (ll = 0; ll < nPtsPerDim_; ll++) 
       {
-         for (ll = 0; ll < nPtsPerDim_; ll++) 
-         {
-            for (mm = 0; mm < nPtsPerDim_; mm++) 
-            {
-               index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ + 
-                       jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
-               for (kk = 0; kk < nInputs_; kk++) 
-                  XX[index*nInputs_+kk] = settings[kk]; 
-               XX[index*nInputs_+ind1]  = HX[0] * ii + lowerBounds_[ind1];
-               XX[index*nInputs_+ind2]  = HX[1] * jj + lowerBounds_[ind2];
-               XX[index*nInputs_+ind3]  = HX[2] * ll + lowerBounds_[ind3];
-               XX[index*nInputs_+ind4]  = HX[3] * mm + lowerBounds_[ind3];
-               (*X2)[index*4]   = HX[0] * ii + lowerBounds_[ind1];
-               (*X2)[index*4+1] = HX[1] * jj + lowerBounds_[ind2];
-               (*X2)[index*4+2] = HX[2] * ll + lowerBounds_[ind3];
-               (*X2)[index*4+3] = HX[3] * mm + lowerBounds_[ind3];
-            }
-         }
+        for (mm = 0; mm < nPtsPerDim_; mm++) 
+        {
+          index = ii*nPtsPerDim_*nPtsPerDim_*nPtsPerDim_ + 
+                  jj*nPtsPerDim_*nPtsPerDim_ + ll*nPtsPerDim_ + mm;
+          for (kk = 0; kk < nInputs_; kk++) 
+            vecXT[index*nInputs_+kk] = settings[kk]; 
+          vecXT[index*nInputs_+ind1] = vecHX[0] * ii + VecLBs_[ind1];
+          vecXT[index*nInputs_+ind2] = vecHX[1] * jj + VecLBs_[ind2];
+          vecXT[index*nInputs_+ind3] = vecHX[2] * ll + VecLBs_[ind3];
+          vecXT[index*nInputs_+ind4] = vecHX[3] * mm + VecLBs_[ind3];
+          (*XOut)[index*4]   = vecHX[0] * ii + VecLBs_[ind1];
+          (*XOut)[index*4+1] = vecHX[1] * jj + VecLBs_[ind2];
+          (*XOut)[index*4+2] = vecHX[2] * ll + VecLBs_[ind3];
+          (*XOut)[index*4+3] = vecHX[3] * mm + VecLBs_[ind3];
+        }
       }
-   }
+    }
+  }
     
-   YY = new double[totPts];
-   checkAllocate(YY, "YY in SVM::gen4DGridData");
-   if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
-   SVMInterp(totPts, nInputs_, XX, YY, NULL);
-   if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
-   (*n) = totPts;
-   (*Y2) = YY;
-   delete [] XX;
-   delete [] HX;
+  //**/ interpolate
+  vecYOut.setLength(totPts);
+  if (outputLevel_ >= 1) printf("SVM interpolation begins....\n");
+  SVMInterp(totPts, nInputs_, vecXT.getDVector(), vecYOut.getDVector(), 
+            NULL);
+  if (outputLevel_ >= 1) printf("SVM interpolation completed.\n");
+  (*n) = totPts;
+  (*YOut) = vecYOut.takeDVector();
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return 0;
+  return 0;
 }
 
 // ************************************************************************
@@ -457,14 +484,14 @@ int SVM::gen4DGridData(double *X, double *Y, int ind1, int ind2, int ind3,
 // ------------------------------------------------------------------------
 double SVM::evaluatePoint(double *X)
 {
-   double Y=0.0;
+  double Y=0.0;
 #ifdef HAVE_SVM
-   int    iOne=1;
-   SVMInterp(iOne, nInputs_, X, &Y, NULL);
+  int    iOne=1;
+  SVMInterp(iOne, nInputs_, X, &Y, NULL);
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return Y;
+  return Y;
 }
 
 // ************************************************************************
@@ -473,11 +500,11 @@ double SVM::evaluatePoint(double *X)
 double SVM::evaluatePoint(int npts, double *X, double *Y)
 {
 #ifdef HAVE_SVM
-   SVMInterp(npts, nInputs_, X, Y, NULL);
+  SVMInterp(npts, nInputs_, X, Y, NULL);
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return 0.0;
+  return 0.0;
 }
 
 // ************************************************************************
@@ -485,13 +512,13 @@ double SVM::evaluatePoint(int npts, double *X, double *Y)
 // ------------------------------------------------------------------------
 double SVM::evaluatePointFuzzy(double *X, double &std)
 {
-   double Y=0.0;
+  double Y=0.0;
 #ifdef HAVE_SVM
-   SVMInterp(1, nInputs_, X, &Y, &std);
+  SVMInterp(1, nInputs_, X, &Y, &std);
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return Y;
+  return Y;
 }
 
 // ************************************************************************
@@ -500,11 +527,11 @@ double SVM::evaluatePointFuzzy(double *X, double &std)
 double SVM::evaluatePointFuzzy(int npts,double *X,double *Y,double *Ystd)
 {
 #ifdef HAVE_SVM
-   SVMInterp(npts, nInputs_, X, Y, Ystd);
+  SVMInterp(npts, nInputs_, X, Y, Ystd);
 #else
-   printf("PSUADE ERROR : SVM not installed.\n");
+  printf("PSUADE ERROR : SVM not installed.\n");
 #endif
-   return 0.0;
+  return 0.0;
 }
 
 // ************************************************************************
@@ -512,9 +539,9 @@ double SVM::evaluatePointFuzzy(int npts,double *X,double *Y,double *Ystd)
 // ------------------------------------------------------------------------
 double SVM::setParams(int targc, char **targv)
 {
-   if (targc > 0) gamma_ = *(double *) targv[0];
-   if (targc > 1) tolerance_ = *(double *) targv[1];
-   if (targc > 2) kernel_ = *(int *) targv[2];
-   return 0.0;
+  if (targc > 0) gamma_ = *(double *) targv[0];
+  if (targc > 1) tolerance_ = *(double *) targv[1];
+  if (targc > 2) kernel_ = *(int *) targv[2];
+  return 0.0;
 }
 

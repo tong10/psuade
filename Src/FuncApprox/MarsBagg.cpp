@@ -45,23 +45,33 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
   int  ii, itmp;
   char pString[500], *cString, *targv[3], winput1[100], winput2[100];
 
+  //**/ ==========================================================
+  //**/ set internal parameters
+  //**/ ==========================================================
+  //**/ set identifier
   faID_ = PSUADE_RS_MARSB;
 
-  numMars_ = 50;
+  //**/ default number of MARS instantiation
+  numMars_ = 100;
 
+  //**/ 0: mean, 1: median 
   mode_ = 0;
 
+  //**/ change mode, if interactive
   usageIndex_ = 1;
 
-  maxBasis_ = 50;
+  //**/ default number of basis functions
+  maxBasis_ = 100;
   if (maxBasis_ > nSamples) maxBasis_ = nSamples - 1;
 
+  //**/ default interaction = maximum
   if (nInputs >= 8) varPerBasis_ = 8;
   else              varPerBasis_ = nInputs;
 
-  if (psRSExpertMode_ != 1 && psConfig_ != NULL)
+  //**/ check config file for other than defaults
+  if (!psConfig_.RSExpertModeIsOn())
   {
-    cString = psConfig_->getParameter("MARS_num");
+    cString = psConfig_.getParameter("MARS_num");
     if (cString != NULL)
     {
       sscanf(cString, "%s %s %d", winput1, winput2, &itmp);
@@ -77,7 +87,7 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
                numMars_);
       }
     }
-    cString = psConfig_->getParameter("MARS_num_bases");
+    cString = psConfig_.getParameter("MARS_num_bases");
     if (cString != NULL)
     {
       sscanf(cString, "%s %s %d", winput1, winput2, &itmp);
@@ -93,7 +103,7 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
                maxBasis_);
       }
     }
-    cString = psConfig_->getParameter("MARS_interaction");
+    cString = psConfig_.getParameter("MARS_interaction");
     if (cString != NULL)
     {
       sscanf(cString, "%s %s %d", winput1, winput2, &itmp);
@@ -110,8 +120,12 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     }
   }
 
+  //**/ display configuration
   if (outputLevel_ > 1)
   {
+    //**/ =======================================================
+    //**/ set up mode and thetas
+    //**/ =======================================================
     printAsterisks(PL_INFO, 0);
     printf("*                MarsBag Analysis\n");
     printDashes(PL_INFO, 0);
@@ -123,7 +137,7 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     printf("* Set print level to 5 to print out ranking information.\n");
     printEquals(PL_INFO, 0);
   }
-  if (psRSExpertMode_ == 1 && psInteractive_ == 1)
+  if (psConfig_.RSExpertModeIsOn() && psConfig_.InteractiveIsOn())
   {
     sprintf(pString,"MARS with bagging: mean (0) or median (1) mode ? ");
     mode_ = getInt(0, 1, pString);
@@ -137,7 +151,7 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
     sprintf(pString, "How many variables per basis (<= %d, default = %d) ? ",
             nInputs, varPerBasis_);
     varPerBasis_ = getInt(1, nInputs, pString);
-    if (psMasterMode_ == 1)
+    if (psConfig_.MasterModeIsOn())
     {
       printf("You can control the probability of using more sample\n");
       printf("points in any instantiation by setting a 'frequency' knob.\n");
@@ -148,35 +162,31 @@ MarsBagg::MarsBagg(int nInputs,int nSamples) : FuncApprox(nInputs,nSamples)
       sprintf(pString,
               "What value should be assigned to this knob? (2 - 8) ");
       usageIndex_ = getInt(2, 8, pString);
-    }   
+    }
   }
 
+  //**/ set number of instantiation 
   strcpy(pString, "mars_params");
   targv[0] = (char *) pString;
   targv[1] = (char *) &maxBasis_;
   targv[2] = (char *) &varPerBasis_;
-  itmp = psRSExpertMode_;
-  psRSExpertMode_ = 0;
+  psConfig_.RSExpertModeSaveAndReset();
   marsObjs_ = new Mars*[numMars_];
-  PsuadeConfig *tmpConfig = psConfig_;
-  psConfig_ = NULL;
+  PsuadeConfig tmpConfig;
+  tmpConfig = psConfig_;
+  psConfig_.reset();
+  psConfig_.InteractiveOff();
   for (ii = 0; ii < numMars_; ii++) 
   {
     marsObjs_[ii] = new Mars(nInputs_, nSamples_);
     marsObjs_[ii]->setParams(3, targv);
   }
   psConfig_ = tmpConfig;
-  psRSExpertMode_ = itmp;
+  psConfig_.RSExpertModeRestore();
 
-  dataSetX_ = NULL;
-  dataSetY_ = NULL;
-
-  marsNfms_ = NULL;
+  //**/ Mars info
   marsFms_  = NULL;
-  marsNims_ = NULL;
   marsIms_  = NULL;
-  marsXMeans_ = NULL;
-  marsXStds_  = NULL;
 #else
   printf("PSUADE ERROR : MARSBAGG not installed.\n");
   exit(1);
@@ -195,28 +205,16 @@ MarsBagg::~MarsBagg()
     for (ii = 0; ii < numMars_; ii++) delete marsObjs_[ii];
     delete [] marsObjs_;
   }
-  if (marsXMeans_ != NULL)
-  {
-    for (ii = 0; ii < numMars_; ii++) delete [] marsXMeans_[ii];
-    delete [] marsXMeans_;
-  }
-  if (marsXStds_ != NULL)
-  {
-    for (ii = 0; ii < numMars_; ii++) delete [] marsXStds_[ii];
-    delete [] marsXStds_;
-  }
   if (marsFms_ != NULL)
   {
-    for (ii = 0; ii < numMars_; ii++) delete [] marsFms_[ii];
+    for (ii = 0; ii < numMars_; ii++) delete marsFms_[ii];
     delete [] marsFms_;
   }
-  if (marsNfms_ != NULL) delete [] marsNfms_;
   if (marsIms_ != NULL)
   {
-    for (ii = 0; ii < numMars_; ii++) delete [] marsIms_[ii];
+    for (ii = 0; ii < numMars_; ii++) delete marsIms_[ii];
     delete [] marsIms_;
   }
-  if (marsNims_ != NULL) delete [] marsNims_;
 }
 
 // ************************************************************************
@@ -224,7 +222,7 @@ MarsBagg::~MarsBagg()
 // ------------------------------------------------------------------------
 int MarsBagg::setBounds( double *lower, double *upper )
 {
-  for (int ii=0 ; ii<numMars_; ii++) marsObjs_[ii]->setBounds(lower, upper);
+  for (int ii=0 ; ii<numMars_; ii++) marsObjs_[ii]->setBounds(lower,upper);
   return 0;
 }
 
@@ -252,132 +250,129 @@ void MarsBagg::setNPtsPerDim(int npoints)
 int MarsBagg::initialize(double *XX, double *Y)
 {
 #ifdef HAVE_MARS
-  int    ii, ss, jj, index, SAFlag, *iArray, *iCnts, expertFlag;
-  double *XB, *YB, **SAIndices, *means, *stdevs;
-  FILE   *fp;
+  int  ii, ss, jj, index, SAFlag;
+  FILE *fp;
+  psVector  vecXB, vecYB;
+  psIVector ivecT, ivecCnts;
+  psMatrix  matSAIndices;
 
-  XB = new double[nInputs_ * nSamples_];
-  YB = new double[nSamples_];
-  checkAllocate(YB, "YB in MarsBagg::initialize");
+  //**/ these two vectors store boostrapped samples temporarily
+  vecXB.setLength(nInputs_ * nSamples_);
+  vecYB.setLength(nSamples_);
 
+  //**/ compute sensitivity indices
   if (outputLevel_ >= 4)
   {
-    SAIndices = new double*[numMars_];
-    iArray    = new int[nInputs_];
-    checkAllocate(iArray, "iArray in MarsBagg::initialize");
-    for (ii = 0; ii < numMars_; ii++)
-    {
-       SAIndices[ii] = new double[nInputs_];
-       for (jj = 0; jj < nInputs_; jj++) SAIndices[ii][jj] = 0.0;
-    }
+    matSAIndices.setFormat(PS_MAT2D);
+    matSAIndices.setDim(numMars_, nInputs_);
+    ivecT.setLength(nInputs_);
   }
-  else
-  {
-    SAIndices = NULL;
-    iArray = NULL;
-  }
+
+  //**/ SAFlag tells whether sensitivity information is available
+  //**/ next create bootstrapped samples and build MARS
   SAFlag = 0;
-  iCnts = new int[nSamples_];
-  checkAllocate(iCnts, "iCnts in MarsBagg::initialize");
-  expertFlag = psRSExpertMode_;
-  psRSExpertMode_ = 0;
+  ivecCnts.setLength(nSamples_);
+  psConfig_.RSExpertModeSaveAndReset();
   for (ii = 0; ii < numMars_; ii++)
   {
-    if (outputLevel_ >= 2)
+    if (outputLevel_ > 4)
       printf("MarsBagg::initialize : creating Mars #%d (of %d)\n",
              ii+1, numMars_);
-    if (dataSetX_ == NULL)
+    if (MatDataSetX_.nrows() <= 0)
     {
-      for (ss = 0; ss < nSamples_; ss++) iCnts[ss] = usageIndex_ * 2;
+      for (ss = 0; ss < nSamples_; ss++) ivecCnts[ss] = usageIndex_ * 2;
       for (ss = 0; ss < nSamples_; ss++)
       {
         index = -1;
         while (index == -1)
         {
           index = PSUADE_rand() % nSamples_;
-          if (iCnts[index] > 0 && (iCnts[index] % usageIndex_) == 0)
+          if (ivecCnts[index] > 0 && (ivecCnts[index] % usageIndex_) == 0)
           {
-            iCnts[index]--;
+            ivecCnts[index] = ivecCnts[index] - 1;
           }
-          else if (iCnts[index] > 0 && (iCnts[index] % usageIndex_) != 0)
+          else if ((ivecCnts[index] > 0) && 
+                   (ivecCnts[index] % usageIndex_) != 0)
           {
-            iCnts[index]--;
+            ivecCnts[index] = ivecCnts[index] - 1;
             index = -1;
           }
-          else if (iCnts[index] <= 0) index = -1;
+          else if (ivecCnts[index] <= 0) index = -1;
         }
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = XX[index*nInputs_+jj]; 
-        YB[ss] = Y[index]; 
+          vecXB[ss*nInputs_+jj] = XX[index*nInputs_+jj]; 
+        vecYB[ss] = Y[index]; 
       }
       index = 0;
       for (ss = 0; ss < nSamples_; ss++) 
-        if (iCnts[ss] < usageIndex_*2) index++;
+        if (ivecCnts[ss] < usageIndex_*2) index++;
       if (outputLevel_ >= 2)
-        printf("     Number of sample points used = %d (out of %d)\n",
+        printf("     Number of unique sample points used = %d (out of %d)\n",
                index,nSamples_);
     }
     else
     {
+      double **matX2D = MatDataSetX_.getMatrix2D();
+      double **matY2D = MatDataSetY_.getMatrix2D();
       for (ss = 0; ss < nSamples_; ss++)
       {
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = dataSetX_[ii][ss*nInputs_+jj]; 
-        YB[ss] = dataSetY_[ii][ss]; 
+          vecXB[ss*nInputs_+jj] = matX2D[ii][ss*nInputs_+jj]; 
+        vecYB[ss] = matY2D[ii][ss]; 
       }
     }
     marsObjs_[ii]->setOutputLevel(0);
     jj = 0;
     for (ss = 0; ss < nSamples_; ss++)
-      if (YB[ss] >= PSUADE_UNDEFINED) jj++;
+      if (vecYB[ss] >= PSUADE_UNDEFINED) jj++;
     if (jj > 0)
     {
       printf("MarsBag ERROR: some of the sample outputs are undefined.\n");
       exit(1);
     }
-    marsObjs_[ii]->initialize(XB, YB);
+    marsObjs_[ii]->initialize(vecXB.getDVector(), vecYB.getDVector());
     if (outputLevel_ >= 4) 
-      SAFlag += getImportance(nInputs_, SAIndices[ii]);
-    fp = fopen("ps_print", "r");
+    {
+      double **matI2D = matSAIndices.getMatrix2D();
+      SAFlag += getImportance(nInputs_, matI2D[ii]);
+    }
+    fp = fopen("psuade_print", "r");
     if (fp != NULL)
     {
       printf("MarsBagg: set print level to 2\n");
       outputLevel_ = 2;
       fclose(fp);
     }
-    if (psRSCodeGen_ == 1) readRSInterpolator(ii);
+    if (psConfig_.RSCodeGenIsOn()) readRSCode(ii);
   }
-  if (psRSCodeGen_ == 1) genRSInterpolator();
-  delete [] iCnts;
-  if (SAFlag == 0 && SAIndices != NULL)
+  if (psConfig_.RSCodeGenIsOn()) genRSCode();
+
+  //**/ if it is requested to compute sensitivity indices
+  if (SAFlag == 0 && matSAIndices.nrows() > 0)
   {
-    means  = new double[nInputs_];
-    stdevs = new double[nInputs_];
-    checkAllocate(stdevs, "stdevs in MarsBagg::initialize");
+    //**/ generate statistics
+    psVector vecMeans, vecStds;
+    vecMeans.setLength(nInputs_);
+    vecStds.setLength(nInputs_);
+    double **matI2D = matSAIndices.getMatrix2D();
     for (jj = 0; jj < nInputs_; jj++)
     {
-      means[jj] = stdevs[jj] = 0.0;
-      for (ii = 0; ii < numMars_; ii++) means[jj] += SAIndices[ii][jj];
-      means[jj] /= (double) numMars_;
+      vecMeans[jj] = 0.0;
+      vecStds[jj] = 0.0;
+      for (ii = 0; ii < numMars_; ii++) vecMeans[jj] += matI2D[ii][jj];
+      vecMeans[jj] /= (double) numMars_;
       for (ii = 0; ii < numMars_; ii++)
-        stdevs[jj] += pow(SAIndices[ii][jj] - means[jj], 2.0e0);
-      stdevs[jj] /= (double) numMars_;
-      stdevs[jj] = sqrt(stdevs[jj]);
+        vecStds[jj] += pow(matI2D[ii][jj] - vecMeans[jj], 2.0e0);
+      vecStds[jj] /= (double) numMars_;
+      vecStds[jj] = sqrt(vecStds[jj]);
     }     
-     if (psPlotTool_ == 1)
-     {
+    //**/ output to a matlab file
+    if (plotScilab())
+    {
       fp = fopen("scilabmarsbsa.sci", "w");
       if (fp == NULL)
       {
         printf("MarsBag ERROR: cannot open scilab file.\n");
-        if (SAIndices != NULL)
-        {
-          for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
-          delete [] SAIndices;
-          delete [] iArray;
-        }
-        delete [] XB;
-        delete [] YB;
         return 0;
       } 
       fprintf(fp,"// This file contains MarsBag ranking measures\n");
@@ -392,14 +387,6 @@ int MarsBagg::initialize(double *XX, double *Y)
       if (fp == NULL)
       {
         printf("MarsBag ERROR: cannot open matlab file.\n");
-        if (SAIndices != NULL)
-        {
-          for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
-          delete [] SAIndices;
-          delete [] iArray;
-        }
-        delete [] XB;
-        delete [] YB;
         return 0;
       } 
       fprintf(fp,"%% This file contains MarsBag ranking measures\n");
@@ -413,14 +400,14 @@ int MarsBagg::initialize(double *XX, double *Y)
     fprintf(fp, "Means = [\n");
     for (ii = 0; ii < nInputs_; ii++)
     {
-      index = (int) (100 * means[ii]);
+      index = (int) (100 * vecMeans[ii]);
       fprintf(fp, "%d\n", index);
     }
     fprintf(fp, "];\n");
     fprintf(fp, "Stds = [\n");
     for (ii = 0; ii < nInputs_; ii++)
     {
-      index = (int) (100 * stdevs[ii]);
+      index = (int) (100 * vecStds[ii]);
       fprintf(fp, "%d\n", index);
     }
     fprintf(fp, "];\n");
@@ -437,7 +424,7 @@ int MarsBagg::initialize(double *XX, double *Y)
     fprintf(fp, "bar(Means,0.8);\n");
     fprintf(fp, "for ii = 1:nn\n");
     fprintf(fp, "   if (ii == 1)\n");
-    if (psPlotTool_ == 1)
+    if (plotScilab())
          fprintf(fp, "   set(gca(),\"auto_clear\",\"off\")\n");
     else fprintf(fp, "   hold on\n");
     fprintf(fp, "   end;\n");
@@ -450,7 +437,7 @@ int MarsBagg::initialize(double *XX, double *Y)
     fwritePlotTitle(fp, "MARSB Rankings");
     fwritePlotXLabel(fp, "Input parameters");
     fwritePlotYLabel(fp, "MARSB ranks");
-    if (psPlotTool_ == 1)
+    if (plotScilab())
     {
       fprintf(fp, "a=gca();\n");
       fprintf(fp, "a.data_bounds=[0, ymin-0.01*(ymax-ymin); ");
@@ -463,31 +450,24 @@ int MarsBagg::initialize(double *XX, double *Y)
     }
     fclose(fp);
 
-    for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-    sortDbleList2a(nInputs_, means, iArray);
+    //**/ output ranking results on screen
+    for (ii = 0; ii < nInputs_; ii++) ivecT[ii] = ii;
+    sortDbleList2a(nInputs_, vecMeans.getDVector(), ivecT.getIVector());
     printf("* ========== MARS screening rankings =========== *\n");
     for (ii = nInputs_-1; ii >= 0; ii--)
     {
-      index = (int) (100 * means[ii]);
+      index = (int) (100 * vecMeans[ii]);
       printf("*  Rank %3d : Input = %3d (measure = %3d, stdev = %9.3e)\n",
-             nInputs_-ii, iArray[ii]+1, index, 100.0*stdevs[ii]);
+             nInputs_-ii, ivecT[ii]+1, index, 100.0*vecStds[ii]);
     }
     printf("* ============================================== *\n");
-    if (psPlotTool_ == 1)
+    //**/ let users know 
+    if (plotScilab())
          printf("MarsBag ranking is now in scilabmarsbsa.sci.\n");
     else printf("MarsBag ranking is now in matlabmarsbsa.m.\n");
-    delete [] means;
-    delete [] stdevs;
+    //**/ clean up
   }
-  psRSExpertMode_ = expertFlag;
-  if (SAIndices != NULL)
-  {
-    for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
-    delete [] SAIndices;
-    delete [] iArray;
-  }
-  delete [] XB;
-  delete [] YB;
+  psConfig_.RSExpertModeRestore();
   return 0;
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
@@ -498,92 +478,92 @@ int MarsBagg::initialize(double *XX, double *Y)
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2, 
-                            double **Y2)
+int MarsBagg::genNDGridData(double *XIn,double *YIn,int *NOut,
+                            double **XOut, double **YOut)
 {
 #ifdef HAVE_MARS
-  int    totPts, ii, ss, jj, index, SAFlag, *iArray, *iCnts, expertFlag;
-  double *XXt, *Yt, *XB, *YB, **YM, **SAIndices, *means, *stdevs;
+  int    totPts, ii, ss, jj, index, SAFlag;
+  double *XXt, *Yt;
   FILE   *fp;
+  psIVector ivecT, ivecCnts;
+  psVector  vecXB, vecYB;
+  psMatrix  matSAIndices, matYM;
 
-  XB = new double[nInputs_ * nSamples_];
-  YB = new double[nSamples_];
-  checkAllocate(YB, "YB in MarsBagg::genNDGridData");
+  //**/ these two vectors store boostrapped samples temporarily
+  vecXB.setLength(nInputs_ * nSamples_);
+  vecYB.setLength(nSamples_);
+
+  //**/ compute sensitivity indices
   if (outputLevel_ >= 4)
   {
-    SAIndices = new double*[numMars_];
-    iArray    = new int[nInputs_];
-    checkAllocate(iArray, "iArray in MarsBagg::genNDGridData");
-    for (ii = 0; ii < numMars_; ii++)
-    {
-      SAIndices[ii] = new double[nInputs_];
-      checkAllocate(SAIndices[ii],"SAIndices in MarsBagg::genNDGridData");
-      for (jj = 0; jj < nInputs_; jj++) SAIndices[ii][jj] = 0.0;
-    }
+    matSAIndices.setFormat(PS_MAT2D);
+    matSAIndices.setDim(numMars_, nInputs_);
+    ivecT.setLength(nInputs_);
   }
-  else
-  {
-    SAIndices = NULL;
-    iArray = NULL;
-  }
+
   SAFlag = 0;
-  if ((*N) == -999)
+  if ((*NOut) == -999)
   {
-    iCnts = new int[nSamples_];
-    checkAllocate(iCnts,"iCnts in MarsBagg::genNDGridData");
-    expertFlag = psRSExpertMode_;
-    psRSExpertMode_ = 0;
+    //**/ create MARS but no interpolation needed
+    ivecCnts.setLength(nSamples_);
+    psConfig_.RSExpertModeSaveAndReset();
     for (ii = 0; ii < numMars_; ii++)
     {
       if (outputLevel_ >= 2)
          printf("MarsBagg::genNDGridData : creating Mars #%d (of %d)\n",
                 ii+1, numMars_);
-      if (dataSetX_ == NULL)
+      if (MatDataSetX_.nrows() <= 0)
       {
-        for (ss = 0; ss < nSamples_; ss++) iCnts[ss] = usageIndex_ * 2;
+        for (ss = 0; ss < nSamples_; ss++) ivecCnts[ss] = usageIndex_ * 2;
         for (ss = 0; ss < nSamples_; ss++)
         {
           index = -1;
           while (index == -1)
           {
             index = PSUADE_rand() % nSamples_;
-            if (iCnts[index] > 0 && (iCnts[index] % usageIndex_) == 0)
+            if (ivecCnts[index] > 0 && (ivecCnts[index] % usageIndex_) == 0)
             {
-              iCnts[index]--;
+              ivecCnts[index]--;
             }
-            else if (iCnts[index] > 0 && 
-                     (iCnts[index] % usageIndex_) != 0)
+            else if (ivecCnts[index] > 0 && 
+                     (ivecCnts[index] % usageIndex_) != 0)
             {
-              iCnts[index]--;
+              ivecCnts[index]--;
               index = -1;
             }
-            else if (iCnts[index] <= 0) index = -1;
+            else if (ivecCnts[index] <= 0) index = -1;
           }
           for (jj = 0; jj < nInputs_; jj++)
-            XB[ss*nInputs_+jj] = XX[index*nInputs_+jj]; 
-          YB[ss] = Y[index]; 
+            vecXB[ss*nInputs_+jj] = XIn[index*nInputs_+jj]; 
+          vecYB[ss] = YIn[index]; 
         }
         index = 0;
         for (ss = 0; ss < nSamples_; ss++) 
-          if (iCnts[ss] < usageIndex_*2) index++;
+          if (ivecCnts[ss] < usageIndex_*2) index++;
         if (outputLevel_ >= 2)
           printf("     Number of sample points used = %d (out of %d)\n",
                  index,nSamples_);
       }
       else
       {
+        double **matX2D = MatDataSetX_.getMatrix2D();
+        double **matY2D = MatDataSetY_.getMatrix2D();
         for (ss = 0; ss < nSamples_; ss++)
         {
           for (jj = 0; jj < nInputs_; jj++)
-            XB[ss*nInputs_+jj] = dataSetX_[ii][ss*nInputs_+jj]; 
-          YB[ss] = dataSetY_[ii][ss]; 
+            vecXB[ss*nInputs_+jj] = matX2D[ii][ss*nInputs_+jj]; 
+          vecYB[ss] = matY2D[ii][ss]; 
         }
       }
       marsObjs_[ii]->setOutputLevel(0);
-      marsObjs_[ii]->genNDGridData(XB, YB, N, NULL, NULL);
+      marsObjs_[ii]->genNDGridData(vecXB.getDVector(),vecYB.getDVector(), 
+                                   NOut, NULL, NULL);
       if (outputLevel_ >= 4) 
-         SAFlag += getImportance(nInputs_, SAIndices[ii]);
-      fp = fopen("ps_print", "r");
+      {
+        double **matS2D = matSAIndices.getMatrix2D();
+        SAFlag += getImportance(nInputs_, matS2D[ii]);
+      }
+      fp = fopen("psuade_print", "r");
       if (fp != NULL)
       {
         printf("MarsBagg: set print level to 2\n");
@@ -591,36 +571,30 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
         fclose(fp);
       }
     }
-    delete [] iCnts;
-    if (SAFlag == 0 && SAIndices != NULL)
+    if (SAFlag == 0 && matSAIndices.nrows() > 0)
     {
-      means  = new double[nInputs_];
-      stdevs = new double[nInputs_];
-      checkAllocate(stdevs,"stdevs in MarsBagg::genNDGridData");
+      //**/ generate statistics
+      double **matS2D = matSAIndices.getMatrix2D();
+      psVector vecMeans, vecStds;
+      vecMeans.setLength(nInputs_);
+      vecStds.setLength(nInputs_);
       for (jj = 0; jj < nInputs_; jj++)
       {
-        means[jj] = stdevs[jj] = 0.0;
-        for (ii = 0; ii < numMars_; ii++) means[jj] += SAIndices[ii][jj];
-        means[jj] /= (double) numMars_;
+        vecMeans[jj] = vecStds[jj] = 0.0;
+        for (ii = 0; ii < numMars_; ii++) vecMeans[jj] += matS2D[ii][jj];
+        vecMeans[jj] /= (double) numMars_;
         for (ii = 0; ii < numMars_; ii++)
-          stdevs[jj] += pow(SAIndices[ii][jj] - means[jj], 2.0e0);
-        stdevs[jj] /= (double) numMars_;
-        stdevs[jj] = sqrt(stdevs[jj]);
+          vecStds[jj] += pow(matS2D[ii][jj] - vecMeans[jj], 2.0e0);
+        vecStds[jj] /= (double) numMars_;
+        vecStds[jj] = sqrt(vecStds[jj]);
       }     
-      if (psPlotTool_ == 1)
+      //**/ output to a matlab file
+      if (plotScilab())
       {
         fp = fopen("scilabmarsbsa.sci", "w");
         if (fp == NULL)
         {
           printf("MarsBag ERROR: cannot open scilab file.\n");
-          if (SAIndices != NULL)
-          {
-            for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
-            delete [] SAIndices;
-            delete [] iArray;
-          }
-          delete [] XB;
-          delete [] YB;
           return 0;
         } 
         fprintf(fp,"// This file contains MarsBag ranking measures\n");
@@ -635,14 +609,6 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
         if (fp == NULL)
         {
           printf("MarsBag ERROR: cannot open matlab file.\n");
-          if (SAIndices != NULL)
-          {
-            for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
-            delete [] SAIndices;
-            delete [] iArray;
-          }
-          delete [] XB;
-          delete [] YB;
           return 0;
         } 
         fprintf(fp,"%% This file contains MarsBag ranking measures\n");
@@ -656,14 +622,14 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
       fprintf(fp, "Means = [\n");
       for (ii = 0; ii < nInputs_; ii++)
       {
-        index = (int) (100 * means[ii]);
+        index = (int) (100 * vecMeans[ii]);
         fprintf(fp, "%d\n", index);
       }
       fprintf(fp, "];\n");
       fprintf(fp, "Stds = [\n");
       for (ii = 0; ii < nInputs_; ii++)
       {
-        index = (int) (100 * stdevs[ii]);
+        index = (int) (100 * vecStds[ii]);
         fprintf(fp, "%d\n", index);
       }
       fprintf(fp, "];\n");
@@ -680,7 +646,7 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
       fprintf(fp, "bar(Means,0.8);\n");
       fprintf(fp, "for ii = 1:nn\n");
       fprintf(fp, "   if (ii == 1)\n");
-      if (psPlotTool_ == 1)
+      if (plotScilab())
            fprintf(fp, "   set(gca(),\"auto_clear\",\"off\")\n");
       else fprintf(fp, "   hold on\n");
       fprintf(fp, "   end;\n");
@@ -693,7 +659,7 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
       fwritePlotTitle(fp, "MARSB Rankings");
       fwritePlotXLabel(fp, "Input parameters");
       fwritePlotYLabel(fp, "MARSB ranks");
-      if (psPlotTool_ == 1)
+      if (plotScilab())
       {
         fprintf(fp, "a=gca();\n");
         fprintf(fp, "a.data_bounds=[0, ymin-0.01*(ymax-ymin); ");
@@ -706,127 +672,132 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
       }
       fclose(fp);
 
-      for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-      sortDbleList2a(nInputs_, means, iArray);
+      //**/ output ranking results on screen
+      for (ii = 0; ii < nInputs_; ii++) ivecT[ii] = ii;
+      sortDbleList2a(nInputs_,vecMeans.getDVector(),ivecT.getIVector());
       printf("* ========== MARS screening rankings =========== *\n");
       for (ii = nInputs_-1; ii >= 0; ii--)
       {
-        index = (int) (100 * means[ii]);
+        index = (int) (100 * vecMeans[ii]);
         printf("*  Rank %3d : Input = %3d (measure = %3d, stdev = %9.3e)\n",
-               nInputs_-ii, iArray[ii]+1, index, 100.0*stdevs[ii]);
+               nInputs_-ii, ivecT[ii]+1, index, 100.0*vecStds[ii]);
       }
       printf("* ============================================== *\n");
-      if (psPlotTool_ == 1)
+      //**/ let users know 
+      if (plotScilab())
            printf("MarsBag ranking is now in scilabmarsbsa.sci.\n");
       else printf("MarsBag ranking is now in matlabmarsbsa.m.\n");
-      delete [] means;
-      delete [] stdevs;
+      //**/ clean up
     }
-    psRSExpertMode_ = expertFlag;
+    psConfig_.RSExpertModeRestore();
   }
   else
   {
-    expertFlag = psRSExpertMode_;
-    psRSExpertMode_ = 0;
+    psConfig_.RSExpertModeSaveAndReset();
+    //**/ set up for generating regular grid data
     totPts = nPtsPerDim_;
     for (ii = 1; ii < nInputs_; ii++) totPts = totPts * nPtsPerDim_;
-    (*XX2) = new double[nInputs_ * totPts];
-    (*Y2)  = new double[totPts];
-    checkAllocate(*Y2,"Y2 in MarsBagg::genNDGridData");
-    for (ii = 0; ii < totPts; ii++) (*Y2)[ii] = 0.0;
+    psVector vecXOut, vecYOut;
+    vecXOut.setLength(nInputs_ * totPts);
+    vecYOut.setLength(totPts);
+    (*XOut) = vecXOut.takeDVector();
+    (*YOut) = vecYOut.takeDVector();
+    for (ii = 0; ii < totPts; ii++) (*YOut)[ii] = 0.0;
 
+    //**/ if median mode, set up an array for storing data
     if (mode_ != 0)
     {
-      YM = new double*[totPts];
-      checkAllocate(YM,"YM in MarsBagg::genNDGridData");
-      for (ss = 0; ss < totPts; ss++) YM[ss] = new double[numMars_];
-      checkAllocate(YM[totPts-1],"YM[nn] in MarsBagg::genNDGridData");
+      matYM.setFormat(PS_MAT2D);
+      matYM.setDim(totPts, numMars_);
     }
 
+    //**/ generate response surface and interpolate
     for (ii = 0; ii < numMars_; ii++)
     {
+      //**/ generate bootstrap sample 
       for (ss = 0; ss < nSamples_; ss++)
       {
         index = PSUADE_rand() % nSamples_;
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = XX[index*nInputs_+jj]; 
-        YB[ss] = Y[index]; 
+          vecXB[ss*nInputs_+jj] = XIn[index*nInputs_+jj]; 
+        vecYB[ss] = YIn[index]; 
       }
-      marsObjs_[ii]->genNDGridData(XB, YB, N, &XXt, &Yt);
+      marsObjs_[ii]->genNDGridData(vecXB.getDVector(),vecYB.getDVector(), 
+                                   NOut, &XXt, &Yt);
 
       if (outputLevel_ >= 4) 
-        SAFlag += getImportance(nInputs_, SAIndices[ii]);
+      {
+        double **matS2D = matSAIndices.getMatrix2D();
+        SAFlag += getImportance(nInputs_, matS2D[ii]);
+      }
 
+      //**/ collect outputs
       if (mode_ != 0)
       {
-        for (ss = 0; ss < totPts; ss++) YM[ss][ii] = Yt[ss];
+        //**/ median mode
+        for (ss = 0; ss < totPts; ss++) 
+          matYM.setEntry(ss, ii, Yt[ss]);
       }
       else
       {
-        for (ss = 0; ss < totPts; ss++) (*Y2)[ss] += Yt[ss];
+        //**/ mean mode
+        for (ss = 0; ss < totPts; ss++) (*YOut)[ss] += Yt[ss];
       }
 
+      //**/ store inputs
       if (ii == numMars_-1)
-        for (ss = 0; ss < totPts*nInputs_; ss++) (*XX2)[ss] = XXt[ss];
+        for (ss = 0; ss < totPts*nInputs_; ss++) 
+          (*XOut)[ss] = XXt[ss];
       delete [] XXt;
       delete [] Yt;
     }
 
-    if (SAFlag == 0 && SAIndices != NULL)
+    if (SAFlag == 0 && matSAIndices.nrows() > 0)
     {
-      means  = new double[nInputs_];
-      stdevs = new double[nInputs_];
-      checkAllocate(stdevs,"stdevs in MarsBagg::genNDGridData");
+      double **matS2D = matSAIndices.getMatrix2D();
+      psVector vecMeans, vecStds;
+      vecMeans.setLength(nInputs_);
+      vecStds.setLength(nInputs_);
       for (jj = 0; jj < nInputs_; jj++)
       {
-        means[jj] = stdevs[jj] = 0.0;
-        for (ii = 0; ii < numMars_; ii++) means[jj] += SAIndices[ii][jj];
-        means[jj]/= (double) numMars_;
+        vecMeans[jj] = vecStds[jj] = 0.0;
+        for (ii = 0; ii < numMars_; ii++) vecMeans[jj] += matS2D[ii][jj];
+        vecMeans[jj]/= (double) numMars_;
         for (ii = 0; ii < numMars_; ii++)
-          stdevs[jj] += pow(SAIndices[ii][jj] - means[jj], 2.0e0);
-        stdevs[jj] /= (double) numMars_;
-        stdevs[jj] = sqrt(stdevs[jj]);
+          vecStds[jj] += pow(matS2D[ii][jj] - vecMeans[jj], 2.0e0);
+        vecStds[jj] /= (double) numMars_;
+        vecStds[jj] = sqrt(vecStds[jj]);
       }     
-      for (ii = 0; ii < nInputs_; ii++) iArray[ii] = ii;
-      sortDbleList2a(nInputs_, means, iArray);
+      for (ii = 0; ii < nInputs_; ii++) ivecT[ii] = ii;
+      sortDbleList2a(nInputs_, vecMeans.getDVector(), ivecT.getIVector());
       printf("* ========= MARSBAG screening rankings ========= *\n");
       for (ii = nInputs_-1; ii >= 0; ii--)
       {
-        index = (int) (100 * means[ii]);
+        index = (int) (100 * vecMeans[ii]);
         printf("*  Rank %3d : Input = %3d (measure = %3d, stdev = %9.3e)\n",
-               nInputs_-ii, iArray[ii]+1, index, 100.0*stdevs[ii]);
+               nInputs_-ii, ivecT[ii]+1, index, 100.0*vecStds[ii]);
       }
       printf("* ============================================== *\n");
-      delete [] means;
-      delete [] stdevs;
     }
 
-    (*N) = totPts;
+    (*NOut) = totPts;
 
     if (mode_ != 0)
     {
+      double **MYM = matYM.getMatrix2D();
       for (ss = 0; ss < totPts; ss++)
       {
-        sortDbleList(numMars_, YM[ss]); 
-        (*Y2)[ss] = YM[ss][numMars_/2];
-        delete [] YM[ss];
+        sortDbleList(numMars_, MYM[ss]); 
+        (*YOut)[ss] = MYM[ss][numMars_/2];
       }
-      delete [] YM;
     }
     else
     { 
-      for (ss = 0; ss < totPts; ss++) (*Y2)[ss] /= (double) numMars_;
+      for (ss = 0; ss < totPts; ss++) 
+        (*YOut)[ss] /= (double) numMars_;
     }
-    psRSExpertMode_ = expertFlag;
+    psConfig_.RSExpertModeRestore();
   }
-  if (SAIndices != NULL)
-  {
-    for (ii = 0; ii < numMars_; ii++) delete [] SAIndices[ii];
-    delete [] SAIndices;
-    delete [] iArray;
-  }
-  delete [] XB;
-  delete [] YB;
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
   return -1;
@@ -837,87 +808,96 @@ int MarsBagg::genNDGridData(double *XX, double *Y, int *N, double **XX2,
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MarsBagg::gen1DGridData(double *X, double *Y, int ind1, 
-                            double *settings, int *N, double **XX, 
-                            double **YY)
+int MarsBagg::gen1DGridData(double *XIn, double *YIn, int ind1, 
+                            double *settings, int *NOut, double **XOut, 
+                            double **YOut)
 {
 #ifdef HAVE_MARS
-  int    totPts, ii, ss, jj, index, expertFlag;
-  double *XB, *YB, *XXt, *Yt, **YM;
+  int    totPts, ii, ss, jj, index;
+  double *XXt, *YYt;
+  psVector vecXB, vecYB;
+  psMatrix matYM;
 
-  expertFlag = psRSExpertMode_;
-  psRSExpertMode_ = 0;
-  XB = new double[nInputs_ * nSamples_];
-  YB = new double[nSamples_];
+  //**/ set up storage
+  psConfig_.RSExpertModeSaveAndReset();
+  vecXB.setLength(nInputs_ * nSamples_);
+  vecYB.setLength(nSamples_);
   totPts = nPtsPerDim_;
-  (*N)   = totPts;
-  (*XX)  = new double[totPts];
-  (*YY)  = new double[totPts];
-  checkAllocate(*YY, "YY in MarsBagg::gen1DGridData");
-  for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  (*YOut) = vecYOut.takeDVector();
+  for (ii = 0; ii < totPts; ii++) (*YOut)[ii] = 0.0;
 
+  //**/ if median mode, set up an array for storing data
   if (mode_ != 0)
   {
-    YM = new double*[totPts];
-    checkAllocate(YM, "YM in MarsBagg::gen1DGridData");
-    for (ss = 0; ss < totPts; ss++) YM[ss] = new double[numMars_];
-    checkAllocate(YM[totPts-1], "YM[nn] in MarsBagg::gen1DGridData");
+    matYM.setFormat(PS_MAT2D);
+    matYM.setDim(totPts, numMars_);
   }
 
+  //**/ generate response surface and interpolate
   for (ii = 0; ii < numMars_; ii++)
   {
-    if (dataSetX_ == NULL)
+    if (MatDataSetX_.nrows() <= 0)
     {
       for (ss = 0; ss < nSamples_; ss++)
       {
         index = PSUADE_rand() % nSamples_;
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = X[index*nInputs_+jj]; 
-        YB[ss] = Y[index]; 
+          vecXB[ss*nInputs_+jj] = XIn[index*nInputs_+jj]; 
+        vecYB[ss] = YIn[index]; 
       }
     }
     else
     {
+      double **matX2D = MatDataSetX_.getMatrix2D();
+      double **matY2D = MatDataSetY_.getMatrix2D();
       for (ss = 0; ss < nSamples_; ss++)
       {
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = dataSetX_[ii][ss*nInputs_+jj]; 
-        YB[ss] = dataSetY_[ii][ss]; 
+          vecXB[ss*nInputs_+jj] = matX2D[ii][ss*nInputs_+jj]; 
+        vecYB[ss] = matY2D[ii][ss]; 
       }
     }
-    marsObjs_[ii]->gen1DGridData(XB, YB, ind1, settings, N, &XXt, &Yt);
+    marsObjs_[ii]->gen1DGridData(vecXB.getDVector(),vecYB.getDVector(),
+                                 ind1,settings,NOut,&XXt,&YYt);
 
+    //**/ collect outputs
     if (mode_ != 0)
     {
-      for (ss = 0; ss < totPts; ss++) YM[ss][ii] = Yt[ss];
+      //**/ median mode
+      for (ss = 0; ss < totPts; ss++) 
+        matYM.setEntry(ss, ii, YYt[ss]);
     }
     else
     {
-      for (ss = 0; ss < totPts; ss++) (*YY)[ss] += Yt[ss];
+      //**/ mean mode
+      for (ss = 0; ss < totPts; ss++) (*YOut)[ss] += YYt[ss];
     }
     if (ii == numMars_-1)
-      for (ss = 0; ss < totPts; ss++) (*XX)[ss] = XXt[ss];
+      for (ss = 0; ss < totPts; ss++) (*XOut)[ss] = XXt[ss];
     delete [] XXt;
-    delete [] Yt;
+    delete [] YYt;
   }
 
+  //**/ process outputs based on the mode
   if (mode_ != 0)
   {
+    double **MYM = matYM.getMatrix2D();
     for (ss = 0; ss < totPts; ss++)
     {
-      sortDbleList(numMars_, YM[ss]); 
-      (*YY)[ss] = YM[ss][numMars_/2];
-      delete [] YM[ss];
+      sortDbleList(numMars_, MYM[ss]); 
+      (*YOut)[ss] = MYM[ss][numMars_/2];
     }
-    delete [] YM;
   }
   else
   { 
-    for (ss = 0; ss < totPts; ss++) (*YY)[ss] /= (double) numMars_;
+    for (ss = 0; ss < totPts; ss++) (*YOut)[ss] /= (double) numMars_;
   }
-  delete [] XB;
-  delete [] YB;
-  psRSExpertMode_ = expertFlag;
+  psConfig_.RSExpertModeRestore();
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
   return -1;
@@ -928,92 +908,101 @@ int MarsBagg::gen1DGridData(double *X, double *Y, int ind1,
 // ************************************************************************
 // Generate results for display
 // ------------------------------------------------------------------------
-int MarsBagg::gen2DGridData(double *X, double *Y, int ind1, int ind2, 
-                            double *settings, int *N, double **XX, 
-                            double **YY)
+int MarsBagg::gen2DGridData(double *XIn, double *YIn, int ind1, int ind2, 
+                            double *settings, int *NOut, double **XOut, 
+                            double **YOut)
 {
 #ifdef HAVE_MARS
-  int    totPts, ii, ss, jj, index, expertFlag;
-  double *XB, *YB, *XXt, *Yt, **YM;
+  int    totPts, ii, ss, jj, index;
+  double *XXt, *YYt;
+  psVector vecXB, vecYB;
+  psMatrix matYM;
 
-  expertFlag = psRSExpertMode_;
-  psRSExpertMode_ = 0;
-  XB = new double[nInputs_ * nSamples_];
-  YB = new double[nSamples_];
+  //**/ set up storage
+  psConfig_.RSExpertModeSaveAndReset();
+  vecXB.setLength(nInputs_ * nSamples_);
+  vecYB.setLength(nSamples_);
   totPts = nPtsPerDim_ * nPtsPerDim_;
-  (*N)   = totPts;
-  (*XX)  = new double[2 * totPts];
-  (*YY)  = new double[totPts];
-  checkAllocate(*YY, "YY in MarsBagg::gen2DGridData");
-  for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
+  (*NOut)   = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*2);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  (*YOut) = vecYOut.takeDVector();
+  for (ii = 0; ii < totPts; ii++) (*YOut)[ii] = 0.0;
 
+  //**/ if median mode, set up an array for storing data
   if (mode_ != 0)
   {
-    YM = new double*[totPts];
-    checkAllocate(YM, "YM in MarsBagg::gen2DGridData");
-    for (ss = 0; ss < totPts; ss++) YM[ss] = new double[numMars_];
-    checkAllocate(YM[totPts-1], "YM[nn] in MarsBagg::gen2DGridData");
+    matYM.setFormat(PS_MAT2D);
+    matYM.setDim(totPts, numMars_);
   }
 
+  //**/ generate response surface and interpolate
   for (ii = 0; ii < numMars_; ii++)
   {
     if (outputLevel_ >= 1)
       printf("MarsBagg::gen2DGridData : creating Mars #%d (of %d)\n",
              ii+1, numMars_);
-    if (dataSetX_ == NULL)
+    if (MatDataSetX_.nrows() <= 0)
     {
       for (ss = 0; ss < nSamples_; ss++)
       {
         index = PSUADE_rand() % nSamples_;
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = X[index*nInputs_+jj]; 
-        YB[ss] = Y[index]; 
+          vecXB[ss*nInputs_+jj] = XIn[index*nInputs_+jj]; 
+        vecYB[ss] = YIn[index]; 
       }
     }
     else
     {
+      double **matX2D = MatDataSetX_.getMatrix2D();
+      double **matY2D = MatDataSetY_.getMatrix2D();
       for (ss = 0; ss < nSamples_; ss++)
       {
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = dataSetX_[ii][ss*nInputs_+jj]; 
-        YB[ss] = dataSetY_[ii][ss]; 
+          vecXB[ss*nInputs_+jj] = matX2D[ii][ss*nInputs_+jj]; 
+        vecYB[ss] = matY2D[ii][ss]; 
       }
     }
-    marsObjs_[ii]->gen2DGridData(XB, YB, ind1, ind2, settings, N, 
-                                 &XXt, &Yt);
+    marsObjs_[ii]->gen2DGridData(vecXB.getDVector(),vecYB.getDVector(),
+                                 ind1,ind2,settings,NOut,&XXt,&YYt);
 
+    //**/ collect outputs
     if (mode_ != 0)
     {
-      for (ss = 0; ss < totPts; ss++) YM[ss][ii] = Yt[ss];
+      //**/ median mode
+      for (ss = 0; ss < totPts; ss++) 
+        matYM.setEntry(ss, ii, YYt[ss]);
     }
     else
     {
-      for (ss = 0; ss < totPts; ss++) (*YY)[ss] += Yt[ss];
+      //**/ mean mode
+      for (ss = 0; ss < totPts; ss++) (*YOut)[ss] += YYt[ss];
     }
 
+    //**/ collect inputs
     if (ii == numMars_-1)
-      for (ss = 0; ss < 2*totPts; ss++) (*XX)[ss] = XXt[ss];
+      for (ss = 0; ss < 2*totPts; ss++) (*XOut)[ss] = XXt[ss];
     delete [] XXt;
-    delete [] Yt;
+    delete [] YYt;
   }
 
+  //**/ process outputs based on the mode
   if (mode_ != 0)
   {
+    double **MYM = matYM.getMatrix2D();
     for (ss = 0; ss < totPts; ss++)
     {
-      sortDbleList(numMars_, YM[ss]); 
-      (*YY)[ss] = YM[ss][numMars_/2];
-      delete [] YM[ss];
+      sortDbleList(numMars_, MYM[ss]); 
+      (*YOut)[ss] = MYM[ss][numMars_/2];
     }
-    delete [] YM;
   }
   else
   { 
-    for (ss = 0; ss < totPts; ss++) (*YY)[ss] /= (double) numMars_;
+    for (ss = 0; ss < totPts; ss++) (*YOut)[ss] /= (double) numMars_;
   }
-  delete [] XB;
-  delete [] YB;
-  psRSExpertMode_ = expertFlag;
+  psConfig_.RSExpertModeRestore();
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
   return -1;
@@ -1024,89 +1013,98 @@ int MarsBagg::gen2DGridData(double *X, double *Y, int ind1, int ind2,
 // ************************************************************************
 // Generate 3D results for display
 // ------------------------------------------------------------------------
-int MarsBagg::gen3DGridData(double *X, double *Y, int ind1, int ind2, 
-                            int ind3, double *settings, int *N, double **XX, 
-                            double **YY)
+int MarsBagg::gen3DGridData(double *XIn, double *YIn, int ind1, int ind2, 
+                            int ind3, double *settings, int *NOut, 
+                            double **XOut, double **YOut)
 {
 #ifdef HAVE_MARS
-  int    totPts, ii, ss, jj, index, expertFlag;
-  double *XB, *YB, *XXt, *Yt, **YM;
+  int    totPts, ii, ss, jj, index;
+  double *XXt, *YYt;
+  psVector vecXB, vecYB;
+  psMatrix matYM;
 
-  expertFlag = psRSExpertMode_;
-  psRSExpertMode_ = 0;
-  XB = new double[nInputs_ * nSamples_];
-  YB = new double[nSamples_];
+  //**/ set up storage
+  psConfig_.RSExpertModeSaveAndReset();
+  vecXB.setLength(nInputs_ * nSamples_);
+  vecYB.setLength(nSamples_);
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  (*N)   = totPts;
-  (*XX)  = new double[3 * totPts];
-  (*YY)  = new double[totPts];
-  checkAllocate(*YY, "YY in MarsBagg::gen3DGridData");
-  for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*3);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  (*YOut) = vecYOut.takeDVector();
+  for (ii = 0; ii < totPts; ii++) (*YOut)[ii] = 0.0;
 
+  //**/ if median mode, set up an array for storing data
   if (mode_ != 0)
   {
-    YM = new double*[totPts];
-    checkAllocate(YM, "YM in MarsBagg::gen3DGridData");
-    for (ss = 0; ss < totPts; ss++) YM[ss] = new double[numMars_];
-    checkAllocate(YM[totPts-1], "YM[nn] in MarsBagg::gen3DGridData");
+    matYM.setFormat(PS_MAT2D);
+    matYM.setDim(totPts, numMars_);
   }
 
+  //**/ generate response surface and interpolate
   for (ii = 0; ii < numMars_; ii++)
   {
-    if (dataSetX_ == NULL)
+    if (MatDataSetX_.nrows() <= 0)
     {
       for (ss = 0; ss < nSamples_; ss++)
       {
         index = PSUADE_rand() % nSamples_;
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = X[index*nInputs_+jj]; 
-        YB[ss] = Y[index]; 
+          vecXB[ss*nInputs_+jj] = XIn[index*nInputs_+jj]; 
+        vecYB[ss] = YIn[index]; 
       }
     }
     else
     {
+      double **matX2D = MatDataSetX_.getMatrix2D();
+      double **matY2D = MatDataSetY_.getMatrix2D();
       for (ss = 0; ss < nSamples_; ss++)
       {
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = dataSetX_[ii][ss*nInputs_+jj]; 
-        YB[ss] = dataSetY_[ii][ss]; 
+          vecXB[ss*nInputs_+jj] = matX2D[ii][ss*nInputs_+jj]; 
+        vecYB[ss] = matY2D[ii][ss]; 
       }
     }
-    marsObjs_[ii]->gen3DGridData(XB, YB, ind1, ind2, ind3, settings, 
-                                 N, &XXt, &Yt);
+    marsObjs_[ii]->gen3DGridData(vecXB.getDVector(),vecYB.getDVector(),
+                      ind1,ind2,ind3,settings,NOut,&XXt,&YYt);
 
+    //**/ collect outputs
     if (mode_ != 0)
     {
-      for (ss = 0; ss < totPts; ss++) YM[ss][ii] = Yt[ss];
+      //**/ median mode
+      for (ss = 0; ss < totPts; ss++) 
+        matYM.setEntry(ss, ii, YYt[ss]);
     }
     else
     {
-      for (ss = 0; ss < totPts; ss++) (*YY)[ss] += Yt[ss];
+      //**/ mean mode
+      for (ss = 0; ss < totPts; ss++) (*YOut)[ss] += YYt[ss];
     }
 
+    //**/ collect inputs
     if (ii == numMars_-1)
-      for (ss = 0; ss < 3*totPts; ss++) (*XX)[ss] = XXt[ss];
+      for (ss = 0; ss < 3*totPts; ss++) (*XOut)[ss] = XXt[ss];
     delete [] XXt;
-    delete [] Yt;
+    delete [] YYt;
   }
 
+  //**/ process outputs based on the mode
   if (mode_ != 0)
   {
+    double **MYM = matYM.getMatrix2D();
     for (ss = 0; ss < totPts; ss++)
     {
-      sortDbleList(numMars_, YM[ss]); 
-      (*YY)[ss] = YM[ss][numMars_/2];
-      delete [] YM[ss];
+      sortDbleList(numMars_, MYM[ss]); 
+      (*YOut)[ss] = MYM[ss][numMars_/2];
     }
-    delete [] YM;
   }
   else
   { 
-    for (ss = 0; ss < totPts; ss++) (*YY)[ss] /= (double) numMars_;
+    for (ss = 0; ss < totPts; ss++) (*YOut)[ss] /= (double) numMars_;
   }
-  delete [] XB;
-  delete [] YB;
-  psRSExpertMode_ = expertFlag;
+  psConfig_.RSExpertModeRestore();
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
   return -1;
@@ -1117,89 +1115,97 @@ int MarsBagg::gen3DGridData(double *X, double *Y, int ind1, int ind2,
 // ************************************************************************
 // Generate 4D results for display
 // ------------------------------------------------------------------------
-int MarsBagg::gen4DGridData(double *X, double *Y, int ind1, int ind2, 
-                            int ind3, int ind4, double *settings, int *N, 
-                            double **XX, double **YY)
+int MarsBagg::gen4DGridData(double *XIn, double *YIn, int ind1, int ind2, 
+                            int ind3, int ind4, double *settings, 
+                            int *NOut, double **XOut, double **YOut)
 {
 #ifdef HAVE_MARS
-  int    totPts, ii, ss, jj, index, expertFlag;
-  double *XB, *YB, *XXt, *Yt, **YM;
+  int    totPts, ii, ss, jj, index;
+  double *XXt, *YYt;
+  psVector vecXB, vecYB;
+  psMatrix matYM;
 
-  expertFlag = psRSExpertMode_;
-  psRSExpertMode_ = 0;
-  XB = new double[nInputs_ * nSamples_];
-  YB = new double[nSamples_];
+  //**/ set up storage
+  psConfig_.RSExpertModeSaveAndReset();
+  vecXB.setLength(nInputs_ * nSamples_);
+  vecYB.setLength(nSamples_);
   totPts = nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_ * nPtsPerDim_;
-  (*N)   = totPts;
-  (*XX)  = new double[4 * totPts];
-  (*YY)  = new double[totPts];
-  checkAllocate(*YY, "YY in MarsBagg::gen4DGridData");
-  for (ii = 0; ii < totPts; ii++) (*YY)[ii] = 0.0;
+  (*NOut) = totPts;
+  psVector vecXOut, vecYOut;
+  vecXOut.setLength(totPts*4);
+  vecYOut.setLength(totPts);
+  (*XOut) = vecXOut.takeDVector();
+  (*YOut) = vecYOut.takeDVector();
+  for (ii = 0; ii < totPts; ii++) (*YOut)[ii] = 0.0;
 
+  //**/ if median mode, set up an array for storing data
   if (mode_ != 0)
   {
-    YM = new double*[totPts];
-    checkAllocate(YM, "YM in MarsBagg::gen4DGridData");
-    for (ss = 0; ss < totPts; ss++) YM[ss] = new double[numMars_];
-    checkAllocate(YM[totPts-1], "YM[nn] in MarsBagg::gen4DGridData");
+    matYM.setFormat(PS_MAT2D);
+    matYM.setDim(totPts, numMars_);
   }
 
   for (ii = 0; ii < numMars_; ii++)
   {
-    if (dataSetX_ == NULL)
+    if (MatDataSetX_.nrows() <= 0)
     {
       for (ss = 0; ss < nSamples_; ss++)
       {
         index = PSUADE_rand() % nSamples_;
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = X[index*nInputs_+jj]; 
-        YB[ss] = Y[index]; 
+          vecXB[ss*nInputs_+jj] = XIn[index*nInputs_+jj]; 
+        vecYB[ss] = YIn[index]; 
       }
     }
     else
     {
+      double **matX2D = MatDataSetX_.getMatrix2D();
+      double **matY2D = MatDataSetY_.getMatrix2D();
       for (ss = 0; ss < nSamples_; ss++)
       {
         for (jj = 0; jj < nInputs_; jj++)
-          XB[ss*nInputs_+jj] = dataSetX_[ii][ss*nInputs_+jj]; 
-        YB[ss] = dataSetY_[ii][ss]; 
+          vecXB[ss*nInputs_+jj] = matX2D[ii][ss*nInputs_+jj]; 
+        vecYB[ss] = matY2D[ii][ss]; 
       }
     }
-    marsObjs_[ii]->gen4DGridData(XB, YB, ind1, ind2, ind3, ind4,
-                                 settings, N, &XXt, &Yt);
+    marsObjs_[ii]->gen4DGridData(vecXB.getDVector(),vecYB.getDVector(), 
+                ind1, ind2, ind3, ind4, settings, NOut, &XXt, &YYt);
 
+    //**/ collect outputs
     if (mode_ != 0)
     {
-       for (ss = 0; ss < totPts; ss++) YM[ss][ii] = Yt[ss];
+      //**/ median mode
+      for (ss = 0; ss < totPts; ss++) 
+        matYM.setEntry(ss, ii, YYt[ss]);
     }
     else
     {
-       for (ss = 0; ss < totPts; ss++) (*YY)[ss] += Yt[ss];
+       //**/ mean mode
+       for (ss = 0; ss < totPts; ss++) (*YOut)[ss] += YYt[ss];
     }
 
+    //**/ collect inputs
     if (ii == numMars_-1)
-       for (ss = 0; ss < 4*totPts; ss++) (*XX)[ss] = XXt[ss];
+       for (ss = 0; ss < 4*totPts; ss++) (*XOut)[ss] = XXt[ss];
     delete [] XXt;
-    delete [] Yt;
+    delete [] YYt;
   }
 
+  //**/ process outputs based on the mode
   if (mode_ != 0)
   {
+    double **MYM = matYM.getMatrix2D();
     for (ss = 0; ss < totPts; ss++)
     {
-      sortDbleList(numMars_, YM[ss]); 
-      (*YY)[ss] = YM[ss][numMars_/2];
-      delete [] YM[ss];
+      sortDbleList(numMars_, MYM[ss]); 
+      (*YOut)[ss] = MYM[ss][numMars_/2];
     }
-    delete [] YM;
   }
   else
   { 
-    for (ss = 0; ss < totPts; ss++) (*YY)[ss] /= (double) numMars_;
+    for (ss = 0; ss < totPts; ss++) (*YOut)[ss] /= (double) numMars_;
   }
-  delete [] XB;
-  delete [] YB;
-  psRSExpertMode_ = expertFlag;
+  psConfig_.RSExpertModeRestore();
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
   return -1;
@@ -1215,19 +1221,25 @@ double MarsBagg::evaluatePoint(double *X)
   double Y=0.0;
 #ifdef HAVE_MARS
   int    ii;
-  double Yt, *YM = NULL;
+  double Yt;
+  psVector vecYM;
 
-  if (mode_ != 0) YM = new double[numMars_];
+  //**/ if median mode, set up an array for storing data
+  if (mode_ != 0) vecYM.setLength(numMars_);
 
+  //**/ interpolate
   for (ii = 0; ii < numMars_; ii++) 
   {
     Yt = marsObjs_[ii]->evaluatePoint(X);
-    if (mode_ != 0) YM[ii] = Yt;
+    if (mode_ != 0) vecYM[ii] = Yt;
     else            Y += Yt;
   }
-  if (mode_ != 0) Y = YM[numMars_/2];
-  else            Y /= (double) numMars_;
-  if(YM != NULL) delete [] YM;
+  if (mode_ != 0)
+  {
+    sortDbleList(numMars_, vecYM.getDVector());
+    Y = vecYM[numMars_/2];
+  }
+  else Y /= (double) numMars_;
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
@@ -1241,23 +1253,29 @@ double MarsBagg::evaluatePoint(int npts, double *X, double *Y)
 {
 #ifdef HAVE_MARS
   int    in, ii;
-  double YY, Yt, *YM = NULL;
+  double YY, Yt;
+  psVector vecYM;
 
-  if (mode_ != 0) YM = new double[numMars_];
+  //**/ if median mode, set up an array for storing data
+  if (mode_ != 0) vecYM.setLength(numMars_);
 
+  //**/ interpolate
   for (in = 0; in < npts; in++) 
   {
     YY = 0.0;
     for (ii = 0; ii < numMars_; ii++) 
     {
       Yt = marsObjs_[ii]->evaluatePoint(&(X[in*nInputs_]));
-      if (mode_ != 0) YM[ii] = Yt;
+      if (mode_ != 0) vecYM[ii] = Yt;
       else            YY += Yt;
     }
-    if (mode_ != 0) Y[in] = YM[numMars_/2];
-    else            Y[in] = YY / (double) numMars_;
+    if (mode_ != 0)
+    {
+      sortDbleList(numMars_, vecYM.getDVector());
+      Y[in] = vecYM[numMars_/2];
+    }
+    else Y[in] = YY / (double) numMars_;
   }
-  if(YM != NULL) delete[] YM;
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
@@ -1272,21 +1290,19 @@ double MarsBagg::evaluatePointFuzzy(double *X, double &std)
   double Ymean=0.0;
 #ifdef HAVE_MARS
   int    ii;
-  double *Y;
+  psVector vecYY;
 
-  Y = new double[numMars_];
-  checkAllocate(Y, "Y in MarsBagg::evaluatePointFuzzy");
+  vecYY.setLength(numMars_);
   for (ii = 0; ii < numMars_; ii++) 
   {
-    Y[ii] = marsObjs_[ii]->evaluatePoint(X);
-    Ymean += Y[ii];
+    vecYY[ii] = marsObjs_[ii]->evaluatePoint(X);
+    Ymean += vecYY[ii];
   }
   Ymean /= (double) numMars_;
   std = 0.0;
   for (ii = 0; ii < numMars_; ii++) 
-    std += (Y[ii] - Ymean) * (Y[ii] - Ymean);
+    std += (vecYY[ii] - Ymean) * (vecYY[ii] - Ymean);
   std = sqrt(std / (double) numMars_);
-  delete [] Y;
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
@@ -1300,24 +1316,22 @@ double MarsBagg::evaluatePointFuzzy(int npts, double *X, double *Y,
                                     double *Ystd)
 {
 #ifdef HAVE_MARS
-  int    in, ii;
-  double *YY;
+  int in, ii;
+  psVector vecYY;
 
-  YY = new double[numMars_];
-  checkAllocate(YY, "YY in MarsBagg::evaluatePointFuzzy");
+  vecYY.setLength(numMars_);
   for (in = 0; in < npts; in++) 
   {
     for (ii = 0; ii < numMars_; ii++) 
-      YY[ii] = marsObjs_[ii]->evaluatePoint(&(X[in*nInputs_]));
+      vecYY[ii] = marsObjs_[ii]->evaluatePoint(&(X[in*nInputs_]));
     Y[in] = 0.0;
-    for (ii = 0; ii < numMars_; ii++) Y[in] += YY[ii];
+    for (ii = 0; ii < numMars_; ii++) Y[in] += vecYY[ii];
     Y[in] /= (double) numMars_;
     Ystd[in] = 0.0;
     for (ii = 0; ii < numMars_; ii++) 
-      Ystd[in] += (YY[ii] - Y[in]) * (YY[ii] - Y[in]);
+      Ystd[in] += (vecYY[ii] - Y[in]) * (vecYY[ii] - Y[in]);
     Ystd[in] = sqrt(Ystd[in] / (double) numMars_);
   }
-  delete [] YY;
 #else
   printf("PSUADE ERROR : MARS not installed.\n");
 #endif
@@ -1394,7 +1408,7 @@ double MarsBagg::setParams(int targc, char **targv)
   {
     mode_ = 1;
   }
-  else if (targc == 2 && !strcmp(targv[0], "num_mars"))
+  else if (targc >= 2 && !strcmp(targv[0], "num_mars"))
   {
     if (marsObjs_ != NULL) 
     {
@@ -1404,19 +1418,24 @@ double MarsBagg::setParams(int targc, char **targv)
     numMars_ = *(int *) targv[1];
     if (numMars_ < 2) numMars_ = 2;
     printf("MARS with bagging: no. of MARS set to = %d.\n", numMars_);
+    if (targc > 2) printf("INFO: num_mars setParam has > 2 arguments\n");
     strcpy(cString, "mars_params");
     argv[0] = (char *) cString;
     argv[1] = (char *) &maxBasis_;
     argv[2] = (char *) &varPerBasis_;
-    itmp = psRSExpertMode_;
-    psRSExpertMode_ = 0;
+    psConfig_.RSExpertModeSaveAndReset();
+    psConfig_.InteractiveSaveAndReset();
     marsObjs_ = new Mars*[numMars_];
     for (ii = 0; ii < numMars_; ii++) 
     {
       marsObjs_[ii] = new Mars(nInputs_, nSamples_);
       marsObjs_[ii]->setParams(3, argv);
     }
-    psRSExpertMode_ = itmp;
+    //**/strcpy(cString, "no_gen");
+    //**/argv[0] = (char *) cString;
+    //**/for (ii = 0; ii < numMars_; ii++) marsObjs_[ii]->setParams(1, argv);
+    psConfig_.RSExpertModeRestore();
+    psConfig_.InteractiveRestore();
   }
   else if (targc == 5 && !strcmp(targv[0], "mars_sample"))
   {
@@ -1432,23 +1451,28 @@ double MarsBagg::setParams(int targc, char **targv)
       printf("MarsBag ERROR: in loading sample - nSamples mismatch.\n");
       exit(1);
     }
+    if (MatDataSetX_.nrows() <= 0)
+    {
+      MatDataSetX_.setFormat(PS_MAT2D);
+      MatDataSetX_.setDim(numMars_, nSamples_*nInputs_);
+      MatDataSetY_.setFormat(PS_MAT2D);
+      MatDataSetY_.setDim(numMars_, nSamples_);
+    }
     Xdata = (double *) targv[3];
     Ydata = (double *) targv[4];
-    if (dataSetX_ == NULL)
+    if (leng*nInputs_ > MatDataSetX_.ncols())
     {
-      dataSetX_ = new double*[numMars_];
-      for (ii = 0; ii < numMars_; ii++) dataSetX_[ii] = NULL;
-      dataSetY_ = new double*[numMars_];
-      for (ii = 0; ii < numMars_; ii++) dataSetY_[ii] = NULL;
+      printf("MarsBag ERROR: invalid sample size of incoming sample %d.\n",
+             leng);
+      printf("        Incoming  sample size = %d\n", leng);
+      printf("        Allowable sample size = %d\n", MatDataSetX_.ncols());
+      printf("TERMINATE\n");
+      exit(1);
     }
-    if (dataSetX_[itmp] == NULL)
-    {
-      dataSetX_[itmp] = new double[leng*nInputs_];
-      dataSetY_[itmp] = new double[leng];
-      checkAllocate(dataSetY_[itmp], "dataSetY in MarsBagg::setParams");
-    }
-    for (ii = 0; ii < leng*nInputs_; ii++) dataSetX_[itmp][ii] = Xdata[ii];
-    for (ii = 0; ii < leng; ii++) dataSetY_[itmp][ii] = Ydata[ii];
+    for (ii = 0; ii < leng*nInputs_; ii++)
+      MatDataSetX_.setEntry(itmp, ii, Xdata[ii]);
+    for (ii = 0; ii < leng; ii++) 
+      MatDataSetY_.setEntry(itmp, ii, Ydata[ii]);
   }
   else if (targc == 3 && !strcmp(targv[0], "mars_params"))
   {
@@ -1460,6 +1484,8 @@ double MarsBagg::setParams(int targc, char **targv)
   else
   {
     printf("MarsBagg setParams ERROR: invalid command %s.\n", targv[0]);
+    printf("TERMINATE\n");
+    exit(1);
   }
   return 0.0;
 }
@@ -1467,7 +1493,7 @@ double MarsBagg::setParams(int targc, char **targv)
 // ************************************************************************
 // read mars information
 // ------------------------------------------------------------------------
-int MarsBagg::readRSInterpolator(int index)
+int MarsBagg::readRSCode(int index)
 {
   int    ii, jj, idata, count;
   double ddata;
@@ -1482,34 +1508,25 @@ int MarsBagg::readRSInterpolator(int index)
     {
       for (ii = 0; ii < numMars_; ii++)
       {
-        delete [] marsFms_[ii];
-        delete [] marsIms_[ii];
-        delete [] marsXMeans_[ii];
-        delete [] marsXStds_[ii];
+        if (marsFms_[ii] != NULL) delete marsFms_[ii];
+        if (marsIms_[ii] != NULL) delete marsIms_[ii];
       }
       delete [] marsFms_;
       delete [] marsIms_;
-      delete [] marsXMeans_;
-      delete [] marsXStds_;
     }
-    if (marsNfms_ != NULL) delete [] marsNfms_;
-    if (marsNims_ != NULL) delete [] marsNims_;
-    marsFms_  = new double*[numMars_];
-    marsIms_  = new int*[numMars_];
-    marsNfms_ = new int[numMars_];
-    marsNims_ = new int[numMars_];
-    marsXMeans_ = new double*[numMars_];
-    marsXStds_  = new double*[numMars_];
-    checkAllocate(marsXStds_,"marsXStds_ in MarsBagg::readRSInterpolator");
+    marsFms_  = new psVector*[numMars_];
+    marsIms_  = new psIVector*[numMars_];
+    marsNfms_.setLength(numMars_);
+    marsNims_.setLength(numMars_);
+    marsXMeans_.setFormat(PS_MAT2D);
+    marsXMeans_.setDim(numMars_, nInputs_);
+    marsXStds_.setFormat(PS_MAT2D);
+    marsXStds_.setDim(numMars_, nInputs_);
     for (ii = 0; ii < numMars_; ii++)
     {
       marsNfms_[ii] = marsNims_[ii] = 0;
       marsFms_[ii] = NULL;
       marsIms_[ii] = NULL;
-      marsXMeans_[ii] = new double[nInputs_];
-      marsXStds_[ii] = new double[nInputs_];
-      checkAllocate(marsXStds_[ii],
-                    "marsXStds_[nn] in MarsBagg::readRSInterpolator");
     }
   }
   while (1) 
@@ -1526,12 +1543,13 @@ int MarsBagg::readRSInterpolator(int index)
   if (count > 0)
   {
     marsNfms_[index] = count;
-    marsFms_[index] = new double[count];
+    marsFms_[index] = new psVector();
+    marsFms_[index]->setLength(count);
     for (ii = 0; ii < count; ii++) 
     {
       fgets(line, 500, fp);
       sscanf(line, "%lg", &ddata);
-      marsFms_[index][ii] = ddata;
+      marsFms_[index]->setEntry(ii, ddata);
     }
   }
   while (1) 
@@ -1548,12 +1566,13 @@ int MarsBagg::readRSInterpolator(int index)
   if (count > 0)
   {
     marsNims_[index] = count;
-    marsIms_[index] = new int[count];
+    marsIms_[index] = new psIVector();
+    marsIms_[index]->setLength(count);
     for (ii = 0; ii < count; ii++) 
     {
       fgets(line, 500, fp);
       sscanf(line, "%d", &idata);
-      marsIms_[index][ii] = idata;
+      marsIms_[index]->setEntry(ii,idata);
     }
   }
   while (1) 
@@ -1570,7 +1589,7 @@ int MarsBagg::readRSInterpolator(int index)
   {
     fgets(line, 500, fp);
     sscanf(line, "%lg", &ddata);
-    marsXMeans_[index][ii] = ddata;
+    marsXMeans_.setEntry(index, ii, ddata);
   }
   while (1) 
   {
@@ -1586,7 +1605,7 @@ int MarsBagg::readRSInterpolator(int index)
   {
     fgets(line, 500, fp);
     sscanf(line, "%lg", &ddata);
-    marsXStds_[index][ii] = ddata;
+    marsXStds_.setEntry(index, ii, ddata);
   }
   fclose(fp);
   return 0;
@@ -1595,16 +1614,17 @@ int MarsBagg::readRSInterpolator(int index)
 // ************************************************************************
 // generate marsbag information
 // ------------------------------------------------------------------------
-int MarsBagg::genRSInterpolator()
+void MarsBagg::genRSCode()
 {
-  int  mm, ii, countFm, countIm;
-  FILE *fp;
+  int    mm, ii, countFm, countIm, idata;
+  double ddata;
+  FILE   *fp;
 
   fp = fopen("psuade_rs.info", "w");
   if (fp == NULL)
   {
     printf("ERROR: Cannot open file psuade_rs.info.\n");
-    return 0;
+    return;
   }
   fprintf(fp,"/* This file contains information to re-construct MARSBag\n");
   fprintf(fp,"   response surface offline. Follow the steps below:\n");
@@ -1626,7 +1646,7 @@ int MarsBagg::genRSInterpolator()
   fprintf(fp,"  int    i, iOne=1, nInps;\n");
   fprintf(fp,"  double X[%d], Y, S;\n",nInputs_);
   fprintf(fp,"  FILE   *fIn=NULL, *fOut=NULL;\n");
-  fprintf(fp,"  if (argc != 3) {\n");
+  fprintf(fp,"  if (argc < 3) {\n");
   fprintf(fp,"     printf(\"ERROR: not enough argument.\\n\");\n");
   fprintf(fp,"     exit(1);\n");
   fprintf(fp,"  }\n");
@@ -1773,8 +1793,11 @@ int MarsBagg::genRSInterpolator()
   {
     for (ii = 0; ii < numMars_; ii++)
     {
-      if (marsNfms_[ii] > mm && marsFms_[ii][mm] < PSUADE_UNDEFINED)
-        break;
+      if (marsNfms_[ii] > mm)
+      {
+         ddata = marsFms_[ii]->getEntry(mm);
+         if (ddata < PSUADE_UNDEFINED) break;
+      }
     }
     if (ii != numMars_) break;
     countFm--;
@@ -1790,11 +1813,17 @@ int MarsBagg::genRSInterpolator()
       for (ii = 0; ii < numMars_-1; ii++)
       {
         if (marsNfms_[ii] > mm)
-             fprintf(fp," %24.16e,", marsFms_[ii][mm]);
+        {
+          ddata = marsFms_[ii]->getEntry(mm);
+          fprintf(fp," %24.16e,", ddata);
+        }
         else fprintf(fp," 0,");
       }
       if (marsNfms_[numMars_-1] > mm)
-           fprintf(fp," %24.16e },\n", marsFms_[numMars_-1][mm]);
+      {
+        ddata = marsFms_[numMars_-1]->getEntry(mm);
+        fprintf(fp," %24.16e },\n", ddata);
+      }
       else fprintf(fp," 0 },\n");
     }
     fprintf(fp,"};\n");
@@ -1803,8 +1832,11 @@ int MarsBagg::genRSInterpolator()
   {
     for (ii = 0; ii < numMars_; ii++)
     {
-      if (marsNims_[ii] > mm && marsIms_[ii][mm] != -9999)
-        break;
+      if (marsNims_[ii] > mm)
+      {
+        idata = marsIms_[ii]->getEntry(mm);
+        if (idata != -9999) break;
+      }
     }
     if (ii != numMars_) break;
     countIm--;
@@ -1819,12 +1851,18 @@ int MarsBagg::genRSInterpolator()
       fprintf(fp,"  {");
       for (ii = 0; ii < numMars_-1; ii++)
       {
-        if (marsNfms_[ii] > mm)
-             fprintf(fp," %d,", marsIms_[ii][mm]);
+        if (marsNims_[ii] > mm)
+        {
+          idata = marsIms_[ii]->getEntry(mm);
+          fprintf(fp," %d,", idata);
+        }
         else fprintf(fp," 0,");
       }
-      if (marsNfms_[numMars_-1] > mm)
-           fprintf(fp," %d },\n", marsIms_[numMars_-1][mm]);
+      if (marsNims_[numMars_-1] > mm)
+      {
+        idata = marsIms_[numMars_-1]->getEntry(mm);
+        fprintf(fp," %d },\n", idata);
+      }
       else fprintf(fp," 0 },\n");
     }
   }
@@ -1832,12 +1870,14 @@ int MarsBagg::genRSInterpolator()
   fprintf(fp,"static double\n");
   fprintf(fp,"XMeans[%d][%d] = \n", numMars_, nInputs_);
   fprintf(fp,"{\n");
+  double **mat2DM = marsXMeans_.getMatrix2D();
+  double **mat2DS = marsXStds_.getMatrix2D();
   for (mm = 0; mm < numMars_; mm++)
   {
     fprintf(fp,"  {");
     for (ii = 0; ii < nInputs_-1; ii++)
-      fprintf(fp," %24.16e,", marsXMeans_[mm][ii]);
-    fprintf(fp," %24.16e },\n", marsXMeans_[mm][nInputs_-1]);
+      fprintf(fp," %24.16e,", mat2DM[mm][ii]);
+    fprintf(fp," %24.16e },\n", mat2DM[mm][nInputs_-1]);
   }
   fprintf(fp,"};\n");
   fprintf(fp,"static double\n");
@@ -1847,8 +1887,8 @@ int MarsBagg::genRSInterpolator()
   {
     fprintf(fp,"  {");
     for (ii = 0; ii < nInputs_-1; ii++)
-      fprintf(fp," %24.16e,", marsXStds_[mm][ii]);
-    fprintf(fp," %24.16e },\n", marsXStds_[mm][nInputs_-1]);
+      fprintf(fp," %24.16e,", mat2DS[mm][ii]);
+    fprintf(fp," %24.16e },\n", mat2DS[mm][nInputs_-1]);
   }
   fprintf(fp,"};\n");
   fprintf(fp,"/* ====================================*/\n");
@@ -1870,11 +1910,12 @@ int MarsBagg::genRSInterpolator()
   fclose(fp);
   printf("MarsBagg parameters are now stored in psuade_rs.info\n");
 
+  //**/ python code
   fp = fopen("psuade_rs.py", "w");
   if (fp == NULL)
   {
     printf("ERROR: Cannot open file psuade_rs.py.\n");
-    return 0;
+    return;
   }
   fwriteRSPythonHeader(fp);
   fprintf(fp,"#==================================================\n");
@@ -1887,8 +1928,11 @@ int MarsBagg::genRSInterpolator()
   {
     for (ii = 0; ii < numMars_; ii++)
     {
-      if (marsNfms_[ii] > mm && marsFms_[ii][mm] < PSUADE_UNDEFINED)
-        break;
+      if (marsNfms_[ii] > mm)
+      {
+        ddata = marsFms_[ii]->getEntry(mm);
+        if (ddata < PSUADE_UNDEFINED) break;
+      }
     }
     if (ii != numMars_) break;
     countFm--;
@@ -1902,11 +1946,17 @@ int MarsBagg::genRSInterpolator()
       for (ii = 0; ii < numMars_-1; ii++)
       {
         if (marsNfms_[ii] > mm)
-             fprintf(fp," %24.16e,", marsFms_[ii][mm]);
+        {
+          ddata = marsFms_[ii]->getEntry(mm);
+          fprintf(fp," %24.16e,", ddata);
+        }
         else fprintf(fp," 0,");
       }
       if (marsNfms_[numMars_-1] > mm)
-           fprintf(fp," %24.16e ],\n", marsFms_[numMars_-1][mm]);
+      {
+        ddata = marsFms_[numMars_-1]->getEntry(mm);
+        fprintf(fp," %24.16e ],\n", ddata);
+      }
       else fprintf(fp," 0 ],\n");
     }
      fprintf(fp,"]\n");
@@ -1915,8 +1965,11 @@ int MarsBagg::genRSInterpolator()
   {
     for (ii = 0; ii < numMars_; ii++)
     {
-      if (marsNims_[ii] > mm && marsIms_[ii][mm] != -9999)
-         break;
+      if (marsNims_[ii] > mm)
+      {
+        idata = marsIms_[ii]->getEntry(mm);
+        if (idata != -9999) break;
+      }
     }
     if (ii != numMars_) break;
     countIm--;
@@ -1929,12 +1982,18 @@ int MarsBagg::genRSInterpolator()
       fprintf(fp,"  [");
       for (ii = 0; ii < numMars_-1; ii++)
       {
-        if (marsNfms_[ii] > mm)
-             fprintf(fp," %d,", marsIms_[ii][mm]);
+        if (marsNims_[ii] > mm)
+        {
+          idata = marsIms_[ii]->getEntry(mm);
+          fprintf(fp," %d,", idata);
+        }
         else fprintf(fp," 0,");
       }
-      if (marsNfms_[numMars_-1] > mm)
-           fprintf(fp," %d ],\n", marsIms_[numMars_-1][mm]);
+      if (marsNims_[numMars_-1] > mm)
+      {
+        idata = marsIms_[numMars_-1]->getEntry(mm);
+        fprintf(fp," %d ],\n", idata);
+      }
       else fprintf(fp," 0 ],\n");
     }
   }
@@ -1944,8 +2003,8 @@ int MarsBagg::genRSInterpolator()
   {
     fprintf(fp,"  [");
     for (mm = 0; mm < numMars_-1; mm++)
-      fprintf(fp," %24.16e,", marsXMeans_[mm][ii]);
-    fprintf(fp," %24.16e ],\n", marsXMeans_[numMars_-1][ii]);
+      fprintf(fp," %24.16e,", mat2DM[mm][ii]);
+    fprintf(fp," %24.16e ],\n", mat2DM[numMars_-1][ii]);
   }
   fprintf(fp,"]\n");
   fprintf(fp,"XStds = [\n");
@@ -1953,8 +2012,8 @@ int MarsBagg::genRSInterpolator()
   {
     fprintf(fp,"  [");
     for (mm = 0; mm < numMars_-1; mm++)
-      fprintf(fp," %24.16e,", marsXStds_[mm][ii]);
-    fprintf(fp," %24.16e ],\n", marsXStds_[numMars_-1][ii]);
+      fprintf(fp," %24.16e,", mat2DS[mm][ii]);
+    fprintf(fp," %24.16e ],\n", mat2DS[numMars_-1][ii]);
   }
   fprintf(fp,"]\n");
   fprintf(fp,"###################################################\n");
@@ -2050,6 +2109,8 @@ int MarsBagg::genRSInterpolator()
   fprintf(fp,"    for tt in range(numMars) : \n");
   fprintf(fp,"       Ystd = Ystd + (Yt[tt] - Ymean) * (Yt[tt] - Ymean)\n");
   fprintf(fp,"    Ystd = math.sqrt(Ystd / (numMars - 1.0))\n");
+  //**/ assume no output scaling, which is guaranteed when rs expert 
+  //**/ mode is off
   fprintf(fp,"    Ys[ss*2]   = Ymean\n");
   fprintf(fp,"    Ys[ss*2+1] = Ystd\n");
   fprintf(fp,"  return Ys\n");
@@ -2063,6 +2124,6 @@ int MarsBagg::genRSInterpolator()
   fprintf(fp,"genOutputFile(outfileName, outputs)\n");
   fclose(fp);
   printf("FILE psuade_rs.py contains the final MarsBag interpolator.\n");
-  return 0;
+  return;
 }
 

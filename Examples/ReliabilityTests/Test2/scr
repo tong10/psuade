@@ -1,0 +1,10 @@
+run psuade.in
+sys mv psuadeData simdata.psu
+load simdata.psu
+printlevel 2
+arel_metis
+y
+1
+n
+q
+

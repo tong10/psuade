@@ -1,0 +1,40 @@
+PSUADE
+INPUT
+   dimension = 6
+   variable   1 D   = -1     0.5
+   variable   2 X1  = -10    10
+   variable   3 X2  = -10    10
+   variable   4 W1  = -3    3
+   variable   5 W2  = -3    3
+   variable   6 W3  = -3    3
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 4
+   randomize
+   random_seed = 41491431
+END
+APPLICATION
+   driver = ./simulator
+   opt_driver = ./simulator
+#  aux_opt_driver = simulator
+#  aux_opt_driver = PSUADE_LOCAL
+END
+ANALYSIS
+#  optimization method = ouu_ineq_constr
+   optimization method = ouu
+   optimization num_local_minima = 1
+   optimization max_feval = 1000000
+   optimization fmin = 0.0
+   optimization tolerance = 1.000000e-06
+   optimization num_fmin = 1
+   optimization print_level = 2
+   analyzer output_id  = 1
+   opt_expert
+   printlevel 2
+END
+END

@@ -1,0 +1,172 @@
+This test problem demonstrates running sequential batch ODE.
+* The simulation model has 3 parameters whereby parameter 3
+  is the uncertain parameter with a uniform prior.
+  - The largest uncertainty should be at (0.75, 0.75)
+    so the largest uncertainty is around candidate 19.
+  - to speed up the whole process, response surfaces are
+    used instead of the actual simulator. Thus a training
+    sample will be created.
+* The candidate design set is a 5x5=25 candidates on a 2D
+  lattice spanned by the first two inputs in the simulation
+  model.
+* The objective is to select 4 points in the candidate set
+  in 2 batches of 2 such that some selected metric will be
+  optimized. 
+* This test problem shows the use of MCMC-based optimal DOE
+  methods. Fisher-based method will also be tested but to
+  a lesser extent (e.g. psScriptEvalnf.in).
+* Follow the steps below to see things in action. When
+  done, do: make -f MakeClean to clean up things.
+
+**********************************************************
+PREPARATION STEPS:
+==========================================================
+
+Step 0: Preparation (psuade < psScriptStep0.in)
+
+ A. Create an initial candidate set
+
+    To create a candidate set, do:
+
+      cc -o candidate candidate.c -lm 
+      ./candidate
+      ====> CandidateSet0
+
+ B. Create a training sample
+
+    a. cc -o simulator simulator.c -lm
+    b. psuade psuadeRS.in ===> psuadeData
+    c. rename psuadeData as RSTrainSample
+       ====> RSTrainSample
+
+ C. Create a prior sample PriorSample
+ 
+    a. psuade psuadeGenPrior.in to create psuadeData
+
+    b. load psuadeData and use 'iwrite PriorSample'
+       ====> PriorSample
+
+ D. Create an evaluation set
+
+    a. psuade psuadeGenEvalSet.in to create psuadeData
+
+    b. load psuadeData and use 'iwrite EvalSet'
+       ====> EvalSet
+
+**********************************************************
+FIND FIRST BATCH OF 2 OPTIMAL DESIGNS
+==========================================================
+
+Step 1: run first batch of optimal experimental design
+
+        RUN: psuade < psScriptStep1.in
+
+        ==> select candidate 14 and 19 --> SelectSet1a
+
+**********************************************************
+UPDATE PARAMETER 3 UNCERTAINTY FROM 2 NEW EXPERIMENTS
+==========================================================
+
+Step 2: perform experiment on candidate 14 and 19 
+        (SelectSet1a) and use results (SelectSet1) for 
+        inference to create a posterior sample for 
+        parameter 3 (odoeu_posterior)
+
+        RUN: psuade < psScriptStep2.in
+
+        ==> odoeu_posterior
+
+**********************************************************
+USE THE NEW POSTERIOR TO FIND THE NEXT BATCH
+==========================================================
+
+Step 3: Use the posterior (odoeu_posterior) from previous 
+        batch to find the next best design of size 2. 
+
+        RUN: psuade < psScriptStep3.in 
+
+        ==> select candidate 17 and 22 --> SelectSet2a
+        Note: 17 and 22 are actually 18 and 24 in
+              CandidateSet0
+
+**********************************************************
+UPDATE PARAMETER 3 UNCERTAINTY FROM 4 NEW EXPERIMENTS
+==========================================================
+
+Step 4: perform experiment on candidate 14, 18, 19, 24 
+        (SelectSet2a) and use results (SelectSet2) for 
+        inference to create a posterior sample for 
+        parameter 3 (odoeu_posterior)
+
+        RUN: psuade < psScriptStep4.in
+
+        ==> odoeu_posterior
+
+**********************************************************
+CHECK OPTIMALITY METRICS AFTER USING 4 NEW EXPERIMENTS
+==========================================================
+
+Step 5: Use posterior created by MCMC using experiments
+        14, 18, 19, 25 to compute G/I/D/A/E metrics. 
+
+        RUN: psuade < psScriptStep5.in
+
+**********************************************************
+CHECK OPTIMALITY METRICS AFTER USING 4 NEW EXPERIMENTS
+==========================================================
+
+Step 6: Compare prediction uncertainties for an evaluation
+        set using the original prior sample, the posterior
+        sample after applying (18,19) and then the final 
+        posterior sample (after applying 14, 18, 19, 25).
+
+        RUN: psuade < psScriptStep6.in
+
+        * Compare the last columns of the 3 evaluations
+        * and also the summary statistics.
+
+**********************************************************
+**********************************************************
+**********************************************************
+MORE
+**********************************************************
+* Compute W-metric for all design points
+ 
+  - RUN: psuade < psScriptStep0.in
+  - RUN: psuade < psScriptW.in
+
+  The result will be a list of W metrics for all candidate
+  points. You may pick the ones with the largest W-metric.
+  Alternately, you can use these as weights to run the
+  odoe_mmd (weighted version) to add space-fillingness to
+  your selection criterion.
+
+**********************************************************
+* Compute GIDAE metrics for each candidate point using 
+  MCMC-based inference (odoeu_evalnb)
+
+  - RUN: psuade < psScriptStep0.in
+  - RUN: psuade < psScriptEvalnb.in
+
+  The result will be a list of GIDAE metrics for all 
+  candidate points. You may pick the ones with the 
+  smallest metrics.
+  Alternately, you can use these as weights to run the
+  odoe_mmd (weighted version) to add space-fillingness to
+  your selection criterion.
+
+**********************************************************
+* Compute GIDAE metrics for each candidate point using 
+  modified MCMC-based inference (odoeu_evalnb2)
+
+  - RUN: psuade < psScriptStep0.in
+  - RUN: psuade < psScriptEvalnb2.in
+
+**********************************************************
+* Compute DAE metrics for each candidate point using 
+  the Fisher information method (odoeu_evalnf)
+
+  - RUN: psuade < psScriptStep0.in
+  - RUN: psuade < psScriptEvalnf.in
+
+  

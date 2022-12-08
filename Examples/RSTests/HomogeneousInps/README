@@ -1,0 +1,19 @@
+Some applications, e.g. traders models, may have homogeneous
+(or indistinguishable/interchangeable) inputs (which should
+also have the same input ranges), meaning that changing their 
+ordering does not change the simulation result.
+
+The test problem is a 50- or 100-dimensional quadratic model 
+and the problem is homogeneous because the model gives the 
+same output even if the inputs are re-ordered. In this case,
+a few response surface methods are available:
+
+- homogeneous regression
+- homogeneous Kriging
+- homogeneous GP
+
+Homogeneous regression wins because the model is quadratic.
+
+- run psuade on psuade50.in or psuade100.in
+- run rscheck using homogeneous Legendre or GP
+

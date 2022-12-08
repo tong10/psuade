@@ -31,21 +31,21 @@
 // ------------------------------------------------------------------------
 oData::oData()
 {
-   outputLevel_ = -1;
-   nInputs_ = 0;
-   nSamples_ = 0;
-   nOutputs_ = 0;
-   numFuncEvals_ = 0;
-   maxParallelJobs_ = 0;
-   setOptDriver_ = -1;
-   initialX_ = NULL;
-   lowerBounds_ = NULL;
-   upperBounds_ = NULL;
-   optimalX_ = NULL;
-   funcIO_ = NULL;
-   psIO_ = NULL;
-   intData_ = -1;
-   optFunction_ = NULL;
+  outputLevel_ = -1;
+  nInputs_ = 0;
+  nSamples_ = 0;
+  nOutputs_ = 0;
+  numFuncEvals_ = 0;
+  maxParallelJobs_ = 0;
+  setOptDriver_ = -1;
+  initialX_ = NULL;
+  lowerBounds_ = NULL;
+  upperBounds_ = NULL;
+  optimalX_ = NULL;
+  funcIO_ = NULL;
+  psIO_ = NULL;
+  intData_ = -1;
+  optFunction_ = NULL;
 }
 
 // ************************************************************************
@@ -53,10 +53,10 @@ oData::oData()
 // ------------------------------------------------------------------------
 oData::~oData()
 {
-   if (lowerBounds_ != NULL) delete [] lowerBounds_;
-   if (upperBounds_ != NULL) delete [] upperBounds_;
-   if (initialX_ != NULL) delete [] initialX_;
-   if (optimalX_ != NULL) delete [] optimalX_;
+  if (lowerBounds_ != NULL) delete [] lowerBounds_;
+  if (upperBounds_ != NULL) delete [] upperBounds_;
+  if (initialX_ != NULL) delete [] initialX_;
+  if (optimalX_ != NULL) delete [] optimalX_;
 }
 
 // ************************************************************************
@@ -64,8 +64,8 @@ oData::~oData()
 // ------------------------------------------------------------------------
 oData& oData::operator=(const oData &)
 {
-   printf("oData operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("oData operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

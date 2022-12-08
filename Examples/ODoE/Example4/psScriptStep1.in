@@ -1,0 +1,21 @@
+# run first time with PriorSample
+setranseed 943421232321
+odoeu_fdoptn
+y
+1
+25
+4
+1000
+y
+10
+psuade.in
+3
+0
+PriorSample
+y
+2
+10
+CandidateSet0
+EvalSet
+q
+

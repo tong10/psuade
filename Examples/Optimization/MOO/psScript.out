@@ -1,0 +1,139 @@
+**********************************************************************
+*      Welcome to PSUADE (version 2.1.0)
+**********************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (2.1.0)
+(for help, enter <help>)
+======================================================================
+psuade> printlevel set from 0 to 3
+psuade> Step 1: MOO needs the name of a file in PSUADE data format that has
+        its INPUT and OUTPUT sections containing information about
+        model inputs and outputs.
+        Also, the driver and opt_driver fields in this file should
+        point to the model simulator.
+Enter the name of this PSUADE input file: PSUADE input file = psuade.in
+Step 2: Follow more instructions inside MOO
+**********************************************************************
+PSUADE OPTIMIZATION: 
+	 starting X(     1) =   5.00000000e-01
+	 starting X(     2) =   5.00000000e-01
+	 starting Y =   0.00000000e+00
+**********************************************************************
+Surrogate-based Multi-objective optimization (MOO): 
+----------------------------------------------------------------------
+This multi-objective function is based on optimizing some objective
+function constructed from all sample outputs.  As such, it is quite
+different from other MOO approaches that construct Pareto fronts
+(i.e. this MOO uses the objective
+
+  Z = sum_{i=1}^{k-1} w_i O_i + (1-sum_{i=1}^{k-1} w_i) O_k
+
+where
+   w_i's are the MOO variables (weights for different outputs)
+   O_i's are the model outputs
+   k     is the number of outputs
+
+Here, Z is cast as a linear combination of the outputs O_i's and so
+the number of MOO variables = k-1, since the sum of all weights is
+1.  MOO creates a factorial design for the MOO variables. For each
+    factorial sample point, it finds the optimal point with respect to
+    the model inputs. Finally, MOO finds the point in the design that
+    gives the best overall Z.
+======================================================================
+To complete MOO setup, provide a MOO configuration file in the
+following format:
+line 1: PSUADE_BEGIN
+line 2: number of MOO variables (normally = 1)
+line 3: 1  lbound ubound <lower/upper bounds of variable 1>
+line 4: 2  lbound ubound <lower/upper bounds of variable 2>
+        (These bounds should be in the range [0,1])
+....
+line n: Python file name for evaluating the objective function
+line n+1: PSUADE_END
+NOTE: If the objective function is just a linear combination
+      of the outputs, the Python function line should be just
+      a 'NULL', and the number of design variables should be
+      nOutputs-1 (since sum of weights=1).
+An Example: 
+----------------------------------------------------------------------
+PSUADE_BEGIN
+2
+1 0 1
+2 0 1
+objfcn.py (NULL if objective function is a linear combination)
+PSUADE_END
+----------------------------------------------------------------------
+NOTE: the optimizer will evaluate the multi-objective function by
+      using the calling sequence:
+          <pythonFile> <paramFile> <objFile>
+where:
+  <paramFile> contains a sample point to evaluate the function
+      line 1: number of MOO variables + number of outputs
+      line 2: MOO variable w_1 value
+      line 3: MOO variable w_2 value
+              ....
+      line x: Output O_1 
+      line x: Output O_2 
+      line x: ...
+  <objFile> the Python file should write the overall objective
+            function value (Z) to this file.
+NOTE: MAKE SURE the <pythonFile> HAS EXECUTE PERMISSION.
+Enter the name of the configuration file: ======================================================================
+A full factorial design is to be generated to explore the MOO variable
+space (of dimension 1).  To do this, users need to choose the sample
+resolution (i.e. number of symbols in the factorial design.  E.g. if
+the resolution is 10 for 3 MOO variables, the total number of Bobyqa
+optimizations to be performed is 10x10x10=1000 (so it is expensive).
+Enter the desired resolution (>2,<100,suggested: 11): MultiObj optimizer: max fevals = 10000
+MultiObj optimizer: tolerance  = 1.000000e-06
+======================================================================
+Running Optimization #1 out of #11
+Iteration     1 (   11) : inputs = 0.000000e+00, min = -1.000000e+00
+Running Optimization #2 out of #11
+Iteration     2 (   11) : inputs = 1.000000e-01, min = -7.000000e-01
+Running Optimization #3 out of #11
+Iteration     3 (   11) : inputs = 2.000000e-01, min = -4.000000e-01
+Running Optimization #4 out of #11
+Iteration     4 (   11) : inputs = 3.000000e-01, min = -1.000000e-01
+Running Optimization #5 out of #11
+Iteration     5 (   11) : inputs = 4.000000e-01, min = 2.000000e-01
+Running Optimization #6 out of #11
+Iteration     6 (   11) : inputs = 5.000000e-01, min = 5.000000e-01
+Running Optimization #7 out of #11
+Iteration     7 (   11) : inputs = 6.000000e-01, min = 4.000000e-01
+Running Optimization #8 out of #11
+Iteration     8 (   11) : inputs = 7.000000e-01, min = 3.000000e-01
+Running Optimization #9 out of #11
+Iteration     9 (   11) : inputs = 8.000000e-01, min = 2.000000e-01
+Running Optimization #10 out of #11
+Iteration    10 (   11) : inputs = 9.000000e-01, min = 1.000000e-01
+Running Optimization #11 out of #11
+Iteration    11 (   11) : inputs = 1.000000e+00, min = 0.000000e+00
+**********************************************************************
+MOO Summary (X is the set of MOO variables) :
+**********************************************************************
+MOO OptimalX  1 = 0.000000e+00
+MOO OptimalX  2 = 1.000000e+00
+MOO OptimalY    = -1.000000e+00
+MOO nFuncEval   = 279
+**********************************************************************
+======================================================================
+A MOO sample has been created in file psuade_moo_sample, where
+Inputs  are: the MOO variables (= 1) in this sample.
+Outputs are: 
+  Output 1: optimal Z for the MOO inputs (size=1)
+  Output 2: X1 values for optimal Z given MOO inputs (weights)
+  Output 3: X2 values for optimal Z given MOO inputs (weights)
+  ...
+  Output ?: F1 values for optimal Z given MOO inputs (weights)
+  Output ?: F2 values for optimal Z given MOO inputs (weights)
+  ...
+where F1 is the first objective of the multiobjective function.
+
+Since the MOO variables are explored by a factorial sample, the results
+can be visualized using Matlab functions.  Alternatively, the results
+can be used to construct a response surface (e.g. GP) so that the MOO
+space can be explored further.
+**********************************************************************
+	 MOO total number of function evaluations = 279
+psuade> psuade terminates ...

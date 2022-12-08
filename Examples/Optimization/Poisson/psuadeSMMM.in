@@ -1,0 +1,32 @@
+PSUADE
+INPUT
+   dimension = 4
+   variable 1 X1 =   0.0100000000000000e+00   15.0000000000000000e+00
+   variable 2 X2 =   0.0100000000000000e+00   15.0000000000000000e+00
+   variable 3 X3 =   1.0000000000000000e+01   25.0000000000000000e+00
+   variable 4 X4 =   1.0000000000000000e+00   25.0000000000000000e+00
+END
+OUTPUT
+   dimension = 4
+   variable 1 Y1
+   variable 2 Y2
+   variable 3 Y3
+   variable 4 Y4
+END
+METHOD
+   sampling         = LPTAU
+   num_samples      = 1
+END
+APPLICATION
+#  driver         = ./smmm_coarse_sim
+   opt_driver     = ./smmm_fine_sim
+   aux_opt_driver = ./smmm_coarse_sim
+END
+ANALYSIS
+   optimization method = mm
+   optimization target_file = ./targetFile
+   optimization tolerance = 1.000000e-06
+   optimization print_level = 1
+   printlevel 1
+END
+END

@@ -1,0 +1,19 @@
+# run first time with PriorSample
+setranseed 943421232321
+odoeu_boptn
+y
+1
+25
+2
+1000
+y
+5
+RSTrainSample
+3
+0
+PriorSample
+CandidateSet0
+EvalSet
+0
+q
+

@@ -1,0 +1,29 @@
+# use exhaustive search
+sys cc -o simulator simulator.c -lm
+run psuadeGenCand.in
+rename psuadeData candidateSet
+load candidateSet
+printlevel 1
+odoe_mav
+y
+4
+2
+100
+1000
+
+n
+10
+10
+0
+q
+# use SCE search
+load candidateSet
+printlevel 1
+odoe_mav
+y
+4
+1
+0.0025
+0.0025
+q
+

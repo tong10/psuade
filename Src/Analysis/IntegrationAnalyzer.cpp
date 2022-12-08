@@ -38,7 +38,7 @@
 // ------------------------------------------------------------------------
 IntegrationAnalyzer::IntegrationAnalyzer() : Analyzer(), integral_(0)
 {
-   setName("INTEGRATION");
+  setName("INTEGRATION");
 }
 
 // ************************************************************************
@@ -53,93 +53,104 @@ IntegrationAnalyzer::~IntegrationAnalyzer()
 // ------------------------------------------------------------------------
 double IntegrationAnalyzer::analyze(aData &adata)
 {
-   int    nInputs, nOutputs, nSamples, ss, ii, whichOutput;
-   int    outputID, nLevels, *levelSeps, ncount;
-   double result, last, error, *X, *Y, *iLower, *iUpper;
+  int    ss, ii;
 
-   nInputs   = adata.nInputs_;
-   nOutputs  = adata.nOutputs_;
-   nSamples  = adata.nSamples_;
-   iLower    = adata.iLowerB_;
-   iUpper    = adata.iUpperB_;
-   X         = adata.sampleInputs_;
-   Y         = adata.sampleOutputs_;
-   outputID  = adata.outputID_;
-   nLevels   = adata.currRefineLevel_;
-   levelSeps = adata.refineSeparators_;
-   if (adata.inputPDFs_ != NULL)
-   {
-      ncount = 0;
-      for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
-      if (ncount > 0)
-      {
-         printOutTS(PL_INFO,
-              "Integration INFO: some inputs have non-uniform PDFs,\n");
-         printOutTS(PL_INFO,
-              "            but they are not relevant in this analysis\n");
-      }
-   }
+  //**/ ---------------------------------------------------------------
+  //**/ extract data
+  //**/ ---------------------------------------------------------------
+  int nInputs   = adata.nInputs_;
+  int nOutputs  = adata.nOutputs_;
+  int nSamples  = adata.nSamples_;
+  double *iLower = adata.iLowerB_;
+  double *iUpper = adata.iUpperB_;
+  double *X = adata.sampleInputs_;
+  double *Y = adata.sampleOutputs_;
+  int outputID = adata.outputID_;
+  int nLevels  = adata.currRefineLevel_;
+  int *levelSeps = adata.refineSeparators_;
+  if (adata.inputPDFs_ != NULL)
+  {
+    int ncount = 0;
+    for (ii = 0; ii < nInputs; ii++) ncount += adata.inputPDFs_[ii];
+    if (ncount > 0)
+    {
+      printOutTS(PL_INFO,
+           "Integration INFO: some inputs have non-uniform PDFs,\n");
+      printOutTS(PL_INFO,
+           "            but they are not relevant in this analysis\n");
+    }
+  }
 
-   if (nInputs <= 0)
-   {
-      printOutTS(PL_ERROR,  "Integration ERROR: invalid nInputs.\n");
-      printOutTS(PL_ERROR,  "    nInputs  = %d\n", nInputs);
+  //**/ ---------------------------------------------------------------
+  //**/ error checking
+  //**/ ---------------------------------------------------------------
+  if (nInputs <= 0)
+  {
+    printOutTS(PL_ERROR,  "Integration ERROR: invalid nInputs.\n");
+    printOutTS(PL_ERROR,  "    nInputs  = %d\n", nInputs);
+    return PSUADE_UNDEFINED;
+  } 
+  if (nOutputs <= 0)
+  {
+    printOutTS(PL_ERROR,  "Integration ERROR: invalid nOutputs.\n");
+    printOutTS(PL_ERROR,  "    nOutputs = %d\n", nOutputs);
+    return PSUADE_UNDEFINED;
+  } 
+  if (nSamples <= 0)
+  {
+    printOutTS(PL_ERROR,  "Integration ERROR: invalid nSamples.\n");
+    printOutTS(PL_ERROR,  "    nSamples = %d\n", nSamples);
+    return PSUADE_UNDEFINED;
+  } 
+  int whichOutput = outputID;
+  if (whichOutput < 0 || whichOutput >= nOutputs)
+  {
+    printOutTS(PL_ERROR,  "Integration ERROR: invalid outputID (%d).\n",
+           whichOutput+1);
+    return PSUADE_UNDEFINED;
+  }
+  for (ss = 0; ss < nSamples; ss++)
+  {
+    if (Y[ss] == PSUADE_UNDEFINED)
+    {
+      printOutTS(PL_ERROR,  
+           "Integration ERROR: some outputs are undefined.\n");
+      printOutTS(PL_ERROR,  
+           "                   Prune them before analyze.\n");
       return PSUADE_UNDEFINED;
-   } 
-   if (nOutputs <= 0)
-   {
-      printOutTS(PL_ERROR,  "Integration ERROR: invalid nOutputs.\n");
-      printOutTS(PL_ERROR,  "    nOutputs = %d\n", nOutputs);
-      return PSUADE_UNDEFINED;
-   } 
-   if (nSamples <= 0)
-   {
-      printOutTS(PL_ERROR,  "Integration ERROR: invalid nSamples.\n");
-      printOutTS(PL_ERROR,  "    nSamples = %d\n", nSamples);
-      return PSUADE_UNDEFINED;
-   } 
-   whichOutput = outputID;
-   if (whichOutput < 0 || whichOutput >= nOutputs)
-   {
-      printOutTS(PL_ERROR,  "Integration ERROR: invalid outputID (%d).\n",
-             whichOutput+1);
-      return PSUADE_UNDEFINED;
-   }
-   for (ss = 0; ss < nSamples; ss++)
-   {
-      if (Y[ss] == PSUADE_UNDEFINED)
-      {
-         printOutTS(PL_ERROR,  
-              "Integration ERROR: some outputs are undefined.\n");
-         printOutTS(PL_ERROR,  
-              "                   Prune them before analyze.\n");
-         return PSUADE_UNDEFINED;
-      }
-   }
+    }
+  }
 
-   result = 0.0;
-   for (ss = 0; ss < nSamples; ss++) result += Y[ss];
-   result /= (double) nSamples;
-   for (ii = 0; ii < nInputs; ii++) result *= (iUpper[ii] - iLower[ii]);
-   printAsterisks(PL_INFO, 0);
-   printOutTS(PL_INFO,"Integration: numerical integral = %14.4e\n",result);
-   printAsterisks(PL_INFO, 0);
+  //**/ ---------------------------------------------------------------
+  //**/ compute approximate integral
+  //**/ ---------------------------------------------------------------
+  double result = 0.0;
+  for (ss = 0; ss < nSamples; ss++) result += Y[ss];
+  result /= (double) nSamples;
+  for (ii = 0; ii < nInputs; ii++) result *= (iUpper[ii] - iLower[ii]);
+  printAsterisks(PL_INFO, 0);
+  printOutTS(PL_INFO,"Integration: numerical integral = %14.4e\n",result);
+  printAsterisks(PL_INFO, 0);
 
-   integral_ = result;
+  integral_ = result;
 
-   if (nLevels <= 0) return result;
+  if (nLevels <= 0) return result;
 
-   last = 0.0;
-   for (ss = 0; ss < levelSeps[nLevels-1]; ss++) last += Y[ss];
-   last /= (double) levelSeps[nLevels-1];
-   for (ii = 0; ii < nInputs; ii++) last *= (iUpper[ii] - iLower[ii]);
+  //**/ ---------------------------------------------------------------
+  //**/ compare to previous value
+  //**/ ---------------------------------------------------------------
+  double last = 0.0;
+  for (ss = 0; ss < levelSeps[nLevels-1]; ss++) last += Y[ss];
+  last /= (double) levelSeps[nLevels-1];
+  for (ii = 0; ii < nInputs; ii++) last *= (iUpper[ii] - iLower[ii]);
 
-   if (result == 0.0) error = result;
-   else               error = PABS((last-result)/result); 
-   if (adata.printLevel_ > 0)
-      printOutTS(PL_INFO,"Integration: numerical error    = %14.4e\n",error);
+  double error;
+  if (result == 0.0) error = result;
+  else               error = PABS((last-result)/result); 
+  if (adata.printLevel_ > 0)
+    printOutTS(PL_INFO,"Integration: numerical error    = %14.4e\n",error);
 
-   return error;
+  return error;
 }
 
 // ************************************************************************
@@ -147,9 +158,9 @@ double IntegrationAnalyzer::analyze(aData &adata)
 // ------------------------------------------------------------------------
 IntegrationAnalyzer& IntegrationAnalyzer::operator=(const IntegrationAnalyzer &)
 {
-   printOutTS(PL_ERROR,"Integration operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printOutTS(PL_ERROR,"Integration operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 
 // ************************************************************************
@@ -157,6 +168,6 @@ IntegrationAnalyzer& IntegrationAnalyzer::operator=(const IntegrationAnalyzer &)
 // ------------------------------------------------------------------------
 double IntegrationAnalyzer::get_integral()
 {
-   return integral_;
+  return integral_;
 }
 

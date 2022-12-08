@@ -80,7 +80,9 @@ extern "C"
     oData  *odata = (oData *) psMMBobyqaObj_;
     FILE   *infile;
 
+    //**/ =============================================================
     // ------ get history, if any ------
+    //**/ =============================================================
     nInputs  = *nInps;
     nOutputs = odata->nOutputs_;
     if(nOutputs <= 0)
@@ -89,7 +91,7 @@ extern "C"
              __FILE__, __LINE__, nOutputs);
       exit(1);
     }
-    if (psOptExpertMode_ != 0 && psMMcNSaved_ == 0)
+    if (psConfig_.OptExpertModeIsOn() && psMMcNSaved_ == 0)
     {
       infile = fopen("psuade_mmc_data","r");
       if (infile != NULL)
@@ -137,14 +139,18 @@ extern "C"
       }
     }
 
+    //**/ =============================================================
     // ------ fetch data and allocate memory ------
+    //**/ =============================================================
     localY   = new double[nOutputs];
     aux      = new double[nInputs];
     xaux     = new double[nInputs];
     outputID = odata->outputID_;
     for (ii = 0; ii < nInputs; ii++) xaux[ii] = XValues[ii];
 
+    //**/ =============================================================
     // ------ search information in history ------
+    //**/ =============================================================
     found = 0;
     for (ii = 0; ii < psMMcNSaved_; ii++)
     {
@@ -153,13 +159,19 @@ extern "C"
       if (jj == nInputs)
       {
         found = 1;
-        printf("MMOptimizer: simulation results found in archive (fine).\n");
+        printf("MMOptimizer: simulation revist ==> reuse results\n");
         index = ii;
+        for (jj = 0; jj < nInputs; jj++)
+          printf("   Input  %d = %e\n",jj+1,psMMcSaveX_[ii*nInputs+jj]);
+        for (jj = 0; jj < nOutputs; jj++)
+          printf("   Output %d = %e\n",jj+1,psMMcSaveY_[ii*nOutputs+jj]);
         break;
       }
     }
 
+    //**/ =============================================================
     // ------ run simulation (always coarse model)------
+    //**/ =============================================================
     funcID = odata->numFuncEvals_;
     if (found == 0)
     {
@@ -172,14 +184,18 @@ extern "C"
         localY[jj] = psMMcSaveY_[index*nOutputs+jj];
     }
 
+    //**/ =============================================================
     // ------ compute objective function ------
+    //**/ =============================================================
     (*YValue) = 0.0;
     for (ii = 0; ii < nOutputs; ii++) 
       (*YValue) += (localY[ii]-MM_Yspec_[ii])*(localY[ii]-MM_Yspec_[ii]);
-    (*YValue) /= MM_normYspec_ * 100.0;
+    (*YValue) = sqrt((*YValue)) / MM_normYspec_ * 100;
 
+    //**/ =============================================================
     // ------ update current optimal settings ------
     // ------ output optimization information ------
+    //**/ =============================================================
     if ((*YValue) < odata->optimalY_)
     {
       odata->optimalY_ = (*YValue);
@@ -199,7 +215,10 @@ extern "C"
       }
     }
 
-    if (psOptExpertMode_ != 0 && found == 0)
+    //**/ =============================================================
+    //**/ ------ store the data ------
+    //**/ =============================================================
+    if (psConfig_.OptExpertModeIsOn() && found == 0)
     {
       if ((psMMcNSaved_+1)*nInputs < psMMcMaxSaved_*10 &&
           (psMMcNSaved_+1)*nOutputs < psMMcMaxSaved_)
@@ -212,7 +231,10 @@ extern "C"
       }
     }
       
-    if (psOptExpertMode_ != 0 && found == 0)
+    //**/ =============================================================
+    //**/ ------ save history ------
+    //**/ =============================================================
+    if (psConfig_.OptExpertModeIsOn() && found == 0)
     {
       infile = fopen("psuade_mmc_data","w");
       if (infile != NULL)
@@ -274,7 +296,9 @@ void MMOptimizer::optimize(oData *odata)
   FunctionInterface *cfuncIO=NULL, *tempFuncIO;
   pData  pPtr, pInputs, pOutputs, pStates;
 
+  //**/ ================================================================
   // ------ prepare object variables ------
+  //**/ ================================================================
   nInputs  = odata->nInputs_;
   nOutputs = odata->nOutputs_;
   if(nOutputs <= 0)
@@ -285,12 +309,16 @@ void MMOptimizer::optimize(oData *odata)
   }
   for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = 0.0;
   odata->numFuncEvals_ = 0;
-  odata->intData_ = 0;
-  odata->optimalY_     = 1.0e50;
+  odata->optimalY_ = 1.0e50;
   tolX = odata->tolerance_;
   tolF = odata->tolerance_;
 
+  //**/ ================================================================
   // ------ prepare for adaptive mode if chosen ------
+  //**/ (note: adaptive mode requires the aux driver is a data file
+  //**/        so that a response surface can be created)
+  //**/ ------ (check data file format, check nInputs/nOutputs)
+  //**/ ================================================================
   auxNSamples = 0;
   psData = NULL;
   if (adaptive_ == 1)
@@ -330,6 +358,7 @@ void MMOptimizer::optimize(oData *odata)
     }
     auxNSamples = 0;
 
+    //**/ if acceptable, get the aux opt data and create funcIO
     if (adaptive_ == 1)
     {
       psData = new PsuadeData();
@@ -378,13 +407,15 @@ void MMOptimizer::optimize(oData *odata)
     }
   }
 
+  //**/ ================================================================
   // read target (output target values) file, if any
+  //**/ ================================================================
   if (strcmp(odata->targetFile_, "NONE"))
   {
     targetFile = fopen(odata->targetFile_, "r");
     if (targetFile == NULL)
     {
-      printf("MMOptimizer ERROR: cannot find target file %s.\n",
+      printf("MMOptimizer INFO: cannot find target file %s.\n",
              odata->targetFile_);
       exit(1);
     }
@@ -396,6 +427,7 @@ void MMOptimizer::optimize(oData *odata)
     for (ii = 0; ii < nOutputs; ii++) 
       normTargetY += targetY[ii] * targetY[ii];
     normTargetY = sqrt(normTargetY);
+    if (normTargetY == 0) normTargetY = 1;
   }
   else
   {
@@ -404,6 +436,10 @@ void MMOptimizer::optimize(oData *odata)
     printf("NOTE: if this assumption is wrong, use target file.\n");
     targetY = new double[nOutputs];
     for (ii = 0; ii < nOutputs; ii++) targetY[ii] = 0.0;
+    //**/normTargetY = 0.0;
+    //**/for (ii = 0; ii < nOutputs; ii++) 
+    //**/   normTargetY += targetY[ii] * targetY[ii];
+    //**/normTargetY = sqrt(normTargetY);
     normTargetY = 1.0;
   }
   MM_Yspec_ = new double[nOutputs];
@@ -412,7 +448,9 @@ void MMOptimizer::optimize(oData *odata)
   MM_OptimalY_ = new double[nOutputs];
   for (ii = 0; ii < nOutputs; ii++) MM_OptimalY_[ii] = 0.0;
 
+  //**/ ================================================================
   // ------ output target data information
+  //**/ ================================================================
   printAsterisks(PL_INFO, 0);
   printAsterisks(PL_INFO, 0);
   printf(" *         MANIFOLD MAPPING OPTIMIZATION BEGINS\n");
@@ -426,7 +464,9 @@ void MMOptimizer::optimize(oData *odata)
     printEquals(PL_INFO, 0);
   }
 
+  //**/ ================================================================
   // ------ allocate temporary memory
+  //**/ ================================================================
   XValues = new double[nInputs+1];
   Yf      = new double[nOutputs];
   Yfs     = new double[nOutputs * (nIterMAX+1)];
@@ -454,7 +494,9 @@ void MMOptimizer::optimize(oData *odata)
   X1      = new double[nInputs + 1];
   zStar   = new double[nInputs];
 
+  //**/ ================================================================
   // Bobyqa STOP Criteria 
+  //**/ ================================================================
   rhobeg = odata->upperBounds_[0] - odata->lowerBounds_[0];
   for (ii = 1; ii < nInputs; ii++)
   {
@@ -470,9 +512,12 @@ void MMOptimizer::optimize(oData *odata)
     rhoend = rhobeg * 1.0e-6;
   }
 
+  //**/ ================================================================
   // Initializing state variables
+  //**/ ================================================================
   for (ii = 0; ii < nInputs; ii++) X0[ii]  = 0.0;
 
+  //**/ pS0 initially is the identity
   for (ii = 0; ii < nOutputs; ii++)
   {
     for (jj = 0; jj < nOutputs; jj++)
@@ -482,10 +527,14 @@ void MMOptimizer::optimize(oData *odata)
     }
   }
 
+  //**/ I. INITIAL GUESS 
   for (ii = 0; ii < nInputs; ii++) XValues[ii] = odata->initialX_[ii];
 
+  //**/ COARSE MODEL OPTIMIZATION
 
+  //**/ ================================================================
   // ------ call optimizer (coarse model) ------
+  //**/ ================================================================
   if (odata->outputLevel_ > 1)
   {
     printEquals(PL_INFO, 0);
@@ -513,7 +562,9 @@ void MMOptimizer::optimize(oData *odata)
 #endif
   ncevals = odata->numFuncEvals_;
 
+  //**/ ================================================================
   // zStar = XValues
+  //**/ ================================================================
   for (ii = 0; ii < nInputs; ii++) X0[ii] = zStar[ii] = XValues[ii];
 
   if (odata->outputLevel_ > 1)
@@ -523,16 +574,20 @@ void MMOptimizer::optimize(oData *odata)
     for (ii = 0; ii < nInputs; ii++)
       printf("  Input %3d = %16.8e\n", ii+1, X0[ii]);
     printf("    Output   1 = %16.8e\n", MM_OptimalY_[0]);
-    printf(" Optimal function value = %16.8e\n", odata->optimalY_);
+    printf(" Optimal function value = %16.8e (coarse model)\n", 
+           odata->optimalY_);
     printEquals(PL_INFO, 0);
   }
 
+  //**/ ================================================================
   // 1.A.1 EVALUATING THE FINE MODEL AT THE COARSE OPTIMUM 
+  //**/ ================================================================
   odata->funcIO_->setDriver(1);      /* we evaluate the fine model */
   nfevals++;
   kk = fineSolve(odata, nInputs, X0, nOutputs, Yf, nfevals);
   if (kk == 1) nfevals--;
 
+  //**/ compute function value 
   Fval = 0.0;
   for (ii = 0; ii < nOutputs; ii++)
   {
@@ -540,11 +595,13 @@ void MMOptimizer::optimize(oData *odata)
     Yfs[ii+(nIter-1)*nOutputs] = Yf[ii];
   }
   Fval = sqrt(Fval)/normTargetY * 100.00;
+  //**/ update optimal function values
   optFval = Fval;
   optX = new double[nInputs];
   for (ii = 0; ii < nInputs; ii++) optX[ii] = X0[ii];
   optY = new double[nOutputs];
   for (ii = 0; ii < nOutputs; ii++) optY[ii] = Yf[ii];
+  //**/ output function information
   if (odata->outputLevel_ > 1)
   {
     printEquals(PL_INFO, 0);
@@ -553,12 +610,15 @@ void MMOptimizer::optimize(oData *odata)
       printf("   Input %d  = %16.8e\n", ii+1, X0[ii]);
     for (ii = 0; ii < nOutputs; ii++)
       printf("      Output %d = %16.8e\n", ii+1, Yf[ii]);
-    printf("The corresponding cost function value = %16.8e\n", Fval);
+    printf("The cost function (C) value = %16.8e (fine model)\n",Fval);
+    printf("NOTE: C = ||outputs - targets||^2 / ||targets|| * 100\n");
     printEquals(PL_INFO, 0);
   }
   initFval = Fval;
 
+  //**/ ================================================================
   // 1.B EVALUATING THE COARSE MODEL AT THE COARSE OPTIMUM 
+  //**/ ================================================================
   if (adaptive_ == 1)
      cfuncIO->evaluate(odata->numFuncEvals_,nInputs,X0,nOutputs,Yc,0);
   else
@@ -579,7 +639,9 @@ void MMOptimizer::optimize(oData *odata)
 
   while (1)
   {
+    //**/ =============================================================
     // 2. COMPUTING THE NEXT SPECIFICATIONS 
+    //**/ =============================================================
     for (ii = 0; ii < nOutputs; ii++)
     {
       MM_Yspec_[ii] = 0.0;
@@ -594,6 +656,9 @@ void MMOptimizer::optimize(oData *odata)
     MM_normYspec_ = sqrt(MM_normYspec_);
     lastFval = Fval;
 
+    //**/ =============================================================
+    //**/ 3. COMPUTING THE NEXT ITERANT 
+    //**/ =============================================================
     for (ii = 0; ii < nInputs; ii++) X1[ii] = X0[ii];
 
     if (odata->outputLevel_ > 2)
@@ -622,23 +687,27 @@ void MMOptimizer::optimize(oData *odata)
 #endif
     ncevals = odata->numFuncEvals_;
 
-    if (odata->outputLevel_ > 2)
+    if (odata->outputLevel_ > 1)
     {
       printDashes(PL_INFO, 0);
-      printf("===> MM: coarse model optimum at iteration %d:\n", nfevals);
+      printf("===> MM: coarse model optimum at iteration %d:\n",nfevals);
       for (ii = 0; ii < nInputs; ii++)
         printf("===>  Input %3d = %16.8e\n", ii+1, X0[ii]);
       printf("===>    Output   1 = %16.8e\n", MM_OptimalY_[0]);
-      printf("===> Optimal function value = %16.8e\n", odata->optimalY_);
+      printf("===> Optimal function value = %16.8e (coarse model)\n", 
+             odata->optimalY_);
       printDashes(PL_INFO, 0);
     }
 
+    //**/ =============================================================
     // 3.A.1 EVALUATING THE FINE MODEL AT X1
+    //**/ =============================================================
     odata->funcIO_->setDriver(1);  /* we evaluate the fine model */
     nfevals++;
     kk = fineSolve(odata, nInputs, X1, nOutputs, Yf, nfevals);
     if (kk == 1) nfevals--;
     nAux++;
+    //**/ compute function value
     Fval = 0.0;
     for (ii = 0; ii < nOutputs; ii++)
     {
@@ -646,6 +715,7 @@ void MMOptimizer::optimize(oData *odata)
       Yfs[ii + nIter*nOutputs] = Yf[ii];
     }
     Fval = sqrt(Fval) / normTargetY * 100.0;
+    //**/ output function information
     if (odata->outputLevel_ > 0)
     {
       printEquals(PL_INFO, 0);
@@ -655,9 +725,11 @@ void MMOptimizer::optimize(oData *odata)
         printf("   Input %d  = %16.8e\n", ii+1, X1[ii]);
       for (ii = 0; ii < nOutputs; ii++)
         printf("      Output %d = %16.8e\n", ii+1, Yf[ii]);
-      printf("The corresponding cost function value = %16.8e\n", Fval);
+      printf("The cost function (C) value = %16.8e (fine model)\n",Fval);
+      printf("NOTE: C = ||outputs - targets||^2 / ||targets|| * 100\n");
       printEquals(PL_INFO, 0);
     }
+    //**/ update optimal values
     if (Fval < optFval)
     {
       optFval = Fval;
@@ -665,7 +737,9 @@ void MMOptimizer::optimize(oData *odata)
       for (ii = 0; ii < nOutputs; ii++) optY[ii] = Yf[ii];
     }
 
+    //**/ =============================================================
     // 3.A.2 store the new data for future use
+    //**/ =============================================================
     if (adaptive_ == 1 && auxNSamples > 0 && psData != NULL && nAux > 0)
     {
       match = 0;
@@ -725,7 +799,9 @@ void MMOptimizer::optimize(oData *odata)
       }
     }
 
+    //**/ =============================================================
     // 3.A.3 STOPPING CRITERIA
+    //**/ =============================================================
     h = 0.0;
     for (ii = 0; ii < nInputs; ii++)
       h += (X1[ii] - X0[ii]) * (X1[ii] - X0[ii]);
@@ -739,7 +815,9 @@ void MMOptimizer::optimize(oData *odata)
     printEquals(PL_INFO, 0);
     if (nIter == nIterMAX || Fh < tolF) break;
 
+    //**/ =============================================================
     // 3.B EVALUATING THE COARSE MODEL AT X1
+    //**/ =============================================================
     if (adaptive_ == 1)
       cfuncIO->evaluate(odata->numFuncEvals_,nInputs,X1,nOutputs,Yc,0);
     else
@@ -762,8 +840,10 @@ void MMOptimizer::optimize(oData *odata)
       printDashes(PL_INFO, 0);
     }
 
+    //**/ =============================================================
     // 4. COMPUTING Af AND Ac
     // A. ESTABLISH DIMENSIONS (m x min(nIter,n)))
+    //**/ =============================================================
     minkn = PSmin(   nIter,nInputs);
     minmn = PSmin(nOutputs,  minkn);
 
@@ -776,7 +856,9 @@ void MMOptimizer::optimize(oData *odata)
       }
     }
 
+    //**/ =============================================================
     // B. COPYING MATRICES FOR FORTRAN
+    //**/ =============================================================
     for (ii = 0; ii < nOutputs; ii++)
     {
       for(jj = 0; jj < minkn; jj++)
@@ -786,7 +868,9 @@ void MMOptimizer::optimize(oData *odata)
       }
     }
 
+    //**/ =============================================================
     // C. SVD DECOMPOSITION
+    //**/ =============================================================
     jobu  = 'S';
     jobvt = 'S';
     ldu   = nOutputs;
@@ -798,15 +882,20 @@ void MMOptimizer::optimize(oData *odata)
     dgesvd_(&jobu, &jobvt, &nOutputs, &minkn, AcT, &nOutputs, Sc, Uc,
             &ldu, VcT, &ldvt, WORK, &lwork, &info);
 
+    //**/ =============================================================
     // D. COMPUTING pS0
+    //**/ pseudoinverting Sf
+    //**/ =============================================================
     for (ii = 0; ii < minmn; ii++)
     {
       if (Sf[ii] < TOLpinv) Sf[ii] = 0.0;
       else                  Sf[ii] = 1/Sf[ii];;
     }
 
+    //**/ =============================================================
     // pinv(Sf)*U' U (in C):  nOutputs x minmn
     // U'
+    //**/ =============================================================
     for (ii = 0; ii < minmn; ii++)
       for(jj = 0; jj < nOutputs; jj++)
         UfT[ii + jj*minmn] = Uf[jj + ii*nOutputs];
@@ -815,7 +904,9 @@ void MMOptimizer::optimize(oData *odata)
       for (jj = 0; jj < nOutputs; jj++)
         UfT[ii + jj*minmn] = Sf[ii]*UfT[ii + jj*minmn];
 
+    //**/ =============================================================
     // V
+    //**/ =============================================================
     for (ii = 0; ii < minkn; ii++)
       for(jj = 0; jj < minkn; jj++) Vf[jj + minkn*ii] = VfT[ii + jj*minkn];
 
@@ -829,8 +920,10 @@ void MMOptimizer::optimize(oData *odata)
       }
     }
 
+    //**/ =============================================================
     // D2. Ac * pinv(Af) : Ac       (nOutputs x    minkn)
     //                     pinv(Af) (   minkn x nOutputs)
+    //**/ =============================================================
     for (ii = 0; ii < nOutputs; ii++)
     {
       for (jj =0; jj < nOutputs; jj++)
@@ -841,11 +934,15 @@ void MMOptimizer::optimize(oData *odata)
       }
     }
 
+    //**/ =============================================================
     // D3. Ac * pinv(Af) + Im
+    //**/ =============================================================
     for (ii = 0; ii < nOutputs; ii++) pS0[ii + ii*nOutputs] += 1.0;
 
+    //**/ =============================================================
     // D4. Ac * pinv(Af) + Im - Uc*Uc'
     //                               Uc (in C) :  nOutputs x minmn
+    //**/ =============================================================
     for (ii = 0; ii < nOutputs; ii++)
     {
       for (jj = 0; jj < nOutputs; jj++)
@@ -856,7 +953,9 @@ void MMOptimizer::optimize(oData *odata)
     }
     nIter = nIter + 1;
 
+    //**/ =============================================================
     // updating variables 
+    //**/ =============================================================
     for (ii = 0; ii < nInputs; ii++) X0[ii] = X1[ii];
   }
   if (Fval == initFval)
@@ -871,7 +970,9 @@ void MMOptimizer::optimize(oData *odata)
     printf(" ============================================================\n");
   }
 
+  //**/ ================================================================
   // store data 
+  //**/ ================================================================
   if (psData != NULL)
   {
     psData->updateInputSection(auxNSamples, auxNInputs, NULL, 
@@ -881,7 +982,9 @@ void MMOptimizer::optimize(oData *odata)
     psData->writePsuadeFile(auxDriverName,0);
   }
 
+  //**/ ================================================================
   // DIAGNOSTICS 
+  //**/ ================================================================
   if (nIter == nIterMAX)
     printf("\n Maximum number of %4d MM iterations reached.\n\n", nIterMAX);
   else if (Fval < initFval)
@@ -906,6 +1009,9 @@ void MMOptimizer::optimize(oData *odata)
   odata->optimalY_ = optFval;
   for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = optX[ii];
 
+  //**/ ================================================================
+  //**/ clean up
+  //**/ ================================================================
   if (adaptive_ == 1 && auxNSamples > 0 && psData != NULL)
   {
     delete [] auxSInputs;
@@ -964,7 +1070,7 @@ int MMOptimizer::fineSolve(oData *odata, int nInputs, double *X0,
   int  ii, jj, kk, mm, found;
   FILE *infile;
 
-  if (psOptExpertMode_ != 0 && psMMNSaved_ == 0)
+  if (psConfig_.OptExpertModeIsOn() && psMMNSaved_ == 0)
   {
     infile = fopen("psuade_mm_data","r");
     if (infile != NULL)
@@ -1013,6 +1119,7 @@ int MMOptimizer::fineSolve(oData *odata, int nInputs, double *X0,
     }
   }
 
+  //**/ ------ search to see if it has already been evaluated ------
   found = 0;
   for (ii = 0; ii < psMMNSaved_; ii++)
   {
@@ -1029,6 +1136,7 @@ int MMOptimizer::fineSolve(oData *odata, int nInputs, double *X0,
   if (found == 0)
   {
     odata->funcIO_->evaluate(runNumber,nInputs,X0,nOutputs,Yf,0);
+    //**/ keep track of number of fine solves.
     odata->intData_++;
   }
   else
@@ -1037,7 +1145,8 @@ int MMOptimizer::fineSolve(oData *odata, int nInputs, double *X0,
       Yf[jj] = psMMSaveY_[ii*nOutputs+jj];
   }
 
-  if (psOptExpertMode_ != 0 && found == 0)
+  //**/ ------ save the data ------
+  if (psConfig_.OptExpertModeIsOn() && found == 0)
   {
     if (((psMMNSaved_+1) * nInputs < psMMMaxSaved_*10) &&
         ((psMMNSaved_+1) * nOutputs < psMMMaxSaved_))
@@ -1050,7 +1159,8 @@ int MMOptimizer::fineSolve(oData *odata, int nInputs, double *X0,
     }
   }
 
-  if (psOptExpertMode_ != 0 && found == 0)
+  //**/ ------ save history ------
+  if (psConfig_.OptExpertModeIsOn() && found == 0)
   {
     infile = fopen("psuade_mm_data","w");
     if (infile != NULL)

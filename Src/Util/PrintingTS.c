@@ -1,166 +1,162 @@
-/*===========================================================================*/
-/**
- *  \file PrintingTS.c
- *
- *  \brief Utility routines for printing output to stdout, stderr, and log
- *  files.
- */
-/*  Copyright:  (c) 2004-2007 The Regents of the University of California.
- *
- *===========================================================================*/
-
+/* ************************************************************************
+// Copyright (c) 2007   Lawrence Livermore National Security, LLC.
+// Produced at the Lawrence Livermore National Laboratory.
+// Written by the PSUADE team.
+// All rights reserved.
+//
+// Please see the COPYRIGHT_and_LICENSE file for the copyright notice,
+// disclaimer, contact information and the GNU Lesser General Public License.
+//
+// PSUADE is free software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License (as published by the Free Software
+// Foundation) version 2.1 dated February 1999.
+//
+// PSUADE is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the IMPLIED WARRANTY OF MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE.  See the terms and conditions of the GNU General
+// Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+// ************************************************************************
+// Utility routines for printing output to stdout, stderr, and log files.
+//=======================================================================*/
 #include "PrintingTS.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <sys/time.h>
-
 #include <time.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <libgen.h>
 
-/** \brief The overall print level we're running at */
-/*------------------------------------*/
+/*============================================
+  The overall print level we're running at 
+ *------------------------------------------*/
 static int s_printLevel = 1;
 
-/** \brief Do thread safe printing? */
-/*------------------------------------*/
+/*------------------------------------------  
+  Do thread safe printing? 
+ *------------------------------------------*/
 static int doPrintTS = 1;
 
-/** \brief Do thread safe Logging printing? */
-/*------------------------------------------*/
+/*------------------------------------------
+  Do thread safe Logging printing? 
+ *------------------------------------------*/
 static int doLogTS = 0;
 
-/** \brief MPI rank of symponent process. */
-/*------------------------------------------*/
+/*------------------------------------------
+  MPI rank of symponent process. 
+ *------------------------------------------*/
 static int localRank = -1;
 
-/** \brief Log file pointer. */
-/*-----------------------------*/
+/*------------------------------------------
+  Log file pointer. 
+ *------------------------------------------*/
 static FILE* fpLog;
 
-/** \brief Lock that serializes output. */
-/*----------------------------------------*/
+/*------------------------------------------
+  Lock that serializes output. 
+ *----------------------------------------*/
 //static pthread_mutex_t printLock = PTHREAD_MUTEX_INITIALIZER;
 
-/*---------------------------------------------------------------------------
- *  initializePrintingTS
- */
-/** \brief Create directory to hold log files if needed; open log file.
- *
- *  This routine recursively removes a logging directory if it already exists
- *  and then creates a new empty top level logging directory with the same
- *  name.  It also constructs the log file name and opens it.
- *
- *  doPrintTS gets set to 1/True.
- *
- *  \param[in] printLevel  : The level of output to display and log.
- *  \param[in] logFileName : Log file name.
- *  \param[in] myRank      : Rank that is given.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
+/* ************************************************************************
+  initializePrintingTS
+  Create directory to hold log files if needed; open log file.
+  
+  This routine recursively removes a logging directory if it already exists
+  and then creates a new empty top level logging directory with the same
+  name.  It also constructs the log file name and opens it.
+  
+  doPrintTS gets set to 1/True.
+  
+  \param[in] printLevel  : The level of output to display and log.
+  \param[in] logFileName : Log file name.
+  \param[in] myRank      : Rank that is given.
+  -----------------------------------------------------------------------*/
 void
 initializePrintingTS(int printLevel, const char* logFileName, int myRank)
 {
   char commandString[128];
   char logFileNameFull[256];
 
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   localRank = myRank;
 
   s_printLevel = printLevel;
 
-  if(logFileName) {
+  if(logFileName) 
+  {
     sprintf(logFileNameFull, "%s.%05d", logFileName, myRank);
     fpLog = fopen(logFileNameFull, "w");
   }
 
-  if (fpLog != NULL) { doLogTS = 1; }
+  if (fpLog != NULL) doLogTS = 1;
 
-//  pthread_mutex_unlock(&printLock);
+  //  pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  finalizePrintingTS
- */
-/** \brief Closes the log file.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-finalizePrintingTS(void)
+/* ************************************************************************
+   finalizePrintingTS: Closes the log file.
+  -----------------------------------------------------------------------*/
+void finalizePrintingTS(void)
 {
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   doPrintTS = 0;
-  
   if (fpLog != NULL) { fclose(fpLog); fpLog = NULL; }
 
-//  pthread_mutex_unlock(&printLock);
+  //  pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  printErrTS
- */
-/** \brief Prints error message to log file & stderr.
- *
- *  \param[in] format : Text to print.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-printErrTS(int printLevel, const char* format, ...)
+/* ************************************************************************
+   printErrTS
+   Prints error message to log file & stderr.
+   \param[in] format : Text to print.
+  -----------------------------------------------------------------------*/
+void printErrTS(int printLevel, const char* format, ...)
 {
   char buffer[4096];
   va_list args;
 
+  // pthread_mutex_lock(&printLock);
 
-//  pthread_mutex_lock(&printLock);
-
-  if(printLevel <= s_printLevel) {
+  if(printLevel <= s_printLevel) 
+  {
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
-    
-    if(doLogTS) {
+    if(doLogTS) 
+    {
       fputs(buffer, fpLog);
       fflush(fpLog);
     }
-    
-    if (doPrintTS) {    
+    if (doPrintTS) 
+    {    
       fputs(buffer, stderr);
       fflush(stderr);
     }    
-
     va_end(args);
   }
 
-//  pthread_mutex_unlock(&printLock);
-
+  // pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  printLogTS
- */
-/** \brief Prints log message to log file.
- *
- *  \param[in] format : Text to print.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-printLogTS(int printLevel, const char* format, ...)
+/* ************************************************************************
+ * printLogTS: Prints log message to log file.
+ * \param[in] format : Text to print.
+  -----------------------------------------------------------------------*/
+void printLogTS(int printLevel, const char* format, ...)
 {
   char buffer[4096];
   va_list args;
 
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   if (printLevel <= s_printLevel && doLogTS)
   {
@@ -173,177 +169,131 @@ printLogTS(int printLevel, const char* format, ...)
     va_end(args);
   }
  
-//  pthread_mutex_unlock(&printLock);
+  //  pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  printOutTS
- */
-/** \brief Prints message to log file & stdout.
- *
- *  \param[in] format : Text to print.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-printOutTS(int printLevel, const char* format, ...)
+/* ************************************************************************
+ * printOutTS: Prints message to log file & stdout.
+ * \param[in] format : Text to print.
+ *-----------------------------------------------------------------------*/
+void printOutTS(int printLevel, const char* format, ...)
 {
   char buffer[4096];
   va_list args;
 
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
-  if (printLevel <= s_printLevel) {
+  if (printLevel <= s_printLevel) 
+  {
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
 
-    if(doLogTS) {
+    if(doLogTS) 
+    {
       fputs(buffer, fpLog);
       fflush(fpLog);
     }
 
-    if (doPrintTS) {
+    if (doPrintTS) 
+    {
       fputs(buffer, stdout);
       fflush(stdout);
     }
-    
     va_end(args);
-
   }
-//  pthread_mutex_unlock(&printLock);
+  // pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  isPrintTSOn
- */
-/** \brief Is thread safe printing on?
- *
- *  \return On/Off indicator. */
-/*---------------------------------------------------------------------------*/
-int
-isPrintTSOn(void)
+/* ************************************************************************
+ *  isPrintTSOn: Is thread safe printing on?
+ *-----------------------------------------------------------------------*/
+int isPrintTSOn(void)
 {
-
   /* I think we can get away without locking here. */
-
   return doPrintTS;
 }
 
-/*---------------------------------------------------------------------------
- *  turnPrintTSOff
- */
-/** \brief Turn thread safe printing off.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-turnPrintTSOff(void)
+/* ************************************************************************
+ *  turnPrintTSOff: Turn thread safe printing off.
+ *-----------------------------------------------------------------------*/
+void turnPrintTSOff(void)
 {
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   doPrintTS = 0;
 
-//  pthread_mutex_unlock(&printLock);
+  // pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  turnPrintTSOn
- */
-/** \brief Turn thread safe printing on.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
+/* ************************************************************************
+ *  turnPrintTSOn: Turn thread safe printing on.
+ *-----------------------------------------------------------------------*/
 void
 turnPrintTSOn(void)
 {
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   doPrintTS = 1;
 
-//  pthread_mutex_unlock(&printLock);
-
+  // pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  isLogTSOn
- */
-/** \brief Is thread safe printing on?
- *
- *  \return On/Off indicator. */
-/*---------------------------------------------------------------------------*/
-int
-isLogTSOn(void)
+/* ************************************************************************
+ *  isLogTSOn: Is thread safe printing on?
+ *-----------------------------------------------------------------------*/
+int isLogTSOn(void)
 {
-
   /* I think we can get away without locking here. */
 
   return doLogTS;
 }
 
-/*---------------------------------------------------------------------------
- *  turnLogTSOff
- */
-/** \brief Turn thread safe printing off.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
+/* ************************************************************************
+ *  turnLogTSOff: Turn thread safe printing off.
+ *-----------------------------------------------------------------------*/
 void
 turnLogTSOff(void)
 {
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   doLogTS = 0;
 
-//  pthread_mutex_unlock(&printLock);
+  // pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  turnLogTSOn
- */
-/** \brief Turn thread safe printing on.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-turnLogTSOn(void)
+/* ************************************************************************
+ *  turnLogTSOn: Turn thread safe printing on.
+ *-----------------------------------------------------------------------*/
+void turnLogTSOn(void)
 {
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   doLogTS = 1;
 
-//  pthread_mutex_unlock(&printLock);
-
+  // pthread_mutex_unlock(&printLock);
 }
 
-/*---------------------------------------------------------------------------
- *  getPrintLevel
- */
-/** \brief Return the current printLevel (See description in initilaizePrintingTS)
- *
- *  \return int: printLevel. */
-/*---------------------------------------------------------------------------*/
-int
-getPrintLevelTS(void)
+/* ************************************************************************
+ *  getPrintLevel: Return the current printLevel (See description in 
+ *                 initilaizePrintingTS)
+ *-----------------------------------------------------------------------*/
+int getPrintLevelTS(void)
 {
   /* I think we can get away without locking here. */
 
   return s_printLevel;
 }
 
-/*---------------------------------------------------------------------------
- *  setPrintLevel
- */
-/** \brief Set the printlevel, usually done at initialization. Default is 0.
- *
- *  \return void */
-/*---------------------------------------------------------------------------*/
-void
-setPrintLevelTS(int printLevel)
+/* ************************************************************************
+ *  setPrintLevel: Set the printlevel, usually done at initialization. 
+ *                 Default is 0.
+ *-----------------------------------------------------------------------*/
+void setPrintLevelTS(int printLevel)
 {
-//  pthread_mutex_lock(&printLock);
+  // pthread_mutex_lock(&printLock);
 
   s_printLevel = printLevel;
 
-//  pthread_mutex_unlock(&printLock);
+  // pthread_mutex_unlock(&printLock);
 }
 

@@ -43,7 +43,7 @@
 // ------------------------------------------------------------------------
 SobolSampling::SobolSampling() : Sampling()
 {
-   samplingID_ = PSUADE_SAMP_SOBOL;
+  samplingID_ = PSUADE_SAMP_SOBOL;
 }
 
 // ************************************************************************
@@ -58,161 +58,180 @@ SobolSampling::~SobolSampling()
 // ------------------------------------------------------------------------
 int SobolSampling::initialize(int initLevel)
 {
-   int    iD, iD2, inputID, nReps, sampleCount, iR;
-   double **M1Mat, **M2Mat, *ranges, ddata;
+  int    iD, iD2, inputID, nReps, sampleCount, iR;
+  double ddata;
+  psMatrix matM1, matM2;
+  psVector vecRanges;
 
-   if (nSamples_ == 0)
-   {
-      printf("SobolSampling::initialize ERROR - nSamples = 0.\n");
-      exit(1);
-   }
-   if (nInputs_ == 0 || lowerBounds_ == NULL || upperBounds_ == NULL)
-   {
-      printf("SobolSampling::initialize ERROR - input not set up.\n");
-      exit(1);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ error checking
+  //**/ ----------------------------------------------------------------
+  if (nSamples_ == 0)
+  {
+    printf("SobolSampling::initialize ERROR - nSamples = 0.\n");
+    exit(1);
+  }
+  if (nInputs_ == 0)
+  {
+    printf("SobolSampling::initialize ERROR - input not set up.\n");
+    exit(1);
+  }
 
-   deleteSampleData();
-   if (nInputs_ > 25)
-   {
-      printf("SobolSampling : can only handle nInputs <= 25\n");
-      exit(1);
-   }
-   if (nSamples_ / (nInputs_ + 2) * (nInputs_ + 2) != nSamples_) 
-   {
-      printf("SobolSampling : nSamples must be multiples of nInputs+2.\n");
-      exit(1);
-   }
-   if (initLevel != 0) return 0;
-   allocSampleData();
-   nReps = nSamples_ / (nInputs_ + 2);
+  //**/ ----------------------------------------------------------------
+  //**/ clean up
+  //**/ ----------------------------------------------------------------
+  if (nInputs_ > 25)
+  {
+    printf("SobolSampling : can only handle nInputs <= 25\n");
+    exit(1);
+  }
+  if (nSamples_ / (nInputs_ + 2) * (nInputs_ + 2) != nSamples_) 
+  {
+    printf("SobolSampling : nSamples must be multiples of nInputs+2.\n");
+    nSamples_ = (nSamples_ / (nInputs_ + 2) + 1) * (nInputs_ + 2);
+    printf("SobolSampling : nSamples has been changed to be %d\n",nSamples_);
+  }
+  if (initLevel != 0) return 0;
 
-   if (printLevel_ > 4)
-   {
-      printf("SobolSampling::initialize: nSamples = %d\n", nSamples_);
-      printf("SobolSampling::initialize: nInputs  = %d\n", nInputs_);
-      printf("SobolSampling::initialize: nOutputs = %d\n", nOutputs_);
-      for (inputID = 0; inputID < nInputs_; inputID++)
-         printf("    SobolSampling input %3d = [%e %e]\n", inputID+1,
-                lowerBounds_[inputID], upperBounds_[inputID]);
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ allocate space for matrix
+  //**/ ----------------------------------------------------------------
+  allocSampleData();
 
-   M1Mat = new double*[nReps];
-   for (iD = 0; iD < nReps; iD++) M1Mat[iD] = new double[nInputs_];
-   M2Mat = new double*[nReps];
-   for (iD = 0; iD < nReps; iD++) M2Mat[iD] = new double[nInputs_];
+  nReps = nSamples_ / (nInputs_ + 2);
 
-   ranges = new double[nInputs_];
-   for (iD = 0;  iD < nInputs_;  iD++) 
-      ranges[iD] = upperBounds_[iD] - lowerBounds_[iD];
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("SobolSampling::initialize: nSamples = %d\n", nSamples_);
+    printf("SobolSampling::initialize: nInputs  = %d\n", nInputs_);
+    printf("SobolSampling::initialize: nOutputs = %d\n", nOutputs_);
+    for (inputID = 0; inputID < nInputs_; inputID++)
+      printf("    SobolSampling input %3d = [%e %e]\n", inputID+1,
+             vecLBs_[inputID], vecUBs_[inputID]);
+  }
 
-   sampleCount = 0;
-   generate(M2Mat, nReps);
+  //**/ ----------------------------------------------------------------
+  //**/ allocate space for the matrices
+  //**/ ----------------------------------------------------------------
+  matM1.setFormat(2);
+  matM1.setDim(nReps, nInputs_);
+  matM2.setFormat(2);
+  matM2.setDim(nReps, nInputs_);
+  double **M1Mat = matM1.getMatrix2D();
+  double **M2Mat = matM2.getMatrix2D();
+
+  //**/ ----------------------------------------------------------------
+  //**/ preparation for generating the samples
+  //**/ ----------------------------------------------------------------
+  vecRanges.setLength(nInputs_);
+  for (iD = 0;  iD < nInputs_;  iD++) 
+    vecRanges[iD] = vecUBs_[iD] - vecLBs_[iD];
+
+  //**/ ----------------------------------------------------------------
+  //**/ repeat the sample generation
+  //**/ ----------------------------------------------------------------
+  sampleCount = 0;
+  generate(M2Mat, nReps);
 #ifdef PSUADE_SAL_GRID
-   ddata  = 1.0 / (double) (nReps/2 - 1);
-   for (iD = 0; iD < nReps; iD++)
-   {
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
-         ddata2 = PSUADE_drand();
-         if (ddata2 > 0.5) ddata2 = 1.0;
-         else              ddata2 = -1.0;
-         if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
-             (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
-              M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
-         else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
-      }
-   }
+  //**/ M1 and M2 are generated on a fixed grid (nReps/2 grid points)
+  ddata  = 1.0 / (double) (nReps/2 - 1);
+  for (iD = 0; iD < nReps; iD++)
+  {
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata2 = PSUADE_drand();
+      if (ddata2 > 0.5) ddata2 = 1.0;
+      else              ddata2 = -1.0;
+      if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
+          (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
+           M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
+      else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
+    }
+  }
 #endif
 #ifdef PSUADE_SAL_GRID
-   for (iD = 0; iD < nReps; iD++)
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-         M1Mat[iD][iD2] = M2Mat[iD][iD2];
-   for (iD = 0; iD < nReps; iD++)
-   {
-      ddata = 0.25 * PSUADE_drand();
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
-         ddata2 = PSUADE_drand();
-         if (ddata2 > 0.5) ddata2 = 1.0;
-         else              ddata2 = -1.0;
-         if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
-             (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
-              M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
-         else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
-      }
-   }
+  //**/ M1 generated from M2 by adding fixed (for all inputs) but 
+  //**/ random (from sample point to sample point) perturbations
+  for (iD = 0; iD < nReps; iD++)
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+      M1Mat[iD][iD2] = M2Mat[iD][iD2];
+  for (iD = 0; iD < nReps; iD++)
+  {
+    ddata = 0.25 * PSUADE_drand();
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata2 = PSUADE_drand();
+      if (ddata2 > 0.5) ddata2 = 1.0;
+      else              ddata2 = -1.0;
+      if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
+          (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
+           M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
+      else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
+    }
+  }
 #endif
 #if 1
-   int    iOne=1;
-   double *lbounds = new double[2*nInputs_];
-   double *ubounds = new double[2*nInputs_];
-   for (iD = 0; iD < 2*nInputs_; iD++) lbounds[iD] = 0.0;
-   for (iD = 0; iD < 2*nInputs_; iD++) ubounds[iD] = 1.0;
-   //Sampling *sampler = (Sampling *) new MCSampling();
-   Sampling *sampler = (Sampling *) new LPtauSampling();
-   sampler->setInputBounds(2*nInputs_, lbounds, ubounds);
-   sampler->setOutputParams(iOne);
-   sampler->setSamplingParams(nReps, iOne, iOne);
-   sampler->initialize(0);
-   double *sInputs  = new double[nReps*2*nInputs_];
-   double *sOutputs = new double[nReps];
-   int    *sStates  = new int[nReps];
-   sampler->getSamples(nReps,2*nInputs_,iOne,sInputs, sOutputs, 
-                       sStates);
+   //**/ M1 generated from M2 by generating 2 LPtau samples
+  int iOne=1;
+  psVector  vecLBs, vecUBs, vecSamInps, vecSamOuts;
+  psIVector vecSamStas;
+  vecLBs.setLength(2*nInputs_);
+  vecUBs.setLength(2*nInputs_);
+  for (iD = 0; iD < 2*nInputs_; iD++) vecLBs[iD] = 0.0;
+  for (iD = 0; iD < 2*nInputs_; iD++) vecUBs[iD] = 1.0;
+  //Sampling *sampler = (Sampling *) new MCSampling();
+  Sampling *sampler = (Sampling *) new LPtauSampling();
+  sampler->setInputBounds(2*nInputs_,vecLBs.getDVector(),vecUBs.getDVector());
+  sampler->setOutputParams(iOne);
+  sampler->setSamplingParams(nReps, iOne, iOne);
+  sampler->initialize(0);
+  vecSamInps.setLength(nReps*2*nInputs_);
+  vecSamOuts.setLength(nReps);
+  vecSamStas.setLength(nReps);
+  sampler->getSamples(nReps,2*nInputs_,iOne,vecSamInps.getDVector(), 
+                      vecSamOuts.getDVector(), vecSamStas.getIVector());
+  for (iD = 0; iD < nReps; iD++)
+    for (iD2 = 0; iD2 < nInputs_; iD2++) 
+      M1Mat[iD][iD2] = vecSamInps[iD*2*nInputs_+iD2];
    for (iD = 0; iD < nReps; iD++)
-      for (iD2 = 0; iD2 < nInputs_; iD2++) 
-         M1Mat[iD][iD2] = sInputs[iD*2*nInputs_+iD2];
-   for (iD = 0; iD < nReps; iD++)
-      for (iD2 = 0; iD2 < nInputs_; iD2++) 
-         M2Mat[iD][iD2] = sInputs[iD*2*nInputs_+nInputs_+iD2];
-   delete [] sInputs;
-   delete [] sOutputs;
-   delete [] sStates;
-   delete [] lbounds;
-   delete [] ubounds;
-   delete sampler;
+     for (iD2 = 0; iD2 < nInputs_; iD2++) 
+       M2Mat[iD][iD2] = vecSamInps[iD*2*nInputs_+nInputs_+iD2];
+  delete sampler;
 #endif
-   for (iR = 0; iR < nReps; iR++)
-   {
+  for (iR = 0; iR < nReps; iR++)
+  {
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata = M2Mat[iR][iD2];
+      ddata = ddata * vecRanges[iD2] + vecLBs_[iD2];
+      vecSamInps_[sampleCount*nInputs_+iD2] = ddata;
+    }
+    sampleCount++;
+    for (iD = 0; iD < nInputs_; iD++)
+    {
       for (iD2 = 0; iD2 < nInputs_; iD2++)
       {
-         ddata = M2Mat[iR][iD2];
-         ddata = ddata * ranges[iD2] + lowerBounds_[iD2];
-         sampleMatrix_[sampleCount][iD2] = ddata;
+        ddata = M2Mat[iR][iD2];
+        ddata = ddata * vecRanges[iD2] + vecLBs_[iD2];
+        vecSamInps_[sampleCount*nInputs_+iD2] = ddata;
       }
+      ddata = M1Mat[iR][iD];
+      ddata = ddata * vecRanges[iD] + vecLBs_[iD];
+      vecSamInps_[sampleCount*nInputs_+iD] = ddata;
       sampleCount++;
-      for (iD = 0; iD < nInputs_; iD++)
-      {
-         for (iD2 = 0; iD2 < nInputs_; iD2++)
-         {
-            ddata = M2Mat[iR][iD2];
-            ddata = ddata * ranges[iD2] + lowerBounds_[iD2];
-            sampleMatrix_[sampleCount][iD2] = ddata;
-         }
-         ddata = M1Mat[iR][iD];
-         ddata = ddata * ranges[iD] + lowerBounds_[iD];
-         sampleMatrix_[sampleCount][iD] = ddata;
-         sampleCount++;
-      }
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
-         ddata = M1Mat[iR][iD2];
-         ddata = ddata * ranges[iD2] + lowerBounds_[iD2];
-         sampleMatrix_[sampleCount][iD2] = ddata;
-      }
-      sampleCount++;
-   }
-
-   delete [] ranges;
-   for (iD = 0;  iD < nReps; iD++)
-   {
-      delete [] M1Mat[iD];
-      delete [] M2Mat[iD];
-   }
-   delete [] M1Mat;
-   delete [] M2Mat;
-   return 0;
+    }
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata = M1Mat[iR][iD2];
+      ddata = ddata * vecRanges[iD2] + vecLBs_[iD2];
+      vecSamInps_[sampleCount*nInputs_+iD2] = ddata;
+    }
+    sampleCount++;
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -220,26 +239,26 @@ int SobolSampling::initialize(int initLevel)
 // ------------------------------------------------------------------------
 int SobolSampling::generate(double **inMat, int size)
 {
-   int iD, iD2, nmax;
+  int iD, iD2, nmax;
 #ifdef PSUADE_SAL_GRID
-   int idata;
+  int idata;
 #endif
 
-   nmax = size / 2;
-   for (iD = 0; iD < size; iD++)
-   {
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
+  nmax = size / 2;
+  for (iD = 0; iD < size; iD++)
+  {
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
 #ifdef PSUADE_SAL_GRID
-         idata = (int) (PSUADE_drand() * nmax);
-         if (idata == nmax) idata = nmax - 1;
-         inMat[iD][iD2] = (double) idata / (double) (nmax - 1);
+      idata = (int) (PSUADE_drand() * nmax);
+      if (idata == nmax) idata = nmax - 1;
+      inMat[iD][iD2] = (double) idata / (double) (nmax - 1);
 #else
-         inMat[iD][iD2] = PSUADE_drand();
+      inMat[iD][iD2] = PSUADE_drand();
 #endif
-      }
-   }
-   return 0;
+    }
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -248,175 +267,196 @@ int SobolSampling::generate(double **inMat, int size)
 int SobolSampling::refine(int refineRatio, int randomize, double thresh,
                           int nSamples, double *sampleErrors)
 {
-   int    iD, iD2, sampleCount, *newStates, nReps, iR, nLevels;
-   double **M1Mat, **M2Mat, **newSamples, *newOutputs, *ranges, ddata;
+  int    iD, iD2, sampleCount, nReps, iR, nLevels;
+  double ddata;
+  psVector  vecNewSamInps, vecNewSamOuts, vecRanges;
+  psIVector vecNewSamStas;
+  psMatrix  matM1, matM2;
 
-   (void) randomize;
-   (void) thresh;
-   (void) nSamples;
-   (void) sampleErrors;
+  //**/ ----------------------------------------------------------------
+  //**/ unused parameters
+  //**/ ----------------------------------------------------------------
+  (void) randomize;
+  (void) thresh;
+  (void) nSamples;
+  (void) sampleErrors;
 
-   nLevels = refineRatio;
-   nReps = nSamples_ * (nLevels - 1) / (nInputs_ + 2);
+  //**/ ----------------------------------------------------------------
+  //**/ initialize
+  //**/ ----------------------------------------------------------------
+  nLevels = refineRatio;
+  nReps = nSamples_ * (nLevels - 1) / (nInputs_ + 2);
 
-   // First do some defensive programming and range checking by Bill Oliver
-   if(nSamples_*nLevels <= 0)
-   {
-      printf("nSamples_*nLevels <= 0 in file %s line %d\n",__FILE__,__LINE__);
-      exit(1);
-   }
-   newSamples = new double*[nSamples_*nLevels];
-   for (iD = 0;  iD < nSamples_*nLevels; iD++)
-      newSamples[iD] = new double[nInputs_];
-   newOutputs = new double[nSamples_*nLevels*nOutputs_];
-   newStates = new int[nSamples_*nLevels];
-   for (iD = 0;  iD < nSamples_*nLevels; iD++)
-   {
-      newStates[iD] = 0;
-      for (iD2 = 0; iD2 < nOutputs_; iD2++)
-         newOutputs[iD*nOutputs_+iD2] = PSUADE_UNDEFINED;
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ allocate space for new sample data
+  //**/ ----------------------------------------------------------------
+  // First do some defensive programming and range checking by Bill Oliver
+  if(nSamples_*nLevels <= 0)
+  {
+    printf("nSamples_*nLevels <= 0 in file %s line %d\n",__FILE__,__LINE__);
+    exit(1);
+  }
+  vecNewSamInps.setLength(nSamples_*nLevels*nInputs_);
+  vecNewSamOuts.setLength(nSamples_*nLevels*nOutputs_);
+  vecNewSamStas.setLength(nSamples_*nLevels);
+  for (iD = 0;  iD < nSamples_*nLevels; iD++)
+  {
+    vecNewSamStas[iD] = 0;
+    for (iD2 = 0; iD2 < nOutputs_; iD2++)
+      vecNewSamOuts[iD*nOutputs_+iD2] = PSUADE_UNDEFINED;
+  }
 
-   for (iD = 0;  iD < nSamples_; iD++) 
-   {
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-         newSamples[iD][iD2] = sampleMatrix_[iD][iD2];
-      for (iD2 = 0; iD2 < nOutputs_; iD2++)
-         newOutputs[iD*nOutputs_+iD2] = sampleOutput_[iD*nOutputs_+iD2];
-      newStates[iD] = 1;
-   }
+  //**/ ----------------------------------------------------------------
+  //**/ copy the old samples
+  //**/ ----------------------------------------------------------------
+  for (iD = 0;  iD < nSamples_; iD++) 
+  {
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+      vecNewSamInps[iD*nInputs_+iD2] = vecSamInps_[iD*nInputs_+iD2];
+    for (iD2 = 0; iD2 < nOutputs_; iD2++)
+      vecNewSamOuts[iD*nOutputs_+iD2] = vecSamOuts_[iD*nOutputs_+iD2];
+    vecNewSamStas[iD] = 1;
+  }
 
-   M1Mat = new double*[nReps];
-   for (iD = 0; iD < nReps; iD++) M1Mat[iD] = new double[nInputs_];
-   M2Mat = new double*[nReps];
-   for (iD = 0; iD < nReps; iD++) M2Mat[iD] = new double[nInputs_];
+  //**/ ----------------------------------------------------------------
+  //**/ allocate temporary matrices
+  //**/ ----------------------------------------------------------------
+  matM1.setFormat(2);
+  matM1.setDim(nReps, nInputs_);
+  matM2.setFormat(2);
+  matM2.setDim(nReps, nInputs_);
+  double **M1Mat = matM1.getMatrix2D();
+  double **M2Mat = matM2.getMatrix2D();
 
-   ranges = new double[nInputs_];
-   for (iD = 0;  iD < nInputs_;  iD++) 
-      ranges[iD] = upperBounds_[iD] - lowerBounds_[iD];
+  //**/ ----------------------------------------------------------------
+  //**/ preparation for generating the samples
+  //**/ ----------------------------------------------------------------
+  vecRanges.setLength(nInputs_);
+  for (iD = 0;  iD < nInputs_;  iD++) 
+    vecRanges[iD] = vecUBs_[iD] - vecLBs_[iD];
 
-   sampleCount = nSamples_;
-   generate(M2Mat, nReps);
+  //**/ ----------------------------------------------------------------
+  //**/ repeat the sample generation
+  //**/ ----------------------------------------------------------------
+  sampleCount = nSamples_;
+  generate(M2Mat, nReps);
 #ifdef PSUADE_SAL_GRID
-   ddata  = 1.0 / (double) (nReps/2 - 1);
-   for (iD = 0; iD < nReps; iD++)
-   {
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
-         ddata2 = PSUADE_drand();
-         if (ddata2 > 0.5) ddata2 = 1.0;
-         else              ddata2 = -1.0;
-         if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
-             (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
-              M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
-         else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
-      }
-   }
+  //**/ M1 and M2 are generated on a fixed grid (nReps/2 grid points)
+  ddata  = 1.0 / (double) (nReps/2 - 1);
+  for (iD = 0; iD < nReps; iD++)
+  {
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata2 = PSUADE_drand();
+      if (ddata2 > 0.5) ddata2 = 1.0;
+      else              ddata2 = -1.0;
+      if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
+          (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
+           M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
+      else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
+    }
+  }
 #endif
 #ifdef PSUADE_SAL_GRID
-   for (iD = 0; iD < nReps; iD++)
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-         M1Mat[iD][iD2] = M2Mat[iD][iD2];
-   for (iD = 0; iD < nReps; iD++)
-   {
-      ddata = 0.25 * PSUADE_drand();
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
-         ddata2 = PSUADE_drand();
-         if (ddata2 > 0.5) ddata2 = 1.0;
-         else              ddata2 = -1.0;
-         if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
-             (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
-              M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
-         else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
-      }
-   }
+  //**/ M1 generated from M2 by adding fixed (for all inputs) but 
+  //**/ random (from sample point to sample point) perturbations
+  for (iD = 0; iD < nReps; iD++)
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+      M1Mat[iD][iD2] = M2Mat[iD][iD2];
+  for (iD = 0; iD < nReps; iD++)
+  {
+    ddata = 0.25 * PSUADE_drand();
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata2 = PSUADE_drand();
+      if (ddata2 > 0.5) ddata2 = 1.0;
+      else              ddata2 = -1.0;
+      if ((M2Mat[iD][iD2]+ddata2*ddata)>1.0 || 
+          (M2Mat[iD][iD2]+ddata2*ddata)< 0.0)
+           M1Mat[iD][iD2] = M2Mat[iD][iD2] - ddata2*ddata;
+      else M1Mat[iD][iD2] = M2Mat[iD][iD2] + ddata2*ddata;
+    }
+  }
 #endif
 #if 1
-   int iOne=1;
-   double *lbounds  = new double[2*nInputs_];
-   double *ubounds  = new double[2*nInputs_];
-   for (iD = 0; iD < 2*nInputs_; iD++) lbounds[iD] = 0.0;
-   for (iD = 0; iD < 2*nInputs_; iD++) ubounds[iD] = 1.0;
-   Sampling *sampler = (Sampling *) new MCSampling();
-   sampler->setInputBounds(2*nInputs_, lbounds, ubounds);
-   sampler->setOutputParams(iOne);
-   sampler->setSamplingParams(nReps*nLevels, iOne, iOne);
-   sampler->initialize(0);
-   double *sInputs  = new double[nReps*nLevels*nInputs_];
-   double *sOutputs = new double[nReps*nLevels];
-   int    *sStates  = new int[nReps*nLevels];
-   sampler->getSamples(nReps*nLevels, nInputs_, iOne, sInputs, 
-                       sOutputs, sStates);
-   for (iD = 0; iD < nReps*(nLevels-1); iD++)
-      for (iD2 = 0; iD2 < nInputs_; iD2++) 
-         M1Mat[iD][iD2] = sInputs[(nReps+iD)*2*nInputs_+iD2];
-   for (iD = 0; iD < nReps*(nLevels-1); iD++)
-      for (iD2 = 0; iD2 < nInputs_; iD2++) 
-         M2Mat[iD][iD2] = sInputs[(nReps+iD)*2*nInputs_+nInputs_+iD2];
-   delete [] sInputs;
-   delete [] sOutputs;
-   delete [] sStates;
-   delete [] lbounds;
-   delete [] ubounds;
-   delete sampler;
+  //**/ M1 generated from M2 by generating 2 samples
+  int iOne=1;
+  psVector  vecLBs, vecUBs, vecSamInps, vecSamOuts;
+  psIVector vecSamStas;
+  vecLBs.setLength(2*nInputs_);
+  vecUBs.setLength(2*nInputs_);
+  for (iD = 0; iD < 2*nInputs_; iD++) vecLBs[iD] = 0.0;
+  for (iD = 0; iD < 2*nInputs_; iD++) vecUBs[iD] = 1.0;
+  Sampling *sampler = (Sampling *) new MCSampling();
+  sampler->setInputBounds(2*nInputs_,vecLBs.getDVector(),vecUBs.getDVector());
+  sampler->setOutputParams(iOne);
+  sampler->setSamplingParams(nReps*nLevels, iOne, iOne);
+  sampler->initialize(0);
+  vecSamInps.setLength(nReps*2*nInputs_);
+  vecSamOuts.setLength(nReps);
+  vecSamStas.setLength(nReps);
+  sampler->getSamples(nReps*nLevels,nInputs_,iOne,vecSamInps.getDVector(), 
+                      vecSamOuts.getDVector(), vecSamStas.getIVector());
+  for (iD = 0; iD < nReps*(nLevels-1); iD++)
+    for (iD2 = 0; iD2 < nInputs_; iD2++) 
+      M1Mat[iD][iD2] = vecSamInps[(nReps+iD)*2*nInputs_+iD2];
+  for (iD = 0; iD < nReps*(nLevels-1); iD++)
+    for (iD2 = 0; iD2 < nInputs_; iD2++) 
+      M2Mat[iD][iD2] = vecSamInps[(nReps+iD)*2*nInputs_+nInputs_+iD2];
+  delete sampler;
 #endif
-   for (iR = 0; iR < nReps; iR++)
-   {
+  for (iR = 0; iR < nReps; iR++)
+  {
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata = M2Mat[iR][iD2];
+      ddata = ddata * vecRanges[iD2] + vecLBs_[iD2];
+      vecNewSamInps[sampleCount*nInputs_+iD2] = ddata;
+    }
+    sampleCount++;
+    for (iD = 0; iD < nInputs_; iD++)
+    {
       for (iD2 = 0; iD2 < nInputs_; iD2++)
       {
-         ddata = M2Mat[iR][iD2];
-         ddata = ddata * ranges[iD2] + lowerBounds_[iD2];
-         newSamples[sampleCount][iD2] = ddata;
+        ddata = M2Mat[iR][iD2];
+        ddata = ddata * vecRanges[iD2] + vecLBs_[iD2];
+        vecNewSamInps[sampleCount*nInputs_+iD2] = ddata;
       }
+      ddata = M1Mat[iR][iD];
+      ddata = ddata * vecRanges[iD] + vecLBs_[iD];
+      vecNewSamInps[sampleCount*nInputs_+iD] = ddata;
       sampleCount++;
-      for (iD = 0; iD < nInputs_; iD++)
-      {
-         for (iD2 = 0; iD2 < nInputs_; iD2++)
-         {
-            ddata = M2Mat[iR][iD2];
-            ddata = ddata * ranges[iD2] + lowerBounds_[iD2];
-            newSamples[sampleCount][iD2] = ddata;
-         }
-         ddata = M1Mat[iR][iD];
-         ddata = ddata * ranges[iD] + lowerBounds_[iD];
-         newSamples[sampleCount][iD] = ddata;
-         sampleCount++;
-      }
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-      {
-         ddata = M1Mat[iR][iD2];
-         ddata = ddata * ranges[iD2] + lowerBounds_[iD2];
-         newSamples[sampleCount][iD2] = ddata;
-      }
-      sampleCount++;
-   }
+    }
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+    {
+      ddata = M1Mat[iR][iD2];
+      ddata = ddata * vecRanges[iD2] + vecLBs_[iD2];
+      vecNewSamInps[sampleCount*nInputs_+iD2] = ddata;
+    }
+    sampleCount++;
+  }
 
-   deleteSampleData();
-   delete [] ranges;
-   for (iD = 0;  iD < nReps; iD++)
-   {
-      delete [] M1Mat[iD];
-      delete [] M2Mat[iD];
-   }
-   delete [] M1Mat;
-   delete [] M2Mat;
+  //**/ -------------------------------------------------------------------
+  //**/ revise internal variables
+  //**/ -------------------------------------------------------------------
+  nSamples_ = nSamples_ * nLevels;
+  vecSamInps_ = vecNewSamInps;
+  vecSamOuts_ = vecNewSamOuts;
+  vecSamStas_ = vecNewSamStas;
 
-   nSamples_ = nSamples_ * nLevels;
-   sampleMatrix_ = newSamples;
-   sampleOutput_ = newOutputs;
-   sampleStates_ = newStates;
-
-   if (printLevel_ > 4)
-   {
-      printf("SobolSampling::refine: nSamples = %d\n", nSamples_);
-      printf("SobolSampling::refine: nInputs  = %d\n", nInputs_);
-      printf("SobolSampling::refine: nOutputs = %d\n", nOutputs_);
-      for (iD2 = 0; iD2 < nInputs_; iD2++)
-         printf("    SobolSampling input %3d = [%e %e]\n", iD2+1,
-                lowerBounds_[iD2], upperBounds_[iD2]);
-   }
-   return 0;
+  //**/ ----------------------------------------------------------------
+  //**/ diagnostics
+  //**/ ----------------------------------------------------------------
+  if (printLevel_ > 4)
+  {
+    printf("SobolSampling::refine: nSamples = %d\n", nSamples_);
+    printf("SobolSampling::refine: nInputs  = %d\n", nInputs_);
+    printf("SobolSampling::refine: nOutputs = %d\n", nOutputs_);
+    for (iD2 = 0; iD2 < nInputs_; iD2++)
+      printf("    SobolSampling input %3d = [%e %e]\n", iD2+1,
+             vecLBs_[iD2], vecUBs_[iD2]);
+  }
+  return 0;
 }
 
 // ************************************************************************
@@ -424,8 +464,8 @@ int SobolSampling::refine(int refineRatio, int randomize, double thresh,
 // ------------------------------------------------------------------------
 SobolSampling& SobolSampling::operator=(const SobolSampling &)
 {
-   printf("SobolSampling operator= ERROR: operation not allowed.\n");
-   exit(1);
-   return (*this);
+  printf("SobolSampling operator= ERROR: operation not allowed.\n");
+  exit(1);
+  return (*this);
 }
 

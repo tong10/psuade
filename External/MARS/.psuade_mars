@@ -1,0 +1,76 @@
+
+
+ MARS modeling, version 3.6 (3/25/93)
+
+
+ input parameters (see doc.):
+    n     p    nk    ms    mi     df    il    fv     ic
+   500    4    15     0     3   3.000    0  0.000     0
+
+ predictor variable flags:
+ var:    1  2  3  4
+ flag:   1  1  1  1
+
+ ordinal response:
+      min         n/4         n/2        3n/4         max
+   0.4497       1.759       2.245       2.771       4.445    
+
+ there are  4 ordinal predictor variables.
+
+  var     min         n/4         n/2        3n/4         max
+   1   0.6692E-03  0.2350      0.5020      0.7454      0.9981    
+   2   0.3211E-02  0.2483      0.5185      0.7643      0.9999    
+   3   0.3061E-02  0.2472      0.5402      0.7847      0.9952    
+   4   0.3187E-02  0.2781      0.5425      0.7831      0.9966    
+
+
+ forward stepwise knot placement:
+
+  basfn(s)    gcv      #indbsfns  #efprms   variable      knot            parent
+     0      0.5535          0.0      1.0
+   2   1    0.3623          2.0      6.0          2.        0.9739                 0.
+     3      0.1866          3.0     10.0          1.        0.6691E-03             0.
+   5   4    0.9448E-01      5.0     15.0          3.        0.9623                 0.
+     6      0.7790E-02      6.0     19.0          4.        0.3187E-02             0.
+   8   7    0.7860E-02      8.0     24.0          4.        0.5830                 3.
+  10   9    0.9684E-13     10.0     29.0          2.        0.4387                 3.
+  12  11    0.9743E-13     12.0     34.0          4.        0.9652                 9.
+  14  13    0.9818E-13     14.0     39.0          4.        0.6699                 5.
+    15      0.9932E-13     15.0     43.0          3.        0.3061E-02             9.
+
+ final model after backward stepwise elimination:
+
+ bsfn:       0           1           2           3           4           5    
+ coef:   1.941       1.001      -1.001       1.439       1.000     -1.0000    
+
+ bsfn:       6           7           8           9          10          11    
+ coef:  1.0000      0.2829E-05  0.6092E-06   1.000     -1.0000     -0.5919E-04
+
+ bsfn:      12          13          14          15        
+ coef:  0.1158E-05 -0.2465E-05 -0.2327E-05  0.1104E-05
+
+   (piecewise linear) gcv =  -0.1366E-09   #efprms =  43.0
+
+ anova decomposition on 15 basis functions:
+  fun. std. dev.     -gcv    #bsfns  #efprms  variable(s)
+   1   0.2949      0.2508E-01   2       5.6     2
+   2   0.4069      0.5984E-01   1       2.8     1
+   3   0.2931      0.2558E-01   2       5.6     3
+   4   0.2880      0.1428E-01   1       2.8     4
+   5   0.2134E-06  0.2800E-10   2       5.6     1   4
+   6   0.1707      0.4826E-02   2       5.6     1   2
+   7   0.2831E-06  0.5834E-11   2       5.6     3   4
+   8   0.8468E-07  0.1222E-09   2       5.6     1   2   4
+   9   0.8184E-07  0.9064E-10   1       2.8     1   2   3
+
+ piecewise cubic fit on 15 basis functions, gcv =  0.1196E-08
+
+ -gcv removing each variable:
+
+        1           2           3           4        
+   0.2049      0.2172      0.9541E-01  0.8964E-01
+
+ relative variable importance:
+
+        1           2           3           4        
+    97.12       100.0       66.27       64.24    

@@ -1,0 +1,29 @@
+PSUADE
+INPUT
+   dimension = 3
+   variable   1 X1   = -5  5
+   variable   2 X2   = -5  5
+   variable   3 X3   = -5  5
+   PDF 1 N 0 1
+   PDF 2 N 0 1
+   PDF 3 N 0 1
+   COR 1 2 0.7
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y1
+END
+METHOD
+   sampling = FACT
+   num_samples = 125
+END
+APPLICATION
+   driver = ./simulator
+END
+ANALYSIS
+   analyzer method = RSMSobol1
+   analyzer output_id  = 1
+   analyzer rstype = quadratic 
+   printlevel 1
+END
+END

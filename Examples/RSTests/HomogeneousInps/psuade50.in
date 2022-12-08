@@ -1,0 +1,71 @@
+PSUADE
+INPUT
+   dimension = 50
+   variable     1 X1 = 0  1
+   variable     2 X2 = 0  1
+   variable     3 X3 = 0  1
+   variable     4 X4 = 0  1
+   variable     5 X5 = 0  1
+   variable     6 X6 = 0  1
+   variable     7 X7 = 0  1
+   variable     8 X8 = 0  1
+   variable     9 X9 = 0  1
+   variable    10 X10 = 0  1
+   variable    11 X11 = 0  1
+   variable    12 X12 = 0  1
+   variable    13 X13 = 0  1
+   variable    14 X14 = 0  1
+   variable    15 X15 = 0  1
+   variable    16 X16 = 0  1
+   variable    17 X17 = 0  1
+   variable    18 X18 = 0  1
+   variable    19 X19 = 0  1
+   variable    20 X20 = 0  1
+   variable    21 X21 = 0  1
+   variable    22 X22 = 0  1
+   variable    23 X23 = 0  1
+   variable    24 X24 = 0  1
+   variable    25 X25 = 0  1
+   variable    26 X26 = 0  1
+   variable    27 X27 = 0  1
+   variable    28 X28 = 0  1
+   variable    29 X29 = 0  1
+   variable    30 X30 = 0  1
+   variable    31 X31 = 0  1
+   variable    32 X32 = 0  1
+   variable    33 X33 = 0  1
+   variable    34 X34 = 0  1
+   variable    35 X35 = 0  1
+   variable    36 X36 = 0  1
+   variable    37 X37 = 0  1
+   variable    38 X38 = 0  1
+   variable    39 X39 = 0  1
+   variable    40 X40 = 0  1
+   variable    41 X41 = 0  1
+   variable    42 X42 = 0  1
+   variable    43 X43 = 0  1
+   variable    44 X44 = 0  1
+   variable    45 X45 = 0  1
+   variable    46 X46 = 0  1
+   variable    47 X47 = 0  1
+   variable    48 X48 = 0  1
+   variable    49 X49 = 0  1
+   variable    50 X50 = 0  1
+END
+OUTPUT
+   dimension = 1
+   variable 1 Y
+END
+METHOD
+   sampling = LPTAU
+   num_samples = 200
+   randomize
+   random_seed = 41491431
+END
+APPLICATION
+   driver = ./simulator
+END
+ANALYSIS
+   analyzer output_id = 1
+END
+END

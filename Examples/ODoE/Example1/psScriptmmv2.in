@@ -1,0 +1,16 @@
+# use SCE search
+sys cc -o simulator simulator.c -lm
+run psuadeGenCand.in
+rename psuadeData candidateSet
+load candidateSet
+printlevel 1
+setranseed 11107121
+odoe_mmv
+y
+4
+1
+n
+0.1
+0.1
+q
+

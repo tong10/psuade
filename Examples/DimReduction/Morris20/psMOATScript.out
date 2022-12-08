@@ -1,0 +1,257 @@
+psuade> 
+Sampling INFO: Creating a sample assuming all uncertain parameters are
+               uniformly distributed.
+MOATSampling::generate: finding path 1 (out of 10)
+MOATSampling::generate: finding path 2 (out of 10)
+MOATSampling::generate: finding path 3 (out of 10)
+MOATSampling::generate: finding path 4 (out of 10)
+MOATSampling::generate: finding path 5 (out of 10)
+MOATSampling::generate: finding path 6 (out of 10)
+MOATSampling::generate: finding path 7 (out of 10)
+MOATSampling::generate: finding path 8 (out of 10)
+MOATSampling::generate: finding path 9 (out of 10)
+MOATSampling::generate: finding path 10 (out of 10)
+MOAT: input   1 - level =   0.0000e+00, # times =    5
+MOAT: input   1 - level =   3.3333e-01, # times =    5
+MOAT: input   1 - level =   6.6667e-01, # times =    5
+MOAT: input   1 - level =   1.0000e+00, # times =    5
+MOAT: input   2 - level =   0.0000e+00, # times =    4
+MOAT: input   2 - level =   3.3333e-01, # times =    6
+MOAT: input   2 - level =   6.6667e-01, # times =    4
+MOAT: input   2 - level =   1.0000e+00, # times =    6
+MOAT: input   3 - level =   0.0000e+00, # times =    6
+MOAT: input   3 - level =   3.3333e-01, # times =    4
+MOAT: input   3 - level =   6.6667e-01, # times =    6
+MOAT: input   3 - level =   1.0000e+00, # times =    4
+MOAT: input   4 - level =   0.0000e+00, # times =    4
+MOAT: input   4 - level =   3.3333e-01, # times =    6
+MOAT: input   4 - level =   6.6667e-01, # times =    4
+MOAT: input   4 - level =   1.0000e+00, # times =    6
+MOAT: input   5 - level =   0.0000e+00, # times =    3
+MOAT: input   5 - level =   3.3333e-01, # times =    7
+MOAT: input   5 - level =   6.6667e-01, # times =    3
+MOAT: input   5 - level =   1.0000e+00, # times =    7
+MOAT: input   6 - level =   0.0000e+00, # times =    6
+MOAT: input   6 - level =   3.3333e-01, # times =    4
+MOAT: input   6 - level =   6.6667e-01, # times =    6
+MOAT: input   6 - level =   1.0000e+00, # times =    4
+MOAT: input   7 - level =   0.0000e+00, # times =    6
+MOAT: input   7 - level =   3.3333e-01, # times =    4
+MOAT: input   7 - level =   6.6667e-01, # times =    6
+MOAT: input   7 - level =   1.0000e+00, # times =    4
+MOAT: input   8 - level =   0.0000e+00, # times =    5
+MOAT: input   8 - level =   3.3333e-01, # times =    5
+MOAT: input   8 - level =   6.6667e-01, # times =    5
+MOAT: input   8 - level =   1.0000e+00, # times =    5
+MOAT: input   9 - level =   0.0000e+00, # times =    3
+MOAT: input   9 - level =   3.3333e-01, # times =    7
+MOAT: input   9 - level =   6.6667e-01, # times =    3
+MOAT: input   9 - level =   1.0000e+00, # times =    7
+MOAT: input  10 - level =   0.0000e+00, # times =    4
+MOAT: input  10 - level =   3.3333e-01, # times =    6
+MOAT: input  10 - level =   6.6667e-01, # times =    4
+MOAT: input  10 - level =   1.0000e+00, # times =    6
+MOAT: input  11 - level =   0.0000e+00, # times =    4
+MOAT: input  11 - level =   3.3333e-01, # times =    6
+MOAT: input  11 - level =   6.6667e-01, # times =    4
+MOAT: input  11 - level =   1.0000e+00, # times =    6
+MOAT: input  12 - level =   0.0000e+00, # times =    4
+MOAT: input  12 - level =   3.3333e-01, # times =    6
+MOAT: input  12 - level =   6.6667e-01, # times =    4
+MOAT: input  12 - level =   1.0000e+00, # times =    6
+MOAT: input  13 - level =   0.0000e+00, # times =    5
+MOAT: input  13 - level =   3.3333e-01, # times =    5
+MOAT: input  13 - level =   6.6667e-01, # times =    5
+MOAT: input  13 - level =   1.0000e+00, # times =    5
+MOAT: input  14 - level =   0.0000e+00, # times =    6
+MOAT: input  14 - level =   3.3333e-01, # times =    4
+MOAT: input  14 - level =   6.6667e-01, # times =    6
+MOAT: input  14 - level =   1.0000e+00, # times =    4
+MOAT: input  15 - level =   0.0000e+00, # times =    4
+MOAT: input  15 - level =   3.3333e-01, # times =    6
+MOAT: input  15 - level =   6.6667e-01, # times =    4
+MOAT: input  15 - level =   1.0000e+00, # times =    6
+MOAT: input  16 - level =   0.0000e+00, # times =    4
+MOAT: input  16 - level =   3.3333e-01, # times =    6
+MOAT: input  16 - level =   6.6667e-01, # times =    4
+MOAT: input  16 - level =   1.0000e+00, # times =    6
+MOAT: input  17 - level =   0.0000e+00, # times =    7
+MOAT: input  17 - level =   3.3333e-01, # times =    3
+MOAT: input  17 - level =   6.6667e-01, # times =    7
+MOAT: input  17 - level =   1.0000e+00, # times =    3
+MOAT: input  18 - level =   0.0000e+00, # times =    5
+MOAT: input  18 - level =   3.3333e-01, # times =    5
+MOAT: input  18 - level =   6.6667e-01, # times =    5
+MOAT: input  18 - level =   1.0000e+00, # times =    5
+MOAT: input  19 - level =   0.0000e+00, # times =    5
+MOAT: input  19 - level =   3.3333e-01, # times =    5
+MOAT: input  19 - level =   6.6667e-01, # times =    5
+MOAT: input  19 - level =   1.0000e+00, # times =    5
+MOAT: input  20 - level =   0.0000e+00, # times =    4
+MOAT: input  20 - level =   3.3333e-01, # times =    6
+MOAT: input  20 - level =   6.6667e-01, # times =    4
+MOAT: input  20 - level =   1.0000e+00, # times =    6
+MOAT: frequency of visit to bin     1 = 94
+MOAT: frequency of visit to bin     2 = 106
+MOAT: frequency of visit to bin     3 = 94
+MOAT: frequency of visit to bin     4 = 106
+PSUADE run: creating interface to user driver.
+PSUADE run: output level = 3
+PSUADE run: max parallel jobs = 1
+PSUADE run: max job wait time = 1000000 seconds
+PSUADE run: min job wait time = 1 seconds
+PSUADE run: launch interval   = 1 seconds
+PSUADE run: save frequency    = every 1000000 runs
+NOTE: If evaluation should be fast but is slow, check save_frequency
+      because it may be due to too much I/O.
+NOTE: To dynamically change max jobs, create psuade_pmachine file
+NOTE: To terminate gracefully, create psuade_stop file
+======================================================================
+PSUADE run: nSamples = 210 
+PSUADE run: jobs completed = 210(out of 210)
+======================================================================
+psuade> psuadeData has been renamed to psSave
+psuade> load complete : nSamples = 210
+                nInputs  = 20
+                nOutputs = 1
+psuade> 
+**********************************************************************
+This command performs a Morris-one-at-a-time (MOAT) analysis on a
+selected output of the loaded sample. The loaded sample needs to be
+a Morris sample. The MOAT method is for coarse parameter ranking.
+----------------------------------------------------------------------
+Proceed ? (y or n to abort) 
+Enter output number (1 - 1) = 
+No transformation (e.g. log) on sample inputs or outputs.
+**********************************************************************
+*                Morris Screening 
+======================================================================
+* Use printlevel to show more analysis info.
+* Use ana_expert to turn on other plot options:
+*  - e.g. scatter plots gives gradient details
+*  - e.g. screen plots gives gradients vs stdev
+======================================================================
+* MOAT Analysis using unmodified gradients
+----------------------------------------------------------------------
+Input   1 (unmod. mean & std) =  -5.5673e+00   1.0308e+02
+Input   2 (unmod. mean & std) =  -7.9019e+00   1.1955e+02
+Input   3 (unmod. mean & std) =   4.4997e+01   6.7005e+01
+Input   4 (unmod. mean & std) =   8.3225e+00   8.2680e+01
+Input   5 (unmod. mean & std) =   1.4596e+01   6.1983e+01
+Input   6 (unmod. mean & std) =   1.2514e+00   6.9662e+01
+Input   7 (unmod. mean & std) =   3.9659e+01   2.6152e+01
+Input   8 (unmod. mean & std) =   4.2109e+01   4.7441e+00
+Input   9 (unmod. mean & std) =   4.2163e+01   3.2226e+00
+Input  10 (unmod. mean & std) =   4.1642e+01   3.2793e+00
+Input  11 (unmod. mean & std) =   3.9425e+00   4.4713e+00
+Input  12 (unmod. mean & std) =   1.3654e-02   5.0139e+00
+Input  13 (unmod. mean & std) =   1.8818e+00   5.2756e+00
+Input  14 (unmod. mean & std) =   2.4956e+00   6.0228e+00
+Input  15 (unmod. mean & std) =   2.3899e+00   4.5247e+00
+Input  16 (unmod. mean & std) =   2.7448e+00   4.0114e+00
+Input  17 (unmod. mean & std) =   6.1035e-01   2.3473e+00
+Input  18 (unmod. mean & std) =   2.4575e+00   5.1570e+00
+Input  19 (unmod. mean & std) =   2.0113e+00   2.8822e+00
+Input  20 (unmod. mean & std) =   2.2151e+00   4.7194e+00
+======================================================================
+* MOAT Analysis using modified gradients
+----------------------------------------------------------------------
+Input   1 (mod. mean & std) =   8.7396e+01   1.0308e+02
+Input   2 (mod. mean & std) =   1.0659e+02   1.1955e+02
+Input   3 (mod. mean & std) =   5.6396e+01   6.7005e+01
+Input   4 (mod. mean & std) =   7.2085e+01   8.2680e+01
+Input   5 (mod. mean & std) =   4.4000e+01   6.1983e+01
+Input   6 (mod. mean & std) =   5.8390e+01   6.9662e+01
+Input   7 (mod. mean & std) =   3.9659e+01   2.6152e+01
+Input   8 (mod. mean & std) =   4.2109e+01   4.7441e+00
+Input   9 (mod. mean & std) =   4.2163e+01   3.2226e+00
+Input  10 (mod. mean & std) =   4.1642e+01   3.2793e+00
+Input  11 (mod. mean & std) =   5.1219e+00   4.4713e+00
+Input  12 (mod. mean & std) =   3.9896e+00   5.0139e+00
+Input  13 (mod. mean & std) =   3.9323e+00   5.2756e+00
+Input  14 (mod. mean & std) =   5.1450e+00   6.0228e+00
+Input  15 (mod. mean & std) =   3.6109e+00   4.5247e+00
+Input  16 (mod. mean & std) =   3.5822e+00   4.0114e+00
+Input  17 (mod. mean & std) =   1.9623e+00   2.3473e+00
+Input  18 (mod. mean & std) =   4.2302e+00   5.1570e+00
+Input  19 (mod. mean & std) =   2.6583e+00   2.8822e+00
+Input  20 (mod. mean & std) =   4.2862e+00   4.7194e+00
+**********************************************************************
+MOATAnalyzer: Creating modified mean plot ... 
+MOAT bootstrap plot file = matlabmoatbs.m.
+======================================================================
+* MOAT Analysis (ordered based on modified means of gradients)
+* dof + 1 = number of sample points to compute the statistics
+----------------------------------------------------------------------
+     1: Input   2 (mu*, sigma, dof) =   1.0659e+02   1.1955e+02 9
+     2: Input   1 (mu*, sigma, dof) =   8.7396e+01   1.0308e+02 9
+     3: Input   4 (mu*, sigma, dof) =   7.2085e+01   8.2680e+01 9
+     4: Input   6 (mu*, sigma, dof) =   5.8390e+01   6.9662e+01 9
+     5: Input   3 (mu*, sigma, dof) =   5.6396e+01   6.7005e+01 9
+     6: Input   5 (mu*, sigma, dof) =   4.4000e+01   6.1983e+01 9
+     7: Input   9 (mu*, sigma, dof) =   4.2163e+01   3.2226e+00 9
+     8: Input   8 (mu*, sigma, dof) =   4.2109e+01   4.7441e+00 9
+     9: Input  10 (mu*, sigma, dof) =   4.1642e+01   3.2793e+00 9
+    10: Input   7 (mu*, sigma, dof) =   3.9659e+01   2.6152e+01 9
+    11: Input  14 (mu*, sigma, dof) =   5.1450e+00   6.0228e+00 9
+    12: Input  11 (mu*, sigma, dof) =   5.1219e+00   4.4713e+00 9
+    13: Input  20 (mu*, sigma, dof) =   4.2862e+00   4.7194e+00 9
+    14: Input  18 (mu*, sigma, dof) =   4.2302e+00   5.1570e+00 9
+    15: Input  12 (mu*, sigma, dof) =   3.9896e+00   5.0139e+00 9
+    16: Input  13 (mu*, sigma, dof) =   3.9323e+00   5.2756e+00 9
+    17: Input  15 (mu*, sigma, dof) =   3.6109e+00   4.5247e+00 9
+    18: Input  16 (mu*, sigma, dof) =   3.5822e+00   4.0114e+00 9
+    19: Input  19 (mu*, sigma, dof) =   2.6583e+00   2.8822e+00 9
+    20: Input  17 (mu*, sigma, dof) =   1.9623e+00   2.3473e+00 9
+======================================================================
+----------- MOAT Analysis (ordered) : +- 1 sigma  -----------
+----------------------------------------------------------------------
+Input   2 bounds =   9.2706e+01   1.2048e+02
+Input   1 bounds =   7.1857e+01   1.0293e+02
+Input   4 bounds =   6.0834e+01   8.3337e+01
+Input   6 bounds =   4.7505e+01   6.9275e+01
+Input   3 bounds =   3.7524e+01   7.5269e+01
+Input   5 bounds =   2.9366e+01   5.8634e+01
+Input   9 bounds =   4.1089e+01   4.3237e+01
+Input   8 bounds =   4.0527e+01   4.3690e+01
+Input  10 bounds =   4.0549e+01   4.2735e+01
+Input   7 bounds =   3.0942e+01   4.8376e+01
+=============> Input   7 is different from input  14
+==> since their 1-sigma intervals do not overlap.
+Input  14 bounds =   3.9076e+00   6.3824e+00
+Input  11 bounds =   4.1724e+00   6.0714e+00
+Input  20 bounds =   3.3849e+00   5.1876e+00
+Input  18 bounds =   3.0089e+00   5.4514e+00
+Input  12 bounds =   3.0795e+00   4.8997e+00
+Input  13 bounds =   2.6593e+00   5.2053e+00
+Input  15 bounds =   2.4404e+00   4.7815e+00
+Input  16 bounds =   2.5174e+00   4.6470e+00
+Input  19 bounds =   1.9167e+00   3.4000e+00
+Input  17 bounds =   1.5347e+00   2.3898e+00
+======================================================================
+* MOAT Analysis (ordered) : +- 2 sigma
+----------------------------------------------------------------------
+Input   2 bounds =   7.8819e+01   1.3437e+02
+Input   1 bounds =   5.6318e+01   1.1847e+02
+Input   4 bounds =   4.9582e+01   9.4588e+01
+Input   6 bounds =   3.6621e+01   8.0159e+01
+Input   3 bounds =   1.8652e+01   9.4141e+01
+Input   5 bounds =   1.4732e+01   7.3268e+01
+Input   9 bounds =   4.0014e+01   4.4311e+01
+Input   8 bounds =   3.8946e+01   4.5272e+01
+Input  10 bounds =   3.9456e+01   4.3828e+01
+Input   7 bounds =   2.2224e+01   5.7094e+01
+=============> Input   7 is different from input  14.
+==> since their 2-sigma intervals do not overlap.
+Input  14 bounds =   2.6701e+00   7.6199e+00
+Input  11 bounds =   3.2229e+00   7.0209e+00
+Input  20 bounds =   2.4836e+00   6.0889e+00
+Input  18 bounds =   1.7877e+00   6.6727e+00
+Input  12 bounds =   2.1694e+00   5.8097e+00
+Input  13 bounds =   1.3862e+00   6.4784e+00
+Input  15 bounds =   1.2698e+00   5.9520e+00
+Input  16 bounds =   1.4525e+00   5.7118e+00
+Input  19 bounds =   1.1750e+00   4.1416e+00
+Input  17 bounds =   1.1071e+00   2.8174e+00
+AnalysisManager: analysis error = 0.00e+00 <? 1.00e-05
+

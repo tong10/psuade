@@ -24,6 +24,7 @@
 // AUTHOR : CHARLES TONG
 // DATE   : 2003
 // ************************************************************************
+//**/ Interface to txmath for optimization of nonsmooth functions
 // ************************************************************************
 #ifdef HAVE_TXMATH
 

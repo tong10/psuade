@@ -25,32 +25,20 @@
 // DATE   : 2012
 // ************************************************************************
 #include <stddef.h>
-#include <Globals.h>
+#include "Globals.h"
 
 // -------------------------------------------------------------------------
 // global variables
 // -------------------------------------------------------------------------
-int          psIOExpertMode_=0;
-int          psRSExpertMode_=0;
-int          psRSCodeGen_=0;
-int          psSamExpertMode_=0;
-int          psAnaExpertMode_=0;
-int          psOptExpertMode_=0;
-int          psPDFDiagMode_=0;
-int          psMasterMode_=0;
-int          psInteractive_=0;
-int          psScreenOutput_=0;
-int          psLibMode_=1;
-int          psGMMode_=0;
-int          psPythonOverride_=0;
-int          psPlotTool_=0;
-long         psRandomSeed_=-1;
-int          psFAMaxDataPts_=10000;
-int          psConstraintSetOp_=0;
-char         *psConfigFileName_=NULL;
-char         *psPythonInterpreter_=NULL;
-PsuadeConfig *psConfig_=NULL;
+//**/ turn on/off Python override mode for calling Python driver
+int psPythonOverride_=0;
+//**/ configure object
+PsuadeConfig psConfig_;
+//**/ store path of Python interpreter used in driver
+char *psPythonInterpreter_=NULL;
+//**/ MPI communication manager
 CommManager  *psCommMgr_=NULL;
+//**/ override input and output file names
 const char   *psInputFilename_  = "psuadeData";
 const char   *psOutputFilename_ = "psuadeData";
 

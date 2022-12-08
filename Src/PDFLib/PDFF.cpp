@@ -36,13 +36,13 @@
 // ------------------------------------------------------------------------
 PDFF::PDFF(double d1, double d2)
 {
-   d1_ = d1;
-   d2_ = d2;
-   if (d1 <= 0 || d2 <= 0)
-   {
-      printf("PDFF: d1 and d2 need to be > 0.\n");
-      exit(1);
-   }
+  d1_ = d1;
+  d2_ = d2;
+  if (d1 <= 0 || d2 <= 0)
+  {
+    printf("PDFF: d1 and d2 need to be > 0.\n");
+    exit(1);
+  }
 }
 
 // ************************************************************************
@@ -57,28 +57,28 @@ PDFF::~PDFF()
 // ------------------------------------------------------------------------
 int PDFF::getPDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double ddata, xdata, d2d2, d1d2, beta;
+  int    ii;
+  double ddata, xdata, d2d2, d1d2, beta;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFF: getPDF begins (length = %d)\n",length);
-   d2d2 = pow(d2_, d2_);
-   d1d2 = d1_ + d2_;
-   beta = Beta_Function(0.5*d1_,0.5*d2_);
-   for (ii = 0; ii < length; ii++)
-   {
-      xdata = inData[ii];
-      if (xdata < 0.0)
-      {
-         printf("PDFF getPDF ERROR - data needs to be in [0,infty).\n");
-         exit(1);
-      }
-      ddata = pow(d1_ * xdata, d1_) * d2d2;
-      ddata = sqrt(ddata / pow(d1_ * xdata + d2_, d1d2));
-      outData[ii] = ddata / (xdata * beta);
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFF: getPDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFF: getPDF begins (length = %d)\n",length);
+  d2d2 = pow(d2_, d2_);
+  d1d2 = d1_ + d2_;
+  beta = Beta_Function(0.5*d1_,0.5*d2_);
+  for (ii = 0; ii < length; ii++)
+  {
+    xdata = inData[ii];
+    if (xdata < 0.0)
+    {
+      printf("PDFF getPDF ERROR - data needs to be in [0,infty).\n");
+      exit(1);
+    }
+    ddata = pow(d1_ * xdata, d1_) * d2d2;
+    ddata = sqrt(ddata / pow(d1_ * xdata + d2_, d1d2));
+    outData[ii] = ddata / (xdata * beta);
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFF: getPDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -86,97 +86,93 @@ int PDFF::getPDF(int length, double *inData, double *outData)
 // ------------------------------------------------------------------------
 int PDFF::getCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double xdata, mult;
+  int    ii;
+  double xdata, mult;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFF: getCDF begins (length = %d)\n",length);
-   mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
-   for (ii = 0; ii < length; ii++)
-   {
-      xdata = inData[ii];
-      if      (xdata <= 0) outData[ii] = 0;
-      else
-      {
-         xdata = d1_ * xdata / (d1_ * xdata + d2_);
-         outData[ii] = mult*Incomplete_Beta_Function(xdata,0.5*d1_,0.5*d2_);
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFF: getCDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFF: getCDF begins (length = %d)\n",length);
+  mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
+  for (ii = 0; ii < length; ii++)
+  {
+    xdata = inData[ii];
+    if      (xdata <= 0) outData[ii] = 0;
+    else
+    {
+      xdata = d1_ * xdata / (d1_ * xdata + d2_);
+      outData[ii] = mult*Incomplete_Beta_Function(xdata,0.5*d1_,0.5*d2_);
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFF: getCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFF::invCDF(int length, double *inData, double *outData,
-                 double lower, double upper)
+int PDFF::invCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double scale, ddata, xlo, xhi, xmi, ylo, ymi, yhi, mult;
+  int    ii;
+  double ddata, xlo, xhi, xmi, ylo, ymi, yhi, mult, xtm;
 
-   if (upper <= lower)
-   {
-      printf("PDFF invCDF ERROR - lower bound >= upper bound.\n");
-      exit(1);
-   }
-   if (lower < 0.0)
-   {
-      printf("PDFF invCDF ERROR - lower bound < 0.\n");
-      printf("     INFO : support for F distribution is (0,1).\n");
-      exit(1);
-   }
-   if (upper > 1.0)
-   {
-      printf("PDFF invCDF ERROR - upper bound > 1.\n");
-      printf("     INFO : support for F distribution is (0,1).\n");
-      exit(1);
-   }
+  //**/ -------------------------------------------------------------
+  //**/ map the input data onto the CDF
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFF: invCDF begins (length = %d)\n",length);
+  mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFF: invCDF begins (length = %d)\n",length);
-   scale = upper - lower;
-   mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if (ddata < 0 || ddata > 1)
+  //**/ first find upper bound for X
+  double XHI = 0.0;
+  double YHI = 0.0;
+  while (YHI < 0.995)
+  {
+    XHI += 1.0;
+    xtm = XHI * d1_ / (d1_ * XHI + d2_);
+    YHI = mult*Incomplete_Beta_Function(xtm,0.5*d1_,0.5*d2_);
+  }
+
+  //**/ now invert
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if (ddata <= 0.0 || ddata >= 1)
+    {
+      printf("PDFF invCDF ERROR - CDF value not in (0,1).\n");
+      exit(1);
+    }
+    //**/ first normalize it
+    xlo = 1e-8;
+    xtm = xlo * d1_ / (d1_ * xlo + d2_);
+    ylo = mult*Incomplete_Beta_Function(xtm,0.5*d1_,0.5*d2_);
+
+    xhi = XHI;
+    yhi = YHI;
+    if      (ddata <= ylo) outData[ii] = xlo;
+    else if (ddata >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
       {
-         printf("PDFF invCDF ERROR - data %e not in (0,1).\n",ddata);
-         printf("     INFO : support for F distribution is (0,1).\n");
-         exit(1);
+        xmi = 0.5 * (xhi + xlo);
+        xtm = xmi * d1_ / (d1_ * xmi + d2_);
+        ymi = mult*Incomplete_Beta_Function(xtm,0.5*d1_,0.5*d2_);
+        if (ddata > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-      xlo = lower * d1_ / (d1_ * lower + d2_);
-      ylo = mult*Incomplete_Beta_Function(xlo,0.5*d1_,0.5*d2_);
-      xhi = upper * d1_ / (d1_ * upper + d2_);
-      yhi = mult*Incomplete_Beta_Function(xhi,0.5*d1_,0.5*d2_);
-      ddata = (ddata - lower) / scale * (yhi - ylo) + ylo;
-      if      (ddata <= ylo) outData[ii] = xlo;
-      else if (ddata >= yhi) outData[ii] = xhi;
-      else
-      {
-         while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            xmi = xmi * d1_ / (d1_ * xmi + d2_);
-            ymi = mult*Incomplete_Beta_Function(xmi,0.5*d1_,0.5*d2_);
-            if (ddata > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
-         else                                   outData[ii] = xhi;
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFF: invCDF ends.\n");
-   return 0;
+      if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
+      else                                   outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFF: invCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -185,68 +181,74 @@ int PDFF::invCDF(int length, double *inData, double *outData,
 int PDFF::genSample(int length, double *outData, double *lowers, 
                     double *uppers)
 {
-   int    ii;
-   double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, xlo2, xhi2, xmi2;
-   double lower, upper;
+  int    ii;
+  double UU, xhi, xlo, xmi, yhi, ylo, ymi, mult, xlo2, xhi2, xmi2;
+  double lower, upper;
 
-   if (lowers == NULL || uppers == NULL)
-   {
-      printf("PDFF genSample ERROR - lower/upper bound not available.\n"); 
-      exit(1);
-   }
-   lower = lowers[0];
-   upper = uppers[0];
-   if (upper <= lower)
-   {
-      printf("PDFF genSample ERROR - lower bound >= upper bound.\n");
-      exit(1);
-   }
-   if (lower < 0.0)
-   {
-      printf("PDFF genSample  ERROR - lower bound < 0.\n");
-      printf("     INFO : support for F distribution is (0,1).\n");
-      exit(1);
-   }
+  //**/ -------------------------------------------------------------
+  //**/ upper and lower bounds has to be in (0,1), and upper > lower
+  //**/ -------------------------------------------------------------
+  if (lowers == NULL || uppers == NULL)
+  {
+    printf("PDFF genSample ERROR - lower/upper bound not available.\n"); 
+    exit(1);
+  }
+  lower = lowers[0];
+  upper = uppers[0];
+  if (upper <= lower)
+  {
+    printf("PDFF genSample ERROR - lower bound >= upper bound.\n");
+    exit(1);
+  }
+  if (lower < 0.0)
+  {
+    printf("PDFF genSample  ERROR - lower bound < 0.\n");
+    printf("     INFO : support for F distribution is (0,1).\n");
+    exit(1);
+  }
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFF: genSample begins (length = %d)\n",length);
-   mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
-   for (ii = 0; ii < length; ii++)
-   {
-      UU   = PSUADE_drand();
-      xlo  = lower;
-      xlo2 = xlo * d1_ / (xlo * d1_ + d2_);
-      ylo  = mult*Incomplete_Beta_Function(xlo2,0.5*d1_,0.5*d2_);
-      xhi  = upper;
-      xhi2 = xhi * d1_ / (xhi * d1_ + d2_);
-      yhi  = mult*Incomplete_Beta_Function(xhi2,0.5*d1_,0.5*d2_);
-      UU = UU * (yhi - ylo) + ylo;
-      if      (UU <= ylo) outData[ii] = xlo;
-      else if (UU >= yhi) outData[ii] = xhi;
-      else
+  //**/ -------------------------------------------------------------
+  //**/ generate sample
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFF: genSample begins (length = %d)\n",length);
+  mult = 1.0 / Beta_Function(0.5*d1_,0.5*d2_);
+  for (ii = 0; ii < length; ii++)
+  {
+    UU   = PSUADE_drand();
+    xlo  = lower;
+    xlo2 = xlo * d1_ / (xlo * d1_ + d2_);
+    ylo  = mult*Incomplete_Beta_Function(xlo2,0.5*d1_,0.5*d2_);
+    xhi  = upper;
+    xhi2 = xhi * d1_ / (xhi * d1_ + d2_);
+    yhi  = mult*Incomplete_Beta_Function(xhi2,0.5*d1_,0.5*d2_);
+    UU = UU * (yhi - ylo) + ylo;
+    if      (UU <= ylo) outData[ii] = xlo;
+    else if (UU >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
       {
-         while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
-         {
-            xmi  = 0.5 * (xhi + xlo);
-            xmi2 = xmi * d1_ / (xmi * d1_ + d2_);
-            ymi = mult*Incomplete_Beta_Function(xmi2,0.5*d1_,0.5*d2_);
-            if (UU > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
-         else                             outData[ii] = xhi;
+        xmi  = 0.5 * (xhi + xlo);
+        xmi2 = xmi * d1_ / (xmi * d1_ + d2_);
+        ymi = mult*Incomplete_Beta_Function(xmi2,0.5*d1_,0.5*d2_);
+        if (UU > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFF: genSample ends.\n");
-   return 0;
+      if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
+      else                             outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFF: genSample ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -254,11 +256,11 @@ int PDFF::genSample(int length, double *outData, double *lowers,
 // ------------------------------------------------------------------------
 double PDFF::getMean()
 {
-   if (d2_ > 2) return d2_ / (d2_ - 2);
-   else
-   {
-      printf("PDFF INFO: getMean - d2 <= 2, return 0.\n");
-      return 0.0;
-   }
+  if (d2_ > 2) return d2_ / (d2_ - 2);
+  else
+  {
+    printf("PDFF INFO: getMean - d2 <= 2, return 0.\n");
+    return 0.0;
+  }
 }
 

@@ -1,0 +1,47 @@
+# The previous script should have given the next 2 selections
+# (17 and 22 == 18 and 24 in the original Candidate0). This
+# script put these 2 selections in SelectSet2a, appends them
+# with uncertainties, and creates posterior (for 14,18,19,22) 
+#
+# Step 1: Select candidate 17 and 23 and write to SelectSet2a
+iread CandidateSet1
+idelete
+y
+2
+3
+4
+sdelete
+y
+2
+23
+0
+sdelete
+y
+1
+18
+21
+sdelete
+y
+1
+1
+16
+iwrite SelectSet2a
+# Step 2: append SelectSet2a with experimental (hypothetical) 
+#         result -> SelectSet2
+sys cc -o experiment experiment.c -lm
+sys ./experiment SelectSet2a SelectSet2 
+# Step 3: generate posterior after using design 17 and 22 
+#         (18,24 in CandidateSet0) using previous posterior
+#         (now written to odoeu_posterior1)
+load RSTrainSample
+sys mv odoeu_posterior odoeu_posterior1
+odoeu_rsmcmc
+y
+3
+0
+odoeu_posterior1
+SelectSet2
+10
+# odoeu_posterior (after 14, 18, 19, and 24) has been created
+q
+

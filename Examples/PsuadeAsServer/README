@@ -1,0 +1,34 @@
+This example shows how to use PSUADE as a response
+surface server. This capability is useful if:
+
+- building a response surface is expensive 
+     (e.g. GP3 with 5000 points)
+- it is not feasible to use the code_gen feature
+  to create an offline RS interpolator that can
+  be inserted into user code
+- You do not know yet the new sample points you
+  need to evaluate with the response surface
+  (so you don't want to recreate the response
+  surface every time you need evaluation).
+
+Do this to see a demonstration:
+* compile simulator.c (cc -o simulator simulator.c -lm)
+* create a training set (run: psuade psuadeRS.in)
+* rename the sample from psuadeData to simdata
+* launch psuade
+  > load simdata
+  > rscreate
+    <select your response surface type>
+    ..
+  > rseval_m
+    <You will be asked to enter your first set of points
+     via the rsevalDataIn.1 file>
+    <So in another terminal, cp rsevalDataIn.1.x to
+     rsevalDataIn.1 to see things in action in the
+     terminal where you run psuade>
+    <Do the same with rsevalDataIn.2 and rsevalDataIn.3>
+    <now do: touch psComplete to create an empty file
+             in the same run directory in the terminal
+             where you run psuade and you observe the
+             process terminate>
+

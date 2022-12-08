@@ -1,5 +1,0 @@
-if(UNIX)
-  install(PROGRAMS psuade_0test.sh psuade_1test.sh psuade_2test.sh DESTINATION scripts)
-else(UNIX)
-  install(PROGRAMS psuade_0test.sh psuade_1test.sh psuade_2test.sh DESTINATION bin)
-endif(UNIX)

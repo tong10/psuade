@@ -41,22 +41,12 @@
 // ------------------------------------------------------------------------
 PsuadeSession::PsuadeSession()
 {
-   owned_ = 0;
-   inputLBounds_ = NULL;
-   inputUBounds_ = NULL;
-   sampleInputs_ = NULL;
-   sampleOutputs_ = NULL;
-   sampleStates_  = NULL;
-   inputPDFs_ = NULL;
-   inputMeans_ = NULL;
-   inputStdevs_ = NULL;
-   inputNames_ = NULL;
-   outputNames_ = NULL;
-   outputLevel_ = 0;
-   nSamples_ = 0;
-   nInputs_ = 0;
-   nOutputs_ = 0;
-   psuadeIO_ = NULL;
+  owned_ = 0;
+  outputLevel_ = 0;
+  nSamples_ = 0;
+  nInputs_ = 0;
+  nOutputs_ = 0;
+  psuadeIO_ = NULL;
 }
 
 // ************************************************************************
@@ -64,81 +54,27 @@ PsuadeSession::PsuadeSession()
 // ------------------------------------------------------------------------
 PsuadeSession::PsuadeSession(const PsuadeSession &ps)
 {
-   int ii;
-   outputLevel_ = ps.outputLevel_;
-   nSamples_ = ps.nSamples_;
-   nInputs_ = ps.nInputs_;
-   nOutputs_ = ps.nOutputs_;
-   rsType_ = ps.rsType_;
-   owned_ = 1;
-   if (nInputs_ > 0 && ps.inputLBounds_ != NULL)
-   {
-      inputLBounds_ = new double[nInputs_];
-      inputUBounds_ = new double[nInputs_];
-      for (ii = 0; ii < nInputs_; ii++)
-      {
-         inputLBounds_[ii] = ps.inputLBounds_[ii];
-         inputUBounds_[ii] = ps.inputUBounds_[ii];
-      }
-   }
-   if (nSamples_ > 0 && nInputs_ > 0)
-   {
-      if (ps.sampleInputs_ != NULL)
-      {
-         sampleInputs_ = new double[nSamples_*nInputs_];
-         for (ii = 0; ii < nSamples_*nInputs_; ii++)
-            sampleInputs_[ii] = ps.sampleInputs_[ii];
-      }
-      if (ps.inputNames_ != NULL)
-      {
-         inputNames_ = new char*[nInputs_];
-         for (ii = 0; ii < nInputs_; ii++)
-         {
-            inputNames_[ii] = new char[1001];
-            strcpy(inputNames_[ii], ps.inputNames_[ii]);
-         }
-      }
-      if (ps.inputPDFs_ != NULL)
-      {
-         inputPDFs_ = new int[nInputs_];
-         for (ii = 0; ii < nInputs_; ii++)
-            inputPDFs_[ii] = ps.inputPDFs_[ii];
-      }
-      if (ps.inputMeans_ != NULL)
-      {
-         inputMeans_ = new double[nInputs_];
-         for (ii = 0; ii < nInputs_; ii++)
-            inputMeans_[ii] = ps.inputMeans_[ii];
-      }
-      if (ps.inputStdevs_ != NULL)
-      {
-         inputStdevs_ = new double[nInputs_];
-         for (ii = 0; ii < nInputs_; ii++)
-            inputStdevs_[ii] = ps.inputStdevs_[ii];
-      }
-      corMatrix_.load((psMatrix &) ps.corMatrix_); 
-   }
-   if (nSamples_ > 0 && nOutputs_ > 0 & ps.sampleOutputs_ != NULL)
-   {
-      sampleOutputs_ = new double[nSamples_*nOutputs_];
-      for(ii = 0; ii < nSamples_*nOutputs_; ii++)
-         sampleOutputs_[ii] = ps.sampleOutputs_[ii];
-      if (ps.outputNames_ != NULL)
-      {
-         outputNames_ = new char*[nOutputs_];
-         for(ii = 0; ii < nOutputs_; ii++)
-         {
-            outputNames_[ii] = new char[1001];
-            strcpy(outputNames_[ii], ps.outputNames_[ii]);
-         }
-      }
-   }
-   if (nSamples_ > 0 && nOutputs_ > 0 & ps.sampleStates_ != NULL)
-   {
-      sampleStates_ = new int[nSamples_];
-      for(ii = 0; ii < nSamples_; ii++)
-         sampleStates_[ii] = ps.sampleStates_[ii];
-   }
+  int ii;
+
+  outputLevel_ = ps.outputLevel_;
+  nSamples_ = ps.nSamples_;
+  nInputs_  = ps.nInputs_;
+  nOutputs_ = ps.nOutputs_;
+  rsType_   = ps.rsType_;
+  owned_    = 1;
+  psuadeIO_ = ps.psuadeIO_;
+
+  vecInpLBounds_ = ps.vecInpLBounds_;
+  vecInpUBounds_ = ps.vecInpUBounds_;
+  vecSamInputs_  = ps.vecSamInputs_;
+  vecSamOutputs_ = ps.vecSamOutputs_;
+  vecSamStates_  = ps.vecSamStates_;
+  vecInpPDFs_    = ps.vecInpPDFs_;
+  vecInpMeans_   = ps.vecInpMeans_;
+  vecInpStds_    = ps.vecInpStds_;
+  inputNames_    = ps.inputNames_;
+  outputNames_   = ps.outputNames_;
+  corMatrix_.load((psMatrix &) ps.corMatrix_); 
 }
 
 // ************************************************************************
@@ -146,75 +82,30 @@ PsuadeSession::PsuadeSession(const PsuadeSession &ps)
 // ------------------------------------------------------------------------
 PsuadeSession & PsuadeSession::operator=(const PsuadeSession & ps)
 {
-   int ii;
-   if(this == &ps)  return *this;
-   owned_ = 1;
-   inputLBounds_ = NULL;
-   inputUBounds_ = NULL;
-   sampleInputs_ = NULL;
-   sampleOutputs_ = NULL;
-   sampleStates_ = NULL;
-   inputPDFs_ = NULL;
-   inputMeans_ = NULL;
-   inputStdevs_ = NULL;
-   inputNames_ = NULL;
-   outputNames_ = NULL;
-   psuadeIO_ = NULL;
-   outputLevel_ = ps.outputLevel_;
-   nSamples_ = ps.nSamples_;
-   nInputs_ = ps.nInputs_;
-   nOutputs_ = ps.nOutputs_;
-   rsType_ = ps.rsType_;
-   if (nInputs_ > 0 && ps.inputLBounds_ != NULL)
-   {
-      inputLBounds_ = new double[nInputs_];
-      inputUBounds_ = new double[nInputs_];
-      for(int ii = 0; ii < nInputs_; ii++)
-      {
-         inputLBounds_[ii] = ps.inputLBounds_[ii];
-         inputUBounds_[ii] = ps.inputUBounds_[ii];
-      }
-   }
-   if (nSamples_ > 0 && nInputs_ > 0)
-   {
-      if (ps.sampleInputs_ != NULL)
-      {
-         sampleInputs_ = new double[nSamples_*nInputs_];
-         for(ii = 0; ii < nSamples_*nInputs_; ii++)
-            sampleInputs_[ii] = ps.sampleInputs_[ii];
-      }
-      if (ps.inputNames_ != NULL)
-      {
-         inputNames_ = new char*[nInputs_];
-         for(ii = 0; ii < nInputs_; ii++)
-         {
-            inputNames_[ii] = new char[1001];
-            strcpy(inputNames_[ii], ps.inputNames_[ii]);
-         }
-      }
-   }
-   if (nSamples_ > 0 && nOutputs_ > 0 & ps.sampleOutputs_ != NULL)
-   {
-      sampleOutputs_ = new double[nSamples_*nOutputs_];
-      for(ii = 0; ii < nSamples_*nOutputs_; ii++)
-         sampleOutputs_[ii] = ps.sampleOutputs_[ii];
-      if (ps.outputNames_ != NULL)
-      {
-         outputNames_ = new char*[nOutputs_];
-         for(ii = 0; ii < nOutputs_; ii++)
-         {
-            outputNames_[ii] = new char[1001];
-            strcpy(outputNames_[ii], ps.outputNames_[ii]);
-         }
-      }
-   }
-   if (nSamples_ > 0 && nOutputs_ > 0 & ps.sampleStates_ != NULL)
-   {
-      sampleStates_ = new int[nSamples_];
-      for(ii = 0; ii < nSamples_; ii++)
-         sampleStates_[ii] = ps.sampleStates_[ii];
-   }
-   return *this;
+  int ii;
+
+  if (this == &ps) return *this;
+
+  outputLevel_ = ps.outputLevel_;
+  nSamples_ = ps.nSamples_;
+  nInputs_  = ps.nInputs_;
+  nOutputs_ = ps.nOutputs_;
+  rsType_   = ps.rsType_;
+  owned_    = 1;
+  psuadeIO_ = ps.psuadeIO_;
+
+  vecInpLBounds_ = ps.vecInpLBounds_;
+  vecInpUBounds_ = ps.vecInpUBounds_;
+  vecSamInputs_  = ps.vecSamInputs_;
+  vecSamOutputs_ = ps.vecSamOutputs_;
+  vecSamStates_  = ps.vecSamStates_;
+  vecInpPDFs_    = ps.vecInpPDFs_;
+  vecInpMeans_   = ps.vecInpMeans_;
+  vecInpStds_    = ps.vecInpStds_;
+  inputNames_    = ps.inputNames_;
+  outputNames_   = ps.outputNames_;
+  corMatrix_.load((psMatrix &) ps.corMatrix_); 
+  return *this;
 }
 
 // ************************************************************************
@@ -222,30 +113,19 @@ PsuadeSession & PsuadeSession::operator=(const PsuadeSession & ps)
 // ------------------------------------------------------------------------
 PsuadeSession::~PsuadeSession()
 {
-   int ii;
-   if (owned_)
-   {
-      if (sampleInputs_ != NULL) delete [] sampleInputs_;
-      if (sampleOutputs_ != NULL) delete [] sampleOutputs_;
-      if (sampleStates_ != NULL) delete [] sampleStates_;
-      if (inputLBounds_ != NULL) delete [] inputLBounds_;
-      if (inputUBounds_ != NULL) delete [] inputUBounds_;
-      if (inputNames_ != NULL)
-      {
-         for(ii = 0; ii < nInputs_; ii++)
-            if (inputNames_[ii] != NULL) delete [] inputNames_[ii];
-         delete [] inputNames_[ii];
-      }
-      if (outputNames_ != NULL)
-      {
-         for(ii = 0; ii < nOutputs_; ii++)
-            if (outputNames_[ii] != NULL) delete [] outputNames_[ii];
-         delete [] outputNames_[ii];
-      }
-      if (inputPDFs_ != NULL) delete [] inputPDFs_;
-      if (inputMeans_ != NULL) delete [] inputMeans_;
-      if (inputStdevs_ != NULL) delete [] inputStdevs_;
-   }
-   psuadeIO_ = NULL;
+  if (owned_)
+  {
+    inputNames_.clean();
+    outputNames_.clean();
+    vecInpLBounds_.clean();
+    vecInpUBounds_.clean();
+    vecSamInputs_.clean();
+    vecSamOutputs_.clean();
+    vecSamStates_.clean();
+    vecInpPDFs_.clean();
+    vecInpMeans_.clean();
+    vecInpStds_.clean();
+  }
+  psuadeIO_ = NULL;
 }
 

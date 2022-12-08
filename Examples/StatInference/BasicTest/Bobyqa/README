@@ -1,0 +1,6 @@
+To run:
+
+cc -o simulatorBobyqa simulatorBobyqa.c -lm
+
+psuade psuadeBobyqa.in
+

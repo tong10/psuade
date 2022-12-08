@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define LBUFSIZ 10000
+#define LBUFSIZ 50000
 
 int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
              int *nOuts, char ***inames, char ***onames)
@@ -190,7 +190,7 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
   /* read the file again */
   myfile = fopen(filename, "r");
   for (kk = 0; kk < nclines; kk++) fgets(line1,sizeof line1,myfile);
-  xsize = 1000;
+  xsize = 5000;
   X = (double *) malloc(xsize * sizeof(double));
   /* Get a line from file */
   numLines = 0;
@@ -267,6 +267,9 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
       }
       if (*stptr != '\0' && *stptr == ',')
         stptr++;
+      //**/ Oct 2015: somehow this mess up things
+      //**/strcpy(line2,stptr);
+      //**/stptr = line2;
     }
     if (first == 1)
     {
@@ -299,4 +302,56 @@ int read_csv(char *filename, int *nSamples, int *nInps, double **XX,
   else (*inames) = ionames;
   return 0;
 }
+
+int write_csv(char *filename, int nSamples, int nInps, double *XX,
+              int nOuts, double *YY, char **inames, char **onames)
+{
+  int  ss, ii, addPrefixFlag=0, addRunFlag=0;
+  char winput[1001], prefixName[1001], prefixData[1001];
+  FILE *outfile;
+
+  /* check that the file exists */
+  if (!(outfile = fopen(filename, "w")))
+  {
+    printf("write_csv ERROR: Could not open file for writing\n");
+    return -1;
+  }
+  printf("Add a prefix field to every line (e.g. event name)? (y or n) ");
+  fgets(winput, 1000, stdin);
+  if (winput[0] == 'y')
+  {
+    printf("Enter prefix field name (i.e. name in title line): ");
+    fgets(prefixName, 1000, stdin);
+    prefixName[strlen(prefixName)-1] = '\0';
+    printf("Enter prefix field data (data written to each line): ");
+    fgets(prefixData, 1000, stdin);
+    prefixData[strlen(prefixData)-1] = '\0';
+    addPrefixFlag = 1;
+  }
+  printf("Add sample number to every line (e.g. as runXX)? (y or n) ");
+  fgets(winput, 1000, stdin);
+  if (winput[0] == 'y') addRunFlag = 1;
+  
+  if (addPrefixFlag == 1) fprintf(outfile, "%s,", prefixName);
+  if (addRunFlag == 1) fprintf(outfile, "run,");
+  for (ii = 0; ii < nInps; ii++) fprintf(outfile, "%s,", inames[ii]);
+  for (ii = 0; ii < nOuts-1; ii++) fprintf(outfile, "%s,", onames[ii]);
+  fprintf(outfile, "%s\n", onames[nOuts-1]);
+  for (ss = 0; ss < nSamples; ss++)
+  {
+    if (addPrefixFlag == 1) fprintf(outfile, "%s,", prefixData);
+    if (addRunFlag == 1) fprintf(outfile, "run%d,",ss+1);
+    for (ii = 0; ii < nInps; ii++) 
+      fprintf(outfile, "%e,", XX[ss*nInps+ii]);
+    for (ii = 0; ii < nOuts-1; ii++) 
+      fprintf(outfile, "%e,", YY[ss*nOuts+ii]);
+    fprintf(outfile, "%e\n", YY[(ss+1)*nOuts-1]);
+  }
+  fclose(outfile);
+  return 0;
+}
+
+
+
+  
 

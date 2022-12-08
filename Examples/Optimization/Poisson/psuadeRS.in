@@ -1,0 +1,32 @@
+PSUADE
+INPUT
+   dimension = 4
+   variable 1 X1 =   0.0100000000000000e+00   15.0000000000000000e+00
+   variable 2 X2 =   0.0100000000000000e+00   15.0000000000000000e+00
+   variable 3 X3 =   1.0000000000000000e+01   25.0000000000000000e+00
+   variable 4 X4 =   1.0000000000000000e+00   25.0000000000000000e+00
+END
+OUTPUT
+   dimension = 4
+   variable 1 Y1
+   variable 2 Y2
+   variable 3 Y3
+   variable 4 Y4
+END
+METHOD
+   sampling         = LPTAU
+   num_samples      = 10
+END
+APPLICATION
+   driver = ./smmm_fine_sim
+END
+ANALYSIS
+   analyzer rstype = GP3
+   optimization num_local_minima = 1
+   optimization fmin = 0.000000e+00
+   optimization tolerance = 1.000000e-08
+   optimization num_fmin = 1
+   optimization print_level = 0
+   printlevel 2
+END
+END

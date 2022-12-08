@@ -1,0 +1,23 @@
+Parallel MCMC test
+
+Steps:
+
+1. Make sure psuade has been compiled in parallel mode
+
+2. Prepare the psuade data file
+   * cc -o simulator simulator.c -lm
+   * psuade psuadeRS.in (run in serial mode)
+   * mv psuadeData psdata
+
+3. Launch psuade in parallel
+
+   * mpirun -np x psuade -mp
+   * a prompt will be displayed, do
+     > load psdata
+     > printlevel 3
+     > rsmcmc
+       when asked for spec file, enter : mcmcFile
+       when asked for response surface, enter : 0 (4 times for 4 outputs)
+     > at the end, you should see a matlabmcmc2.m file
+       use Matlab to view it
+

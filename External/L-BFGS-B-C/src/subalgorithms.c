@@ -1,8 +1,4 @@
 #include "lbfgsb.h"
-static integer c__1 = 1;
-
-/* Table of constant values */
-static integer c__11 = 11;
 
 /* Subroutine */ int active(integer *n, double *l, double *u, 
 	integer *nbd, double *x, integer *iwhere, integer *iprint, 
@@ -12,7 +8,7 @@ static integer c__11 = 11;
     integer i__1;
 
     /* Local variables */
-    static integer i__, nbdd;
+    integer i__, nbdd;
 
 
 /*     ************ */
@@ -122,13 +118,14 @@ static integer c__11 = 11;
 {
     /* System generated locals */
     integer sy_dim1, sy_offset, wt_dim1, wt_offset, i__1, i__2;
+    integer i11=11, iOne=1;
 
     /* Builtin functions */
     double sqrt(double);
 
     /* Local variables */
-    static integer i__, k, i2;
-    static double sum;
+    integer i__, k, i2;
+    double sum;
 
 /*     ************ */
 
@@ -218,7 +215,7 @@ static integer c__11 = 11;
 /* L20: */
     }
 /*     Solve the triangular system */
-    dtrsl(&wt[wt_offset], m, col, &p[*col + 1], &c__11, info);
+    dtrsl(&wt[wt_offset], m, col, &p[*col + 1], &i11, info);
     if (*info != 0) {
 	return 0;
     }
@@ -231,7 +228,7 @@ static integer c__11 = 11;
 /*     PART II: solve [ -D^(1/2)   D^(-1/2)*L'  ] [ p1 ] = [ p1 ] */
 /*                    [  0         J'           ] [ p2 ]   [ p2 ]. */
 /*       solve J^Tp2=p2. */
-    dtrsl(&wt[wt_offset], m, col, &p[*col + 1], &c__1, info);
+    dtrsl(&wt[wt_offset], m, col, &p[*col + 1], &iOne, info);
     if (*info != 0) {
 	return 0;
     }
@@ -275,28 +272,28 @@ static integer c__11 = 11;
 
 
     /* Local variables */
-    static integer i__, j;
-    static double f1, f2, dt, tj, tl, tu, tj0;
-    static integer ibp;
-    static double dtm;
+    integer i__, j, iOne=1;
+    double f1, f2, dt, tj, tl, tu, tj0;
+    integer ibp;
+    double dtm;
     extern /* Subroutine */ int bmv(integer *, double *, double *, 
 	    integer *, double *, double *, integer *);
-    static double wmc, wmp, wmw;
-    static integer col2;
-    static double dibp;
-    static integer iter;
-    static double zibp, tsum, dibp2;
-    static logical bnded;
-    static double neggi;
-    static integer nfree;
-    static double bkmin;
-    static integer nleft;
-    static double f2_org__;
-    static integer nbreak, ibkmin;
+    double wmc, wmp, wmw;
+    integer col2;
+    double dibp;
+    integer iter;
+    double zibp, tsum, dibp2;
+    logical bnded;
+    double neggi;
+    integer nfree;
+    double bkmin;
+    integer nleft;
+    double f2_org__;
+    integer nbreak, ibkmin;
     extern /* Subroutine */ int hpsolb(integer *, double *, integer *, 
 	    integer *);
-    static integer pointr;
-    static logical xlower, xupper;
+    integer pointr;
+    logical xlower, xupper;
 
 /*     ************ */
 
@@ -510,7 +507,7 @@ static integer c__11 = 11;
         if (*iprint >= 0) {
             printf("Subnorm = 0. GCP = X.\n");
         }
-        dcopy(n, &x[1], &c__1, &xcp[1], &c__1);
+        dcopy(n, &x[1], &iOne, &xcp[1], &iOne);
         return 0;
     }
     bnded = TRUE_;
@@ -613,10 +610,10 @@ static integer c__11 = 11;
     /*       The smallest of the nbreak breakpoints is in t(ibkmin)=bkmin. */
     if (*theta != 1.) {
         /*                   complete the initialization of p for theta not= one. */
-        dscal(col, theta, &p[*col + 1], &c__1);
+        dscal(col, theta, &p[*col + 1], &iOne);
     }
     /*     Initialize GCP xcp = x. */
-    dcopy(n, &x[1], &c__1, &xcp[1], &c__1);
+    dcopy(n, &x[1], &iOne, &xcp[1], &iOne);
     if (nbreak == 0 && nfree == *n + 1) {
         /*                  is a zero vector, return with the initial xcp as GCP. */
         if (*iprint > 100) {
@@ -643,7 +640,7 @@ static integer c__11 = 11;
         if (*info != 0) {
             return 0;
         }
-        f2 -= ddot(&col2, &v[1], &c__1, &p[1], &c__1);
+        f2 -= ddot(&col2, &v[1], &iOne, &p[1], &iOne);
     }
     dtm = -f1 / f2;
     tsum = 0.;
@@ -731,7 +728,7 @@ L777:
     f2 -= *theta * dibp2;
     if (*col > 0) {
         /*                          update c = c + dt*p. */
-        daxpy(&col2, &dt, &p[1], &c__1, &c__[1], &c__1);
+        daxpy(&col2, &dt, &p[1], &iOne, &c__[1], &iOne);
         /*           choose wbp, */
         /*           the row of W corresponding to the breakpoint encountered. */
         pointr = *head;
@@ -747,12 +744,12 @@ L777:
         if (*info != 0) {
             return 0;
         }
-        wmc = ddot(&col2, &c__[1], &c__1, &v[1], &c__1);
-        wmp = ddot(&col2, &p[1], &c__1, &v[1], &c__1);
-        wmw = ddot(&col2, &wbp[1], &c__1, &v[1], &c__1);
+        wmc = ddot(&col2, &c__[1], &iOne, &v[1], &iOne);
+        wmp = ddot(&col2, &p[1], &iOne, &v[1], &iOne);
+        wmw = ddot(&col2, &wbp[1], &iOne, &v[1], &iOne);
         /*           update p = p - dibp*wbp. */
         d__1 = -dibp;
-        daxpy(&col2, &d__1, &wbp[1], &c__1, &p[1], &c__1);
+        daxpy(&col2, &d__1, &wbp[1], &iOne, &p[1], &iOne);
         /*           complete updating f1 and f2 while col > 0. */
         f1 += dibp * wmc;
         f2 = f2 + dibp * 2. * wmp - dibp2 * wmw;
@@ -783,12 +780,12 @@ L888:
     tsum += dtm;
     /*     Move free variables (i.e., the ones w/o breakpoints) and */
     /*       the variables whose breakpoints haven't been reached. */
-    daxpy(n, &tsum, &d__[1], &c__1, &xcp[1], &c__1);
+    daxpy(n, &tsum, &d__[1], &iOne, &xcp[1], &iOne);
 L999:
     /*     Update c = c + dtm*p = W'(x^c - x) */
     /*       which will be used in computing r = Z'(B(x^c - x) + g). */
     if (*col > 0) {
-        daxpy(&col2, &dtm, &p[1], &c__1, &c__[1], &c__1);
+        daxpy(&col2, &dtm, &p[1], &iOne, &c__[1], &iOne);
     }
     if (*iprint > 100) {
 
@@ -828,11 +825,11 @@ L999:
 	    wt_dim1, wt_offset, i__1, i__2;
 
     /* Local variables */
-    static integer i__, j, k;
-    static double a1, a2;
+    integer i__, j, k;
+    double a1, a2;
     extern /* Subroutine */ int bmv(integer *, double *, double *, 
 	    integer *, double *, double *, integer *);
-    static integer pointr;
+    integer pointr;
 
 /*     ************ */
 
@@ -928,10 +925,10 @@ L999:
 	    wy_dim1, wy_offset, sy_dim1, sy_offset, i__1, i__2, i__3;
 
     /* Local variables */
-    static integer i__, k, k1, m2, is, js, iy, jy, is1, js1, col2, dend, pend;
-    static integer upcl;
-    static double temp1, temp2, temp3, temp4;
-    static integer ipntr, jpntr, dbegin, pbegin;
+    integer i__, k, k1, m2, is, js, iy, jy, is1, js1, col2, dend, pend;
+    integer upcl, iOne=1, i11=11;
+    double temp1, temp2, temp3, temp4;
+    integer ipntr, jpntr, dbegin, pbegin;
 
 /*     ************ */
 
@@ -1087,14 +1084,14 @@ L999:
 	    for (jy = 1; jy <= i__1; ++jy) {
 		js = *m + jy;
 		i__2 = *m - jy;
-		dcopy(&i__2, &wn1[jy + 1 + (jy + 1) * wn1_dim1], &c__1, &wn1[
-			jy + jy * wn1_dim1], &c__1);
+		dcopy(&i__2, &wn1[jy + 1 + (jy + 1) * wn1_dim1], &iOne, &wn1[
+			jy + jy * wn1_dim1], &iOne);
 		i__2 = *m - jy;
-		dcopy(&i__2, &wn1[js + 1 + (js + 1) * wn1_dim1], &c__1, &wn1[
-			js + js * wn1_dim1], &c__1);
+		dcopy(&i__2, &wn1[js + 1 + (js + 1) * wn1_dim1], &iOne, &wn1[
+			js + js * wn1_dim1], &iOne);
 		i__2 = *m - 1;
-		dcopy(&i__2, &wn1[*m + 2 + (jy + 1) * wn1_dim1], &c__1, &wn1[
-			*m + 1 + jy * wn1_dim1], &c__1);
+		dcopy(&i__2, &wn1[*m + 2 + (jy + 1) * wn1_dim1], &iOne, &wn1[
+			*m + 1 + jy * wn1_dim1], &iOne);
 /* L10: */
 	    }
 	}
@@ -1274,7 +1271,7 @@ L999:
     col2 = *col << 1;
     i__1 = col2;
     for (js = *col + 1; js <= i__1; ++js) {
-	dtrsl(&wn[wn_offset], &m2, col, &wn[js * wn_dim1 + 1], &c__11, info);
+	dtrsl(&wn[wn_offset], &m2, col, &wn[js * wn_dim1 + 1], &i11, info);
 /* L71: */
     }
 /*     Form S'AA'S*theta + (L^-1(-L_a'+R_z'))'L^-1(-L_a'+R_z') in the */
@@ -1283,8 +1280,8 @@ L999:
     for (is = *col + 1; is <= i__1; ++is) {
 	i__2 = col2;
 	for (js = is; js <= i__2; ++js) {
-	    wn[is + js * wn_dim1] += ddot(col, &wn[is * wn_dim1 + 1], &c__1, 
-		    &wn[js * wn_dim1 + 1], &c__1);
+	    wn[is + js * wn_dim1] += ddot(col, &wn[is * wn_dim1 + 1], &iOne, 
+		    &wn[js * wn_dim1 + 1], &iOne);
 /* L74: */
 	}
 /* L72: */
@@ -1310,8 +1307,8 @@ L999:
 	    i__2, i__3;
 
     /* Local variables */
-    static integer i__, j, k, k1;
-    static double ddum;
+    integer i__, j, k, k1;
+    double ddum;
 
 /*     ************ */
 
@@ -1399,7 +1396,7 @@ L999:
     integer i__1;
 
     /* Local variables */
-    static integer i__, k, iact;
+    integer i__, k, iact;
 
 
 /*     ************ */
@@ -1517,9 +1514,9 @@ L999:
     integer i__1;
 
     /* Local variables */
-    static integer i__, j, k;
-    static double out, ddum;
-    static integer indxin, indxou;
+    integer i__, j, k;
+    double out, ddum;
+    integer indxin, indxou;
 
 /*     ************ */
 
@@ -1637,10 +1634,11 @@ L30:
     /* System generated locals */
     integer ws_dim1, ws_offset, wy_dim1, wy_offset, sy_dim1, sy_offset, 
 	    ss_dim1, ss_offset, i__1, i__2;
+    integer iOne=1;
 
     /* Local variables */
-    static integer j;
-    static integer pointr;
+    integer j;
+    integer pointr;
 
 /*     ************ */
 
@@ -1691,8 +1689,8 @@ L30:
         *head = *head % *m + 1;
     }
     /*     Update matrices WS and WY. */
-    dcopy(n, &d__[1], &c__1, &ws[*itail * ws_dim1 + 1], &c__1);
-    dcopy(n, &r__[1], &c__1, &wy[*itail * wy_dim1 + 1], &c__1);
+    dcopy(n, &d__[1], &iOne, &ws[*itail * ws_dim1 + 1], &iOne);
+    dcopy(n, &r__[1], &iOne, &wy[*itail * wy_dim1 + 1], &iOne);
     /*     Set theta=yy/ys. */
     *theta = *rr / *dr;
     /*     Form the middle matrix in B. */
@@ -1702,11 +1700,11 @@ L30:
         /*                              move old information */
         i__1 = *col - 1;
         for (j = 1; j <= i__1; ++j) {
-            dcopy(&j, &ss[(j + 1) * ss_dim1 + 2], &c__1, &ss[j * ss_dim1 + 1]
-                    , &c__1);
+            dcopy(&j, &ss[(j + 1) * ss_dim1 + 2], &iOne, &ss[j * ss_dim1 + 1]
+                    , &iOne);
             i__2 = *col - j;
-            dcopy(&i__2, &sy[j + 1 + (j + 1) * sy_dim1], &c__1, &sy[j + j * 
-                    sy_dim1], &c__1);
+            dcopy(&i__2, &sy[j + 1 + (j + 1) * sy_dim1], &iOne, &sy[j + j * 
+                    sy_dim1], &iOne);
             /* L50: */
         }
     }
@@ -1715,10 +1713,10 @@ L30:
     pointr = *head;
     i__1 = *col - 1;
     for (j = 1; j <= i__1; ++j) {
-        sy[*col + j * sy_dim1] = ddot(n, &d__[1], &c__1, &wy[pointr * 
-                wy_dim1 + 1], &c__1);
-        ss[j + *col * ss_dim1] = ddot(n, &ws[pointr * ws_dim1 + 1], &c__1, &
-                d__[1], &c__1);
+        sy[*col + j * sy_dim1] = ddot(n, &d__[1], &iOne, &wy[pointr * 
+                wy_dim1 + 1], &iOne);
+        ss[j + *col * ss_dim1] = ddot(n, &ws[pointr * ws_dim1 + 1], &iOne, &
+                d__[1], &iOne);
         pointr = pointr % *m + 1;
         /* L51: */
     }
@@ -1746,8 +1744,8 @@ L30:
     double d__1, d__2;
 
     /* Local variables */
-    static integer i__;
-    static double gi;
+    integer i__;
+    double gi;
 
 /*     ************ */
 
@@ -1827,13 +1825,13 @@ L30:
     double d__1, d__2;
 
     /* Local variables */
-    static integer i__, j, k, m2;
-    static double dk;
-    static integer js, jy;
-    static double xk;
-    static integer ibd, col2;
-    static double dd_p__, temp1, temp2, alpha;
-    static integer pointr;
+    integer i__, j, k, m2, iOne=1, i11=11;
+    double dk;
+    integer js, jy;
+    double xk;
+    integer ibd, col2;
+    double dd_p__, temp1, temp2, alpha;
+    integer pointr;
 
 /*     ********************************************************************** */
 
@@ -2062,7 +2060,7 @@ L30:
     /*     Compute wv:=K^(-1)wv. */
     m2 = *m << 1;
     col2 = *col << 1;
-    dtrsl(&wn[wn_offset], &m2, &col2, &wv[1], &c__11, info);
+    dtrsl(&wn[wn_offset], &m2, &col2, &wv[1], &i11, info);
     if (*info != 0) {
         return 0;
     }
@@ -2071,7 +2069,7 @@ L30:
         wv[i__] = -wv[i__];
         /* L25: */
     }
-    dtrsl(&wn[wn_offset], &m2, &col2, &wv[1], &c__1, info);
+    dtrsl(&wn[wn_offset], &m2, &col2, &wv[1], &iOne, info);
     if (*info != 0) {
         return 0;
     }
@@ -2091,12 +2089,12 @@ L30:
         /* L40: */
     }
     d__1 = 1. / *theta;
-    dscal(nsub, &d__1, &d__[1], &c__1);
+    dscal(nsub, &d__1, &d__[1], &iOne);
 
     /* ----------------------------------------------------------------- */
     /*     Let us try the projection, d is the Newton direction */
     *iword = 0;
-    dcopy(n, &x[1], &c__1, &xp[1], &c__1);
+    dcopy(n, &x[1], &iOne, &xp[1], &iOne);
 
     i__1 = *nsub;
     for (i__ = 1; i__ <= i__1; ++i__) {
@@ -2160,7 +2158,7 @@ L30:
         /* L55: */
     }
     if (dd_p__ > 0.) {
-        dcopy(n, &xp[1], &c__1, &x[1], &c__1);
+        dcopy(n, &xp[1], &iOne, &x[1], &iOne);
         /*printf("Positive dir derivative in projection \n");
         printf("Using the backtracking step\n");*/
     } else {

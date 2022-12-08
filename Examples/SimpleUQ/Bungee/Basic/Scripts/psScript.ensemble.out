@@ -1,0 +1,79 @@
+**********************************************************************
+*      Welcome to PSUADE (version 2.1.0)
+**********************************************************************
+PSUADE - A Problem Solving environment for 
+         Uncertainty Analysis and Design Exploration (2.1.0)
+(for help, enter <help>)
+======================================================================
+psuade> # setting things up
+psuade> 
+psuade> 
+New random seed = 121297753
+psuade> 
+Sampling INFO: Creating a sample assuming all uncertain parameters are
+               uniformly distributed.
+**********************************************************************
+INFO: You have turned on ensemble_run_mode. In this mode, the
+      ensemble_driver in the APPLICATION section will be used.
+      Your ensemble_driver executable will be run via
+           ensemble_driver psuadeEval.in psuadeEval.out
+      PSUADE writes to psuadeEval.in in the following format:
+      line 1: <nSamples>
+      line 2: parameter values for sample point 1
+      line 3: parameter values for sample point 2
+      .....
+
+      Your ensemble_driver is expected to write the sample
+      output values to the psuadeEval.out file.
+      To change the size of each ensemble, change the
+      max_parallel_jobs variable in the APPLICATION section.
+======================================================================
+PSUADE run: creating interface to user driver.
+======================================================================
+PSUADE run: running sample, nSamples = 300 
+PSUADE ensemble run begins (parallelism = 10)
+PSUADE ensemble run completed.
+======================================================================
+psuade> # perform uncertainty analysis
+psuade> New random seed = 31971311
+psuade> 
+**********************************************************************
+INFO: You are loading a file with the same name as the default output
+      file psuadeData, which is periodically overwritten during some
+      of PSUADE's internal operations. As such, you are advised to
+      rename your 'psuadeData' file to something else (You can use
+      the output_file command to change the default output filename.)
+**********************************************************************
+load complete : nSamples = 300
+                nInputs  = 3
+                nOutputs = 1
+psuade> 
+**********************************************************************
+This command computes the basic statistics (mean, standard deviation,
+skewness, and kurtosis) of a selected output in the loaded sample.
+----------------------------------------------------------------------
+Proceed ? (y or n to abort) 
+Enter output number (1 - 1) : 
+No transformation (e.g. log) on sample inputs or outputs.
+
+**********************************************************************
+*             Basic Output Statistics
+======================================================================
+* nSamples =        300
+* nGroups  =          1
+* nInputs  =          3
+* nOutputs =          1
+----------------------------------------------------------------------
+* outputID =          1
+*       Sample mean          =   1.7957e+01
+*       Sample std dev       =   8.6932e+00
+*       Sample skewness      =  -2.2206e-01
+*       Sample kurtosis      =   2.4823e+00
+----------------------------------------------------------------------
+**********************************************************************
+Output distribution plot is now in matlabua.m.
+**********************************************************************
+*       std error of mean       =   5.01903019e-01
+**********************************************************************
+psuade> # clean up
+

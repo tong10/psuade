@@ -1,0 +1,58 @@
+Principal component analysis:
+
+* Given a data matrix X (N x p)
+
+  N = sample size
+
+* Compute:  Xmean = colsum(X)/N ==> 1 x p vector
+
+* Standardize data matrix
+
+   XX = X - [1 ... ]^T Xmean ==> XX :  N x p
+
+PCA without dividing by sigma is eigenanalysis of the covariance matrix
+PCA with dividing by sigma is an eigenanalysis of the correlation matrix
+
+* Form covariance matrix: C = XX' * XX ==> p x p matrix
+  (or correlation matrix if XX has been scaled by std devs)
+
+* Eigenanalysis : CC = V D V^T
+
+  D(i,i) = eigenvalue of V(i,:) == variance of component i
+
+* Plot D and draw cutoff point ==> extract k principal components
+  (Note: order eigenvalues first in descending order)
+
+  A. Kaiser criterion for dropping: retain only factors with ev > 1
+     (Only valid if the data matrix is also normalized by its 
+      standard deviations: (i.e. XX = (X - Xmean) ./ diag(stds)
+  B. Scree test by Catell: plot eigenvalues and cut off at the place
+      where the decrease of evs appears to level off
+
+  In practice, both work well
+  But Kaiser can retain too many, while Scree retains too few.
+
+* recast the original standardized data matrix along the principal
+  component axes:
+
+  - select k principal components
+  - Form new V with k eigenvectors ==> VK (p x k)
+  - XX2 = XX * VK  
+          (N x p) x (p x k) 
+
+  - transform back : XX = XX2 * V' + [1... 1]^T x Xmean
+
+==================================================================
+run: cc -o simulator simulator.c -lm
+     psuade psuade.in
+     
+Launch psuade in command line mode:
+
+psuade
+psuade> load psuadeData
+psuade> opca
+...
+select 4 eigenvalues
+
+results in psPCA.out
+

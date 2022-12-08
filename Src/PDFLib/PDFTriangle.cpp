@@ -36,15 +36,15 @@
 // ------------------------------------------------------------------------
 PDFTriangle::PDFTriangle(double mean, double width)
 {
-   if (width <= 0.0)
-   {
-      printf("PDFTriangular ERROR: width = 0.0.\n");
-      printf("     mode  = %e\n", mean);
-      printf("     width = %e\n", width);
-      exit(1);
-   }
-   mean_   = mean;
-   width_  = width;
+  if (width <= 0.0)
+  {
+    printf("PDFTriangular ERROR: width = 0.0.\n");
+    printf("     mode  = %e\n", mean);
+    printf("     width = %e\n", width);
+    exit(1);
+  }
+  mean_   = mean;
+  width_  = width;
 }
 
 // ************************************************************************
@@ -59,24 +59,24 @@ PDFTriangle::~PDFTriangle()
 // ------------------------------------------------------------------------
 int PDFTriangle::getPDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double height, ddata;
+  int    ii;
+  double height, ddata;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFTriangle: getPDF begins (length = %d)\n",length);
-   height = 1.0 / width_;
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if (ddata < (mean_-width_) || ddata > (mean_+width_)) 
-         outData[ii] = 0.0;
-      else if (ddata < mean_)
-         outData[ii] = height - (mean_- ddata) * height / width_;
-      else if (ddata >= mean_)
-         outData[ii] = height - (ddata - mean_) * height / width_;
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFTriangle: getPDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFTriangle: getPDF begins (length = %d)\n",length);
+  height = 1.0 / width_;
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if (ddata < (mean_-width_) || ddata > (mean_+width_)) 
+      outData[ii] = 0.0;
+    else if (ddata < mean_)
+      outData[ii] = height - (mean_- ddata) * height / width_;
+    else if (ddata >= mean_)
+      outData[ii] = height - (ddata - mean_) * height / width_;
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) printf("PDFTriangle: getPDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -84,84 +84,84 @@ int PDFTriangle::getPDF(int length, double *inData, double *outData)
 // ------------------------------------------------------------------------
 int PDFTriangle::getCDF(int length, double *inData, double *outData)
 {
-   int    ii, iOne=1;
-   double ddata, ddata2;
+  int    ii, iOne=1;
+  double ddata, ddata2;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFTriangle: getCDF begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if      (ddata < (mean_ - width_)) outData[ii] = 0;
-      else if (ddata > (mean_ + width_)) outData[ii] = 1;
-      else if (ddata <= mean_)
-      {
-         getPDF(iOne, &ddata, &ddata2);
-         outData[ii] = 0.5 * ddata2 * (ddata - mean_ + width_); 
-      }
-      else 
-      {
-         getPDF(iOne, &ddata, &ddata2);
-         outData[ii] = 1.0 - 0.5 * ddata2 * (mean_ + width_ - ddata); 
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFTriangle: getCDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFTriangle: getCDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if      (ddata < (mean_ - width_)) outData[ii] = 0;
+    else if (ddata > (mean_ + width_)) outData[ii] = 1;
+    else if (ddata <= mean_)
+    {
+      getPDF(iOne, &ddata, &ddata2);
+      outData[ii] = 0.5 * ddata2 * (ddata - mean_ + width_); 
+    }
+    else 
+    {
+      getPDF(iOne, &ddata, &ddata2);
+      outData[ii] = 1.0 - 0.5 * ddata2 * (mean_ + width_ - ddata); 
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFTriangle: getCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
 // transformation 
 // ------------------------------------------------------------------------
-int PDFTriangle::invCDF(int length, double *inData, double *outData,
-                        double lower, double upper)
+int PDFTriangle::invCDF(int length, double *inData, double *outData)
 {
-   int    ii, iOne=1;
-   double range, low, ddata, scale, xlo, xhi, xmi, ylo, yhi, ymi;
+  int    ii, iOne=1;
+  double ddata, xlo, xhi, xmi, ylo, yhi, ymi;
 
-   if (upper <= lower)
-   {
-      printf("PDFTriangle invCDF ERROR - lower bound >= upper bound.\n");
+  //**/ -------------------------------------------------------------
+  //**/ map the input data onto the CDF
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFTriangle: invCDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if (ddata < 0.0 || ddata > 1)
+    {
+      printf("PDFTriangle invCDF ERROR - CDF value %e not in (0,1).\n",
+             ddata);
       exit(1);
-   }
-
-   if (psPDFDiagMode_ == 1)
-      printf("PDFTriangle: invCDF begins (length = %d)\n",length);
-   getCDF(iOne, &lower, &low);
-   getCDF(iOne, &upper, &range);
-   range = range - low;
-   scale = upper - lower;
-   for (ii = 0; ii < length; ii++)
-   {
-      xlo = lower;
-      getCDF(iOne, &xlo, &ylo);
-      xhi = upper;
-      getCDF(iOne, &xhi, &yhi);
-      ddata = (inData[ii] - lower) / scale * range + low;
-      if      (ddata <= ylo) outData[ii] = xlo;
-      else if (ddata >= yhi) outData[ii] = xhi;
-      else
+    }
+    xlo = mean_ - width_;
+    getCDF(iOne, &xlo, &ylo);
+    xhi = mean_ + width_;
+    getCDF(iOne, &xhi, &yhi);
+    if      (ddata <= ylo) outData[ii] = xlo;
+    else if (ddata >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
       {
-         while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            getCDF(iOne, &xmi, &ymi);
-            if (ddata > ymi)
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
-         else                                   outData[ii] = xhi;
+        xmi = 0.5 * (xhi + xlo);
+        getCDF(iOne, &xmi, &ymi);
+        if (ddata > ymi)
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFTriangle: invCDF ends.\n");
-   return 0;
+      if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
+      else                                   outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFTriangle: invCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -170,59 +170,66 @@ int PDFTriangle::invCDF(int length, double *inData, double *outData,
 int PDFTriangle::genSample(int length, double *outData, double *lowers,
                            double *uppers)
 {
-   int    ii, iOne=1;
-   double range, low, xlo, xhi, xmi, ylo, yhi, ymi, UU, lower, upper;
+  int    ii, iOne=1;
+  double range, low, xlo, xhi, xmi, ylo, yhi, ymi, UU, lower, upper;
 
-   if (lowers == NULL || uppers == NULL)
-   {
-      printf("PDFTriangle genSample ERROR - lower/upper bound unavailable.\n"); 
-      exit(1);
-   }
-   lower = lowers[0];
-   upper = uppers[0];
-   if (upper <= lower)
-   {
-      printf("PDFTriangle genSample ERROR - lower bound >= upper bound.\n");
-      exit(1);
-   }
+  //**/ -------------------------------------------------------------
+  //**/ upper and lower bounds has to be in (0,1), and upper > lower
+  //**/ -------------------------------------------------------------
+  if (lowers == NULL || uppers == NULL)
+  {
+    printf("PDFTriangle genSample ERROR - lower/upper bound unavailable.\n"); 
+    exit(1);
+  }
+  lower = lowers[0];
+  upper = uppers[0];
+  if (upper <= lower)
+  {
+    printf("PDFTriangle genSample ERROR - lower bound >= upper bound.\n");
+    exit(1);
+  }
 
-   getCDF(iOne, &lower, &low);
-   getCDF(iOne, &upper, &range);
-   range = range - low;
-   if (psPDFDiagMode_ == 1)
-      printf("PDFTriangle: genSample begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      xlo = lower;
-      getCDF(iOne, &xlo, &ylo);
-      xhi = upper;
-      getCDF(iOne, &xhi, &yhi);
-      UU = PSUADE_drand() * range + low;
-      if      (UU <= ylo) outData[ii] = xlo;
-      else if (UU >= yhi) outData[ii] = xhi;
-      else
+  //**/ -------------------------------------------------------------
+  //**/ map the input data onto the CDF
+  //**/ -------------------------------------------------------------
+  getCDF(iOne, &lower, &low);
+  getCDF(iOne, &upper, &range);
+  range = range - low;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFTriangle: genSample begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    xlo = lower;
+    getCDF(iOne, &xlo, &ylo);
+    xhi = upper;
+    getCDF(iOne, &xhi, &yhi);
+    UU = PSUADE_drand() * range + low;
+    if      (UU <= ylo) outData[ii] = xlo;
+    else if (UU >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
       {
-         while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            getCDF(iOne, &xmi, &ymi);
-            if (UU > ymi)
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
-         else                             outData[ii] = xhi;
+        xmi = 0.5 * (xhi + xlo);
+        getCDF(iOne, &xmi, &ymi);
+        if (UU > ymi)
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFTriangle: genSample ends.\n");
-   return 0;
+      if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
+      else                             outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFTriangle: genSample ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -230,6 +237,6 @@ int PDFTriangle::genSample(int length, double *outData, double *lowers,
 // ------------------------------------------------------------------------
 double PDFTriangle::getMean()
 {
-   return mean_;
+  return mean_;
 }
 

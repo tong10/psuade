@@ -1,0 +1,7 @@
+Test that sampling methods are correct
+
+Go to psuade.in and turn on individual sampling methods.
+Do: psuade psuade.in
+and compare psuadeData with the expected result
+   (e.g. if you use bbd, then compare it against bbd file)
+

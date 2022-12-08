@@ -36,12 +36,12 @@
 // ------------------------------------------------------------------------
 PDFExponential::PDFExponential(double lambda, double)
 {
-   lambda_ = lambda;
-   if (lambda_ <= 0)
-   {
-      printf("PDFExponential: lambda_ should be > 0.\n");
-      exit(1);
-   }
+  lambda_ = lambda;
+  if (lambda_ <= 0)
+  {
+    printf("PDFExponential: lambda_ should be > 0.\n");
+    exit(1);
+  }
 }
 
 // ************************************************************************
@@ -56,23 +56,24 @@ PDFExponential::~PDFExponential()
 // ------------------------------------------------------------------------
 int PDFExponential::getPDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double xdata;
+  int    ii;
+  double xdata;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFExponential: getPDF begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      xdata   = inData[ii];
-      if (xdata < 0)
-      {
-         printf("PDFExponential getPDF ERROR: data not in [0,infty).\n");
-         exit(1);
-      }
-      outData[ii] = lambda_ * exp(-lambda_ * xdata);
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFExponential: getPDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFExponential: getPDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    xdata   = inData[ii];
+    if (xdata < 0)
+    {
+      printf("PDFExponential getPDF ERROR: data not in [0,infty).\n");
+      exit(1);
+    }
+    outData[ii] = lambda_ * exp(-lambda_ * xdata);
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFExponential: getPDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -80,92 +81,78 @@ int PDFExponential::getPDF(int length, double *inData, double *outData)
 // ------------------------------------------------------------------------
 int PDFExponential::getCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double ddata;
+  int    ii;
+  double ddata;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFExponential: getCDF begins (length = %d)\n",length);
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii];
-      if (ddata < 0)
-      {
-         printf("PDFExponential getCDF ERROR - data >= 0.\n");
-         exit(1);
-      }
-      outData[ii] = 1.0 - exp(-lambda_ * ddata);
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFExponential: getCDF ends.\n");
-   return 0;
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFExponential: getCDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii];
+    if (ddata < 0)
+    {
+      printf("PDFExponential getCDF ERROR - data >= 0.\n");
+      exit(1);
+    }
+    outData[ii] = 1.0 - exp(-lambda_ * ddata);
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFExponential: getCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
 // transformation to range
 // ------------------------------------------------------------------------
-int PDFExponential::invCDF(int length, double *inData, double *outData,
-                           double lower, double upper)
+int PDFExponential::invCDF(int length, double *inData, double *outData)
 {
-   int    ii;
-   double scale, ddata, xlo, xhi, xmi, ylo, yhi, ymi;
+  int    ii;
+  double ddata, xlo, xhi, xmi, ylo, yhi, ymi;
 
-   if (upper <= lower)
-   {
-      printf("PDFExponential invCDF ERROR - lower bound >= upper bound.\n");
+  //**/ -------------------------------------------------------------
+  //**/ map the input data onto the CDF
+  //**/ -------------------------------------------------------------
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFExponential: invCDF begins (length = %d)\n",length);
+  for (ii = 0; ii < length; ii++)
+  {
+    ddata = inData[ii]; 
+    if (ddata <= 0.0 || ddata >= 1)
+    {
+      printf("PDFExponential ERROR - CDF value not in (0,1).\n");
       exit(1);
-   }
-   if (lower < 0.0)
-   {
-      printf("PDFExponential invCDF ERROR - lower bound should be >= 0.\n");
-      exit(1);
-   }
-   if (upper <= 0.0)
-   {
-      printf("PDFExponential invCDF ERROR - upper bound should be > 0.\n");
-      exit(1);
-   }
-
-   if (psPDFDiagMode_ == 1)
-      printf("PDFExponential: invCDF begins (length = %d)\n",length);
-   scale = upper - lower;
-   for (ii = 0; ii < length; ii++)
-   {
-      ddata = inData[ii]; 
-      if (ddata < 0)
+    }
+    //**/ first normalize it
+    xlo = - log(1-1e-08) / lambda_;
+    ylo = 1.0 - exp(-lambda_ * xlo);
+    xhi = - log(1.0e-8) / lambda_;
+    yhi = 1.0 - exp(-lambda_ * xhi);
+    if      (ddata <= ylo) outData[ii] = xlo;
+    else if (ddata >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
       {
-         printf("PDFExponential invCDF ERROR - data %e not in [0,infty)).\n",
-                ddata);
-         exit(1);
+        xmi = 0.5 * (xhi + xlo);
+        ymi = 1.0 - exp(-lambda_ * xmi);
+        if (ddata > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-      xlo = lower;
-      ylo = 1.0 - exp(-lambda_ * xlo);
-      xhi = upper;
-      yhi = 1.0 - exp(-lambda_ * xhi);
-      ddata = (ddata - lower) / scale * (yhi - ylo) + ylo;
-      if      (ddata <= ylo) outData[ii] = xlo;
-      else if (ddata >= yhi) outData[ii] = xhi;
-      else
-      {
-         while (PABS(ddata-ylo) > 1.0e-12 || PABS(ddata-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            ymi = 1.0 - exp(-lambda_ * xmi);
-            if (ddata > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
-         else                                   outData[ii] = xhi;
-      }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFExponential: invCDF ends.\n");
-   return 0;
+      if (PABS(ddata-ylo) < PABS(ddata-yhi)) outData[ii] = xlo;
+      else                                   outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFExponential: invCDF ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -174,51 +161,52 @@ int PDFExponential::invCDF(int length, double *inData, double *outData,
 int PDFExponential::genSample(int length, double *outData, double *lowers,
                               double *uppers)
 {
-   int    ii;
-   double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
+  int    ii;
+  double UU, xlo, xhi, xmi, ylo, yhi, ymi, lower, upper;
 
-   if (psPDFDiagMode_ == 1)
-      printf("PDFExponential: genSample begins (length = %d)\n",length);
-   if (lowers == NULL || uppers == NULL)
-   {
-      printf("PDFExp genSample ERROR - lower/upper bound not available.\n"); 
-      exit(1);
-   }
-   lower = lowers[0];
-   upper = uppers[0];
-   for (ii = 0; ii < length; ii++)
-   {
-      UU = PSUADE_drand();
-      xlo = lower;
-      ylo = 1.0 - exp(-lambda_ * xlo);
-      xhi = upper;
-      yhi = 1.0 - exp(-lambda_ * xhi);
-      UU = UU * (yhi - ylo) + ylo;
-      if      (UU <= ylo) outData[ii] = xlo;
-      else if (UU >= yhi) outData[ii] = xhi;
-      else
+  if (psConfig_.PDFDiagnosticsIsOn())
+    printf("PDFExponential: genSample begins (length = %d)\n",length);
+  if (lowers == NULL || uppers == NULL)
+  {
+    printf("PDFExp genSample ERROR - lower/upper bound not available.\n"); 
+    exit(1);
+  }
+  lower = lowers[0];
+  upper = uppers[0];
+  for (ii = 0; ii < length; ii++)
+  {
+    UU = PSUADE_drand();
+    xlo = lower;
+    ylo = 1.0 - exp(-lambda_ * xlo);
+    xhi = upper;
+    yhi = 1.0 - exp(-lambda_ * xhi);
+    UU = UU * (yhi - ylo) + ylo;
+    if      (UU <= ylo) outData[ii] = xlo;
+    else if (UU >= yhi) outData[ii] = xhi;
+    else
+    {
+      while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
       {
-         while (PABS(UU-ylo) > 1.0e-12 || PABS(UU-yhi) > 1.0e-12)
-         {
-            xmi = 0.5 * (xhi + xlo);
-            ymi = 1.0 - exp(-lambda_ * xmi);
-            if (UU > ymi) 
-            {
-               xlo = xmi;
-               ylo = ymi;
-            }
-            else
-            {
-               xhi = xmi;
-               yhi = ymi;
-            }
-         }
-         if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
-         else                             outData[ii] = xhi;
+        xmi = 0.5 * (xhi + xlo);
+        ymi = 1.0 - exp(-lambda_ * xmi);
+        if (UU > ymi) 
+        {
+          xlo = xmi;
+          ylo = ymi;
+        }
+        else
+        {
+          xhi = xmi;
+          yhi = ymi;
+        }
       }
-   }
-   if (psPDFDiagMode_ == 1) printf("PDFExponential: genSample ends.\n");
-   return 0;
+      if (PABS(UU-ylo) < PABS(UU-yhi)) outData[ii] = xlo;
+      else                             outData[ii] = xhi;
+    }
+  }
+  if (psConfig_.PDFDiagnosticsIsOn()) 
+    printf("PDFExponential: genSample ends.\n");
+  return 0;
 }
 
 // ************************************************************************
@@ -226,7 +214,7 @@ int PDFExponential::genSample(int length, double *outData, double *lowers,
 // ------------------------------------------------------------------------
 double PDFExponential::getMean()
 {
-   if (lambda_ > 0.0) return 1.0 / lambda_;
-   else               return 0.0;
+  if (lambda_ > 0.0) return 1.0 / lambda_;
+  else               return 0.0;
 }
 

@@ -1,0 +1,100 @@
+This directory contains a few examples for optimal experimental 
+design.
+* max-min distance or MMD
+  - The command is odoe_mmd, meaning max-min distance (the 
+    selected set will have minimum distance between any pair 
+    of selected points maximized).
+* min-max variance or MMV
+  - The command is odoe_mmv, meaning searching for design that
+    minimizes the maximum variance predicted by GP.
+* min-average variance or MAV
+  - The command is odoe_mav, meaning searching for design that
+    minimizes the average variance (over the candidate set) 
+    predicted by GP.
+
+==============================================================
+Steps
+==============================================================
+I. MMD
+
+   Users are to provide a candidate set for selection. To do
+   so, run
+   - psuade psuade.in
+   - mv psuadeData Sample
+
+   Now Sample contains the candidate set, now you can launch
+   psuade and run odoe_mmv. The command will ask you many 
+   questions. To capture the selection, you can run 
+
+      psuade < psScriptmmd1.in
+ 
+   to see the action.
+
+   Here: psScriptmmdx.in use different methods for search
+  
+   psScriptmmd1.in: unweighted scheme 
+      (option 1 after odoe_mmd), use brute force search
+   psScriptmmd2.in: unweighted scheme 
+      (option 1 after odoe_mmd), use global optimizer
+   psScriptmmd3.in: unweighted scheme 
+      (option 1 after odoe_mmd), use hybrid optimizer
+   
+   * mmd1 and mmd3 runs should give same results (optimal).
+
+* You can also use weighted MMD methods. To use this capability,
+  you need to provide weights for each candidate point. This is
+  done by an additional step:
+
+  - compile simulator.c (cc -o simulator simulator.c -lm)
+  - uncomment the 'driver = ./driver' line
+  - run: psuade psuade.in (the same as before)
+  - rename psuadeData as Sample (same as before)
+
+  run:
+    psScriptmmd1w.in: weighted scheme 
+      (option 2 after odoe_mmd), use brute force search
+    psScriptmmd2w.in: weighted scheme 
+      (option 2 after odoe_mmd), use global optimizer
+    psScriptmmd3w.in: weighted scheme 
+      (option 2 after odoe_mmd), use hybrid optimizer
+
+* We see that using global optimizer does not guarantee the
+  optimal results. While brute force search may take a long 
+  time for large selection, hybrid optimizer may be a good 
+  compromise.
+==============================================================
+II. MMV 
+
+   To use this method, you need to build a Gaussian process
+   model. This can be done in 2 ways:
+   a. use a training sample
+   b. provide GP hyperparameters
+
+   To do (a), you need to do things similar to the weighted
+   MMD method, namely, 
+
+     cc -o simulator simulator.c -lm
+     # uncomment the 'driver = ./driver' line in psuade.in
+     psuade psuade.in
+     mv psuadeData Sample
+     # then, after launching psuade and before calling
+     # odoe_mmv, load Sample first
+
+   To do (b), you just need to come up with values of the
+   hyperparameters (and you do not need to generate a
+   sample, as there is an option for psuade to create one
+   for you). Now you are ready to run odoe_mmv.
+   
+   run: psuade < psScriptmmv.in
+
+   (This setup runs using (b) with hyperparameters=10)
+   (It requests an exhaustive search so it is time-consuming)
+
+==============================================================
+III. MAV 
+
+    The steps for setting up and running are similar to MMV. 
+
+    run: psuade < psScriptmav.in
+
+

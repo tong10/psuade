@@ -1,0 +1,12 @@
+# Use W-metric to identify 4 design selection points
+setranseed 12352212111
+odoeu_wmetric
+y
+RSTrainSample
+3
+0
+PriorSample
+CandidateSet0
+0
+q
+

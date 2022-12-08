@@ -94,11 +94,13 @@ extern "C"
       oData  *odata;
       FILE   *fp=NULL;
 
+      //**/ ------ fetch data ------
       nDesigns = (*nInps);
       odata    = (oData *) psOUU1Obj_;
       M        = nDesigns + psOUU1M2_;
       funcID   = odata->numFuncEvals_;
 
+      //**/ ------ detect termination request ------
       fp = fopen("psuade_ouu_stop","r");
       if (fp != NULL && psOUU1NSaved_ > 0)
       {
@@ -122,6 +124,7 @@ extern "C"
          exit(1);
       }
 
+      //**/ ------ run simulations ------
       for (ii = 0; ii < nDesigns; ii++) psOUU1XValues_[ii] = XValues[ii];
       if (psOUU1EnsembleEval_ == 0)
       {
@@ -132,6 +135,7 @@ extern "C"
                psOUU1XValues_[nDesigns+jj] = psOUU1SamInputs_[ii*psOUU1M2_+jj];
 
             readys[ii] = -1;
+            //**/ check to see if it is in the history
             found = 0;
             for (jj = 0; jj < psOUU1NSaved_; jj++)
             {
@@ -148,6 +152,7 @@ extern "C"
                   break;
                }
             }
+            //**/ if not, run the simulation
             if (found == 0)
             {
                readys[ii] = odata->funcIO_->evaluate(funcID+ii,M,
@@ -155,6 +160,7 @@ extern "C"
                odata->numFuncEvals_++;
                if (readys[ii] == 0)
                {
+                  //**/ ------ save the data ------
                   if ((psOUU1NSaved_+1)*M < psOUU1MaxSaved_*10)
                   {
                      for (jj = 0; jj < M; jj++)
@@ -166,6 +172,7 @@ extern "C"
             }
          }
    
+         //**/ ------ additional processing for asynchronous mode ------
          if (psOUU1Parallel_ == 1)
          {
             for (ii = 0; ii < psOUU1nSamples_; ii++)
@@ -184,6 +191,7 @@ extern "C"
                      readys[ii] = odata->funcIO_->evaluate(funcID+ii,M,
                                    psOUU1XValues_,iOne,&psOUU1SamOutputs_[ii],2);
                   }
+                  //**/ ------ save the data ------
                   if ((psOUU1NSaved_+1)*M < psOUU1MaxSaved_*10)
                   {
                      for (jj = 0; jj < M; jj++)
@@ -204,6 +212,7 @@ extern "C"
             for (jj = 0; jj < psOUU1M2_; jj++) 
                psOUU1XValues_[ii*M+nDesigns+jj] = psOUU1SamInputs_[ii*psOUU1M2_+jj];
          }
+         //**/ check to see if it is in the history
          found = 0;
          for (ii = 0; ii < psOUU1nSamples_; ii++)
          {
@@ -220,11 +229,13 @@ extern "C"
                }
             }
          }
+         //**/ run ensemble simulations
          if (found != psOUU1nSamples_)
          {
             odata->funcIO_->ensembleEvaluate(psOUU1nSamples_,M,psOUU1XValues_,
                                              iOne,psOUU1SamOutputs_,funcID);
             odata->numFuncEvals_ += psOUU1nSamples_;
+            //**/ ------ save the data ------
             for (ii = 0; ii < psOUU1nSamples_; ii++)
             {
                if ((psOUU1NSaved_+1)*M < psOUU1MaxSaved_*10)
@@ -238,6 +249,8 @@ extern "C"
          }
       }
 
+      //**/ ------ compute mean ------
+      //**/ Case 1: no RS used
       if (psOUU1UseRS_ == 0)
       {
          if (psOUU1Mode_ == 1 || psOUU1Mode_ == 2)
@@ -279,6 +292,7 @@ extern "C"
          }
       }
       else
+      //**/ Case 2: RS used
       {
          if (odata->outputLevel_ > 2)
             printf("OUU1Optimizer: computing objective with response surface.\n");
@@ -320,6 +334,7 @@ extern "C"
          }
       }
 
+      //**/ ------ diagnostics ------
       if (odata->outputLevel_ > 2)
       {
          printf("OUU1Optimizer %6d : \n", odata->numFuncEvals_);
@@ -334,6 +349,7 @@ extern "C"
          printf("    Y     = %16.8e\n", (*YValue));
       }
 
+      //**/ ------ store optimal information ------
       if ((*YValue) < odata->optimalY_)
       {
          odata->optimalY_ = (*YValue);
@@ -386,6 +402,9 @@ void OUU1Optimizer::optimize(oData *odata)
    FILE   *fp=NULL;
    static int currDriver=-1;
 
+   //**/ ----------------------------------------------------------
+   //**/ obtain information from user
+   //**/ ----------------------------------------------------------
    printLevel = odata->outputLevel_;
    psOUU1PrintLevel_ = printLevel;
    nInputs = odata->nInputs_;
@@ -461,9 +480,13 @@ void OUU1Optimizer::optimize(oData *odata)
       printDashes(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ prepare for optimization
+   //**/ ----------------------------------------------------------
    for (ii = 0; ii < nInputs; ii++) odata->optimalX_[ii] = 0.0;
    odata->optimalY_ = 1.0e50;
 
+   //**/ ---- compute optimization tolerance
    rhobeg = odata->upperBounds_[0] - odata->lowerBounds_[0];
    for (ii = 1; ii < M1; ii++) 
    {
@@ -488,6 +511,10 @@ void OUU1Optimizer::optimize(oData *odata)
       printDashes(PL_INFO, 0);
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ set up uncertain parameter information
+   //**/ put away current driver and use default driver
+   //**/ ----------------------------------------------------------
    if ((odata->setOptDriver_ & 1))
    {
       if (printLevel >= 0)
@@ -504,8 +531,11 @@ void OUU1Optimizer::optimize(oData *odata)
    }
    psOUU1Obj_= (void *) odata;
 
+   //**/ ----------------------------------------------------------
+   //**/ set up LH/FACT sample for uncertain parameters
+   //**/ ----------------------------------------------------------
    psOUU1nSamples_ = 100;
-   if (psOptExpertMode_ == 1)
+   if (psConfig_.OptExpertModeIsOn())
    {
       printEquals(PL_INFO, 0);
       printf("Select which functional Phi_X2 to use: \n");
@@ -569,6 +599,9 @@ void OUU1Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ generate a sample for computing statistics
+   //**/ ----------------------------------------------------------
    if (printLevel > 2) printf("OUU1Optimizer: generating a sample.\n");
    Sampling *sampler=NULL;
    if (method == 1)
@@ -589,6 +622,10 @@ void OUU1Optimizer::optimize(oData *odata)
    delete sampler;
    psOUU1faPtr_ = NULL;
 
+   //**/ ----------------------------------------------------------
+   //**/ set up response surface constructor and a large sample
+   //**/ to be evaluated on the response surface
+   //**/ ----------------------------------------------------------
    int        rstype=0, *inputPDFs=NULL;
    double     *inputMeans=NULL, *inputStdevs=NULL;
    PDFManager *pdfman=NULL;
@@ -614,14 +651,14 @@ void OUU1Optimizer::optimize(oData *odata)
          rstype = PSUADE_RS_KR;
          printf("OUU1Optimizer: use Kriging response surface\n");
       }
-      kk = psInteractive_;
-      psInteractive_ = 0;
+      psConfig_.InteractiveSaveAndReset();
       psOUU1faPtr_ = genFA(rstype, M2, -1, psOUU1nSamples_);
       psOUU1faPtr_->setBounds(&(odata->lowerBounds_[M1]),
                              &(odata->upperBounds_[M1]));
       psOUU1faPtr_->setOutputLevel(0);
-      psInteractive_ = kk;
+      psConfig_.InteractiveRestore();
 
+      //**/ check to see if the inputs have other than uniform PDFs
       odata->psIO_->getParameter("input_pdfs", pdata);
       inputPDFs = pdata.intArray_;
       pdata.intArray_ = NULL;
@@ -700,6 +737,9 @@ void OUU1Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----------------------------------------------------------
+   //**/ call optimizer 
+   //**/ ----------------------------------------------------------
    nPts = (M1 + 1) * (M1 + 2) / 2;
    workArray = new double[(nPts+5)*(nPts+nInputs)+3*nInputs*(nInputs+5)/2+1];
    XValues = new double[nInputs+1];
@@ -708,6 +748,7 @@ void OUU1Optimizer::optimize(oData *odata)
    if (psOUU1Parallel_ == 1) odata->funcIO_->setAsynchronousMode();
 
 #ifdef HAVE_BOBYQA
+   //**/ ----- retrieve history -----
    fp = fopen("psuade_ouu1_history", "r");
    if (fp != NULL)
    {
@@ -738,6 +779,7 @@ void OUU1Optimizer::optimize(oData *odata)
       }
    }
 
+   //**/ ----- run optimization -----
    for (ii = 0; ii < M1; ii++)
    {
       XValues[ii] = odata->initialX_[ii];
@@ -751,6 +793,7 @@ void OUU1Optimizer::optimize(oData *odata)
       printf("OUU1Optimizer: total number of evaluations = %d\n",
               odata->numFuncEvals_);
 
+   //**/ ----- save history -----
    if (psOUU1NSaved_ > 0)
    {
       fp = fopen("psuade_ouu1_history","w");
@@ -772,10 +815,13 @@ void OUU1Optimizer::optimize(oData *odata)
    exit(1);
 #endif
 
+   //**/ ----------------------------------------------------------
+   //**/ set return values and clean up 
+   //**/ ----------------------------------------------------------
    if ((odata->setOptDriver_ & 2) && currDriver >= 0)
    {
       if (printLevel >= 0)
-         printf("Bobyla INFO: reverting to original simulation driver.\n");
+         printf("Bobyqa INFO: reverting to original simulation driver.\n");
       odata->funcIO_->setDriver(currDriver);
    }
    delete [] XValues;

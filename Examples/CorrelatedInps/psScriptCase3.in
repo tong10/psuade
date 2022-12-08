@@ -1,0 +1,13 @@
+# create a training sample and rename it RSSample
+sys cc -o simulator simulator.c -lm
+run psuadeRS.in
+rename psuadeData RSSample
+# create a constraint sample in constrData
+sys cc -o constraint constraint.c -lm
+run psuadeRSConstr.in
+rename psuadeData constrData
+# run Sobol' main effect analysis
+run psuadeSobol1Constr.in
+q
+
+
