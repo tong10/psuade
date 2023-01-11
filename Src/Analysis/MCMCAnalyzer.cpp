@@ -5143,6 +5143,8 @@ double MCMCAnalyzer::analyze_bf2(aData &adata)
         fclose(fp);
         printf("MCMC_bf2: file psuade_stop found => terminate\n");
         maxSamples = sTotal;
+        strcpy(pString, "psuade_stop");
+        unlink(pString);
       }
     }
 
@@ -5819,19 +5821,18 @@ double MCMCAnalyzer::analyze_sim(aData &adata)
   //**/ special set up (sample size) using interactive mode
   //    ==> burnInSamples, maxSamples, nbins, vecPlotIndices
   //**/ ---------------------------------------------------------------
-  int maxSamples = 10000;
-  int burnInSamples = 100;
-  int nbins = 20;
+  int    maxSamples = 10000, burnInSamples = 100, nbins = 20;
+  double propScale=0.25;
   printEquals(PL_INFO, 0);
-  printOutTS(PL_INFO,"*** CURRENT SETTINGS OF MCMC PARAMETERS: \n\n");
-  printOutTS(PL_INFO,"MCMC_sim Burn-in sample size      (default) = %d\n", 
-             burnInSamples);
-  printOutTS(PL_INFO,"MCMC_sim maximum sample size      (default) = %d\n", 
-             maxSamples);
-  printOutTS(PL_INFO,"MCMC_sim no. of bins in histogram (default) = %d\n",
-             nbins);
+  printOutTS(PL_INFO,"*** CURRENT SETTINGS OF MCMC_sim PARAMETERS: \n\n");
+  printOutTS(PL_INFO,"Burn-in sample size         = %d\n",burnInSamples);
+  printOutTS(PL_INFO,"Maximum MCMC samples        = %d\n",maxSamples);
+  printOutTS(PL_INFO,"Proposal distribution scale = %e\n",propScale); 
+  printOutTS(PL_INFO,"No. of bins in histogram    = %d\n",nbins);
   printOutTS(PL_INFO,
-     "NOTE: histogram nBins  - define granularity of histogram bar graph\n");
+     "NOTE: Proposal distribution is Normal(X_i,sig^2) and sig = scale.\n");
+  printOutTS(PL_INFO,
+     "NOTE: Histogram nBins = granularity of histogram bar graph\n");
   printOutTS(PL_INFO, 
      "Turn on ana_expert mode to change these default settings.\n\n");
   if (psConfig_.AnaExpertModeIsOn())
@@ -5840,6 +5841,14 @@ double MCMCAnalyzer::analyze_sim(aData &adata)
     burnInSamples = getInt(0, 1000, pString);
     sprintf(pString,"Enter maximum MCMC sample (100 - 10000) : ");
     maxSamples = getInt(100, 10000, pString);
+    sprintf(pString,"Enter proposal distribution scale (>0, <1) : ");
+    propScale = getDouble(pString);
+    if (propScale <= 0 || propScale > 1)
+    {
+      printf("MCMC_sim ERROR: Invalid proposal distribution scale.\n");
+      printf("                Set to default = 0.25.\n");
+      propScale = 0.25;
+    }
   }
 
   psIVector vecPlotIndices;
@@ -6048,7 +6057,7 @@ double MCMCAnalyzer::analyze_sim(aData &adata)
   fflush(stdout);
 
   int    mcmcIts = 0, nAccept=1, errFlag;
-  double c12=PSUADE_UNDEFINED, c11, c1, prior, ddata2, propScale=0.5;
+  double c12=PSUADE_UNDEFINED, c11, c1, prior, ddata2;
   double alpha, dOne=1, d5=5, dNeg5=-5;
   psVector vecLast;
   vecLast.setLength(nInputs);
@@ -6228,6 +6237,8 @@ double MCMCAnalyzer::analyze_sim(aData &adata)
       printOutTS(PL_ERROR,
         "MCMC_sim INFO: psuade_stop FILE FOUND - TERMINATE MCMC.\n");
       fclose(fp);
+      strcpy(pString, "psuade_stop");
+      unlink(pString);
       break;
     }
     if (printLevel < 2)
@@ -6652,15 +6663,18 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
   //**/ special set up (sample size) using interactive mode
   //    ==> burnInSamples, maxSamples, nbins, vecPlotInds, nPlots
   //**/ ---------------------------------------------------------------
-  int nPlots, maxSamples = 100000, burnInSamples=1000, nbins = 20;
+  int    nPlots, maxSamples = 100000, burnInSamples=1000, nbins = 20;
+  int    adaptiveMode=0;
+  double propScale=0.25;
   psIVector vecPlotInds;
   printEquals(PL_INFO, 0);
-  printOutTS(PL_INFO,"*** CURRENT SETTINGS OF MCMC PARAMETERS: \n\n");
-  printOutTS(PL_INFO,"MCMC Burn-in sample size      (default) = %d\n", 
-             burnInSamples);
-  printOutTS(PL_INFO,"MCMC maximum iterations       (default) = %d\n", 
-             maxSamples);
-  printOutTS(PL_INFO,"MCMC no. of bins in histogram (default) = %d\n",nbins);
+  printOutTS(PL_INFO,"*** CURRENT SETTINGS OF MCMC_MH PARAMETERS: \n\n");
+  printOutTS(PL_INFO,"Burn-in sample size         = %d\n",burnInSamples);
+  printOutTS(PL_INFO,"Maximum iterations          = %d\n",maxSamples);
+  printOutTS(PL_INFO,"Proposal distribution scale = %e\n",propScale); 
+  printOutTS(PL_INFO,"No. of bins in histogram    = %d\n",nbins);
+  printOutTS(PL_INFO,
+     "NOTE: Proposal distribution is Normal(X_i,sig^2) and sig = scale.\n");
   printOutTS(PL_INFO,
      "NOTE: histogram nBins  - define granularity of histogram bar graph\n");
   printOutTS(PL_INFO, 
@@ -6672,6 +6686,19 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
     maxSamples = getInt(1000, 10000000, pString);
     sprintf(pString,"Enter the number of histogram bins (5 - 25) : ");
     nbins = getInt(5, 50, pString);
+    sprintf(pString,"Proposal distribution scale (>0, <1, 0 = adaptive) : ");
+    propScale = getDouble(pString);
+    if (propScale == 0) 
+    {
+      adaptiveMode = 1;
+      propScale = 0.25;
+    }
+    else if (propScale < 0 || propScale > 1)
+    {
+      printf("MCMC_MH ERROR: Invalid proposal distribution scale.\n");
+      printf("               Set to default = 0.25.\n");
+      propScale = 0.25;
+    }
   }
   if (psConfig_.AnaExpertModeIsOn())
   {
@@ -6873,7 +6900,7 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
   // run the Metropolis Hasting algorithm
   //**/ ---------------------------------------------------------------
   int    iOne=1, igFlag=0;
-  double dZero=0, dOne=1.0, propScale=0.5;
+  double dZero=0, dOne=1.0;
   psVector vecXGuess, vecYGuess, vecXGuessLast;
   vecXGuess.setLength(dnSamples*nInputs);
   vecXGuessLast.setLength(nInputs);
@@ -6885,7 +6912,7 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
   //**/ set initial guess
   if (psConfig_.AnaExpertModeIsOn())
   {
-    printf("Do you want to set your own initial guess ? (y or n) ");
+    printf("Set your own calibration input initial seed ? (y or n) ");
     scanf("%s", pString);
     if (pString[0] == 'y')
     {
@@ -6900,7 +6927,8 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
   {
     //**/ default = mid point
     vecXGuess[ii] = 0.5 * (xUpper[ii] + xLower[ii]);
-    if (igFlag == 1)
+    if (igFlag == 1 && (vecDesignP.length() == 0 ||
+                        vecDesignP[ii] == 0))
     {
       sprintf(pString,
            "Enter initial value for input %d (midpoint=%e) : ",
@@ -6914,29 +6942,32 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
 
   //**/ iterate
   printAsterisks(PL_INFO, 0);
-  printOutTS(PL_INFO, "MCMC-MH begins ... \n");
-  printOutTS(PL_INFO, 
-       "NOTE: Proposal distribution scale has been set to %e.\n",
-       propScale);
+  printf("MCMC-MH begins ... \n");
+  printf("NOTE: Proposal distribution scale has been set to %e.\n",
+         propScale);
+  if (adaptiveMode == 1)
+    printf("      This scale will be adaptively modified during burn-in.\n");
   fflush(stdout);
-  int mcmcIts = 0, ss, kk2, samInc=maxSamples/100;
-  int numAccepts = 0, count, errFlag;
+  int mcmcIts = 0, ss, kk2, samInc=maxSamples/100, nAcceptAll=0;
+  int numAccepts = 0, count, errFlag, convChkCnt = 0, passCnt=0;
   double prior, c12=PSUADE_UNDEFINED, c11, c1, chiSq, dmean, dstdv;
   double alpha, dFive=5.0, dFiveM=-5, chiSqMin=PSUADE_UNDEFINED;
+  psVector vecTmpMeans, vecTmpStdvs;
+  vecTmpMeans.setLength(3*nInputs);
+  vecTmpStdvs.setLength(3*nInputs);
+  double *tmpMeans = vecTmpMeans.getDVector();
+  double *tmpStdvs = vecTmpStdvs.getDVector();
   while (mcmcIts < maxSamples)
   {
     count = mcmcIts % samInc;
     if (count == 0)
     {
-      printf("NOTE: MH will run %d iterations with NO CONVERGENCE CHECK.\n",
-             maxSamples);
-      printf("NOTE: CONVERGENCE CHECK will be implemented in future versions.\n");
-      printf("To terminate gracefully, create an empty file ");
-      printf("called psuade_stop in\n");
-      printf("the work directory.\n");
-      printf("To turn on higher print level on the fly, create ");
-      printf("an empty file called\n");
-      printf("psuade_print in the work directory.\n");
+      printf("******************************************************* -->\n");
+      printf("NOTE: MH will run %d iterations non-stop ",maxSamples);
+      printf("even though convergence\n");
+      printf("      will be performed. To terminate gracefully, ");
+      printf("create an empty file\n");
+      printf("      called psuade_stop in the work directory.\n");
       fflush(stdout);
     }
     //**/ inner iteration
@@ -7055,6 +7086,7 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
             matXChains.setEntry(numAccepts,nInputs,chiSq);
             numAccepts++;
           }
+          nAcceptAll++;
         }
         else
         {
@@ -7066,17 +7098,21 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
             vecXGuess[ii] = vecXGuessLast[ii];
         }
       } 
+      if (mcmcIts < burnInSamples && adaptiveMode == 1)
+      {
+        ddata = 1.0 * nAcceptAll / mcmcIts;
+        //**/ adjust to make sure acceptance rate is at least 50%
+        if (ddata < 0.25 && propScale > 0.01) propScale *= 0.5;
+        if (ddata > 0.75 && propScale < 1.0)  propScale *= 2.0;
+        if (mcmcIts % 100 == 0)
+          printf("INFO: mcmc iter, probability scale = %d %e\n",
+                 mcmcIts,propScale);
+      }
     }
- 
     if (mcmcIts > burnInSamples)
     {
       ddata = 1.0 * numAccepts / (mcmcIts - burnInSamples);
-#if 1
-      //**/ adjust to make sure acceptance rate is at least 50%
-      if (ddata < 0.25 && propScale > 0.01) propScale *= 0.5;
-      if (ddata > 0.75 && propScale < 1.0)  propScale *= 2.0;
-#endif
-      printf(" Acceptance rate so far (its,nc,ps=%d,%d,%5.3f) = %e %%\n",
+      printf("Acceptance rate so far (its,na,ps=%d,%d,%5.3f) = %4.2f %%\n",
              mcmcIts,numAccepts,propScale,ddata*100);
     }
 
@@ -7107,7 +7143,47 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
           printOutTS(PL_INFO,"MCMC: input %3d std dev = %e\n", ii+1,
                      vecSigmas_[ii]);
           vecMostLikelyInputs_[ii] = vecXmax[ii];
+          //**/ convergence check
+          if (convChkCnt < 3)
+          {
+            vecTmpMeans[ii*3+convChkCnt] = vecMeans_[ii]; 
+            vecTmpStdvs[ii*3+convChkCnt] = vecSigmas_[ii]; 
+          }
+          else
+          {
+            for (jj = 1; jj < convChkCnt; jj++)
+            {
+              vecTmpMeans[ii*3+jj-1] = vecTmpMeans[ii*3+jj]; 
+              vecTmpStdvs[ii*3+jj-1] = vecTmpStdvs[ii*3+jj]; 
+            }
+            vecTmpMeans[ii*3+convChkCnt-1] = vecMeans_[ii]; 
+            vecTmpStdvs[ii*3+convChkCnt-1] = vecSigmas_[ii]; 
+          }
         }
+      }
+      if (convChkCnt < 3) convChkCnt++;
+      passCnt = 0;
+      if (convChkCnt >= 3)
+      {
+        for (ii = 0; ii < nInputs; ii++) 
+        {
+          if (vecDesignP.length() == 0 || vecDesignP[ii] == 0) 
+          {
+            jj = checkConvergence(3,&tmpMeans[ii*3],&tmpStdvs[ii*3],
+                                  numAccepts);
+            if (jj == 1)
+            {
+              passCnt++;
+              printf("MCMC_MH: input %3d converged.\n",ii+1);
+            }
+          }
+        }
+      }
+      if (vecDesignP.length() == 0) kk = nInputs;
+      else                          kk = nInputs - vecDesignP.sum();
+      if (passCnt == kk) 
+      {
+        printf("NOTE: Convergence achieved, but MCMC will continue.\n");
       }
     }
 
@@ -7121,6 +7197,7 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
       fp = NULL;
       strcpy(pString, "psuade_stop");
       unlink(pString);
+      break;
     }
 
     fp = fopen("psuade_print", "r");
@@ -7134,6 +7211,7 @@ double MCMCAnalyzer::analyze_mh(aData &adata)
       strcpy(pString, "psuade_print");
       unlink(pString);
     }
+    printf("<-- *******************************************************\n");
   }
   printEquals(PL_INFO, 0);
 
@@ -9765,158 +9843,6 @@ MCMCAnalyzer& MCMCAnalyzer::operator=(const MCMCAnalyzer &)
    exit(1);
    return (*this);
 }
-
-#if 0
-// ************************************************************************
-// read in response surface index file
-// rsIndices[ii] == -1  ==> fixed parameters
-// samMatrix ==> if there is any uncertain parameter, it has the sample
-// ------------------------------------------------------------------------
-int MCMCAnalyzer::readIndexFile(PsuadeData *dataPtr, psIVector &rsIndices, 
-                          psVector &rsValues, psMatrix &samMatrix)
-{
-  int    kk, ii, nInputs, nSamp, numUParams=0, status;
-  double ddata;
-  char   *rsFile;
-  pData  pPtr;
-  string   sampleFileName, str2;
-  ifstream infile;
-
-  dataPtr->getParameter("input_ninputs", pPtr);
-  nInputs = pPtr.intData_;
-  dataPtr->getParameter("ana_rsindexfile", pPtr);
-  rsFile = pPtr.strArray_[0];
-  if (strcmp(rsFile, "NONE"))
-  {
-    printOutTS(PL_INFO,
-         "MCMC: A response surface index file has been specified.\n");
-
-    infile.open(rsFile, ios::in);
-    if (!infile.is_open())
-    {
-      printOutTS(PL_ERROR,
-         "MCMC ERROR: rs_index_file %s not found.\n",rsFile);
-      return -1;
-    }
-    else
-    {
-      printOutTS(PL_INFO,"INFO: rs_index_file %s found.\n",rsFile);
-      infile >> kk;
-      if (kk != nInputs)
-      {
-        printOutTS(PL_ERROR,
-             "MCMC ERROR: invalid nInputs in rs_index_file (%d != %d).\n",
-             kk, nInputs);
-        printOutTS(PL_ERROR,"  Data format should be: \n");
-        printOutTS(PL_ERROR,
-             "  line 1: nInputs in rs data (driver) file\n");
-        printOutTS(PL_ERROR,
-             "  line 2: 1 1 <Input 1 is a calibration parameter>\n");
-        printOutTS(PL_ERROR,
-             "  line 3: 2 0 val <Input 2 is a parameter fixed at val>\n");
-        printOutTS(PL_ERROR,
-             "  line 4: 3 999 1 uSamp <Input 3 is an uncertain parameter>\n");
-        printOutTS(PL_ERROR,"  (999   means uncertain parameter)\n");
-        printOutTS(PL_ERROR,"  (1     means first column in uSamp)\n");
-        printOutTS(PL_ERROR,"  (uSamp is a sample file)\n");
-        printOutTS(PL_ERROR,"  ...\n");
-        infile.close();
-        return -1;
-      }
-      rsIndices.setLength(nInputs);
-      rsValues.setLength(nInputs);
-      sampleFileName = "none";
-      for (ii = 0; ii < nInputs; ii++)
-      {
-        rsIndices[ii] = 0;
-        infile >> kk;
-        //**/ first number must be a sequential input number
-        if (kk != ii+1)
-        {
-          printOutTS(PL_ERROR,
-               "MCMC ERROR: 1st index in indexFile = %d (must be %d)).\n",
-               kk, ii+1);
-          printOutTS(PL_ERROR,"  Data format should be: \n");
-          printOutTS(PL_ERROR,
-               "  line 1: nInputs in rs data (driver) file\n");
-          printOutTS(PL_ERROR,
-               "  line 2: 1 1 <Input 1 is a calibration parameter>\n");
-          printOutTS(PL_ERROR,
-               "  line 3: 2 0 val <Input 2 is a parameter fixed at val>\n");
-          printOutTS(PL_ERROR,
-               "  line 4: 3 999 1 uSamp <Input 3 is an uncertain parameter>\n");
-          printOutTS(PL_ERROR,"  (999   means uncertain parameter)\n");
-          printOutTS(PL_ERROR,"  (1     means first column in uSamp)\n");
-          printOutTS(PL_ERROR,"  (uSamp is a sample file)\n");
-          printOutTS(PL_ERROR,"  ...\n");
-          infile.close();
-          return -1;
-        }
-        //**/ second number is the input number, 0, or 999
-        infile >> kk;
-        rsIndices[ii] = kk;
-        if (rsIndices[ii] == 0)
-          printOutTS(PL_INFO,"MCMC INFO: input %3d inactive\n",ii+1);
-
-        //**/ if uncertain parameter, get index and sample file 
-        if (rsIndices[ii] == 999)
-        {
-          infile >> kk;
-          infile >> str2;
-          if (sampleFileName.compare("none") == 0) sampleFileName = str2;
-          else if (sampleFileName.compare(str2) != 0)
-          {
-            printOutTS(PL_ERROR,
-                 "MCMC readIndexFile ERROR: sample file for all\n");
-            printOutTS(PL_ERROR,
-                 "         uncertain parameters must be the same.\n");
-            exit(1);
-          }
-          numUParams++;
-          rsIndices[ii] = kk + 1000;
-        }
-        else if (rsIndices[ii] < 0 || rsIndices[ii] > nInputs)
-        {
-          printOutTS(PL_ERROR,
-               "MCMC readIndexFile ERROR: input %3d = %d invalid\n",ii+1,
-               rsIndices[ii]);
-          infile.close();
-          return -1;
-        }
-
-        rsIndices[ii] = rsIndices[ii] - 1;
-        if (rsIndices[ii] >= -1 && rsIndices[ii] < nInputs)
-        {
-          infile >> ddata;
-          rsValues[ii] = ddata;
-        }
-      }
-      infile.close();
-      printOutTS(PL_INFO, "Response surface index information: \n");
-      for (ii = 0; ii < nInputs; ii++)
-      {
-        if (rsIndices[ii] == -1)
-          printOutTS(PL_INFO, "Input %4d: fixed at default value  = %e\n",
-                     ii+1, rsValues[ii]);
-        else if (rsIndices[ii] >= 1000)
-          printOutTS(PL_INFO, "Input %4d: uncertain, sample index = %4d\n",
-                     ii+1, rsIndices[ii]-999);
-        else
-          printOutTS(PL_INFO, "Input %4d: calibration/design parameter\n",
-                     ii+1);
-      }
-      //**/ if there is any uncertain parameter, read in the sample
-      if (numUParams > 0)
-      {
-        status = readSampleInputFile(sampleFileName.c_str(),rsIndices,
-                                     samMatrix);
-        if (status < 0) return -1;
-      }
-    }
-  }
-  return 0;
-}
-#endif
 
 // ************************************************************************
 // read in response surface index file

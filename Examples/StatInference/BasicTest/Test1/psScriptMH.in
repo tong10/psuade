@@ -14,6 +14,7 @@ mcmcFile
 4
 50000
 20
+0
 -1
 ################################################
 # Now MCMCPostSample is available. You may run
