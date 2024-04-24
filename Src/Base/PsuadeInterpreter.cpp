@@ -4617,6 +4617,8 @@ int PsuadeBase::interpretInteractive()
         cmdStatus = 1;
         continue;
       }
+      if (nInputs_ > 1)
+	 printf("INFO: This analysis currently is for nInputs = 1\n");
 
       sprintf(pString, "Enter output number (1 - %d) : ", nOutputs_);
       outputID = getInt(1, nOutputs_, pString);
